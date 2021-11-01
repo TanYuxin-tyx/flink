@@ -109,6 +109,7 @@ class NettyServer {
         // Configuration
         // --------------------------------------------------------------------
 
+        System.out.println("Using port " + config.getServerPort() + " to init server");
         // Server bind address
         bootstrap.localAddress(config.getServerAddress(), config.getServerPort());
 

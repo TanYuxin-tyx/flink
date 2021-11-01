@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.netty;
 
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.io.network.ConnectionID;
-import org.apache.flink.util.NetUtils;
 
 import org.apache.flink.shaded.netty4.io.netty.buffer.ByteBuf;
 import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
@@ -28,6 +27,7 @@ import org.apache.flink.shaded.netty4.io.netty.channel.embedded.EmbeddedChannel;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
@@ -41,6 +41,8 @@ import static org.junit.Assert.assertTrue;
 /** Test utility for Netty server and client setup. */
 public class NettyTestUtil {
 
+    private static int usedPort = -1;
+
     static final int DEFAULT_SEGMENT_SIZE = 1024;
 
     // ---------------------------------------------------------------------------------------------
@@ -51,9 +53,11 @@ public class NettyTestUtil {
             NettyConfig config, NettyProtocol protocol, NettyBufferPool bufferPool)
             throws Exception {
         final NettyServer server = new NettyServer(config);
+        final NettyServer server1 = new NettyServer(config);
 
         try {
             server.init(protocol, bufferPool);
+            server1.init(protocol, bufferPool);
         } catch (Exception e) {
             server.shutdown();
             throw e;
@@ -157,12 +161,19 @@ public class NettyTestUtil {
         return createConfig(DEFAULT_SEGMENT_SIZE, config);
     }
 
+    private static int getAUsedPort() throws Exception {
+        if (usedPort <= 0) {
+            ServerSocket serverSocket = new ServerSocket(0);
+            usedPort = serverSocket.getLocalPort();
+        }
+        System.out.println("Return a specific port: " + usedPort);
+        return usedPort;
+    }
+
     static NettyConfig createConfig(int segmentSize, Configuration config) throws Exception {
         checkArgument(segmentSize > 0);
         checkNotNull(config);
-
-        return new NettyConfig(
-                InetAddress.getLocalHost(), NetUtils.getAvailablePort(), segmentSize, 1, config);
+        return new NettyConfig(InetAddress.getLocalHost(), getAUsedPort(), segmentSize, 1, config);
     }
 
     // ---------------------------------------------------------------------------------------------

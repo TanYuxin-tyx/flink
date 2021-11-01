@@ -101,7 +101,15 @@ public class ServerTransportErrorHandlingTest {
         NettyTestUtil.NettyServerAndClient serverAndClient = null;
 
         try {
-            serverAndClient = initServerAndClient(protocol, createConfig());
+            try {
+                NettyConfig nettyConfig = createConfig();
+                final NettyServer serverToOccupyPort = new NettyServer(nettyConfig);
+                serverToOccupyPort.init(protocol, null);
+                serverAndClient = initServerAndClient(protocol, nettyConfig);
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw e;
+            }
 
             Channel ch = connect(serverAndClient);
 
