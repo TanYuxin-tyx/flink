@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.runtime.io.network.util.TestPooledBufferProvider;
 import org.apache.flink.runtime.testutils.TestingUtils;
+import org.apache.flink.util.ExceptionUtils;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelHandler;
@@ -36,6 +37,7 @@ import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
+import java.net.BindException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -108,6 +110,27 @@ public class ServerTransportErrorHandlingTest {
                 serverAndClient = initServerAndClient(protocol, nettyConfig);
             } catch (Exception e) {
                 e.printStackTrace();
+                StringBuilder sb = new StringBuilder();
+                StringBuilder sb1 = new StringBuilder();
+                System.out.println("print detailed stack directly ---------------");
+                for (StackTraceElement ste : e.getStackTrace()) {
+                    System.out.println(ste);
+                    sb.append(ste).append("\n");
+                    sb1.append(ste).append(", ");
+                }
+                System.out.println("\nStart print detailed stack here ---------------");
+                System.out.println("First stack trace: \n" + sb.toString());
+                System.out.println("Start print detailed stack in one line ---------------");
+                System.out.println("Second stack trace: " + sb1.toString());
+                System.out.println();
+                System.out.println("e instanceof BindException? " + (e instanceof BindException));
+                System.out.println("e.toString(): " + e.toString());
+                System.out.println("e.getLocalizedMessage(): " + e.getLocalizedMessage());
+                System.out.println(
+                        "e contains Address already in use? "
+                                + (ExceptionUtils.findThrowableWithMessage(
+                                                e, "Address already in use"))
+                                        .isPresent());
                 throw e;
             }
 
