@@ -36,6 +36,8 @@ import org.apache.flink.shaded.netty4.io.netty.channel.ChannelInboundHandlerAdap
 import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.BindException;
 import java.util.concurrent.CountDownLatch;
@@ -52,6 +54,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class ServerTransportErrorHandlingTest {
+    private static final Logger LOG =
+            LoggerFactory.getLogger(ServerTransportErrorHandlingTest.class);
 
     /** Verifies remote closes trigger the release of all resources. */
     @Test
@@ -131,6 +135,7 @@ public class ServerTransportErrorHandlingTest {
                                 + (ExceptionUtils.findThrowableWithMessage(
                                                 e, "Address already in use"))
                                         .isPresent());
+                LOG.warn("Encounter an exception: ", e);
                 throw e;
             }
 
