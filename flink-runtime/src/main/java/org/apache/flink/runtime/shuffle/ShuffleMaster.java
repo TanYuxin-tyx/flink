@@ -20,8 +20,10 @@ package org.apache.flink.runtime.shuffle;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.MemorySize;
+import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -83,6 +85,14 @@ public interface ShuffleMaster<T extends ShuffleDescriptor> extends AutoCloseabl
             JobID jobID,
             PartitionDescriptor partitionDescriptor,
             ProducerDescriptor producerDescriptor);
+
+    default CompletableFuture<T> registerPartitionWithProducer(
+            JobID jobID,
+            PartitionDescriptor partitionDescriptor,
+            ProducerDescriptor producerDescriptor,
+            List<ConsumedPartitionGroup> consumerVertexGroups) {
+        return registerPartitionWithProducer(jobID, partitionDescriptor, producerDescriptor);
+    }
 
     /**
      * Release any external resources occupied by the given partition.
