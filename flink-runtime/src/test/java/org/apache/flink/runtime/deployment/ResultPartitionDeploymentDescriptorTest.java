@@ -54,6 +54,8 @@ public class ResultPartitionDeploymentDescriptorTest extends TestLogger {
     private static final ResultPartitionType partitionType = ResultPartitionType.PIPELINED;
     private static final int numberOfSubpartitions = 24;
     private static final int connectionIndex = 10;
+    private static final boolean isBroadcast = false;
+    private static final boolean isAllToAllDistribution = true;
 
     private static final PartitionDescriptor partitionDescriptor =
             new PartitionDescriptor(
@@ -62,7 +64,9 @@ public class ResultPartitionDeploymentDescriptorTest extends TestLogger {
                     partitionId,
                     partitionType,
                     numberOfSubpartitions,
-                    connectionIndex);
+                    connectionIndex,
+                    isBroadcast,
+                    isAllToAllDistribution);
 
     private static final ResultPartitionID resultPartitionID =
             new ResultPartitionID(partitionId, producerExecutionId);
