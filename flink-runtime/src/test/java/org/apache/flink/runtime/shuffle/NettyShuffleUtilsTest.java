@@ -32,6 +32,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateBuilder;
+import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.util.TestLogger;
@@ -174,7 +175,9 @@ public class NettyShuffleUtilsTest extends TestLogger {
                         shuffleDescriptor.getResultPartitionID().getPartitionId(),
                         resultPartitionType,
                         numSubpartitions,
-                        0);
+                        0,
+                        false,
+                        DistributionPattern.ALL_TO_ALL);
         ResultPartitionDeploymentDescriptor resultPartitionDeploymentDescriptor =
                 new ResultPartitionDeploymentDescriptor(partitionDescriptor, shuffleDescriptor, 1);
 

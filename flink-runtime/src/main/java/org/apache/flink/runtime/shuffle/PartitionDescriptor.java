@@ -22,6 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.executiongraph.IntermediateResult;
 import org.apache.flink.runtime.executiongraph.IntermediateResultPartition;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 
@@ -53,6 +54,12 @@ public class PartitionDescriptor implements Serializable {
     /** Connection index to identify this partition of intermediate result. */
     private final int connectionIndex;
 
+    /** Whether the intermediate result is a broadcast result. */
+    private final boolean isBroadcast;
+
+    /** The distribution pattern of the intermediate result. */
+    private final DistributionPattern distributionPattern;
+
     @VisibleForTesting
     public PartitionDescriptor(
             IntermediateDataSetID resultId,
@@ -60,7 +67,9 @@ public class PartitionDescriptor implements Serializable {
             IntermediateResultPartitionID partitionId,
             ResultPartitionType partitionType,
             int numberOfSubpartitions,
-            int connectionIndex) {
+            int connectionIndex,
+            boolean isBroadcast,
+            DistributionPattern distributionPattern) {
         this.resultId = checkNotNull(resultId);
         checkArgument(totalNumberOfPartitions >= 1);
         this.totalNumberOfPartitions = totalNumberOfPartitions;
@@ -69,6 +78,9 @@ public class PartitionDescriptor implements Serializable {
         checkArgument(numberOfSubpartitions >= 1);
         this.numberOfSubpartitions = numberOfSubpartitions;
         this.connectionIndex = connectionIndex;
+        this.isBroadcast = isBroadcast;
+        checkArgument(distributionPattern != null);
+        this.distributionPattern = distributionPattern;
     }
 
     public IntermediateDataSetID getResultId() {
@@ -95,12 +107,27 @@ public class PartitionDescriptor implements Serializable {
         return connectionIndex;
     }
 
+    public boolean isBroadcast() {
+        return isBroadcast;
+    }
+
+    public DistributionPattern getDistributionPattern() {
+        return distributionPattern;
+    }
+
     @Override
     public String toString() {
         return String.format(
                 "PartitionDescriptor [result id: %s, partition id: %s, partition type: %s, "
-                        + "subpartitions: %d, connection index: %d]",
-                resultId, partitionId, partitionType, numberOfSubpartitions, connectionIndex);
+                        + "subpartitions: %d, connection index: %d, is broadcast: %s, "
+                        + "distribution pattern: %s]",
+                resultId,
+                partitionId,
+                partitionType,
+                numberOfSubpartitions,
+                connectionIndex,
+                isBroadcast,
+                distributionPattern);
     }
 
     public static PartitionDescriptor from(IntermediateResultPartition partition) {
@@ -113,6 +140,8 @@ public class PartitionDescriptor implements Serializable {
                 partition.getPartitionId(),
                 result.getResultType(),
                 partition.getNumberOfSubpartitions(),
-                result.getConnectionIndex());
+                result.getConnectionIndex(),
+                result.isBroadcast(),
+                result.getConsumingDistributionPattern());
     }
 }

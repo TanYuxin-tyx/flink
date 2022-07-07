@@ -24,6 +24,7 @@ import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.io.network.ConnectionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
@@ -56,6 +57,10 @@ public class ResultPartitionDeploymentDescriptorTest extends TestLogger {
     private static final int numberOfSubpartitions = 24;
     private static final int connectionIndex = 10;
 
+    private static final boolean isBroadcast = false;
+
+    private static final DistributionPattern distributionPattern = DistributionPattern.ALL_TO_ALL;
+
     private static final PartitionDescriptor partitionDescriptor =
             new PartitionDescriptor(
                     resultId,
@@ -63,7 +68,9 @@ public class ResultPartitionDeploymentDescriptorTest extends TestLogger {
                     partitionId,
                     partitionType,
                     numberOfSubpartitions,
-                    connectionIndex);
+                    connectionIndex,
+                    isBroadcast,
+                    distributionPattern);
 
     private static final ResultPartitionID resultPartitionID =
             new ResultPartitionID(partitionId, producerExecutionId);

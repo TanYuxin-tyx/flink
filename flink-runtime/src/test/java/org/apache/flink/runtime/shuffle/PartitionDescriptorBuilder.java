@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.shuffle;
 
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 
@@ -55,7 +56,9 @@ public class PartitionDescriptorBuilder {
                 partitionId,
                 partitionType,
                 1,
-                0);
+                0,
+                false,
+                DistributionPattern.ALL_TO_ALL);
     }
 
     public static PartitionDescriptorBuilder newBuilder() {
