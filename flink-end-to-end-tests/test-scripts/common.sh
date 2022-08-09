@@ -21,11 +21,14 @@
 #set -Eexuo pipefail
 set -o pipefail
 
+export FLINK_DIR=~/work/self/github/flink-shuffle/flink-dist/target/flink-1.16-SNAPSHOT-bin/flink-1.16-SNAPSHOT
+
 if [[ -z "${FLINK_DIR:-}" ]]; then
     echo "FLINK_DIR needs to point to a Flink distribution directory"
     exit 1
 fi
 
+export FLINK_LOG_DIR=$FLINK_DIR/log
 if [ -z "$FLINK_LOG_DIR" ] ; then
     export FLINK_LOG_DIR="$FLINK_DIR/log"
 fi
@@ -44,6 +47,7 @@ export TASK_SLOTS_PER_TM_HA=4
 echo "Flink dist directory: $FLINK_DIR"
 
 TEST_ROOT=`pwd -P`
+export END_TO_END_DIR=~/work/self/github/flink-shuffle/flink-end-to-end-tests
 TEST_INFRA_DIR="$END_TO_END_DIR/test-scripts/"
 cd $TEST_INFRA_DIR
 TEST_INFRA_DIR=`pwd -P`

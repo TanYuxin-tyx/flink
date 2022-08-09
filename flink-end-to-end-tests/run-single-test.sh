@@ -41,6 +41,8 @@ fi
 
 export END_TO_END_DIR
 
+export FLINK_DIR=flink-dist/target/flink-1.16-SNAPSHOT-bin/flink-1.16-SNAPSHOT
+
 if [ -z "$FLINK_DIR" ] ; then
     echo "You have to export the Flink distribution directory as FLINK_DIR"
     exit 1

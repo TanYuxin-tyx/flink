@@ -18,6 +18,7 @@
 ################################################################################
 
 set -Eeuo pipefail
+export FLINK_DIR=~/work/self/github/flink-shuffle/flink-dist/target/flink-1.16-SNAPSHOT-bin/flink-1.16-SNAPSHOT
 
 SCALE="1"
 USE_TABLE_STATS=true
@@ -54,11 +55,14 @@ cd "$END_TO_END_DIR"
 
 echo "[INFO]Preparing Flink cluster..."
 
-SCHEDULER="${1:-Ng}"
+#SCHEDULER="${1:-Ng}"
+SCHEDULER="${1:-AdaptiveBatch}"
 
 set_config_key "jobmanager.scheduler" "${SCHEDULER}"
 set_config_key "taskmanager.memory.process.size" "4096m"
 set_config_key "taskmanager.memory.network.fraction" "0.2"
+set_config_key "task.cancellation.interval" "1024000"
+set_config_key "task.cancellation.timeout" "1024000"
 
 if [ "${SCHEDULER}" == "Ng" ]; then
     set_config_key "taskmanager.numberOfTaskSlots" "4"
