@@ -35,7 +35,7 @@ public abstract class ResultSubpartition {
     protected final ResultSubpartitionInfo subpartitionInfo;
 
     /** The parent partition this subpartition belongs to. */
-    protected final ResultPartition parent;
+    public final ResultPartition parent;
 
     // - Statistics ----------------------------------------------------------
 
@@ -51,14 +51,14 @@ public abstract class ResultSubpartition {
     /** Gets the total numbers of buffers (data buffers plus events). */
     protected abstract long getTotalNumberOfBuffersUnsafe();
 
-    protected abstract long getTotalNumberOfBytesUnsafe();
+    public abstract long getTotalNumberOfBytesUnsafe();
 
     public int getSubPartitionIndex() {
         return subpartitionInfo.getSubPartitionIdx();
     }
 
     /** Notifies the parent partition about a consumed {@link ResultSubpartitionView}. */
-    protected void onConsumedSubpartition() {
+    public void onConsumedSubpartition() {
         parent.onConsumedSubpartition(getSubPartitionIndex());
     }
 
@@ -103,7 +103,7 @@ public abstract class ResultSubpartition {
     public abstract boolean isReleased();
 
     /** Gets the number of non-event buffers in this subpartition. */
-    abstract int getBuffersInBacklogUnsafe();
+    protected abstract int getBuffersInBacklogUnsafe();
 
     /**
      * Makes a best effort to get the current size of the queue. This method must not acquire locks
@@ -125,18 +125,22 @@ public abstract class ResultSubpartition {
     public static final class BufferAndBacklog {
         private final Buffer buffer;
         private final int buffersInBacklog;
-        private final Buffer.DataType nextDataType;
-        private final int sequenceNumber;
+        private Buffer.DataType nextDataType;
+        private int sequenceNumber;
+        private final boolean isLastBufferInSegment;
+        private boolean isFromDfsTier;
 
         public BufferAndBacklog(
                 Buffer buffer,
                 int buffersInBacklog,
                 Buffer.DataType nextDataType,
-                int sequenceNumber) {
-            this.buffer = checkNotNull(buffer);
+                int sequenceNumber,
+                boolean isLastBufferInSegment) {
+            this.buffer = buffer;
             this.buffersInBacklog = buffersInBacklog;
             this.nextDataType = checkNotNull(nextDataType);
             this.sequenceNumber = sequenceNumber;
+            this.isLastBufferInSegment = isLastBufferInSegment;
         }
 
         public Buffer buffer() {
@@ -163,9 +167,34 @@ public abstract class ResultSubpartition {
             return sequenceNumber;
         }
 
+        public void setSequenceNumber(int sequenceNumber) {
+            this.sequenceNumber = sequenceNumber;
+        }
+
+        public void setNextDataType(Buffer.DataType nextDataType) {
+            this.nextDataType = nextDataType;
+        }
+
+        public boolean isLastBufferInSegment() {
+            return isLastBufferInSegment;
+        }
+
+        public boolean isFromDfsTier() {
+            return isFromDfsTier;
+        }
+
+        public void setFromDfsTier(boolean fromDfsTier) {
+            isFromDfsTier = fromDfsTier;
+        }
+
         public static BufferAndBacklog fromBufferAndLookahead(
-                Buffer current, Buffer.DataType nextDataType, int backlog, int sequenceNumber) {
-            return new BufferAndBacklog(current, backlog, nextDataType, sequenceNumber);
+                Buffer current,
+                Buffer.DataType nextDataType,
+                int backlog,
+                int sequenceNumber,
+                boolean isLastBufferInSegment) {
+            return new BufferAndBacklog(
+                    current, backlog, nextDataType, sequenceNumber, isLastBufferInSegment);
         }
     }
 }

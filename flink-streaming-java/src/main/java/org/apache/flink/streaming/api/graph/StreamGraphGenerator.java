@@ -421,6 +421,8 @@ public class StreamGraphGenerator {
                 return GlobalStreamExchangeMode.ALL_EDGES_HYBRID_FULL;
             case ALL_EXCHANGES_HYBRID_SELECTIVE:
                 return GlobalStreamExchangeMode.ALL_EDGES_HYBRID_SELECTIVE;
+            case ALL_EXCHANGES_TIERED_STORE:
+                return GlobalStreamExchangeMode.ALL_EDGES_TIERED_STORE;
             default:
                 throw new IllegalArgumentException(
                         String.format(

@@ -97,7 +97,7 @@ final class BoundedBlockingSubpartitionReader implements ResultSubpartitionView 
                 nextBuffer != null ? nextBuffer.getDataType() : Buffer.DataType.NONE;
 
         return BufferAndBacklog.fromBufferAndLookahead(
-                current, nextDataType, dataBufferBacklog, sequenceNumber++);
+                current, nextDataType, dataBufferBacklog, sequenceNumber++, false);
     }
 
     /**

@@ -117,7 +117,8 @@ public class HsSubpartitionConsumerMemoryDataManager implements HsDataView {
                                 tuple.f0.getBuffer().readOnlySlice(),
                                 getBacklog(),
                                 tuple.f1,
-                                toConsumeIndex));
+                                toConsumeIndex,
+                                false));
     }
 
     /**

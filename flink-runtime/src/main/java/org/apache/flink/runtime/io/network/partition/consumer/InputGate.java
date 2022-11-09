@@ -155,13 +155,13 @@ public abstract class InputGate
     }
 
     /** Simple pojo for INPUT, DATA and moreAvailable. */
-    protected static class InputWithData<INPUT, DATA> {
+    public static class InputWithData<INPUT, DATA> {
         protected final INPUT input;
         protected final DATA data;
         protected final boolean moreAvailable;
         protected final boolean morePriorityEvents;
 
-        InputWithData(INPUT input, DATA data, boolean moreAvailable, boolean morePriorityEvents) {
+        public InputWithData(INPUT input, DATA data, boolean moreAvailable, boolean morePriorityEvents) {
             this.input = checkNotNull(input);
             this.data = checkNotNull(data);
             this.moreAvailable = moreAvailable;

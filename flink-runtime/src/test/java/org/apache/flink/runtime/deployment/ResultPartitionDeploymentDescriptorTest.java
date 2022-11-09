@@ -92,7 +92,8 @@ class ResultPartitionDeploymentDescriptorTest {
                 new NettyShuffleDescriptor(
                         producerLocation,
                         new NetworkPartitionConnectionInfo(address, connectionIndex),
-                        resultPartitionID);
+                        resultPartitionID,
+                        false);
 
         ResultPartitionDeploymentDescriptor copy =
                 createCopyAndVerifyResultPartitionDeploymentDescriptor(shuffleDescriptor);

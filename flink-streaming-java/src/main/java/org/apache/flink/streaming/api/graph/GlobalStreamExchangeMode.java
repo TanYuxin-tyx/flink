@@ -57,5 +57,6 @@ public enum GlobalStreamExchangeMode {
     ALL_EDGES_HYBRID_FULL,
 
     /** Set all job edges {@link ResultPartitionType#HYBRID_SELECTIVE}. */
-    ALL_EDGES_HYBRID_SELECTIVE
+    ALL_EDGES_HYBRID_SELECTIVE,
+    ALL_EDGES_TIERED_STORE,
 }

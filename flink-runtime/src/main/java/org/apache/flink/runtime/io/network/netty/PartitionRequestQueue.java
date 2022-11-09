@@ -99,12 +99,14 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
      */
     private void enqueueAvailableReader(final NetworkSequenceViewReader reader) throws Exception {
         if (reader.isRegisteredAsAvailable()) {
+            LOG.debug("%%% {} it's reader is registered as available!", reader.getTaskName());
             return;
         }
-
+        LOG.debug("%%% {} enqueue process1", reader.getTaskName());
         ResultSubpartitionView.AvailabilityWithBacklog availabilityWithBacklog =
                 reader.getAvailabilityAndBacklog();
         if (!availabilityWithBacklog.isAvailable()) {
+            LOG.debug("%%% {} enqueue process2", reader.getTaskName());
             int backlog = availabilityWithBacklog.getBacklog();
             if (backlog > 0 && reader.needAnnounceBacklog()) {
                 announceBacklog(reader, backlog);
@@ -116,6 +118,7 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
         // we try trigger the actual write. Otherwise this will be handled by
         // the writeAndFlushNextMessageIfPossible calls.
         boolean triggerWrite = availableReaders.isEmpty();
+        LOG.debug("%%% {} enqueue process3", reader.getTaskName());
         registerAvailableReader(reader);
 
         if (triggerWrite) {
@@ -168,7 +171,19 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
         NetworkSequenceViewReader reader = obtainReader(receiverId);
 
         operation.accept(reader);
+        LOG.debug(
+                "%%% {} addCreditOrResumeConsumption try to enqueueAvailableReader",
+                reader.getTaskName());
         enqueueAvailableReader(reader);
+    }
+
+    void containSegment(InputChannelID receiverId, Consumer<NetworkSequenceViewReader> operation) {
+        if (fatalError) {
+            return;
+        }
+        LOG.debug("%%% Server received!!!");
+        NetworkSequenceViewReader reader = obtainReader(receiverId);
+        operation.accept(reader);
     }
 
     void acknowledgeAllRecordsProcessed(InputChannelID receiverId) {
@@ -210,7 +225,7 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
      */
     private void announceBacklog(NetworkSequenceViewReader reader, int backlog) {
         checkArgument(backlog > 0, "Backlog must be positive.");
-
+        LOG.debug("%%% PRQ is trying to announce the backlog {}", backlog);
         NettyMessage.BacklogAnnouncement announcement =
                 new NettyMessage.BacklogAnnouncement(backlog, reader.getReceiverId());
         ctx.channel()
@@ -275,6 +290,9 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
 
                 next = reader.getNextBuffer();
                 if (next == null) {
+                    LOG.debug(
+                            "%%% {} it's PartitionRequestQueue get data NONE.",
+                            reader.getTaskName());
                     if (!reader.isReleased()) {
                         continue;
                     }
@@ -288,6 +306,9 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
                 } else {
                     // This channel was now removed from the available reader queue.
                     // We re-add it into the queue if it is still available
+                    LOG.debug(
+                            "%%% {} it's PartitionRequestQueue get data, is more available? {}, data is {},",
+                            reader.getTaskName(), next.moreAvailable(), next);
                     if (next.moreAvailable()) {
                         registerAvailableReader(reader);
                     }

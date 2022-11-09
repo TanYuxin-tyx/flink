@@ -101,7 +101,9 @@ public enum ResultPartitionType {
      * re-consumable.
      */
     HYBRID_SELECTIVE(
-            false, false, false, ConsumingConstraint.CAN_BE_PIPELINED, ReleaseBy.SCHEDULER);
+            false, false, false, ConsumingConstraint.CAN_BE_PIPELINED, ReleaseBy.SCHEDULER),
+
+    TIERED_STORE(false, false, false, ConsumingConstraint.CAN_BE_PIPELINED, ReleaseBy.SCHEDULER);
 
     /**
      * Can this result partition be consumed by multiple downstream consumers for multiple times.
@@ -200,7 +202,7 @@ public enum ResultPartitionType {
      * type, use {@link #mustBePipelinedConsumed()} or {@link #canBePipelinedConsumed()} instead.
      */
     public boolean isHybridResultPartition() {
-        return this == HYBRID_FULL || this == HYBRID_SELECTIVE;
+        return this == HYBRID_FULL || this == HYBRID_SELECTIVE || this == TIERED_STORE;
     }
 
     /**
@@ -234,7 +236,8 @@ public enum ResultPartitionType {
     public boolean supportCompression() {
         return isBlockingOrBlockingPersistentResultPartition()
                 || this == HYBRID_FULL
-                || this == HYBRID_SELECTIVE;
+                || this == HYBRID_SELECTIVE
+                || this == TIERED_STORE;
     }
 
     public boolean isReconsumable() {

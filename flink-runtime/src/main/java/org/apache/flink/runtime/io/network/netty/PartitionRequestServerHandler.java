@@ -27,8 +27,10 @@ import org.apache.flink.runtime.io.network.netty.NettyMessage.CloseRequest;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.NewBufferSize;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.PartitionRequest;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.ResumeConsumption;
+import org.apache.flink.runtime.io.network.netty.NettyMessage.SegmentIdMessage;
 import org.apache.flink.runtime.io.network.netty.NettyMessage.TaskEventRequest;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionProvider;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 
@@ -37,6 +39,11 @@ import org.apache.flink.shaded.netty4.io.netty.channel.SimpleChannelInboundHandl
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /** Channel handler to initiate data transfers and dispatch backwards flowing task events. */
 class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMessage> {
@@ -69,17 +76,25 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
         super.channelUnregistered(ctx);
     }
 
+    private Map<ResultPartitionID, List<Integer>> recordedData = new HashMap<>();
+    private List<NetworkSequenceViewReader> readerList = new ArrayList<>();
+
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, NettyMessage msg) throws Exception {
         try {
             Class<?> msgClazz = msg.getClass();
+            LOG.debug("%%%% channelRead0, class is {}", msgClazz);
 
             // ----------------------------------------------------------------
             // Intermediate result partition requests
             // ----------------------------------------------------------------
             if (msgClazz == PartitionRequest.class) {
                 PartitionRequest request = (PartitionRequest) msg;
-
+                if (recordedData.containsKey(request.partitionId)) {
+                    recordedData.get(request.partitionId).add(request.queueIndex);
+                } else {
+                    recordedData.put(request.partitionId, new ArrayList<>());
+                }
                 LOG.debug("Read channel on {}: {}.", ctx.channel().localAddress(), request);
 
                 try {
@@ -90,7 +105,7 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 
                     reader.requestSubpartitionView(
                             partitionProvider, request.partitionId, request.queueIndex);
-
+                    readerList.add(reader);
                     outboundQueue.notifyReaderCreated(reader);
                 } catch (PartitionNotFoundException notFound) {
                     respondWithError(ctx, notFound, request.receiverId);
@@ -116,7 +131,7 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
                 outboundQueue.close();
             } else if (msgClazz == AddCredit.class) {
                 AddCredit request = (AddCredit) msg;
-
+                LOG.debug("%%% Add the credit, {}", request.credit);
                 outboundQueue.addCreditOrResumeConsumption(
                         request.receiverId, reader -> reader.addCredit(request.credit));
             } else if (msgClazz == ResumeConsumption.class) {
@@ -132,6 +147,11 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
                 NewBufferSize request = (NewBufferSize) msg;
 
                 outboundQueue.notifyNewBufferSize(request.receiverId, request.bufferSize);
+            } else if (msgClazz == SegmentIdMessage.class) {
+                SegmentIdMessage segmentIdMessage = (SegmentIdMessage) msg;
+                outboundQueue.containSegment(
+                        segmentIdMessage.receiverId,
+                        reader -> reader.notifyRequiredSegmentId(segmentIdMessage.segmentId));
             } else {
                 LOG.warn("Received unexpected client request: {}", msg);
             }
@@ -146,7 +166,7 @@ class PartitionRequestServerHandler extends SimpleChannelInboundHandler<NettyMes
 
     private void respondWithError(
             ChannelHandlerContext ctx, Throwable error, InputChannelID sourceId) {
-        LOG.debug("Responding with error: {}.", error.getClass());
+        LOG.debug("$$$ Responding with error: ", error);
 
         ctx.writeAndFlush(new NettyMessage.ErrorResponse(error, sourceId));
     }

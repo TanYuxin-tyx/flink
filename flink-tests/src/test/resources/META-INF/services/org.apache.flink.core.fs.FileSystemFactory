@@ -14,3 +14,4 @@
 # limitations under the License.
 
 org.apache.flink.test.checkpointing.SavepointITCase$PathFailingFileSystemFactory
+org.apache.flink.fs.osshadoop.OSSFileSystemFactory

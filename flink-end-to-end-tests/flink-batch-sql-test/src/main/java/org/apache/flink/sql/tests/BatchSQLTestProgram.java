@@ -90,6 +90,9 @@ public class BatchSQLTestProgram {
             case "hybrid_selective":
                 shuffleMode = BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE;
                 break;
+            case "tiered_store":
+                shuffleMode = BatchShuffleMode.ALL_EXCHANGES_TIERED_STORE;
+                break;
             default:
                 throw new IllegalArgumentException("unsupported shuffle type : " + shuffleType);
         }

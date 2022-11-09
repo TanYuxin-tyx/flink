@@ -32,6 +32,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class LocalRecoveredInputChannel extends RecoveredInputChannel {
     private final ResultPartitionManager partitionManager;
     private final TaskEventPublisher taskEventPublisher;
+    private final boolean isUpstreamBroadcast;
 
     LocalRecoveredInputChannel(
             SingleInputGate inputGate,
@@ -43,7 +44,8 @@ public class LocalRecoveredInputChannel extends RecoveredInputChannel {
             int initialBackOff,
             int maxBackoff,
             int networkBuffersPerChannel,
-            InputChannelMetrics metrics) {
+            InputChannelMetrics metrics,
+            boolean isUpstreamBroadcast) {
         super(
                 inputGate,
                 channelIndex,
@@ -57,6 +59,7 @@ public class LocalRecoveredInputChannel extends RecoveredInputChannel {
 
         this.partitionManager = checkNotNull(partitionManager);
         this.taskEventPublisher = checkNotNull(taskEventPublisher);
+        this.isUpstreamBroadcast = isUpstreamBroadcast;
     }
 
     @Override
@@ -72,6 +75,12 @@ public class LocalRecoveredInputChannel extends RecoveredInputChannel {
                 maxBackoff,
                 numBytesIn,
                 numBuffersIn,
-                channelStateWriter);
+                channelStateWriter,
+                isUpstreamBroadcast);
+    }
+
+    @Override
+    public boolean containSegment(long segmentId) {
+        return true;
     }
 }

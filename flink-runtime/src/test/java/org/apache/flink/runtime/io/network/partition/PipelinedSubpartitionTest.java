@@ -532,7 +532,7 @@ public class PipelinedSubpartitionTest extends SubpartitionTestBase {
         }
 
         @Override
-        Throwable getFailureCause() {
+        public Throwable getFailureCause() {
             return new RuntimeException("Expected test exception");
         }
     }

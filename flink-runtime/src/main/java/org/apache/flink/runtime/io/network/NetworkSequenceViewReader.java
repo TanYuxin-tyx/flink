@@ -66,6 +66,9 @@ public interface NetworkSequenceViewReader {
      */
     ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog();
 
+    /** Notify the required segmentId. */
+    void notifyRequiredSegmentId(long segmentId);
+
     boolean isRegisteredAsAvailable();
 
     /**
@@ -84,4 +87,8 @@ public interface NetworkSequenceViewReader {
     InputChannelID getReceiverId();
 
     void notifyNewBufferSize(int newBufferSize);
+
+    default String getTaskName() {
+        return null;
+    }
 }

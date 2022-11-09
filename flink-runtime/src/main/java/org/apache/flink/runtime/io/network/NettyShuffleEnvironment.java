@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.deployment.InputGateDeploymentDescriptor;
@@ -202,11 +203,15 @@ public class NettyShuffleEnvironment
 
     @Override
     public ShuffleIOOwnerContext createShuffleIOOwnerContext(
-            String ownerName, ExecutionAttemptID executionAttemptID, MetricGroup parentGroup) {
+            JobID jobID,
+            String ownerName,
+            ExecutionAttemptID executionAttemptID,
+            MetricGroup parentGroup) {
         MetricGroup nettyGroup = createShuffleIOOwnerMetricGroup(checkNotNull(parentGroup));
         return new ShuffleIOOwnerContext(
-                checkNotNull(ownerName),
-                checkNotNull(executionAttemptID),
+                jobID,
+                ownerName,
+                executionAttemptID,
                 parentGroup,
                 nettyGroup.addGroup(METRIC_GROUP_OUTPUT),
                 nettyGroup.addGroup(METRIC_GROUP_INPUT));
@@ -227,6 +232,7 @@ public class NettyShuffleEnvironment
                     partitionIndex++) {
                 resultPartitions[partitionIndex] =
                         resultPartitionFactory.create(
+                                ownerContext.getJobID(),
                                 ownerContext.getOwnerName(),
                                 partitionIndex,
                                 resultPartitionDeploymentDescriptors.get(partitionIndex));
