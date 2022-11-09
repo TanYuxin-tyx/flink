@@ -395,7 +395,7 @@ public class Task
 
         final ShuffleIOOwnerContext taskShuffleContext =
                 shuffleEnvironment.createShuffleIOOwnerContext(
-                        taskNameWithSubtaskAndId, executionId, metrics.getIOMetricGroup());
+                        jobId, taskNameWithSubtaskAndId, executionId, metrics.getIOMetricGroup());
 
         // produced intermediate result partitions
         final ResultPartitionWriter[] resultPartitionWriters =

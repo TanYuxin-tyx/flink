@@ -237,7 +237,8 @@ public class HsSubpartitionConsumer
                         bufferToConsume.buffer(),
                         getSubpartitionBacklog(),
                         bufferToConsume.getNextDataType(),
-                        bufferToConsume.getSequenceNumber())
+                        bufferToConsume.getSequenceNumber(),
+                        false)
                 : bufferToConsume;
     }
 
@@ -257,7 +258,8 @@ public class HsSubpartitionConsumer
                                                 .peekNextToConsumeDataType(
                                                         nextBufferIndexToConsume + 1,
                                                         buffersToRecycle),
-                                        bufferAndBacklog.getSequenceNumber());
+                                        bufferAndBacklog.getSequenceNumber(),
+                                        false);
                             }
                             return bufferAndBacklog;
                         });

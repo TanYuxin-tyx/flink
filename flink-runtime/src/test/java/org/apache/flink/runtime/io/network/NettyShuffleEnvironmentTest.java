@@ -166,7 +166,7 @@ class NettyShuffleEnvironmentTest {
                         .build();
         shuffleEnvironment.createInputGates(
                 shuffleEnvironment.createShuffleIOOwnerContext(
-                        "test", createExecutionAttemptId(), taskMetricGroup),
+                        new JobID(), "test", createExecutionAttemptId(), taskMetricGroup),
                 (dsid, id, consumer) -> {},
                 Arrays.asList(
                         new InputGateDeploymentDescriptor(
@@ -220,7 +220,10 @@ class NettyShuffleEnvironmentTest {
                     };
             ShuffleIOOwnerContext ownerContext =
                     environment.createShuffleIOOwnerContext(
-                            "faker owner", createExecutionAttemptId(), taskMetricGroup);
+                            JobID.generate(),
+                            "faker owner",
+                            createExecutionAttemptId(),
+                            taskMetricGroup);
             final int numberOfGates = 3;
             List<InputGateDeploymentDescriptor> gateDeploymentDescriptors = new ArrayList<>();
             IntermediateDataSetID[] ids = new IntermediateDataSetID[numberOfGates];

@@ -380,6 +380,30 @@ public class NettyShuffleEnvironmentOptions {
                                     + "the tie by failing the request of exclusive buffers and ask users to increase the number of total buffers.");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+    public static final ConfigOption<String> SHUFFLE_BASE_DFS_HOME_PATH =
+            key("taskmanager.network.dfs.base-home-path")
+                    .stringType()
+                    .defaultValue(null)
+                    .withDescription(
+                            "The DFS base home path for storing network data. When using Tiered Store, "
+                                    + "if the DFS tier is used, this option must be specified, otherwise, "
+                                    + "an exception maybe thrown.");
+
+    @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+    public static final ConfigOption<String> TIERED_STORE_TIERS =
+            key("tiered.store.tiers")
+                    .stringType()
+                    .defaultValue("MEMORY_LOCAL")
+                    .withDescription("The tiers of Tiered Store");
+
+    @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+    public static final ConfigOption<String> TIERED_STORE_SPILLING_TYPE =
+            key("tiered.store.spilling.type")
+                    .stringType()
+                    .defaultValue("SELECTIVE")
+                    .withDescription("The spilling type of Tiered Store");
+
+    @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
     public static final ConfigOption<String> NETWORK_BLOCKING_SHUFFLE_TYPE =
             key("taskmanager.network.blocking-shuffle.type")
                     .stringType()

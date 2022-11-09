@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.shuffle;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
@@ -167,7 +168,7 @@ public class NettyShuffleUtilsTest extends TestLogger {
         Collection<SingleInputGate> inputGates =
                 network.createInputGates(
                         network.createShuffleIOOwnerContext(
-                                "", consumerID, new UnregisteredMetricsGroup()),
+                                new JobID(), "", consumerID, new UnregisteredMetricsGroup()),
                         SingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
                         Collections.singletonList(inputGateDeploymentDescriptor));
 
@@ -200,7 +201,7 @@ public class NettyShuffleUtilsTest extends TestLogger {
         Collection<ResultPartition> resultPartitions =
                 network.createResultPartitionWriters(
                         network.createShuffleIOOwnerContext(
-                                "", consumerID, new UnregisteredMetricsGroup()),
+                                new JobID(), "", consumerID, new UnregisteredMetricsGroup()),
                         Collections.singletonList(resultPartitionDeploymentDescriptor));
 
         return resultPartitions.iterator().next();

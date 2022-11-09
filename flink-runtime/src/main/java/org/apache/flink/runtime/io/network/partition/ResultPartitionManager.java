@@ -83,6 +83,7 @@ public class ResultPartitionManager implements ResultPartitionProvider {
         synchronized (registeredPartitions) {
             ResultPartition resultPartition = registeredPartitions.remove(partitionId);
             if (resultPartition != null) {
+                LOG.debug("PATITION RELEASE1 " + partitionId, cause);
                 resultPartition.release(cause);
                 LOG.debug(
                         "Released partition {} produced by {}.",
@@ -114,9 +115,9 @@ public class ResultPartitionManager implements ResultPartitionProvider {
     // Notifications
     // ------------------------------------------------------------------------
 
-    void onConsumedPartition(ResultPartition partition) {
+    public void onConsumedPartition(ResultPartition partition) {
         LOG.debug("Received consume notification from {}.", partition);
-
+        LOG.debug("PATITION RELEASE3 {}", partition.getPartitionId());
         synchronized (registeredPartitions) {
             final ResultPartition previous =
                     registeredPartitions.remove(partition.getPartitionId());

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 import org.apache.flink.runtime.io.PullingAsyncDataInput;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.io.network.partition.consumer.tier.TieredStoreSingleInputGate;
 
 import org.junit.Before;
 
@@ -104,6 +105,36 @@ public abstract class InputGateTestBase {
         }
 
         SingleInputGate inputGate = builder.build();
+        assertEquals(partitionType, inputGate.getConsumedPartitionType());
+        return inputGate;
+    }
+
+    protected TieredStoreSingleInputGate createTieredStoreSingleInputGate() {
+        return createTieredStoreSingleInputGate(2);
+    }
+
+    protected TieredStoreSingleInputGate createTieredStoreSingleInputGate(
+            int numberOfInputChannels) {
+        return createTieredStoreSingleInputGate(
+                null, numberOfInputChannels, ResultPartitionType.PIPELINED);
+    }
+
+    protected TieredStoreSingleInputGate createTieredStoreSingleInputGate(
+            NettyShuffleEnvironment environment,
+            int numberOfInputChannels,
+            ResultPartitionType partitionType) {
+
+        TieredStoreSingleInputGateBuilder builder =
+                new TieredStoreSingleInputGateBuilder()
+                        .setNumberOfChannels(numberOfInputChannels)
+                        .setSingleInputGateIndex(gateIndex++)
+                        .setResultPartitionType(partitionType);
+
+        if (environment != null) {
+            builder = builder.setupBufferPoolFactory(environment);
+        }
+
+        TieredStoreSingleInputGate inputGate = builder.build();
         assertEquals(partitionType, inputGate.getConsumedPartitionType());
         return inputGate;
     }
