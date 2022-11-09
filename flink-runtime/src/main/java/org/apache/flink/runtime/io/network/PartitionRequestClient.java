@@ -83,6 +83,11 @@ public interface PartitionRequestClient {
             throws IOException;
 
     /**
+     * Notify the upstream remember the required segmentId.
+     */
+    void notifyRequiredSegmentId(long segmentId, RemoteInputChannel inputChannel);
+
+    /**
      * Cancels the partition request for the given remote input channel and removes this client from
      * factory if it is not referenced by any other input channels.
      *

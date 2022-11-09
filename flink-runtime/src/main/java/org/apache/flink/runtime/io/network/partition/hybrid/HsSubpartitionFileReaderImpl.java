@@ -232,7 +232,7 @@ public class HsSubpartitionFileReaderImpl implements HsSubpartitionFileReader {
                                                 "Get a non-throwable and non-buffer bufferIndexOrError, which is not allowed"));
         return Optional.of(
                 ResultSubpartition.BufferAndBacklog.fromBufferAndLookahead(
-                        buffer, nextDataType, backlog, bufferIndex));
+                        buffer, nextDataType, backlog, bufferIndex, false));
     }
 
     @Override

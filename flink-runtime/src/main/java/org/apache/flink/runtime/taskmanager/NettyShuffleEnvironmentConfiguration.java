@@ -18,8 +18,10 @@
 
 package org.apache.flink.runtime.taskmanager;
 
+import org.apache.flink.api.common.BatchShuffleMode;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
+import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
@@ -107,6 +109,13 @@ public class NettyShuffleEnvironmentConfiguration {
     private final int hybridShuffleSpilledIndexSegmentSize;
 
     private final long hybridShuffleNumRetainedInMemoryRegionsMax;
+    private final boolean isUsingTieredStore;
+
+    @Nullable private final String baseDfsHomePath;
+
+    private final String tieredStoreTiers;
+
+    private final String tieredStoreSpillingType;
 
     public NettyShuffleEnvironmentConfiguration(
             int numNetworkBuffers,
@@ -132,7 +141,11 @@ public class NettyShuffleEnvironmentConfiguration {
             boolean connectionReuseEnabled,
             int maxOverdraftBuffersPerGate,
             int hybridShuffleSpilledIndexSegmentSize,
-            long hybridShuffleNumRetainedInMemoryRegionsMax) {
+            long hybridShuffleNumRetainedInMemoryRegionsMax,
+            @Nullable String baseDfsHomePath,
+            boolean isUsingTieredStore,
+            String tieredStoreTiers,
+            String tieredStoreSpillingType) {
 
         this.numNetworkBuffers = numNetworkBuffers;
         this.networkBufferSize = networkBufferSize;
@@ -159,6 +172,10 @@ public class NettyShuffleEnvironmentConfiguration {
         this.hybridShuffleSpilledIndexSegmentSize = hybridShuffleSpilledIndexSegmentSize;
         this.hybridShuffleNumRetainedInMemoryRegionsMax =
                 hybridShuffleNumRetainedInMemoryRegionsMax;
+        this.baseDfsHomePath = baseDfsHomePath;
+        this.isUsingTieredStore = isUsingTieredStore;
+        this.tieredStoreTiers = tieredStoreTiers;
+        this.tieredStoreSpillingType = tieredStoreSpillingType;
     }
 
     // ------------------------------------------------------------------------
@@ -263,6 +280,22 @@ public class NettyShuffleEnvironmentConfiguration {
         return hybridShuffleSpilledIndexSegmentSize;
     }
 
+    public String getBaseDfsHomePath() {
+        return baseDfsHomePath;
+    }
+
+    public boolean isUsingTieredStore() {
+        return isUsingTieredStore;
+    }
+
+    public String getTieredStoreTiers() {
+        return tieredStoreTiers;
+    }
+
+    public String getTieredStoreSpillingType() {
+        return tieredStoreSpillingType;
+    }
+
     // ------------------------------------------------------------------------
 
     /**
@@ -347,6 +380,9 @@ public class NettyShuffleEnvironmentConfiguration {
                                 NettyShuffleEnvironmentOptions
                                         .NETWORK_EXCLUSIVE_BUFFERS_REQUEST_TIMEOUT_MILLISECONDS));
 
+        String baseDfsHomePath =
+                configuration.getString(NettyShuffleEnvironmentOptions.SHUFFLE_BASE_DFS_HOME_PATH);
+
         BoundedBlockingSubpartitionType blockingSubpartitionType =
                 getBlockingSubpartitionType(configuration);
 
@@ -387,6 +423,17 @@ public class NettyShuffleEnvironmentConfiguration {
                         "The configured floating buffer should be at least 1, please increase the value of %s.",
                         NettyShuffleEnvironmentOptions.NETWORK_EXTRA_BUFFERS_PER_GATE.key()));
 
+        boolean usingTieredStore =
+                configuration
+                        .get(ExecutionOptions.BATCH_SHUFFLE_MODE)
+                        .equals(BatchShuffleMode.ALL_EXCHANGES_TIERED_STORE);
+
+        String tieredStoreTiers =
+                configuration.get(NettyShuffleEnvironmentOptions.TIERED_STORE_TIERS);
+
+        String tieredStoreSpillingType =
+                configuration.get(NettyShuffleEnvironmentOptions.TIERED_STORE_SPILLING_TYPE);
+
         return new NettyShuffleEnvironmentConfiguration(
                 numberOfNetworkBuffers,
                 pageSize,
@@ -411,7 +458,11 @@ public class NettyShuffleEnvironmentConfiguration {
                 connectionReuseEnabled,
                 maxOverdraftBuffersPerGate,
                 hybridShuffleSpilledIndexSegmentSize,
-                hybridShuffleNumRetainedInMemoryRegionsMax);
+                hybridShuffleNumRetainedInMemoryRegionsMax,
+                baseDfsHomePath,
+                usingTieredStore,
+                tieredStoreTiers,
+                tieredStoreSpillingType);
     }
 
     /**

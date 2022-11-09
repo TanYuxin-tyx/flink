@@ -94,7 +94,8 @@ class SortMergeSubpartitionReader
                     buffer,
                     lookAhead == null ? Buffer.DataType.NONE : lookAhead.getDataType(),
                     dataBufferBacklog,
-                    sequenceNumber++);
+                    sequenceNumber++,
+                    false);
         }
     }
 

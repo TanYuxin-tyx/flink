@@ -34,6 +34,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
     private final ConnectionID connectionId;
     private final ConnectionManager connectionManager;
+    private final boolean isUpstreamBroadcast;
 
     RemoteRecoveredInputChannel(
             SingleInputGate inputGate,
@@ -45,7 +46,8 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
             int initialBackOff,
             int maxBackoff,
             int networkBuffersPerChannel,
-            InputChannelMetrics metrics) {
+            InputChannelMetrics metrics,
+            boolean isUpstreamBroadcast) {
         super(
                 inputGate,
                 channelIndex,
@@ -59,6 +61,7 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
 
         this.connectionId = checkNotNull(connectionId);
         this.connectionManager = checkNotNull(connectionManager);
+        this.isUpstreamBroadcast = isUpstreamBroadcast;
     }
 
     @Override
@@ -76,8 +79,13 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
                         networkBuffersPerChannel,
                         numBytesIn,
                         numBuffersIn,
-                        channelStateWriter);
+                        channelStateWriter, isUpstreamBroadcast);
         remoteInputChannel.setup();
         return remoteInputChannel;
+    }
+
+    @Override
+    public boolean containSegment(long segmentId) {
+        return true;
     }
 }

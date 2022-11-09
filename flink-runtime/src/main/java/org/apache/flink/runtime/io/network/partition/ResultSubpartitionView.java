@@ -73,6 +73,12 @@ public interface ResultSubpartitionView {
 
     void notifyNewBufferSize(int newBufferSize);
 
+    default boolean containSegment(long segmentId) {
+        return false;
+    }
+
+    default void notifyRequiredSegmentId(long segmentId) {}
+
     /**
      * Availability of the {@link ResultSubpartitionView} and the backlog in the corresponding
      * {@link ResultSubpartition}.
@@ -97,5 +103,9 @@ public interface ResultSubpartitionView {
         public int getBacklog() {
             return backlog;
         }
+    }
+
+    default String getTaskName() {
+        return "null";
     }
 }

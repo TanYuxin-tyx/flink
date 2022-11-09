@@ -70,6 +70,7 @@ public class TaskExecutorPartitionTrackerImpl
         }
 
         stopTrackingPartitions(partitionsToRelease);
+        LOG.debug("PATITION RELEASE stopTrackingAndReleaseJobPartitions");
         shuffleEnvironment.releasePartitionsLocally(partitionsToRelease);
     }
 
@@ -80,6 +81,7 @@ public class TaskExecutorPartitionTrackerImpl
                         stopTrackingPartitionsFor(producingJobId),
                         PartitionTrackerEntry::getResultPartitionId);
         LOG.debug("Releasing Job Partitions {} for job {}", partitionsForJob, producingJobId);
+        LOG.debug("PATITION RELEASE stopTrackingAndReleaseJobPartitionsFor");
         shuffleEnvironment.releasePartitionsLocally(partitionsForJob);
     }
 
@@ -111,12 +113,14 @@ public class TaskExecutorPartitionTrackerImpl
         for (IntermediateDataSetID dataSetID : dataSetsToRelease) {
             final DataSetEntry dataSetEntry = clusterPartitions.remove(dataSetID);
             final Set<ResultPartitionID> partitionIds = dataSetEntry.getPartitionIds();
+            LOG.debug("PATITION RELEASE stopTrackingAndReleaseClusterPartitions");
             shuffleEnvironment.releasePartitionsLocally(partitionIds);
         }
     }
 
     @Override
     public void stopTrackingAndReleaseAllClusterPartitions() {
+        LOG.debug("PATITION RELEASE stopTrackingAndReleaseAllClusterPartitions");
         clusterPartitions.values().stream()
                 .map(DataSetEntry::getPartitionIds)
                 .forEach(shuffleEnvironment::releasePartitionsLocally);

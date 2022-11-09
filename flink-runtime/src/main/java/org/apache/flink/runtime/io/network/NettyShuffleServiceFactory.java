@@ -19,6 +19,9 @@
 package org.apache.flink.runtime.io.network;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.plugin.PluginManager;
+import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
@@ -32,6 +35,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionFactory;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
+import org.apache.flink.runtime.io.network.partition.consumer.tier.TieredStoreSingleInputGateFactory;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.NettyShuffleMaster;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironmentContext;
@@ -69,6 +73,13 @@ public class NettyShuffleServiceFactory
     public NettyShuffleEnvironment createShuffleEnvironment(
             ShuffleEnvironmentContext shuffleEnvironmentContext) {
         checkNotNull(shuffleEnvironmentContext);
+
+        // initialize the oss filesystem
+        final PluginManager pluginManager =
+                PluginUtils.createPluginManagerFromRootFolder(
+                        shuffleEnvironmentContext.getConfiguration());
+        FileSystem.initialize(shuffleEnvironmentContext.getConfiguration(), pluginManager);
+
         NettyShuffleEnvironmentConfiguration networkConfig =
                 NettyShuffleEnvironmentConfiguration.fromConfiguration(
                         shuffleEnvironmentContext.getConfiguration(),
@@ -212,16 +223,28 @@ public class NettyShuffleServiceFactory
                         config.isSSLEnabled(),
                         config.getMaxOverdraftBuffersPerGate(),
                         config.getHybridShuffleSpilledIndexSegmentSize(),
-                        config.getHybridShuffleNumRetainedInMemoryRegionsMax());
+                        config.getHybridShuffleNumRetainedInMemoryRegionsMax(),
+                        config.getBaseDfsHomePath(),
+                        config.getTieredStoreTiers(),
+                        config.getTieredStoreSpillingType());
 
         SingleInputGateFactory singleInputGateFactory =
-                new SingleInputGateFactory(
-                        taskExecutorResourceId,
-                        config,
-                        connectionManager,
-                        resultPartitionManager,
-                        taskEventPublisher,
-                        networkBufferPool);
+                config.isUsingTieredStore()
+                        ? new TieredStoreSingleInputGateFactory(
+                                taskExecutorResourceId,
+                                config,
+                                connectionManager,
+                                resultPartitionManager,
+                                taskEventPublisher,
+                                networkBufferPool,
+                                config.getBaseDfsHomePath())
+                        : new SingleInputGateFactory(
+                                taskExecutorResourceId,
+                                config,
+                                connectionManager,
+                                resultPartitionManager,
+                                taskEventPublisher,
+                                networkBufferPool);
 
         return new NettyShuffleEnvironment(
                 taskExecutorResourceId,

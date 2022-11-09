@@ -540,7 +540,8 @@ public class PipelinedSubpartition extends ResultSubpartition
                     buffer,
                     getBuffersInBacklogUnsafe(),
                     isDataAvailableUnsafe() ? getNextBufferTypeUnsafe() : Buffer.DataType.NONE,
-                    sequenceNumber++);
+                    sequenceNumber++,
+                    false);
         }
     }
 
@@ -699,7 +700,7 @@ public class PipelinedSubpartition extends ResultSubpartition
     }
 
     @Override
-    protected long getTotalNumberOfBytesUnsafe() {
+    public long getTotalNumberOfBytesUnsafe() {
         return totalNumberOfBytes;
     }
 

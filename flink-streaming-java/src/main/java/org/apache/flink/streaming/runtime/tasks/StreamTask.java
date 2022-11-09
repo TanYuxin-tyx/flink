@@ -557,6 +557,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>>
      */
     protected void processInput(MailboxDefaultAction.Controller controller) throws Exception {
         DataInputStatus status = inputProcessor.processInput();
+        LOG.debug("### StreamTask's status is: {}", status);
         switch (status) {
             case MORE_AVAILABLE:
                 if (taskIsAvailable()) {

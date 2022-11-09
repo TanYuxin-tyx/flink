@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.disk.FileChannelManager;
 import org.apache.flink.runtime.io.disk.NoOpFileChannelManager;
@@ -40,6 +41,8 @@ public class ResultPartitionBuilder {
 
     private BoundedBlockingSubpartitionType blockingSubpartitionType =
             BoundedBlockingSubpartitionType.AUTO;
+
+    private JobID jobID = new JobID();
 
     private int partitionIndex = 0;
 
@@ -88,6 +91,16 @@ public class ResultPartitionBuilder {
     private int hybridShuffleSpilledIndexSegmentSize = 256;
 
     private long hybridShuffleNumRetainedInMemoryRegionsMax = Long.MAX_VALUE;
+
+    private String baseDfsHomePath = null;
+
+    private String tieredStoreTiers = null;
+
+    private String tieredStoreSpillingType = null;
+
+    public void setJobID(JobID jobID) {
+        this.jobID = jobID;
+    }
 
     public ResultPartitionBuilder setResultPartitionIndex(int partitionIndex) {
         this.partitionIndex = partitionIndex;
@@ -217,6 +230,21 @@ public class ResultPartitionBuilder {
         return this;
     }
 
+    public ResultPartitionBuilder setBaseDfsHomePath(String baseDfsHomePath) {
+        this.baseDfsHomePath = baseDfsHomePath;
+        return this;
+    }
+
+    public ResultPartitionBuilder setTieredStoreTiers(String tieredStoreTiers) {
+        this.tieredStoreTiers = tieredStoreTiers;
+        return this;
+    }
+
+    public ResultPartitionBuilder setTieredStoreSpillingType(String tieredStoreSpillingType) {
+        this.tieredStoreSpillingType = tieredStoreSpillingType;
+        return this;
+    }
+
     public ResultPartitionBuilder setBroadcast(boolean broadcast) {
         isBroadcast = broadcast;
         return this;
@@ -255,7 +283,10 @@ public class ResultPartitionBuilder {
                         sslEnabled,
                         maxOverdraftBuffersPerGate,
                         hybridShuffleSpilledIndexSegmentSize,
-                        hybridShuffleNumRetainedInMemoryRegionsMax);
+                        hybridShuffleNumRetainedInMemoryRegionsMax,
+                        baseDfsHomePath,
+                        tieredStoreTiers,
+                        tieredStoreSpillingType);
 
         SupplierWithException<BufferPool, IOException> factory =
                 bufferPoolFactory.orElseGet(
@@ -264,6 +295,7 @@ public class ResultPartitionBuilder {
                                         numberOfSubpartitions, partitionType));
 
         return resultPartitionFactory.create(
+                jobID,
                 "Result Partition task",
                 partitionIndex,
                 partitionId,

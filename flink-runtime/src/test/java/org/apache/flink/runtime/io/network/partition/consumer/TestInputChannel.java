@@ -18,18 +18,23 @@
 
 package org.apache.flink.runtime.io.network.partition.consumer;
 
+import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.io.network.api.EndOfData;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
+import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.StopMode;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
@@ -108,6 +113,14 @@ public class TestInputChannel extends InputChannel {
         return read(createBuffer(1), nextType);
     }
 
+    TestInputChannel readSegmentInfo(int segmentId) throws IOException, InterruptedException {
+        ByteBuffer byteBuffer = EventSerializer.toSerializedEvent(new EndOfSegmentEvent(0));
+        NetworkBuffer segmentInfoBuffer = new NetworkBuffer(
+                MemorySegmentFactory.wrap(byteBuffer.array()),
+                FreeingBufferRecycler.INSTANCE);
+        return read(segmentInfoBuffer, Buffer.DataType.DATA_BUFFER);
+    }
+
     TestInputChannel readEndOfData() throws IOException {
         return readEndOfData(StopMode.DRAIN);
     }
@@ -167,10 +180,10 @@ public class TestInputChannel extends InputChannel {
     }
 
     @Override
-    void requestSubpartition() throws IOException, InterruptedException {}
+    public void requestSubpartition() throws IOException, InterruptedException {}
 
     @Override
-    Optional<BufferAndAvailability> getNextBuffer() throws IOException, InterruptedException {
+    public Optional<BufferAndAvailability> getNextBuffer() throws IOException, InterruptedException {
         checkState(!isReleased);
 
         BufferAndAvailabilityProvider provider = buffers.poll();

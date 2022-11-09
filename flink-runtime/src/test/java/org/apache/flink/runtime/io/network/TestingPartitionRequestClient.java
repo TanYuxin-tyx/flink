@@ -53,4 +53,7 @@ public class TestingPartitionRequestClient implements PartitionRequestClient {
 
     @Override
     public void close(RemoteInputChannel inputChannel) {}
+
+    @Override
+    public void notifyRequiredSegmentId(long segmentId, RemoteInputChannel inputChannel) {}
 }

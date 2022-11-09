@@ -256,6 +256,7 @@ public abstract class ResultPartition implements ResultPartitionWriter {
 
             // Set the error cause
             if (cause != null) {
+                LOG.debug("PATITION RELEASE2", cause);
                 this.cause = cause;
             }
 
@@ -331,7 +332,7 @@ public abstract class ResultPartition implements ResultPartitionWriter {
     // ------------------------------------------------------------------------
 
     /** Notification when a subpartition is released. */
-    void onConsumedSubpartition(int subpartitionIndex) {
+    public void onConsumedSubpartition(int subpartitionIndex) {
 
         if (isReleased.get()) {
             return;
@@ -343,7 +344,7 @@ public abstract class ResultPartition implements ResultPartitionWriter {
 
     // ------------------------------------------------------------------------
 
-    protected void checkInProduceState() throws IllegalStateException {
+    public void checkInProduceState() throws IllegalStateException {
         checkState(!isFinished, "Partition already finished.");
     }
 

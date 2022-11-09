@@ -99,6 +99,11 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
         return false;
     }
 
+    private int[] flag1 = new int[10];
+    private int[] flag2 = new int[10];
+    private int[] flag3 = new int[10];
+    private int[] flag4 = new int[10];
+
     /**
      * Requests a remote intermediate result partition queue.
      *
@@ -112,7 +117,7 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
             final RemoteInputChannel inputChannel,
             int delayMs)
             throws IOException {
-
+        flag1[subpartitionIndex] = 1;
         checkNotClosed();
 
         LOG.debug(
@@ -122,14 +127,14 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
                 delayMs);
 
         clientHandler.addInputChannel(inputChannel);
-
+        flag2[subpartitionIndex] = 1;
         final PartitionRequest request =
                 new PartitionRequest(
                         partitionId,
                         subpartitionIndex,
                         inputChannel.getInputChannelId(),
                         inputChannel.getInitialCredit());
-
+        flag3[subpartitionIndex] = 1;
         final ChannelFutureListener listener =
                 future -> {
                     if (!future.isSuccess()) {
@@ -281,6 +286,12 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
         }
     }
 
+    @Override
+    public void notifyRequiredSegmentId(long segmentId, RemoteInputChannel inputChannel) {
+        LOG.info("%%% send requiredSegmentId {}", segmentId);
+        sendToChannel(new SegmentIdMessage(segmentId, inputChannel));
+    }
+
     private static class AddCreditMessage extends ClientOutboundMessage {
 
         private AddCreditMessage(RemoteInputChannel inputChannel) {
@@ -293,6 +304,21 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
             return credits > 0
                     ? new NettyMessage.AddCredit(credits, inputChannel.getInputChannelId())
                     : null;
+        }
+    }
+
+    private static class SegmentIdMessage extends ClientOutboundMessage {
+
+        private final long segmentId;
+
+        private SegmentIdMessage(long segmentId, RemoteInputChannel inputChannel) {
+            super(checkNotNull(inputChannel));
+            this.segmentId = segmentId;
+        }
+
+        @Override
+        Object buildMessage() {
+            return new NettyMessage.SegmentIdMessage(segmentId, inputChannel.getInputChannelId());
         }
     }
 

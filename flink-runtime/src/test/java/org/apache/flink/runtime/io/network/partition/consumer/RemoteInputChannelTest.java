@@ -2092,10 +2092,10 @@ public class RemoteInputChannelTest {
         }
     }
 
-    private static final class TestVerifyConnectionManager extends TestingConnectionManager {
+    public static final class TestVerifyConnectionManager extends TestingConnectionManager {
         private final PartitionRequestClient client;
 
-        TestVerifyConnectionManager(TestingPartitionRequestClient client) {
+        public TestVerifyConnectionManager(TestingPartitionRequestClient client) {
             this.client = checkNotNull(client);
         }
 
@@ -2105,7 +2105,7 @@ public class RemoteInputChannelTest {
         }
     }
 
-    private static final class TestVerifyPartitionRequestClient
+    public static final class TestVerifyPartitionRequestClient
             extends TestingPartitionRequestClient {
         private ResultPartitionID partitionId;
         private int subpartitionIndex;

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.deployment.ResultPartitionDeploymentDescriptor;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.disk.FileChannelManager;
@@ -28,6 +29,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
+import org.apache.flink.runtime.io.network.partition.store.TieredStoreConfiguration;
+import org.apache.flink.runtime.io.network.partition.store.TieredStoreResultPartition;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -40,6 +43,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.ScheduledExecutorService;
 
 /** Factory for {@link ResultPartition} to use in {@link NettyShuffleEnvironment}. */
@@ -83,6 +87,12 @@ public class ResultPartitionFactory {
 
     private final int maxOverdraftBuffersPerGate;
 
+    private final String baseDfsHomePath;
+
+    private final String tieredStoreTiers;
+
+    private String tieredStoreSpillingType;
+
     public ResultPartitionFactory(
             ResultPartitionManager partitionManager,
             FileChannelManager channelManager,
@@ -101,7 +111,10 @@ public class ResultPartitionFactory {
             boolean sslEnabled,
             int maxOverdraftBuffersPerGate,
             int hybridShuffleSpilledIndexSegmentSize,
-            long hybridShuffleNumRetainedInMemoryRegionsMax) {
+            long hybridShuffleNumRetainedInMemoryRegionsMax,
+            String baseDfsHomePath,
+            String tieredStoreTiers,
+            String tieredStoreSpillingType) {
 
         this.partitionManager = partitionManager;
         this.channelManager = channelManager;
@@ -122,13 +135,18 @@ public class ResultPartitionFactory {
         this.hybridShuffleSpilledIndexSegmentSize = hybridShuffleSpilledIndexSegmentSize;
         this.hybridShuffleNumRetainedInMemoryRegionsMax =
                 hybridShuffleNumRetainedInMemoryRegionsMax;
+        this.baseDfsHomePath = baseDfsHomePath;
+        this.tieredStoreTiers = tieredStoreTiers;
+        this.tieredStoreSpillingType = tieredStoreSpillingType;
     }
 
     public ResultPartition create(
+            JobID jobID,
             String taskNameWithSubtaskAndId,
             int partitionIndex,
             ResultPartitionDeploymentDescriptor desc) {
         return create(
+                jobID,
                 taskNameWithSubtaskAndId,
                 partitionIndex,
                 desc.getShuffleDescriptor().getResultPartitionID(),
@@ -141,6 +159,7 @@ public class ResultPartitionFactory {
 
     @VisibleForTesting
     public ResultPartition create(
+            JobID jobID,
             String taskNameWithSubtaskAndId,
             int partitionIndex,
             ResultPartitionID id,
@@ -244,6 +263,36 @@ public class ResultPartitionFactory {
                             bufferCompressor,
                             isBroadcast,
                             bufferPoolFactory);
+        } else if (type == ResultPartitionType.TIERED_STORE) {
+            if (isBroadcast) {
+                // for broadcast result partition, it can be optimized to always use full spilling
+                // strategy to significantly reduce shuffle data writing cost.
+                tieredStoreSpillingType =
+                        Objects.equals(tieredStoreSpillingType, "NO_FLUSH")
+                                ? tieredStoreSpillingType
+                                : "FULL";
+            }
+            TieredStoreConfiguration storeConfiguration =
+                    getStoreConfiguration(numberOfSubpartitions);
+            partition =
+                    new TieredStoreResultPartition(
+                            jobID,
+                            taskNameWithSubtaskAndId,
+                            partitionIndex,
+                            id,
+                            type,
+                            subpartitions.length,
+                            maxParallelism,
+                            batchShuffleReadBufferPool,
+                            batchShuffleReadIOExecutor,
+                            partitionManager,
+                            networkBufferSize,
+                            channelManager.createChannel().getPath(),
+                            isBroadcast,
+                            storeConfiguration,
+                            bufferCompressor,
+                            bufferPoolFactory,
+                            subpartitions);
         } else {
             throw new IllegalArgumentException("Unrecognized ResultPartitionType: " + type);
         }
@@ -263,6 +312,16 @@ public class ResultPartitionFactory {
                                 : HybridShuffleConfiguration.SpillingStrategyType.SELECTIVE)
                 .setSpilledIndexSegmentSize(hybridShuffleSpilledIndexSegmentSize)
                 .setNumRetainedInMemoryRegionsMax(hybridShuffleNumRetainedInMemoryRegionsMax)
+                .build();
+    }
+
+    private TieredStoreConfiguration getStoreConfiguration(int numberOfSubpartitions) {
+        return TieredStoreConfiguration.builder(
+                        numberOfSubpartitions, batchShuffleReadBufferPool.getNumBuffersPerRequest())
+                .setTieredStoreTiers(tieredStoreTiers)
+                .setTieredStoreSpillingType(tieredStoreSpillingType)
+                .setBaseDfsHomePath(baseDfsHomePath)
+                .setConfiguredNetworkBuffersPerChannel(configuredNetworkBuffersPerChannel)
                 .build();
     }
 
