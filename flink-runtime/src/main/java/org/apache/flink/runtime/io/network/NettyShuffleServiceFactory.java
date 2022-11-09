@@ -212,7 +212,11 @@ public class NettyShuffleServiceFactory
                         config.isSSLEnabled(),
                         config.getMaxOverdraftBuffersPerGate(),
                         config.getHybridShuffleSpilledIndexSegmentSize(),
-                        config.getHybridShuffleNumRetainedInMemoryRegionsMax());
+                        config.getHybridShuffleNumRetainedInMemoryRegionsMax(),
+                        config.getBaseRemoteStoragePath(),
+                        config.minReservedDiskSpaceFraction(),
+                        config.enableTieredStoreForHybridShuffle(),
+                        config.getTieredStoreTiers());
 
         SingleInputGateFactory singleInputGateFactory =
                 new SingleInputGateFactory(

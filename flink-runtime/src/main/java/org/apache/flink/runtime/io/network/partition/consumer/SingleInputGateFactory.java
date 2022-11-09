@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.deployment.InputGateDeploymentDescriptor;
@@ -34,6 +35,10 @@ import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReaderImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReader;
+import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
@@ -52,8 +57,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.partition.consumer.InputGateSpecUtils.createGateBuffersSpec;
@@ -77,19 +85,25 @@ public class SingleInputGateFactory {
 
     @Nonnull protected final NetworkBufferPool networkBufferPool;
 
-    private final Optional<Integer> maxRequiredBuffersPerGate;
+    protected final Optional<Integer> maxRequiredBuffersPerGate;
+
+    protected final boolean enableTieredStoreForHybridShuffle;
 
     protected final int configuredNetworkBuffersPerChannel;
 
-    private final int floatingNetworkBuffersPerGate;
+    protected final int floatingNetworkBuffersPerGate;
 
-    private final boolean batchShuffleCompressionEnabled;
+    protected final boolean batchShuffleCompressionEnabled;
 
-    private final String compressionCodec;
+    protected final String compressionCodec;
 
-    private final int networkBufferSize;
+    protected final int networkBufferSize;
 
     private final BufferDebloatConfiguration debloatConfiguration;
+
+    private final Boolean enableTieredStore;
+
+    @Nullable private final String baseRemoteStoragePath;
 
     public SingleInputGateFactory(
             @Nonnull ResourceID taskExecutorResourceId,
@@ -102,6 +116,7 @@ public class SingleInputGateFactory {
         this.partitionRequestInitialBackoff = networkConfig.partitionRequestInitialBackoff();
         this.partitionRequestMaxBackoff = networkConfig.partitionRequestMaxBackoff();
         this.maxRequiredBuffersPerGate = networkConfig.maxRequiredBuffersPerGate();
+        this.enableTieredStoreForHybridShuffle = networkConfig.enableTieredStoreForHybridShuffle();
         this.configuredNetworkBuffersPerChannel =
                 NettyShuffleUtils.getNetworkBuffersPerInputChannel(
                         networkConfig.networkBuffersPerChannel());
@@ -114,6 +129,8 @@ public class SingleInputGateFactory {
         this.taskEventPublisher = taskEventPublisher;
         this.networkBufferPool = networkBufferPool;
         this.debloatConfiguration = networkConfig.getDebloatConfiguration();
+        this.enableTieredStore = networkConfig.enableTieredStoreForHybridShuffle();
+        this.baseRemoteStoragePath = networkConfig.getBaseRemoteStoragePath();
     }
 
     /** Creates an input gate and all of its input channels. */
@@ -131,7 +148,8 @@ public class SingleInputGateFactory {
                         igdd.getConsumedPartitionType(),
                         calculateNumChannels(
                                 igdd.getShuffleDescriptors().length,
-                                igdd.getConsumedSubpartitionIndexRange()));
+                                igdd.getConsumedSubpartitionIndexRange()),
+                        enableTieredStoreForHybridShuffle);
         SupplierWithException<BufferPool, IOException> bufferPoolFactory =
                 createBufferPoolFactory(
                         networkBufferPool,
@@ -148,15 +166,39 @@ public class SingleInputGateFactory {
         final MetricGroup networkInputGroup = owner.getInputGroup();
 
         IndexRange subpartitionIndexRange = igdd.getConsumedSubpartitionIndexRange();
+        int numberOfInputChannels =
+                calculateNumChannels(igdd.getShuffleDescriptors().length, subpartitionIndexRange);
+        TieredStoreReader tieredStoreReader = null;
+        if (enableTieredStore) {
+            ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
+            List<ResultPartitionID> resultPartitionIDs = new ArrayList<>();
+            List<Integer> subpartitionIndexes = new ArrayList<>();
+            for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
+                for (int subpartitionIndex = subpartitionIndexRange.getStartIndex();
+                        subpartitionIndex <= subpartitionIndexRange.getEndIndex();
+                        ++subpartitionIndex) {
+                    resultPartitionIDs.add(shuffleDescriptor.getResultPartitionID());
+                    subpartitionIndexes.add(subpartitionIndex);
+                }
+            }
+            tieredStoreReader =
+                    new TieredStoreReaderImpl(
+                            owner.getJobID(),
+                            resultPartitionIDs,
+                            networkBufferPool,
+                            subpartitionIndexes,
+                            baseRemoteStoragePath,
+                            numberOfInputChannels);
+        }
+
         SingleInputGate inputGate =
-                new SingleInputGate(
+                createInputGate(
                         owningTaskName,
                         gateIndex,
                         igdd.getConsumedResultId(),
                         igdd.getConsumedPartitionType(),
                         subpartitionIndexRange,
-                        calculateNumChannels(
-                                igdd.getShuffleDescriptors().length, subpartitionIndexRange),
+                        numberOfInputChannels,
                         partitionProducerStateProvider,
                         bufferPoolFactory,
                         bufferDecompressor,
@@ -164,14 +206,15 @@ public class SingleInputGateFactory {
                         networkBufferSize,
                         new ThroughputCalculator(SystemClock.getInstance()),
                         maybeCreateBufferDebloater(
-                                owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)));
+                                owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)),
+                        tieredStoreReader);
 
         createInputChannels(
                 owningTaskName, igdd, inputGate, subpartitionIndexRange, gateBuffersSpec, metrics);
         return inputGate;
     }
 
-    private BufferDebloater maybeCreateBufferDebloater(
+    protected BufferDebloater maybeCreateBufferDebloater(
             String owningTaskName, int gateIndex, MetricGroup inputGroup) {
         if (debloatConfiguration.isEnabled()) {
             final BufferDebloater bufferDebloater =
@@ -193,7 +236,7 @@ public class SingleInputGateFactory {
         return null;
     }
 
-    private void createInputChannels(
+    protected void createInputChannels(
             String owningTaskName,
             InputGateDeploymentDescriptor inputGateDeploymentDescriptor,
             SingleInputGate inputGate,
@@ -274,7 +317,40 @@ public class SingleInputGateFactory {
                                 metrics));
     }
 
-    private static int calculateNumChannels(
+    protected SingleInputGate createInputGate(
+            String owningTaskName,
+            int gateIndex,
+            IntermediateDataSetID consumedResultId,
+            final ResultPartitionType consumedPartitionType,
+            IndexRange subpartitionIndexRange,
+            int numberOfInputChannels,
+            PartitionProducerStateProvider partitionProducerStateProvider,
+            SupplierWithException<BufferPool, IOException> bufferPoolFactory,
+            @Nullable BufferDecompressor bufferDecompressor,
+            MemorySegmentProvider memorySegmentProvider,
+            int segmentSize,
+            ThroughputCalculator throughputCalculator,
+            @Nullable BufferDebloater bufferDebloater,
+            @Nullable TieredStoreReader tieredStoreReader) {
+
+        return new SingleInputGate(
+                owningTaskName,
+                gateIndex,
+                consumedResultId,
+                consumedPartitionType,
+                subpartitionIndexRange,
+                numberOfInputChannels,
+                partitionProducerStateProvider,
+                bufferPoolFactory,
+                bufferDecompressor,
+                memorySegmentProvider,
+                segmentSize,
+                throughputCalculator,
+                bufferDebloater,
+                tieredStoreReader);
+    }
+
+    protected static int calculateNumChannels(
             int numShuffleDescriptors, IndexRange subpartitionIndexRange) {
         return MathUtils.checkedDownCast(
                 ((long) numShuffleDescriptors) * subpartitionIndexRange.size());
@@ -303,7 +379,8 @@ public class SingleInputGateFactory {
                     partitionRequestInitialBackoff,
                     partitionRequestMaxBackoff,
                     buffersPerChannel,
-                    metrics);
+                    metrics,
+                    inputChannelDescriptor.isUpstreamBroadcastOnly());
         } else {
             // Different instances => remote
             channelStatistics.numRemoteChannels++;
@@ -317,12 +394,22 @@ public class SingleInputGateFactory {
                     partitionRequestInitialBackoff,
                     partitionRequestMaxBackoff,
                     buffersPerChannel,
-                    metrics);
+                    metrics,
+                    inputChannelDescriptor.isUpstreamBroadcastOnly());
         }
     }
 
     @VisibleForTesting
-    static SupplierWithException<BufferPool, IOException> createBufferPoolFactory(
+    protected static SupplierWithException<BufferPool, IOException> createBufferPoolFactory(
+            BufferPoolFactory bufferPoolFactory, int floatingNetworkBuffersPerGate) {
+        Pair<Integer, Integer> pair =
+                NettyShuffleUtils.getMinMaxFloatingBuffersPerInputGate(
+                        floatingNetworkBuffersPerGate);
+        return () -> bufferPoolFactory.createBufferPool(pair.getLeft(), pair.getRight());
+    }
+
+    @VisibleForTesting
+    public static SupplierWithException<BufferPool, IOException> createBufferPoolFactory(
             BufferPoolFactory bufferPoolFactory,
             int minFloatingBuffersPerGate,
             int maxFloatingBuffersPerGate) {

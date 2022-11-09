@@ -289,7 +289,12 @@ public interface Buffer {
          * Indicates that this subpartition state is fully recovered (emitted). Further data can be
          * consumed after unblocking.
          */
-        RECOVERY_COMPLETION(false, true, true, false, false);
+        RECOVERY_COMPLETION(false, true, true, false, false),
+
+        /**
+         * Indicates that this buffer contains the segment meta information for Tiered Store.
+         */
+        SEGMENT_EVENT(false, true, false, false, false);
 
         private final boolean isBuffer;
         private final boolean isEvent;

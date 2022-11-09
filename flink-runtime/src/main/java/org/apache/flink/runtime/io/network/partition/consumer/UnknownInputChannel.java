@@ -43,7 +43,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * An input channel place holder to be replaced by either a {@link RemoteInputChannel} or {@link
  * LocalInputChannel} at runtime.
  */
-class UnknownInputChannel extends InputChannel implements ChannelStateHolder {
+public class UnknownInputChannel extends InputChannel implements ChannelStateHolder {
 
     private final ResultPartitionManager partitionManager;
 
@@ -158,7 +158,8 @@ class UnknownInputChannel extends InputChannel implements ChannelStateHolder {
     // Graduation to a local or remote input channel at runtime
     // ------------------------------------------------------------------------
 
-    public RemoteInputChannel toRemoteInputChannel(ConnectionID producerAddress) {
+    public RemoteInputChannel toRemoteInputChannel(
+            ConnectionID producerAddress, boolean isUpstreamBroadcastOnly) {
         return new RemoteInputChannel(
                 inputGate,
                 getChannelIndex(),
@@ -171,10 +172,12 @@ class UnknownInputChannel extends InputChannel implements ChannelStateHolder {
                 networkBuffersPerChannel,
                 metrics.getNumBytesInRemoteCounter(),
                 metrics.getNumBuffersInRemoteCounter(),
-                channelStateWriter == null ? ChannelStateWriter.NO_OP : channelStateWriter);
+                channelStateWriter == null ? ChannelStateWriter.NO_OP : channelStateWriter,
+                isUpstreamBroadcastOnly);
     }
 
-    public LocalInputChannel toLocalInputChannel(ResultPartitionID resultPartitionID) {
+    public LocalInputChannel toLocalInputChannel(
+            ResultPartitionID resultPartitionID, boolean isUpstreamBroadcastOnly) {
         return new LocalInputChannel(
                 inputGate,
                 getChannelIndex(),
@@ -186,7 +189,8 @@ class UnknownInputChannel extends InputChannel implements ChannelStateHolder {
                 maxBackoff,
                 metrics.getNumBytesInRemoteCounter(),
                 metrics.getNumBuffersInRemoteCounter(),
-                channelStateWriter == null ? ChannelStateWriter.NO_OP : channelStateWriter);
+                channelStateWriter == null ? ChannelStateWriter.NO_OP : channelStateWriter,
+                isUpstreamBroadcastOnly);
     }
 
     @Override

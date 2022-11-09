@@ -74,6 +74,8 @@ public class NettyShuffleEnvironmentBuilder {
 
     private int maxOverdraftBuffersPerGate = 0;
 
+    private String baseRemoteStorageHomePath = null;
+
     private String compressionCodec = "LZ4";
 
     private ResourceID taskManagerLocation = ResourceID.generate();
@@ -94,6 +96,9 @@ public class NettyShuffleEnvironmentBuilder {
     private long hybridShuffleNumRetainedInMemoryRegionsMax = Long.MAX_VALUE;
 
     private int hybridShuffleSpilledIndexSegmentSize = 256;
+
+    private float minReservedDiskSpaceFraction = 0L;
+    private boolean isUsingTieredStore = false;
 
     public NettyShuffleEnvironmentBuilder setTaskManagerLocation(ResourceID taskManagerLocation) {
         this.taskManagerLocation = taskManagerLocation;
@@ -180,6 +185,11 @@ public class NettyShuffleEnvironmentBuilder {
         return this;
     }
 
+    public NettyShuffleEnvironmentBuilder setBaseRemoteStorageHomePath(String baseRemoteStorageHomePath) {
+        this.baseRemoteStorageHomePath = baseRemoteStorageHomePath;
+        return this;
+    }
+
     public NettyShuffleEnvironmentBuilder setCompressionCodec(String compressionCodec) {
         this.compressionCodec = compressionCodec;
         return this;
@@ -230,6 +240,17 @@ public class NettyShuffleEnvironmentBuilder {
         return this;
     }
 
+    public NettyShuffleEnvironmentBuilder setMinDiskReserveBytes(
+            float minReservedDiskSpaceFraction) {
+        this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
+        return this;
+    }
+
+    public NettyShuffleEnvironmentBuilder setUsingTieredStore(boolean usingTieredStore) {
+        isUsingTieredStore = usingTieredStore;
+        return this;
+    }
+
     public NettyShuffleEnvironment build() {
         return NettyShuffleServiceFactory.createNettyShuffleEnvironment(
                 new NettyShuffleEnvironmentConfiguration(
@@ -256,7 +277,11 @@ public class NettyShuffleEnvironmentBuilder {
                         connectionReuseEnabled,
                         maxOverdraftBuffersPerGate,
                         hybridShuffleSpilledIndexSegmentSize,
-                        hybridShuffleNumRetainedInMemoryRegionsMax),
+                        hybridShuffleNumRetainedInMemoryRegionsMax,
+                        baseRemoteStorageHomePath,
+                        minReservedDiskSpaceFraction,
+                        isUsingTieredStore,
+                        ""),
                 taskManagerLocation,
                 new TaskEventDispatcher(),
                 resultPartitionManager,

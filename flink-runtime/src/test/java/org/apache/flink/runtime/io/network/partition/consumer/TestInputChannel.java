@@ -18,18 +18,23 @@
 
 package org.apache.flink.runtime.io.network.partition.consumer;
 
+import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.metrics.SimpleCounter;
 import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.io.network.api.EndOfData;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
+import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.StopMode;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Optional;
@@ -64,6 +69,8 @@ public class TestInputChannel extends InputChannel {
     private int sequenceNumber;
 
     private int currentBufferSize;
+
+    private long requiredSegmentId;
 
     public TestInputChannel(SingleInputGate inputGate, int channelIndex) {
         this(inputGate, channelIndex, true, false);
@@ -100,7 +107,7 @@ public class TestInputChannel extends InputChannel {
         return this;
     }
 
-    TestInputChannel readBuffer() throws IOException, InterruptedException {
+    public TestInputChannel readBuffer() throws IOException, InterruptedException {
         return readBuffer(Buffer.DataType.DATA_BUFFER);
     }
 
@@ -108,11 +115,11 @@ public class TestInputChannel extends InputChannel {
         return read(createBuffer(1), nextType);
     }
 
-    TestInputChannel readEndOfData() throws IOException {
+    public TestInputChannel readEndOfData() throws IOException {
         return readEndOfData(StopMode.DRAIN);
     }
 
-    TestInputChannel readEndOfData(StopMode mode) throws IOException {
+    public TestInputChannel readEndOfData(StopMode mode) throws IOException {
         addBufferAndAvailability(
                 new BufferAndAvailability(
                         EventSerializer.toBuffer(new EndOfData(mode), false),
@@ -122,7 +129,7 @@ public class TestInputChannel extends InputChannel {
         return this;
     }
 
-    TestInputChannel readEndOfPartitionEvent() {
+    public TestInputChannel readEndOfPartitionEvent() {
         addBufferAndAvailability(
                 () -> {
                     setReleased();
@@ -142,6 +149,34 @@ public class TestInputChannel extends InputChannel {
 
     void addBufferAndAvailability(BufferAndAvailabilityProvider bufferAndAvailability) {
         buffers.add(bufferAndAvailability);
+    }
+
+    // ------------------------------------------------------------------------
+    //  For Tiered Store
+    // ------------------------------------------------------------------------
+
+    public TestInputChannel readSegmentInfo(int segmentId)
+            throws IOException, InterruptedException {
+        ByteBuffer byteBuffer = EventSerializer.toSerializedEvent(new EndOfSegmentEvent(segmentId));
+        NetworkBuffer segmentInfoBuffer =
+                new NetworkBuffer(
+                        MemorySegmentFactory.wrap(byteBuffer.array()),
+                        FreeingBufferRecycler.INSTANCE,
+                        Buffer.DataType.SEGMENT_EVENT,
+                        byteBuffer.array().length);
+        return read(segmentInfoBuffer, Buffer.DataType.DATA_BUFFER);
+    }
+
+    public boolean isUpstreamBroadcastOnly() {
+        return false;
+    }
+
+    public void notifyRequiredSegmentId(int segmentId) {
+        requiredSegmentId = segmentId;
+    }
+
+    public long getRequiredSegmentId() {
+        return requiredSegmentId;
     }
 
     // ------------------------------------------------------------------------
@@ -167,10 +202,11 @@ public class TestInputChannel extends InputChannel {
     }
 
     @Override
-    void requestSubpartition() throws IOException, InterruptedException {}
+    public void requestSubpartition() throws IOException, InterruptedException {}
 
     @Override
-    Optional<BufferAndAvailability> getNextBuffer() throws IOException, InterruptedException {
+    public Optional<BufferAndAvailability> getNextBuffer()
+            throws IOException, InterruptedException {
         checkState(!isReleased);
 
         BufferAndAvailabilityProvider provider = buffers.poll();
@@ -232,7 +268,7 @@ public class TestInputChannel extends InputChannel {
     public void acknowledgeAllRecordsProcessed() throws IOException {}
 
     @Override
-    protected void notifyChannelNonEmpty() {
+    public void notifyChannelNonEmpty() {
         inputGate.notifyChannelNonEmpty(this);
     }
 

@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.shuffle;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.deployment.InputGateDeploymentDescriptor;
 import org.apache.flink.runtime.deployment.ResultPartitionDeploymentDescriptor;
@@ -118,6 +119,7 @@ public interface ShuffleEnvironment<P extends ResultPartitionWriter, G extends I
      * <p>This method has to be called only once to avoid duplicated internal metric group
      * registration.
      *
+     * @param jobID the job id
      * @param ownerName the owner name, used for logs
      * @param executionAttemptID execution attempt id of the producer or consumer
      * @param parentGroup parent of shuffle specific metric group
@@ -125,7 +127,10 @@ public interface ShuffleEnvironment<P extends ResultPartitionWriter, G extends I
      *     belonging to the owner
      */
     ShuffleIOOwnerContext createShuffleIOOwnerContext(
-            String ownerName, ExecutionAttemptID executionAttemptID, MetricGroup parentGroup);
+            JobID jobID,
+            String ownerName,
+            ExecutionAttemptID executionAttemptID,
+            MetricGroup parentGroup);
 
     /**
      * Factory method for the {@link ResultPartitionWriter ResultPartitionWriters} to produce result

@@ -54,7 +54,7 @@ public abstract class RecoveredInputChannel extends InputChannel implements Chan
 
     private final ArrayDeque<Buffer> receivedBuffers = new ArrayDeque<>();
     private final CompletableFuture<?> stateConsumedFuture = new CompletableFuture<>();
-    protected final BufferManager bufferManager;
+    public final BufferManager bufferManager;
 
     @GuardedBy("receivedBuffers")
     private boolean isReleased;
@@ -190,7 +190,7 @@ public abstract class RecoveredInputChannel extends InputChannel implements Chan
     }
 
     @Override
-    Optional<BufferAndAvailability> getNextBuffer() throws IOException {
+    public Optional<BufferAndAvailability> getNextBuffer() throws IOException {
         checkError();
         return Optional.ofNullable(getNextRecoveredStateBuffer());
     }
@@ -225,7 +225,7 @@ public abstract class RecoveredInputChannel extends InputChannel implements Chan
     }
 
     @Override
-    final void requestSubpartition() {
+    public final void requestSubpartition() {
         throw new UnsupportedOperationException(
                 "RecoveredInputChannel should never request partition.");
     }

@@ -28,14 +28,21 @@ import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor.NetworkPartitionC
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor.PartitionConnectionInfo;
 import org.apache.flink.runtime.util.ConfigurationParserUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.deleteJobBasePath;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** Default {@link ShuffleMaster} for netty and local file based shuffle implementation. */
 public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(NettyShuffleMaster.class);
 
     private final int buffersPerInputChannel;
 
@@ -48,6 +55,10 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
     private final int sortShuffleMinBuffers;
 
     private final int networkBufferSize;
+
+    private final String baseDfsPath;
+
+    private final boolean enableTieredStoreForHybridShuffle;
 
     public NettyShuffleMaster(Configuration conf) {
         checkNotNull(conf);
@@ -64,6 +75,13 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
         sortShuffleMinBuffers =
                 conf.getInteger(NettyShuffleEnvironmentOptions.NETWORK_SORT_SHUFFLE_MIN_BUFFERS);
         networkBufferSize = ConfigurationParserUtils.getPageSize(conf);
+        baseDfsPath =
+                conf.getString(
+                        NettyShuffleEnvironmentOptions
+                                .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH);
+        enableTieredStoreForHybridShuffle =
+                conf.getBoolean(
+                        NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE);
 
         checkArgument(
                 !maxRequiredBuffersPerGate.isPresent() || maxRequiredBuffersPerGate.get() >= 1,
@@ -94,7 +112,8 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                         producerDescriptor.getProducerLocation(),
                         createConnectionInfo(
                                 producerDescriptor, partitionDescriptor.getConnectionIndex()),
-                        resultPartitionID);
+                        resultPartitionID,
+                        partitionDescriptor.isBroadcast());
 
         return CompletableFuture.completedFuture(shuffleDeploymentDescriptor);
     }
@@ -130,6 +149,7 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                         maxRequiredBuffersPerGate,
                         sortShuffleMinParallelism,
                         sortShuffleMinBuffers,
+                        enableTieredStoreForHybridShuffle,
                         desc.getInputChannelNums(),
                         desc.getPartitionReuseCount(),
                         desc.getSubpartitionNums(),
@@ -137,5 +157,16 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                         desc.getPartitionTypes());
 
         return new MemorySize((long) networkBufferSize * numRequiredNetworkBuffers);
+    }
+
+    @Override
+    public void unregisterJob(JobID jobID) {
+        if (baseDfsPath != null) {
+            try {
+                deleteJobBasePath(jobID, baseDfsPath);
+            } catch (IOException e) {
+                LOG.error("Failed to delete shuffle files.", e);
+            }
+        }
     }
 }

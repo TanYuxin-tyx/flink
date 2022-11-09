@@ -126,7 +126,7 @@ public abstract class ResultSubpartition {
         private final Buffer buffer;
         private final int buffersInBacklog;
         private final Buffer.DataType nextDataType;
-        private final int sequenceNumber;
+        private int sequenceNumber;
 
         public BufferAndBacklog(
                 Buffer buffer,
@@ -161,6 +161,10 @@ public abstract class ResultSubpartition {
 
         public int getSequenceNumber() {
             return sequenceNumber;
+        }
+
+        public void setSequenceNumber(int sequenceNumber) {
+            this.sequenceNumber = sequenceNumber;
         }
 
         public static BufferAndBacklog fromBufferAndLookahead(

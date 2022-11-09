@@ -41,6 +41,7 @@ import org.apache.flink.runtime.io.network.partition.PrioritizedDeque;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReader;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -117,7 +118,7 @@ public class SingleInputGate extends IndexedInputGate {
     private static final Logger LOG = LoggerFactory.getLogger(SingleInputGate.class);
 
     /** Lock object to guard partition requests and runtime channel updates. */
-    private final Object requestLock = new Object();
+    protected final Object requestLock = new Object();
 
     /** The name of the owning task, for logging purposes. */
     private final String owningTaskName;
@@ -142,35 +143,35 @@ public class SingleInputGate extends IndexedInputGate {
     private final IndexRange subpartitionIndexRange;
 
     /** The number of input channels (equivalent to the number of consumed partitions). */
-    private final int numberOfInputChannels;
+    protected final int numberOfInputChannels;
 
     /**
      * Input channels. There is one input channel for each consumed subpartition. We store this in a
      * map for runtime updates of single channels.
      */
-    private final Map<SubpartitionInfo, InputChannel> inputChannels;
+    protected final Map<SubpartitionInfo, InputChannel> inputChannels;
 
     @GuardedBy("requestLock")
-    private final InputChannel[] channels;
+    protected final InputChannel[] channels;
 
     /** Channels, which notified this input gate about available data. */
-    private final PrioritizedDeque<InputChannel> inputChannelsWithData = new PrioritizedDeque<>();
+    protected final PrioritizedDeque<InputChannel> inputChannelsWithData = new PrioritizedDeque<>();
 
     /**
      * Field guaranteeing uniqueness for inputChannelsWithData queue. Both of those fields should be
      * unified onto one.
      */
     @GuardedBy("inputChannelsWithData")
-    private final BitSet enqueuedInputChannelsWithData;
+    protected final BitSet enqueuedInputChannelsWithData;
 
     @GuardedBy("inputChannelsWithData")
-    private final BitSet channelsWithEndOfPartitionEvents;
+    protected final BitSet channelsWithEndOfPartitionEvents;
 
     @GuardedBy("inputChannelsWithData")
     private final BitSet channelsWithEndOfUserRecords;
 
     @GuardedBy("inputChannelsWithData")
-    private int[] lastPrioritySequenceNumber;
+    protected int[] lastPrioritySequenceNumber;
 
     /** The partition producer state listener. */
     private final PartitionProducerStateProvider partitionProducerStateProvider;
@@ -181,12 +182,12 @@ public class SingleInputGate extends IndexedInputGate {
      */
     private BufferPool bufferPool;
 
-    private boolean hasReceivedAllEndOfPartitionEvents;
+    protected boolean hasReceivedAllEndOfPartitionEvents;
 
     private boolean hasReceivedEndOfData;
 
     /** Flag indicating whether partitions have been requested. */
-    private boolean requestedPartitionsFlag;
+    protected boolean requestedPartitionsFlag;
 
     private final List<TaskEvent> pendingEvents = new ArrayList<>();
 
@@ -211,6 +212,9 @@ public class SingleInputGate extends IndexedInputGate {
 
     private final ThroughputCalculator throughputCalculator;
     private final BufferDebloater bufferDebloater;
+
+    @Nullable private final TieredStoreReader tieredStoreReader;
+
     private boolean shouldDrainOnEndOfData = true;
 
     public SingleInputGate(
@@ -226,7 +230,8 @@ public class SingleInputGate extends IndexedInputGate {
             MemorySegmentProvider memorySegmentProvider,
             int segmentSize,
             ThroughputCalculator throughputCalculator,
-            @Nullable BufferDebloater bufferDebloater) {
+            @Nullable BufferDebloater bufferDebloater,
+            @Nullable TieredStoreReader tieredStoreReader) {
 
         this.owningTaskName = checkNotNull(owningTaskName);
         Preconditions.checkArgument(0 <= gateIndex, "The gate index must be positive.");
@@ -259,6 +264,7 @@ public class SingleInputGate extends IndexedInputGate {
         this.unpooledSegment = MemorySegmentFactory.allocateUnpooledSegment(segmentSize);
         this.bufferDebloater = bufferDebloater;
         this.throughputCalculator = checkNotNull(throughputCalculator);
+        this.tieredStoreReader = tieredStoreReader;
     }
 
     protected PrioritizedDeque<InputChannel> getInputChannelsWithData() {
@@ -273,7 +279,9 @@ public class SingleInputGate extends IndexedInputGate {
 
         BufferPool bufferPool = bufferPoolFactory.get();
         setBufferPool(bufferPool);
-
+        if (tieredStoreReader != null) {
+            tieredStoreReader.setup(channels, channel -> queueChannel(channel, null, false));
+        }
         setupChannels();
     }
 
@@ -336,7 +344,7 @@ public class SingleInputGate extends IndexedInputGate {
         }
     }
 
-    private void internalRequestPartitions() {
+    protected void internalRequestPartitions() {
         for (InputChannel inputChannel : inputChannels.values()) {
             try {
                 inputChannel.requestSubpartition();
@@ -387,7 +395,7 @@ public class SingleInputGate extends IndexedInputGate {
     }
 
     @VisibleForTesting
-    int getBuffersInUseCount() {
+    public int getBuffersInUseCount() {
         int total = 0;
         for (InputChannel channel : channels) {
             total += channel.getBuffersInUseCount();
@@ -438,7 +446,7 @@ public class SingleInputGate extends IndexedInputGate {
         return bufferPool;
     }
 
-    MemorySegmentProvider getMemorySegmentProvider() {
+    public MemorySegmentProvider getMemorySegmentProvider() {
         return memorySegmentProvider;
     }
 
@@ -491,6 +499,10 @@ public class SingleInputGate extends IndexedInputGate {
     @Override
     public InputChannel getChannel(int channelIndex) {
         return channels[channelIndex];
+    }
+
+    public InputChannel[] getChannels() {
+        return channels;
     }
 
     // ------------------------------------------------------------------------
@@ -578,11 +590,13 @@ public class SingleInputGate extends IndexedInputGate {
                     if (isLocal) {
                         newChannel =
                                 unknownChannel.toLocalInputChannel(
-                                        shuffleDescriptor.getResultPartitionID());
+                                        shuffleDescriptor.getResultPartitionID(),
+                                        shuffleDescriptor.isUpstreamBroadcastOnly());
                     } else {
                         RemoteInputChannel remoteInputChannel =
                                 unknownChannel.toRemoteInputChannel(
-                                        shuffleDescriptor.getConnectionId());
+                                        shuffleDescriptor.getConnectionId(),
+                                        shuffleDescriptor.isUpstreamBroadcastOnly());
                         remoteInputChannel.setup();
                         newChannel = remoteInputChannel;
                     }
@@ -692,6 +706,9 @@ public class SingleInputGate extends IndexedInputGate {
             synchronized (inputChannelsWithData) {
                 inputChannelsWithData.notifyAll();
             }
+            if (tieredStoreReader != null) {
+                tieredStoreReader.close();
+            }
         }
     }
 
@@ -766,7 +783,7 @@ public class SingleInputGate extends IndexedInputGate {
         return Optional.of(bufferOrEvent);
     }
 
-    private Optional<InputWithData<InputChannel, BufferAndAvailability>> waitAndGetNextData(
+    public Optional<InputWithData<InputChannel, BufferAndAvailability>> waitAndGetNextData(
             boolean blocking) throws IOException, InterruptedException {
         while (true) {
             synchronized (inputChannelsWithData) {
@@ -774,11 +791,13 @@ public class SingleInputGate extends IndexedInputGate {
                 if (!inputChannelOpt.isPresent()) {
                     return Optional.empty();
                 }
-
                 final InputChannel inputChannel = inputChannelOpt.get();
-                Optional<BufferAndAvailability> bufferAndAvailabilityOpt =
-                        inputChannel.getNextBuffer();
-
+                Optional<BufferAndAvailability> bufferAndAvailabilityOpt;
+                if (tieredStoreReader != null) {
+                    bufferAndAvailabilityOpt = tieredStoreReader.getNextBuffer(inputChannel);
+                } else {
+                    bufferAndAvailabilityOpt = inputChannel.getNextBuffer();
+                }
                 if (!bufferAndAvailabilityOpt.isPresent()) {
                     checkUnavailability();
                     continue;
@@ -812,7 +831,7 @@ public class SingleInputGate extends IndexedInputGate {
         }
     }
 
-    private void checkUnavailability() {
+    public void checkUnavailability() {
         assert Thread.holdsLock(inputChannelsWithData);
 
         if (inputChannelsWithData.isEmpty()) {
@@ -912,7 +931,7 @@ public class SingleInputGate extends IndexedInputGate {
         return buffer;
     }
 
-    private void markAvailable() {
+    protected void markAvailable() {
         CompletableFuture<?> toNotify;
         synchronized (inputChannelsWithData) {
             toNotify = availabilityHelper.getUnavailableToResetAvailable();
@@ -953,7 +972,7 @@ public class SingleInputGate extends IndexedInputGate {
     // Channel notifications
     // ------------------------------------------------------------------------
 
-    void notifyChannelNonEmpty(InputChannel channel) {
+    public void notifyChannelNonEmpty(InputChannel channel) {
         queueChannel(checkNotNull(channel), null, false);
     }
 
@@ -994,7 +1013,7 @@ public class SingleInputGate extends IndexedInputGate {
                 }));
     }
 
-    private void queueChannel(
+    protected void queueChannel(
             InputChannel channel, @Nullable Integer prioritySequenceNumber, boolean forcePriority) {
         try (GateNotificationHelper notification =
                 new GateNotificationHelper(this, inputChannelsWithData)) {
@@ -1042,7 +1061,7 @@ public class SingleInputGate extends IndexedInputGate {
      * @return true iff it has been enqueued/prioritized = some change to {@link
      *     #inputChannelsWithData} happened
      */
-    private boolean queueChannelUnsafe(InputChannel channel, boolean priority) {
+    public boolean queueChannelUnsafe(InputChannel channel, boolean priority) {
         assert Thread.holdsLock(inputChannelsWithData);
         if (channelsWithEndOfPartitionEvents.get(channel.getChannelIndex())) {
             return false;
@@ -1063,22 +1082,26 @@ public class SingleInputGate extends IndexedInputGate {
         return true;
     }
 
-    private Optional<InputChannel> getChannel(boolean blocking) throws InterruptedException {
+    public Optional<InputChannel> getChannel(boolean blocking) throws InterruptedException {
         assert Thread.holdsLock(inputChannelsWithData);
-
+        LOG.debug("getChannel 1");
         while (inputChannelsWithData.isEmpty()) {
+            LOG.debug("getChannel 2");
             if (closeFuture.isDone()) {
+                LOG.debug("getChannel 3");
                 throw new IllegalStateException("Released");
             }
-
+            LOG.debug("getChannel 4");
             if (blocking) {
+                LOG.debug("getChannel 5");
                 inputChannelsWithData.wait();
             } else {
+                LOG.debug("getChannel 6");
                 availabilityHelper.resetUnavailable();
                 return Optional.empty();
             }
         }
-
+        LOG.debug("getChannel 7");
         InputChannel inputChannel = inputChannelsWithData.poll();
         enqueuedInputChannelsWithData.clear(inputChannel.getChannelIndex());
 
@@ -1091,11 +1114,11 @@ public class SingleInputGate extends IndexedInputGate {
         return inputChannels;
     }
 
-    static class SubpartitionInfo {
+    public static class SubpartitionInfo {
         private final IntermediateResultPartitionID partitionID;
         private final int subpartitionIndex;
 
-        SubpartitionInfo(IntermediateResultPartitionID partitionID, int subpartitionIndex) {
+        public SubpartitionInfo(IntermediateResultPartitionID partitionID, int subpartitionIndex) {
             this.partitionID = checkNotNull(partitionID);
             checkArgument(subpartitionIndex >= 0);
             this.subpartitionIndex = subpartitionIndex;

@@ -112,7 +112,6 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
             final RemoteInputChannel inputChannel,
             int delayMs)
             throws IOException {
-
         checkNotClosed();
 
         LOG.debug(
@@ -122,14 +121,12 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
                 delayMs);
 
         clientHandler.addInputChannel(inputChannel);
-
         final PartitionRequest request =
                 new PartitionRequest(
                         partitionId,
                         subpartitionIndex,
                         inputChannel.getInputChannelId(),
                         inputChannel.getInitialCredit());
-
         final ChannelFutureListener listener =
                 future -> {
                     if (!future.isSuccess()) {
@@ -281,6 +278,11 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
         }
     }
 
+    @Override
+    public void notifyRequiredSegmentId(int segmentId, RemoteInputChannel inputChannel) {
+        sendToChannel(new SegmentIdMessage(segmentId, inputChannel));
+    }
+
     private static class AddCreditMessage extends ClientOutboundMessage {
 
         private AddCreditMessage(RemoteInputChannel inputChannel) {
@@ -293,6 +295,21 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
             return credits > 0
                     ? new NettyMessage.AddCredit(credits, inputChannel.getInputChannelId())
                     : null;
+        }
+    }
+
+    private static class SegmentIdMessage extends ClientOutboundMessage {
+
+        private final int segmentId;
+
+        private SegmentIdMessage(int segmentId, RemoteInputChannel inputChannel) {
+            super(checkNotNull(inputChannel));
+            this.segmentId = segmentId;
+        }
+
+        @Override
+        Object buildMessage() {
+            return new NettyMessage.SegmentId(segmentId, inputChannel.getInputChannelId());
         }
     }
 

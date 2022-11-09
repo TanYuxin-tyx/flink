@@ -66,6 +66,8 @@ public interface NetworkSequenceViewReader {
      */
     ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog();
 
+    void notifyRequiredSegmentId(int segmentId);
+
     boolean isRegisteredAsAvailable();
 
     /**

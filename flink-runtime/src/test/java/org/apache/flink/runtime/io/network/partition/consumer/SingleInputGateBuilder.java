@@ -29,6 +29,7 @@ import org.apache.flink.runtime.io.network.buffer.NoOpBufferPool;
 import org.apache.flink.runtime.io.network.partition.InputChannelTestUtils;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReader;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.taskmanager.NettyShuffleEnvironmentConfiguration;
 import org.apache.flink.runtime.throughput.BufferDebloatConfiguration;
@@ -79,6 +80,8 @@ public class SingleInputGateBuilder {
             BufferDebloatConfiguration.fromConfiguration(new Configuration());
     private Function<BufferDebloatConfiguration, ThroughputCalculator> createThroughputCalculator =
             config -> new ThroughputCalculator(SystemClock.getInstance());
+
+    @Nullable private TieredStoreReader tieredStoreReader = null;
 
     public SingleInputGateBuilder setPartitionProducerStateProvider(
             PartitionProducerStateProvider partitionProducerStateProvider) {
@@ -157,6 +160,11 @@ public class SingleInputGateBuilder {
         return this;
     }
 
+    public SingleInputGateBuilder setTieredStoreReader(@Nullable TieredStoreReader tieredStoreReader) {
+        this.tieredStoreReader = tieredStoreReader;
+        return this;
+    }
+
     public SingleInputGate build() {
         SingleInputGate gate =
                 new SingleInputGate(
@@ -172,7 +180,8 @@ public class SingleInputGateBuilder {
                         segmentProvider,
                         bufferSize,
                         createThroughputCalculator.apply(bufferDebloatConfiguration),
-                        maybeCreateBufferDebloater(gateIndex));
+                        maybeCreateBufferDebloater(gateIndex),
+                        tieredStoreReader);
         if (channelFactory != null) {
             gate.setInputChannels(
                     IntStream.range(0, numberOfChannels)

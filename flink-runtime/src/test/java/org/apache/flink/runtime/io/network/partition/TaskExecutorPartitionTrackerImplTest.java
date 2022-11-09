@@ -258,9 +258,12 @@ public class TaskExecutorPartitionTrackerImplTest extends TestLogger {
 
         @Override
         public ShuffleIOOwnerContext createShuffleIOOwnerContext(
-                String ownerName, ExecutionAttemptID executionAttemptID, MetricGroup parentGroup) {
+                JobID jobID,
+                String ownerName,
+                ExecutionAttemptID executionAttemptID,
+                MetricGroup parentGroup) {
             return backingShuffleEnvironment.createShuffleIOOwnerContext(
-                    ownerName, executionAttemptID, parentGroup);
+                    jobID, ownerName, executionAttemptID, parentGroup);
         }
 
         @Override

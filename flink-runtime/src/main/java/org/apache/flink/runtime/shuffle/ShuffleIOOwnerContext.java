@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.shuffle;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 
@@ -27,6 +28,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * Context of shuffle input/output owner used to create partitions or gates belonging to the owner.
  */
 public class ShuffleIOOwnerContext {
+
+    private final JobID jobID;
+
     private final String ownerName;
     private final ExecutionAttemptID executionAttemptID;
     private final MetricGroup parentGroup;
@@ -34,16 +38,22 @@ public class ShuffleIOOwnerContext {
     private final MetricGroup inputGroup;
 
     public ShuffleIOOwnerContext(
+            JobID jobID,
             String ownerName,
             ExecutionAttemptID executionAttemptID,
             MetricGroup parentGroup,
             MetricGroup outputGroup,
             MetricGroup inputGroup) {
+        this.jobID = checkNotNull(jobID);
         this.ownerName = checkNotNull(ownerName);
         this.executionAttemptID = checkNotNull(executionAttemptID);
         this.parentGroup = checkNotNull(parentGroup);
         this.outputGroup = checkNotNull(outputGroup);
         this.inputGroup = checkNotNull(inputGroup);
+    }
+
+    public JobID getJobID() {
+        return jobID;
     }
 
     public String getOwnerName() {

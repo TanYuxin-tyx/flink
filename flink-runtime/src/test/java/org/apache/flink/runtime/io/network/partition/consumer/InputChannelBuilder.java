@@ -80,7 +80,7 @@ public class InputChannelBuilder {
         return this;
     }
 
-    InputChannelBuilder setTaskEventPublisher(TaskEventPublisher taskEventPublisher) {
+    public InputChannelBuilder setTaskEventPublisher(TaskEventPublisher taskEventPublisher) {
         this.taskEventPublisher = taskEventPublisher;
         return this;
     }
@@ -124,7 +124,7 @@ public class InputChannelBuilder {
         return this;
     }
 
-    UnknownInputChannel buildUnknownChannel(SingleInputGate inputGate) {
+    public UnknownInputChannel buildUnknownChannel(SingleInputGate inputGate) {
         UnknownInputChannel channel =
                 new UnknownInputChannel(
                         inputGate,
@@ -154,7 +154,8 @@ public class InputChannelBuilder {
                 maxBackoff,
                 metrics.getNumBytesInLocalCounter(),
                 metrics.getNumBuffersInLocalCounter(),
-                stateWriter);
+                stateWriter,
+                false);
     }
 
     public RemoteInputChannel buildRemoteChannel(SingleInputGate inputGate) {
@@ -170,7 +171,8 @@ public class InputChannelBuilder {
                 networkBuffersPerChannel,
                 metrics.getNumBytesInRemoteCounter(),
                 metrics.getNumBuffersInRemoteCounter(),
-                stateWriter);
+                stateWriter,
+                false);
     }
 
     public LocalRecoveredInputChannel buildLocalRecoveredChannel(SingleInputGate inputGate) {
@@ -185,7 +187,8 @@ public class InputChannelBuilder {
                         initialBackoff,
                         maxBackoff,
                         networkBuffersPerChannel,
-                        metrics);
+                        metrics,
+                        false);
         channel.setChannelStateWriter(stateWriter);
         return channel;
     }
@@ -202,7 +205,8 @@ public class InputChannelBuilder {
                         initialBackoff,
                         maxBackoff,
                         networkBuffersPerChannel,
-                        metrics);
+                        metrics,
+                        false);
         channel.setChannelStateWriter(stateWriter);
         return channel;
     }

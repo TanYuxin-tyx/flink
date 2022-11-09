@@ -108,6 +108,14 @@ public class NettyShuffleEnvironmentConfiguration {
 
     private final long hybridShuffleNumRetainedInMemoryRegionsMax;
 
+    private final float minReservedDiskSpaceFraction;
+
+    private final boolean enableTieredStoreForHybridShuffle;
+
+    @Nullable private final String baseRemoteStoragePath;
+
+    private final String tieredStoreTiers;
+
     public NettyShuffleEnvironmentConfiguration(
             int numNetworkBuffers,
             int networkBufferSize,
@@ -132,7 +140,11 @@ public class NettyShuffleEnvironmentConfiguration {
             boolean connectionReuseEnabled,
             int maxOverdraftBuffersPerGate,
             int hybridShuffleSpilledIndexSegmentSize,
-            long hybridShuffleNumRetainedInMemoryRegionsMax) {
+            long hybridShuffleNumRetainedInMemoryRegionsMax,
+            @Nullable String baseRemoteStoragePath,
+            float minReservedDiskSpaceFraction,
+            boolean enableTieredStoreForHybridShuffle,
+            String tieredStoreTiers) {
 
         this.numNetworkBuffers = numNetworkBuffers;
         this.networkBufferSize = networkBufferSize;
@@ -159,6 +171,10 @@ public class NettyShuffleEnvironmentConfiguration {
         this.hybridShuffleSpilledIndexSegmentSize = hybridShuffleSpilledIndexSegmentSize;
         this.hybridShuffleNumRetainedInMemoryRegionsMax =
                 hybridShuffleNumRetainedInMemoryRegionsMax;
+        this.baseRemoteStoragePath = baseRemoteStoragePath;
+        this.enableTieredStoreForHybridShuffle = enableTieredStoreForHybridShuffle;
+        this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
+        this.tieredStoreTiers = tieredStoreTiers;
     }
 
     // ------------------------------------------------------------------------
@@ -263,6 +279,22 @@ public class NettyShuffleEnvironmentConfiguration {
         return hybridShuffleSpilledIndexSegmentSize;
     }
 
+    public String getBaseRemoteStoragePath() {
+        return baseRemoteStoragePath;
+    }
+
+    public float minReservedDiskSpaceFraction() {
+        return minReservedDiskSpaceFraction;
+    }
+
+    public boolean enableTieredStoreForHybridShuffle() {
+        return enableTieredStoreForHybridShuffle;
+    }
+
+    public String getTieredStoreTiers() {
+        return tieredStoreTiers;
+    }
+
     // ------------------------------------------------------------------------
 
     /**
@@ -346,6 +378,10 @@ public class NettyShuffleEnvironmentConfiguration {
                         configuration.getLong(
                                 NettyShuffleEnvironmentOptions
                                         .NETWORK_EXCLUSIVE_BUFFERS_REQUEST_TIMEOUT_MILLISECONDS));
+        float minReservedDiskSpaceFraction =
+                configuration.get(
+                        NettyShuffleEnvironmentOptions
+                                .NETWORK_HYBRID_SHUFFLE_LOCAL_DISK_MIN_RESERVE_SPACE_FRACTION);
 
         BoundedBlockingSubpartitionType blockingSubpartitionType =
                 getBlockingSubpartitionType(configuration);
@@ -387,6 +423,20 @@ public class NettyShuffleEnvironmentConfiguration {
                         "The configured floating buffer should be at least 1, please increase the value of %s.",
                         NettyShuffleEnvironmentOptions.NETWORK_EXTRA_BUFFERS_PER_GATE.key()));
 
+        checkArgument(minReservedDiskSpaceFraction >= 0, "Must be non-negative.");
+
+        String baseDfsHomePath =
+                configuration.getString(
+                        NettyShuffleEnvironmentOptions
+                                .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH);
+
+        boolean enableTieredStoreForHybridShuffle =
+                configuration.get(
+                        NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE);
+
+        String tieredStoreTiers =
+                configuration.get(NettyShuffleEnvironmentOptions.TIERED_STORE_TIERS);
+
         return new NettyShuffleEnvironmentConfiguration(
                 numberOfNetworkBuffers,
                 pageSize,
@@ -411,7 +461,11 @@ public class NettyShuffleEnvironmentConfiguration {
                 connectionReuseEnabled,
                 maxOverdraftBuffersPerGate,
                 hybridShuffleSpilledIndexSegmentSize,
-                hybridShuffleNumRetainedInMemoryRegionsMax);
+                hybridShuffleNumRetainedInMemoryRegionsMax,
+                baseDfsHomePath,
+                minReservedDiskSpaceFraction,
+                enableTieredStoreForHybridShuffle,
+                tieredStoreTiers);
     }
 
     /**

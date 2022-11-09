@@ -19,6 +19,7 @@
 package org.apache.flink.configuration;
 
 import org.apache.flink.annotation.Experimental;
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.docs.Documentation;
 
@@ -378,6 +379,55 @@ public class NettyShuffleEnvironmentOptions {
                                     + "the number of required buffers is not the same for local buffer pools, there may be deadlock cases that the upstream"
                                     + "tasks have occupied all the buffers and the downstream tasks are waiting for the exclusive buffers. The timeout breaks"
                                     + "the tie by failing the request of exclusive buffers and ask users to increase the number of total buffers.");
+
+    @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+    public static final ConfigOption<Float>
+            NETWORK_HYBRID_SHUFFLE_LOCAL_DISK_MIN_RESERVE_SPACE_FRACTION =
+                    key("taskmanager.network.hybrid-shuffle.local-disk.min-reserve-space-fraction")
+                            .floatType()
+                            .defaultValue(0.05f)
+                            .withDescription(
+                                    "The minimum reserved space fraction per local disk when using"
+                                            + " Hybrid Shuffle. When using a local disk to store"
+                                            + " shuffle data, the local disk space may be exhausted"
+                                            + " if it is used without any limit, leading to job"
+                                            + " failures. This option controls the minimum reserved"
+                                            + " disk space fraction which cannot be used to store the"
+                                            + " shuffle data. When the left available disk space"
+                                            + " fraction reaches this limit, the new arriving data"
+                                            + " will be written to the remote storage, if the remote"
+                                            + " storage is not configured, an exception will be"
+                                            + " thrown.");
+
+    @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+    public static final ConfigOption<String> NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH =
+            key("taskmanager.network.hybrid-shuffle.remote.path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The base home path of remote storage to store shuffle data. If the"
+                                    + " option is configured, Hybrid Shuffle will use the remote"
+                                    + " storage path as a supplement to the local disks. If not"
+                                    + " configured, the remote storage will not be used.");
+
+    @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+    @Experimental
+    public static final ConfigOption<Boolean> NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE =
+            ConfigOptions.key("taskmanager.network.hybrid-shuffle.enable-tiered-store")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "This is a temporary configuration to enable the tiered store for Hybrid"
+                                    + " Shuffle. In the future, when the tiered store reaches the"
+                                    + " releasable status to replace the old Hybrid Shuffle, this"
+                                    + " option will be removed.");
+
+    @Internal
+    public static final ConfigOption<String> TIERED_STORE_TIERS =
+            key("tiered.store.tiers")
+                    .stringType()
+                    .defaultValue("MEMORY_DISK")
+                    .withDescription("The tiers of Tiered Store");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
     public static final ConfigOption<String> NETWORK_BLOCKING_SHUFFLE_TYPE =

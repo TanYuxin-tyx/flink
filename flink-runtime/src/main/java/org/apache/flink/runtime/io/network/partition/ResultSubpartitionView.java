@@ -73,6 +73,8 @@ public interface ResultSubpartitionView {
 
     void notifyNewBufferSize(int newBufferSize);
 
+    default void notifyRequiredSegmentId(int segmentId) {}
+
     /**
      * Availability of the {@link ResultSubpartitionView} and the backlog in the corresponding
      * {@link ResultSubpartition}.

@@ -178,13 +178,13 @@ public abstract class InputChannel {
      * Requests the subpartition specified by {@link #partitionId} and {@link
      * #consumedSubpartitionIndex}.
      */
-    abstract void requestSubpartition() throws IOException, InterruptedException;
+    public abstract void requestSubpartition() throws IOException, InterruptedException;
 
     /**
      * Returns the next buffer from the consumed subpartition or {@code Optional.empty()} if there
      * is no data to return.
      */
-    abstract Optional<BufferAndAvailability> getNextBuffer()
+    public abstract Optional<BufferAndAvailability> getNextBuffer()
             throws IOException, InterruptedException;
 
     /**
@@ -235,7 +235,7 @@ public abstract class InputChannel {
      * <p>Note: Any {@link PartitionException} instances should not be transformed and make sure
      * they are always visible in task failure cause.
      */
-    protected void checkError() throws IOException {
+    public void checkError() throws IOException {
         final Throwable t = cause.get();
 
         if (t != null) {
@@ -254,7 +254,7 @@ public abstract class InputChannel {
      * Atomically sets an error for this channel and notifies the input gate about available data to
      * trigger querying this channel by the task thread.
      */
-    protected void setError(Throwable cause) {
+    public void setError(Throwable cause) {
         if (this.cause.compareAndSet(null, checkNotNull(cause))) {
             // Notify the input gate.
             notifyChannelNonEmpty();
@@ -266,7 +266,7 @@ public abstract class InputChannel {
     // ------------------------------------------------------------------------
 
     /** Returns the current backoff in ms. */
-    protected int getCurrentBackoff() {
+    public int getCurrentBackoff() {
         return currentBackoff <= 0 ? 0 : currentBackoff;
     }
 
@@ -275,7 +275,7 @@ public abstract class InputChannel {
      *
      * @return <code>true</code>, iff the operation was successful. Otherwise, <code>false</code>.
      */
-    protected boolean increaseBackoff() {
+    public boolean increaseBackoff() {
         // Backoff is disabled
         if (currentBackoff < 0) {
             return false;
@@ -310,6 +310,16 @@ public abstract class InputChannel {
     public long unsynchronizedGetSizeOfQueuedBuffers() {
         return 0;
     }
+
+    // ------------------------------------------------------------------------
+    //  For Tiered Store
+    // ------------------------------------------------------------------------
+
+    public boolean isUpstreamBroadcastOnly() {
+        return false;
+    }
+
+    public void notifyRequiredSegmentId(int segmentId) {}
 
     // ------------------------------------------------------------------------
 

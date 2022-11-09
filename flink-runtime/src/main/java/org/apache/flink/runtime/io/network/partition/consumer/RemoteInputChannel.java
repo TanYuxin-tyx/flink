@@ -115,6 +115,8 @@ public class RemoteInputChannel extends InputChannel {
 
     private long totalQueueSizeInBytes;
 
+    private final boolean isUpstreamBroadcast;
+
     public RemoteInputChannel(
             SingleInputGate inputGate,
             int channelIndex,
@@ -127,7 +129,8 @@ public class RemoteInputChannel extends InputChannel {
             int networkBuffersPerChannel,
             Counter numBytesIn,
             Counter numBuffersIn,
-            ChannelStateWriter stateWriter) {
+            ChannelStateWriter stateWriter,
+            boolean isUpstreamBroadcast) {
 
         super(
                 inputGate,
@@ -145,6 +148,7 @@ public class RemoteInputChannel extends InputChannel {
         this.connectionManager = checkNotNull(connectionManager);
         this.bufferManager = new BufferManager(inputGate.getMemorySegmentProvider(), this, 0);
         this.channelStatePersister = new ChannelStatePersister(stateWriter, getChannelInfo());
+        this.isUpstreamBroadcast = isUpstreamBroadcast;
     }
 
     @VisibleForTesting
@@ -208,7 +212,7 @@ public class RemoteInputChannel extends InputChannel {
     }
 
     @Override
-    Optional<BufferAndAvailability> getNextBuffer() throws IOException {
+    public Optional<BufferAndAvailability> getNextBuffer() throws IOException {
         checkPartitionRequestQueueInitialized();
 
         final SequenceBuffer next;
@@ -272,7 +276,7 @@ public class RemoteInputChannel extends InputChannel {
 
     /** Releases all exclusive and floating buffers, closes the partition request client. */
     @Override
-    void releaseAllResources() throws IOException {
+    public void releaseAllResources() throws IOException {
         if (isReleased.compareAndSet(false, true)) {
 
             final ArrayDeque<Buffer> releasedBuffers;
@@ -371,7 +375,7 @@ public class RemoteInputChannel extends InputChannel {
     }
 
     @VisibleForTesting
-    PartitionRequestClient getPartitionRequestClient() {
+    public PartitionRequestClient getPartitionRequestClient() {
         return partitionRequestClient;
     }
 
@@ -511,6 +515,7 @@ public class RemoteInputChannel extends InputChannel {
      * @param backlog The number of unsent buffers in the producer's sub partition.
      */
     public void onSenderBacklog(int backlog) throws IOException {
+        LOG.debug("%%% notify the backlog is, {}", backlog);
         notifyBufferAvailable(bufferManager.requestFloatingBuffers(backlog + initialCredit));
     }
 
@@ -811,6 +816,20 @@ public class RemoteInputChannel extends InputChannel {
         checkState(
                 partitionRequestClient != null,
                 "Bug: partitionRequestClient is not initialized before processing data and no error is detected.");
+    }
+
+    // ------------------------------------------------------------------------
+    // For Tiered Store
+    // ------------------------------------------------------------------------
+
+    @Override
+    public boolean isUpstreamBroadcastOnly() {
+        return isUpstreamBroadcast;
+    }
+
+    @Override
+    public void notifyRequiredSegmentId(int segmentId) {
+        partitionRequestClient.notifyRequiredSegmentId(segmentId, this);
     }
 
     private static class BufferReorderingException extends IOException {
