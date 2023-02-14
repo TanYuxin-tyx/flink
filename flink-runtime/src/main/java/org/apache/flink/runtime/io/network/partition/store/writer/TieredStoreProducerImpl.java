@@ -191,12 +191,16 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         if (tierDataGates.length == 2
                 && tierDataGates[0] instanceof MemoryDataManager
                 && tierDataGates[1] instanceof LocalFileDataManager) {
-            if (tierDataGates[0].canStoreNextSegment(targetSubpartition)) {
+            if (!isBroadcastOnly && tierDataGates[0].canStoreNextSegment(targetSubpartition)) {
                 return 0;
             }
             return 1;
         }
         for (int tierGateIndex = 0; tierGateIndex < tierDataGates.length; ++tierGateIndex) {
+            SingleTierDataGate tierDataGate = tierDataGates[tierGateIndex];
+            if (isBroadcastOnly && tierDataGate instanceof MemoryDataManager) {
+                continue;
+            }
             if (tierDataGates[tierGateIndex].canStoreNextSegment(targetSubpartition)) {
                 return tierGateIndex;
             }

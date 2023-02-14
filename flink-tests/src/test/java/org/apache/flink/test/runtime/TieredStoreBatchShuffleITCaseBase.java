@@ -26,7 +26,6 @@ import org.apache.flink.configuration.BatchExecutionOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.CoreOptions;
 import org.apache.flink.configuration.ExecutionOptions;
-import org.apache.flink.configuration.JobManagerOptions;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobType;
@@ -131,7 +130,6 @@ public class TieredStoreBatchShuffleITCaseBase {
             numReceivedRecords = new int[parallelism];
         }
         configuration.setBoolean(BatchExecutionOptions.ADAPTIVE_AUTO_PARALLELISM_ENABLED, false);
-        configuration.setString(JobManagerOptions.SCHEDULER.key(), "Default");
         StreamExecutionEnvironment env =
                 StreamExecutionEnvironment.getExecutionEnvironment(configuration);
         env.setRestartStrategy(RestartStrategies.fixedDelayRestart(10, 0L));
