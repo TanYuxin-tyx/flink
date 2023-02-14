@@ -65,6 +65,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
     }
 
     @Test
+    @Disabled("Broadcast is not supported when only memory tier is exist")
     void testTieredStoreMemoryBroadcast() throws Exception {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
