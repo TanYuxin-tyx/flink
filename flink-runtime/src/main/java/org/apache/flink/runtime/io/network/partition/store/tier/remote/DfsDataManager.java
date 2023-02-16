@@ -30,7 +30,6 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.common.DataManagerOperation;
 import org.apache.flink.runtime.io.network.partition.store.common.SingleTierDataGate;
 import org.apache.flink.runtime.io.network.partition.store.common.SingleTierReader;
 import org.apache.flink.runtime.io.network.partition.store.common.SingleTierWriter;
@@ -46,7 +45,7 @@ import java.util.concurrent.CompletableFuture;
 import static org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsFileWriter.BROADCAST_CHANNEL;
 
 /** The DataManager of DFS. */
-public class DfsDataManager implements SingleTierDataGate, DataManagerOperation {
+public class DfsDataManager implements SingleTierDataGate {
 
     private final int numSubpartitions;
 
@@ -138,9 +137,6 @@ public class DfsDataManager implements SingleTierDataGate, DataManagerOperation 
     public boolean hasCurrentSegment(int subpartitionId, long segmentIndex) {
         return segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentIndex);
     }
-
-    @Override
-    public void onDataAvailable(int subpartitionId) {}
 
     @Override
     public void setOutputMetrics(OutputMetrics tieredStoreOutputMetrics) {
