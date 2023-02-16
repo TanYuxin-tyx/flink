@@ -104,8 +104,7 @@ public class CacheDataManager
     // ------------------------------------
 
     /**
-     * Append record to {@link CacheDataManager}, It will be managed by {@link
-     * SubpartitionConsumerCacheDataManager} witch it belongs to.
+     * Append record to {@link CacheDataManager}.
      *
      * @param record to be managed by this class.
      * @param targetChannel target subpartition of this record.
