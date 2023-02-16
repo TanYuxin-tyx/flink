@@ -22,8 +22,8 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 import org.apache.flink.util.function.SupplierWithException;
 
 import org.slf4j.Logger;
@@ -44,7 +44,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * SubpartitionConsumerMemoryDataManager} will create a new {@link
  * SubpartitionConsumerMemoryDataManager} when a consumer is registered.
  */
-public class SubpartitionConsumerMemoryDataManager implements TierReaderView {
+public class SubpartitionConsumerMemoryDataManager implements TierReader {
 
     private static final Logger LOG =
             LoggerFactory.getLogger(SubpartitionConsumerMemoryDataManager.class);
@@ -54,7 +54,7 @@ public class SubpartitionConsumerMemoryDataManager implements TierReaderView {
 
     private final Lock consumerLock;
 
-    private final TierReaderId tierReaderId;
+    private final TierReaderViewId tierReaderViewId;
 
     private final int subpartitionId;
 
@@ -63,11 +63,11 @@ public class SubpartitionConsumerMemoryDataManager implements TierReaderView {
     public SubpartitionConsumerMemoryDataManager(
             Lock consumerLock,
             int subpartitionId,
-            TierReaderId tierReaderId,
+            TierReaderViewId tierReaderViewId,
             MemoryDataWriterOperation memoryDataWriterOperation) {
         this.consumerLock = consumerLock;
         this.subpartitionId = subpartitionId;
-        this.tierReaderId = tierReaderId;
+        this.tierReaderViewId = tierReaderViewId;
         this.memoryDataWriterOperation = memoryDataWriterOperation;
     }
 
@@ -165,7 +165,7 @@ public class SubpartitionConsumerMemoryDataManager implements TierReaderView {
 
     @Override
     public void releaseDataView() {
-        memoryDataWriterOperation.onConsumerReleased(subpartitionId, tierReaderId);
+        memoryDataWriterOperation.onConsumerReleased(subpartitionId, tierReaderViewId);
     }
 
     @GuardedBy("consumerLock")

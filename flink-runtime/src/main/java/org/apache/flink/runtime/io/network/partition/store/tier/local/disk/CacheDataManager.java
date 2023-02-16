@@ -28,8 +28,8 @@ import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelp
 import org.apache.flink.runtime.io.network.partition.store.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.store.common.CacheBufferSpillTrigger;
 import org.apache.flink.runtime.io.network.partition.store.common.CacheBufferSpiller;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.concurrent.FutureUtils;
 
@@ -50,8 +50,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
-public class CacheDataManager
-        implements BufferSpillingInfoProvider, CacheDataManagerOperation, CacheBufferSpillTrigger {
+public class CacheDataManager implements CacheDataManagerOperation, CacheBufferSpillTrigger {
 
     private static final Logger LOG = LoggerFactory.getLogger(CacheDataManager.class);
 
@@ -71,7 +70,7 @@ public class CacheDataManager
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderId, SubpartitionConsumerInternalOperations>>
+    private final List<Map<TierReaderViewId, SubpartitionConsumerInternalOperations>>
             subpartitionViewOperationsMap;
 
     public CacheDataManager(
@@ -134,12 +133,14 @@ public class CacheDataManager
      * #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of the
      * subpartition.
      */
-    public TierReaderView registerNewConsumer(
+    public TierReader registerNewConsumer(
             int subpartitionId,
-            TierReaderId tierReaderId,
+            TierReaderViewId tierReaderViewId,
             SubpartitionConsumerInternalOperations viewOperations) {
         SubpartitionConsumerInternalOperations oldView =
-                subpartitionViewOperationsMap.get(subpartitionId).put(tierReaderId, viewOperations);
+                subpartitionViewOperationsMap
+                        .get(subpartitionId)
+                        .put(tierReaderViewId, viewOperations);
         Preconditions.checkState(
                 oldView == null, "Each subpartition view should have unique consumerId.");
         // return getSubpartitionMemoryDataManager(subpartitionId).registerNewConsumer(consumerId);
@@ -175,11 +176,6 @@ public class CacheDataManager
     // ------------------------------------
 
     @Override
-    public int getPoolSize() {
-        return bufferPoolHelper.numPoolSize();
-    }
-
-    @Override
     public int getNumSubpartitions() {
         return numSubpartitions;
     }
@@ -197,22 +193,6 @@ public class CacheDataManager
                 getSubpartitionMemoryDataManager(subpartitionId);
         return targetSubpartitionDataManager.getBuffersSatisfyStatus(
                 spillStatus, consumeStatusWithId);
-    }
-
-    // Write lock should be acquired before invoke this method.
-    @Override
-    public List<Integer> getNextBufferIndexToConsume(TierReaderId tierReaderId) {
-        ArrayList<Integer> consumeIndexes = new ArrayList<>(numSubpartitions);
-        for (int channel = 0; channel < numSubpartitions; channel++) {
-            SubpartitionConsumerInternalOperations viewOperation =
-                    subpartitionViewOperationsMap.get(channel).get(tierReaderId);
-            // Access consuming offset without lock to prevent deadlock.
-            // A consuming thread may being blocked on the memory data manager lock, while holding
-            // the viewOperation lock.
-            consumeIndexes.add(
-                    viewOperation == null ? -1 : viewOperation.getConsumingOffset(false) + 1);
-        }
-        return consumeIndexes;
     }
 
     // ------------------------------------
@@ -233,10 +213,11 @@ public class CacheDataManager
     }
 
     @Override
-    public void onDataAvailable(int subpartitionId, Collection<TierReaderId> tierReaderIds) {
-        Map<TierReaderId, SubpartitionConsumerInternalOperations> consumerViewMap =
+    public void onDataAvailable(
+            int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
+        Map<TierReaderViewId, SubpartitionConsumerInternalOperations> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
-        tierReaderIds.forEach(
+        tierReaderViewIds.forEach(
                 consumerId -> {
                     SubpartitionConsumerInternalOperations consumerView =
                             consumerViewMap.get(consumerId);
@@ -247,8 +228,8 @@ public class CacheDataManager
     }
 
     @Override
-    public void onConsumerReleased(int subpartitionId, TierReaderId tierReaderId) {
-        subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderId);
+    public void onConsumerReleased(int subpartitionId, TierReaderViewId tierReaderViewId) {
+        subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderViewId);
     }
 
     @Override

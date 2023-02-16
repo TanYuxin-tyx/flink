@@ -19,8 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 /**
- * Operations provided by {@link SubpartitionConsumer} that are used by other internal components of
- * hybrid result partition.
+ * Operations provided by {@link SubpartitionDiskReaderView} that are used by other internal
+ * components of hybrid result partition.
  */
 public interface SubpartitionConsumerInternalOperations {
 

@@ -24,8 +24,8 @@ import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
 
@@ -59,12 +59,12 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * File data manager for HsResultPartition, which schedules {@link SubpartitionFileReaderImpl} for
+ * File data manager for HsResultPartition, which schedules {@link SubpartitionDiskReaderImpl} for
  * loading data w.r.t. their offset in the file.
  */
 @ThreadSafe
-public class LocalDiskDataManager implements Runnable, BufferRecycler {
-    private static final Logger LOG = LoggerFactory.getLogger(LocalDiskDataManager.class);
+public class DiskDataManager implements Runnable, BufferRecycler {
+    private static final Logger LOG = LoggerFactory.getLogger(DiskDataManager.class);
 
     /** Executor to run the shuffle data reading task. */
     private final ScheduledExecutorService ioExecutor;
@@ -97,7 +97,7 @@ public class LocalDiskDataManager implements Runnable, BufferRecycler {
 
     private final RegionBufferIndexTracker dataIndex;
 
-    private final SubpartitionFileReader.Factory fileReaderFactory;
+    private final SubpartitionDiskReader.Factory fileReaderFactory;
 
     private final TieredStoreConfiguration storeConfiguration;
 
@@ -105,7 +105,7 @@ public class LocalDiskDataManager implements Runnable, BufferRecycler {
 
     /** All readers waiting to read data of different subpartitions. */
     @GuardedBy("lock")
-    private final Set<SubpartitionFileReader> allReaders = new HashSet<>();
+    private final Set<SubpartitionDiskReader> allReaders = new HashSet<>();
 
     /**
      * Whether the data reading task is currently running or not. This flag is used when trying to
@@ -125,12 +125,12 @@ public class LocalDiskDataManager implements Runnable, BufferRecycler {
     @GuardedBy("lock")
     private FileChannel dataFileChannel;
 
-    public LocalDiskDataManager(
+    public DiskDataManager(
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
             RegionBufferIndexTracker dataIndex,
             Path dataFilePath,
-            SubpartitionFileReader.Factory fileReaderFactory,
+            SubpartitionDiskReader.Factory fileReaderFactory,
             TieredStoreConfiguration storeConfiguration,
             BiFunction<Integer, Integer, Boolean> isLastRecordInSegmentDecider) {
         this.fileReaderFactory = fileReaderFactory;
@@ -158,19 +158,19 @@ public class LocalDiskDataManager implements Runnable, BufferRecycler {
     }
 
     /** This method only called by result partition to create subpartitionFileReader. */
-    public TierReaderView registerNewConsumer(
+    public TierReader registerNewConsumer(
             int subpartitionId,
-            TierReaderId tierReaderId,
+            TierReaderViewId tierReaderViewId,
             SubpartitionConsumerInternalOperations operation)
             throws IOException {
         synchronized (lock) {
             checkState(!isReleased, "HsFileDataManager is already released.");
             lazyInitialize();
 
-            SubpartitionFileReader subpartitionReader =
+            SubpartitionDiskReader subpartitionReader =
                     fileReaderFactory.createFileReader(
                             subpartitionId,
-                            tierReaderId,
+                            tierReaderViewId,
                             dataFileChannel,
                             operation,
                             dataIndex,
@@ -191,13 +191,13 @@ public class LocalDiskDataManager implements Runnable, BufferRecycler {
     }
 
     /**
-     * Release specific {@link SubpartitionFileReader} from {@link LocalDiskDataManager}.
+     * Release specific {@link SubpartitionDiskReader} from {@link DiskDataManager}.
      *
-     * @param subpartitionFileReader to release.
+     * @param subpartitionDiskReaderView to release.
      */
-    public void releaseSubpartitionReader(SubpartitionFileReader subpartitionFileReader) {
+    public void releaseSubpartitionReader(SubpartitionDiskReader subpartitionDiskReaderView) {
         synchronized (lock) {
-            removeSubpartitionReaders(Collections.singleton(subpartitionFileReader));
+            removeSubpartitionReaders(Collections.singleton(subpartitionDiskReaderView));
         }
     }
 
@@ -210,7 +210,7 @@ public class LocalDiskDataManager implements Runnable, BufferRecycler {
             isReleased = true;
             releaseFuture.complete(null);
 
-            for (SubpartitionFileReader fileReader : allReaders) {
+            for (SubpartitionDiskReader fileReader : allReaders) {
                 fileReader.release();
             }
         }
@@ -223,7 +223,7 @@ public class LocalDiskDataManager implements Runnable, BufferRecycler {
 
     /** @return number of buffers read. */
     private int tryRead() {
-        Queue<SubpartitionFileReader> availableReaders = prepareAndGetAvailableReaders();
+        Queue<SubpartitionDiskReader> availableReaders = prepareAndGetAvailableReaders();
         if (availableReaders.isEmpty()) {
             return 0;
         }
@@ -324,13 +324,13 @@ public class LocalDiskDataManager implements Runnable, BufferRecycler {
         }
     }
 
-    private Queue<SubpartitionFileReader> prepareAndGetAvailableReaders() {
+    private Queue<SubpartitionDiskReader> prepareAndGetAvailableReaders() {
         synchronized (lock) {
             if (isReleased) {
                 return new ArrayDeque<>();
             }
 
-            for (SubpartitionFileReader reader : allReaders) {
+            for (SubpartitionDiskReader reader : allReaders) {
                 reader.prepareForScheduling();
             }
             return new PriorityQueue<>(allReaders);
@@ -338,9 +338,9 @@ public class LocalDiskDataManager implements Runnable, BufferRecycler {
     }
 
     private void readData(
-            Queue<SubpartitionFileReader> availableReaders, Queue<MemorySegment> buffers) {
+            Queue<SubpartitionDiskReader> availableReaders, Queue<MemorySegment> buffers) {
         while (!availableReaders.isEmpty() && !buffers.isEmpty()) {
-            SubpartitionFileReader subpartitionReader = availableReaders.poll();
+            SubpartitionDiskReader subpartitionReader = availableReaders.poll();
             try {
                 subpartitionReader.readBuffers(buffers, this);
             } catch (IOException throwable) {
@@ -351,18 +351,18 @@ public class LocalDiskDataManager implements Runnable, BufferRecycler {
     }
 
     private void failSubpartitionReaders(
-            Collection<SubpartitionFileReader> readers, Throwable failureCause) {
+            Collection<SubpartitionDiskReader> readers, Throwable failureCause) {
         synchronized (lock) {
             removeSubpartitionReaders(readers);
         }
 
-        for (SubpartitionFileReader reader : readers) {
+        for (SubpartitionDiskReader reader : readers) {
             reader.fail(failureCause);
         }
     }
 
     @GuardedBy("lock")
-    private void removeSubpartitionReaders(Collection<SubpartitionFileReader> readers) {
+    private void removeSubpartitionReaders(Collection<SubpartitionDiskReader> readers) {
         allReaders.removeAll(readers);
         if (allReaders.isEmpty()) {
             bufferPool.unregisterRequester(this);

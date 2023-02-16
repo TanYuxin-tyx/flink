@@ -32,7 +32,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAn
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferWithIdentity;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManagerOperation;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionCacheDataManager;
@@ -354,7 +354,7 @@ class SubpartitionCacheDataManagerTest {
         SubpartitionCacheDataManager subpartitionCacheDataManager =
                 createSubpartitionMemoryDataManager(memoryDataManagerOperation);
 
-        TierReaderId tierReaderId = TierReaderId.newId(null);
+        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(null);
         // subpartitionCacheDataManager.registerNewConsumer(consumerId);
         // assertThatThrownBy(() -> subpartitionCacheDataManager.registerNewConsumer(consumerId))
         //        .isInstanceOf(IllegalStateException.class);
@@ -367,7 +367,7 @@ class SubpartitionCacheDataManagerTest {
         SubpartitionCacheDataManager subpartitionCacheDataManager =
                 createSubpartitionMemoryDataManager(memoryDataManagerOperation);
 
-        TierReaderId tierReaderId = TierReaderId.newId(null);
+        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(null);
         // subpartitionCacheDataManager.registerNewConsumer(consumerId);
         // subpartitionCacheDataManager.releaseConsumer(consumerId);
         // assertThatNoException()

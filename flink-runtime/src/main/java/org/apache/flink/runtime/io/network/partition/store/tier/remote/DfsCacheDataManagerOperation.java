@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.store.tier.remote;
 
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 
 import java.util.Collection;
 
@@ -28,15 +28,15 @@ public interface DfsCacheDataManagerOperation {
      * This method is called when subpartition data become available.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param tierReaderIds the consumer's identifier which need notify data available.
+     * @param tierReaderViewIds the consumer's identifier which need notify data available.
      */
-    void onDataAvailable(int subpartitionId, Collection<TierReaderId> tierReaderIds);
+    void onDataAvailable(int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds);
 
     /**
      * This method is called when consumer is decided to released.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param tierReaderId the consumer's identifier which decided to be released.
+     * @param tierReaderViewId the consumer's identifier which decided to be released.
      */
-    void onConsumerReleased(int subpartitionId, TierReaderId tierReaderId);
+    void onConsumerReleased(int subpartitionId, TierReaderViewId tierReaderViewId);
 }

@@ -33,8 +33,8 @@ import org.apache.flink.runtime.io.network.partition.store.common.EndOfSegmentEv
 import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.store.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.store.common.TierWriter;
 import org.apache.flink.runtime.metrics.TimerGauge;
 
@@ -59,9 +59,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
-public class LocalFileDataManager implements TierWriter, StorageTier {
+public class DiskTier implements TierWriter, StorageTier {
 
-    private static final Logger LOG = LoggerFactory.getLogger(LocalFileDataManager.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DiskTier.class);
 
     public static final int BROADCAST_CHANNEL = 0;
 
@@ -86,9 +86,9 @@ public class LocalFileDataManager implements TierWriter, StorageTier {
     private final TieredStoreConfiguration storeConfiguration;
 
     /** Record the last assigned consumerId for each subpartition. */
-    private final TierReaderId[] lastTierReaderIds;
+    private final TierReaderViewId[] lastTierReaderViewIds;
 
-    private final LocalDiskDataManager localDiskDataManager;
+    private final DiskDataManager diskDataManager;
 
     private CacheDataManager cacheDataManager;
 
@@ -101,7 +101,7 @@ public class LocalFileDataManager implements TierWriter, StorageTier {
 
     private volatile boolean isClosed;
 
-    public LocalFileDataManager(
+    public DiskTier(
             int numSubpartitions,
             int networkBufferSize,
             ResultPartitionID resultPartitionID,
@@ -122,14 +122,14 @@ public class LocalFileDataManager implements TierWriter, StorageTier {
         this.storeConfiguration = storeConfiguration;
         this.regionBufferIndexTracker =
                 new RegionBufferIndexTrackerImpl(isBroadcastOnly ? 1 : numSubpartitions);
-        this.lastTierReaderIds = new TierReaderId[numSubpartitions];
-        this.localDiskDataManager =
-                new LocalDiskDataManager(
+        this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
+        this.diskDataManager =
+                new DiskDataManager(
                         readBufferPool,
                         readIOExecutor,
                         regionBufferIndexTracker,
                         dataFilePath,
-                        SubpartitionFileReaderImpl.Factory.INSTANCE,
+                        SubpartitionDiskReaderImpl.Factory.INSTANCE,
                         storeConfiguration,
                         this::isLastRecordInSegment);
         this.segmentIndexTracker =
@@ -193,7 +193,7 @@ public class LocalFileDataManager implements TierWriter, StorageTier {
     }
 
     @Override
-    public TierReader createSubpartitionTierReader(
+    public TierReaderView createSubpartitionTierReaderView(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         // If data file is not readable, throw PartitionNotFoundException to mark this result
@@ -206,18 +206,19 @@ public class LocalFileDataManager implements TierWriter, StorageTier {
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        SubpartitionConsumer subpartitionConsumer = new SubpartitionConsumer(availabilityListener);
-        TierReaderId lastTierReaderId = lastTierReaderIds[subpartitionId];
-        checkMultipleConsumerIsAllowed(lastTierReaderId, storeConfiguration);
+        SubpartitionDiskReaderView subpartitionDiskReaderView =
+                new SubpartitionDiskReaderView(availabilityListener);
+        TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
+        checkMultipleConsumerIsAllowed(lastTierReaderViewId, storeConfiguration);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
-        TierReaderId tierReaderId = TierReaderId.newId(lastTierReaderId);
-        lastTierReaderIds[subpartitionId] = tierReaderId;
-        TierReaderView diskDataView =
-                localDiskDataManager.registerNewConsumer(
-                        subpartitionId, tierReaderId, subpartitionConsumer);
-        subpartitionConsumer.setDiskDataView(diskDataView);
-        return subpartitionConsumer;
+        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
+        lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
+        TierReader diskReader =
+                diskDataManager.registerNewConsumer(
+                        subpartitionId, tierReaderViewId, subpartitionDiskReaderView);
+        subpartitionDiskReaderView.setDiskReader(diskReader);
+        return subpartitionDiskReaderView;
     }
 
     @Override
@@ -257,7 +258,7 @@ public class LocalFileDataManager implements TierWriter, StorageTier {
         // 2. delete shuffle file.
         // 3. release all data in memory.
         if (!isReleased) {
-            localDiskDataManager.release();
+            diskDataManager.release();
             checkNotNull(cacheDataManager).release();
             segmentIndexTracker.release();
             isReleased = true;
@@ -275,10 +276,10 @@ public class LocalFileDataManager implements TierWriter, StorageTier {
     }
 
     private static void checkMultipleConsumerIsAllowed(
-            TierReaderId lastTierReaderId, TieredStoreConfiguration storeConfiguration) {
+            TierReaderViewId lastTierReaderViewId, TieredStoreConfiguration storeConfiguration) {
         if (Objects.equals(storeConfiguration.getTieredStoreSpillingType(), SELECTIVE.toString())) {
             checkState(
-                    lastTierReaderId == null,
+                    lastTierReaderViewId == null,
                     "Multiple consumer is not allowed for %s spilling strategy mode",
                     storeConfiguration.getTieredStoreSpillingType());
         }

@@ -29,8 +29,8 @@ import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelp
 import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.store.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.store.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.metrics.TimerGauge;
@@ -67,7 +67,7 @@ public class MemoryDataManager implements StorageTier {
     private final TieredStoreConfiguration storeConfiguration;
 
     /** Record the last assigned consumerId for each subpartition. */
-    private final TierReaderId[] lastTierReaderIds;
+    private final TierReaderViewId[] lastTierReaderViewIds;
 
     private MemoryDataWriter memoryDataWriter;
 
@@ -95,7 +95,7 @@ public class MemoryDataManager implements StorageTier {
         this.bufferCompressor = bufferCompressor;
         checkNotNull(bufferCompressor);
         this.storeConfiguration = storeConfiguration;
-        this.lastTierReaderIds = new TierReaderId[numSubpartitions];
+        this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTracker(numSubpartitions, isBroadcastOnly);
     }
@@ -124,24 +124,24 @@ public class MemoryDataManager implements StorageTier {
     }
 
     @Override
-    public TierReader createSubpartitionTierReader(
+    public TierReaderView createSubpartitionTierReaderView(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        MemoryReader memoryReader = new MemoryReader(availabilityListener);
-        TierReaderId lastTierReaderId = lastTierReaderIds[subpartitionId];
-        checkMultipleConsumerIsAllowed(lastTierReaderId, storeConfiguration);
+        MemoryReaderView memoryReader = new MemoryReaderView(availabilityListener);
+        TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
+        checkMultipleConsumerIsAllowed(lastTierReaderViewId, storeConfiguration);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
-        TierReaderId tierReaderId = TierReaderId.newId(lastTierReaderId);
-        lastTierReaderIds[subpartitionId] = tierReaderId;
+        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
+        lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
 
-        TierReaderView memoryDataView =
+        TierReader memoryDataView =
                 checkNotNull(memoryDataWriter)
-                        .registerNewConsumer(subpartitionId, tierReaderId, memoryReader);
+                        .registerNewConsumer(subpartitionId, tierReaderViewId, memoryReader);
 
         memoryReader.setMemoryDataView(memoryDataView);
         return memoryReader;
@@ -204,11 +204,11 @@ public class MemoryDataManager implements StorageTier {
     }
 
     private static void checkMultipleConsumerIsAllowed(
-            TierReaderId lastTierReaderId, TieredStoreConfiguration storeConfiguration) {
+            TierReaderViewId lastTierReaderViewId, TieredStoreConfiguration storeConfiguration) {
         if (TieredStoreMode.SpillingType.valueOf(storeConfiguration.getTieredStoreSpillingType())
                 == SELECTIVE) {
             checkState(
-                    lastTierReaderId == null,
+                    lastTierReaderViewId == null,
                     "Multiple consumer is not allowed for %s spilling strategy mode",
                     storeConfiguration.getTieredStoreSpillingType());
         }

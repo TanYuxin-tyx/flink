@@ -19,7 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.store.tier.remote;
 
 /**
- * Operations provided by {@link DfsFileReader} that will be used in {@link
+ * Operations provided by {@link DfsFileReaderView} that will be used in {@link
  * SubpartitionDfsCacheDataManager}.
  */
 public interface DfsFileReaderInternalOperations {

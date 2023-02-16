@@ -18,38 +18,45 @@
 
 package org.apache.flink.runtime.io.network.partition.store.common;
 
-import org.apache.flink.runtime.io.network.partition.ProducerFailedException;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 
-import javax.annotation.Nullable;
+import java.util.Optional;
+import java.util.Queue;
 
-import java.io.IOException;
-
-/** The Reader of Single Tier. */
+/** A view to find out what data exists in LOCAL, or REMOTE, or DFS. */
 public interface TierReader {
 
-    @Nullable
-    ResultSubpartition.BufferAndBacklog getNextBuffer() throws IOException;
-
-    ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
-            int numCreditsAvailable);
-
-    void releaseAllResources() throws IOException;
-
-    boolean isReleased();
+    /**
+     * Try to consume next buffer.
+     *
+     * <p>Only invoked by consumer thread.
+     *
+     * @param nextBufferToConsume next buffer index to consume.
+     * @return If the target buffer does exist, return buffer and next buffer's backlog, otherwise
+     *     return {@link Optional#empty()}.
+     */
+    Optional<BufferAndBacklog> consumeBuffer(int nextBufferToConsume, Queue<Buffer> errorBuffers)
+            throws Throwable;
 
     /**
-     * {@link ResultSubpartitionView} can decide whether the failure cause should be reported to
-     * consumer as failure (primary failure) or {@link ProducerFailedException} (secondary failure).
-     * Secondary failure can be reported only if producer (upstream task) is guaranteed to failover.
+     * Get dataType of next buffer to consume.
      *
-     * <p><strong>BEWARE:</strong> Incorrectly reporting failure cause as primary failure, can hide
-     * the root cause of the failure from the user.
+     * @param nextBufferToConsume next buffer index to consume
+     * @return next buffer's dataType. If not found in memory, return {@link DataType#NONE}.
      */
-    Throwable getFailureCause();
+    DataType peekNextToConsumeDataType(int nextBufferToConsume, Queue<Buffer> errorBuffers);
 
-    int unsynchronizedGetNumberOfQueuedBuffers();
+    /**
+     * Get the number of buffers backlog.
+     *
+     * @return backlog of this view's corresponding subpartition.
+     */
+    default int getBacklog() {
+        return 0;
+    }
 
-    int getNumberOfQueuedBuffers();
+    /** Release this {@link TierReader} when related subpartition view is releasing. */
+    void releaseDataView();
 }

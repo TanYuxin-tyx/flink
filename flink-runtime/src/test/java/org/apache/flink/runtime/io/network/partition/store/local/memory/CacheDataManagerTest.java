@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.partition.store.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelperImpl;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTrackerImpl;
@@ -115,7 +115,6 @@ class CacheDataManagerTest {
         assertThat(spilledFuture).succeedsWithin(10, TimeUnit.SECONDS);
         assertThat(readableFuture).succeedsWithin(10, TimeUnit.SECONDS);
         assertThat(readableFuture).isCompletedWithValue(2);
-        assertThat(cacheDataManager.getNumTotalUnSpillBuffers()).isEqualTo(1);
     }
 
     @Test
@@ -130,18 +129,18 @@ class CacheDataManagerTest {
     void testSubpartitionConsumerRelease() throws Exception {
         CacheDataManager cacheDataManager = createCacheDataManager();
         cacheDataManager.registerNewConsumer(
-                0, TierReaderId.DEFAULT, new TestingSubpartitionConsumerInternalOperation());
+                0, TierReaderViewId.DEFAULT, new TestingSubpartitionConsumerInternalOperation());
         assertThatThrownBy(
                         () ->
                                 cacheDataManager.registerNewConsumer(
                                         0,
-                                        TierReaderId.DEFAULT,
+                                        TierReaderViewId.DEFAULT,
                                         new TestingSubpartitionConsumerInternalOperation()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Each subpartition view should have unique consumerId.");
-        cacheDataManager.onConsumerReleased(0, TierReaderId.DEFAULT);
+        cacheDataManager.onConsumerReleased(0, TierReaderViewId.DEFAULT);
         cacheDataManager.registerNewConsumer(
-                0, TierReaderId.DEFAULT, new TestingSubpartitionConsumerInternalOperation());
+                0, TierReaderViewId.DEFAULT, new TestingSubpartitionConsumerInternalOperation());
     }
 
     private CacheDataManager createCacheDataManager() throws Exception {

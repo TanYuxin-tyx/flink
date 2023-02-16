@@ -23,25 +23,25 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 /** This class represents the identifier of hybrid shuffle's consumer. */
-public class TierReaderId {
+public class TierReaderViewId {
     /**
      * This consumer id is used in the scenarios that information related to specific consumer needs
      * to be ignored.
      */
-    public static final TierReaderId ANY = new TierReaderId(-1);
+    public static final TierReaderViewId ANY = new TierReaderViewId(-1);
 
     /** This consumer id is used for the first consumer of a single subpartition. */
-    public static final TierReaderId DEFAULT = new TierReaderId(0);
+    public static final TierReaderViewId DEFAULT = new TierReaderViewId(0);
 
     /** This is a unique field for each consumer of a single subpartition. */
     private final int id;
 
-    private TierReaderId(int id) {
+    private TierReaderViewId(int id) {
         this.id = id;
     }
 
-    public static TierReaderId newId(@Nullable TierReaderId lastId) {
-        return lastId == null ? DEFAULT : new TierReaderId(lastId.id + 1);
+    public static TierReaderViewId newId(@Nullable TierReaderViewId lastId) {
+        return lastId == null ? DEFAULT : new TierReaderViewId(lastId.id + 1);
     }
 
     @Override
@@ -52,7 +52,7 @@ public class TierReaderId {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        TierReaderId that = (TierReaderId) o;
+        TierReaderViewId that = (TierReaderViewId) o;
         return id == that.id;
     }
 

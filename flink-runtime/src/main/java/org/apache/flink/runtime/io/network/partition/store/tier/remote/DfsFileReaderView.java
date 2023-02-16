@@ -38,9 +38,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The read view of {@link DfsDataManager}, data can be read from dfs. */
-public class DfsFileReader implements TierReader, DfsFileReaderInternalOperations {
+public class DfsFileReaderView implements TierReaderView, DfsFileReaderInternalOperations {
 
-    private static final Logger LOG = LoggerFactory.getLogger(DfsFileReader.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DfsFileReaderView.class);
 
     private final BufferAvailabilityListener availabilityListener;
     private final Object lock = new Object();
@@ -66,9 +66,9 @@ public class DfsFileReader implements TierReader, DfsFileReaderInternalOperation
     @Nullable
     @GuardedBy("lock")
     // dfsDataView can be null only before initialization.
-    private TierReaderView dfsDataView;
+    private TierReader dfsDataView;
 
-    public DfsFileReader(BufferAvailabilityListener availabilityListener) {
+    public DfsFileReaderView(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 
@@ -156,10 +156,10 @@ public class DfsFileReader implements TierReader, DfsFileReaderInternalOperation
     }
 
     /**
-     * Set {@link TierReaderView} for this subpartition, this method only called when {@link
-     * DfsFileReader} is creating.
+     * Set {@link TierReader} for this subpartition, this method only called when {@link
+     * DfsFileReaderView} is creating.
      */
-    public void setDfsDataView(TierReaderView dfsDataView) {
+    public void setDfsDataView(TierReader dfsDataView) {
         synchronized (lock) {
             checkState(this.dfsDataView == null, "repeatedly set dfs data view is not allowed.");
             this.dfsDataView = dfsDataView;

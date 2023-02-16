@@ -25,8 +25,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerInternalOperations;
 import org.apache.flink.util.ExceptionUtils;
@@ -69,7 +69,7 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderId, DfsFileReaderInternalOperations>>
+    private final List<Map<TierReaderViewId, DfsFileReaderInternalOperations>>
             subpartitionViewOperationsMap;
 
     private final ExecutorService ioExecutor =
@@ -150,16 +150,22 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
      * #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of the
      * subpartition.
      */
-    public TierReaderView registerNewConsumer(
+    public TierReader registerNewConsumer(
             int subpartitionId,
-            TierReaderId tierReaderId,
+            TierReaderViewId tierReaderViewId,
             DfsFileReaderInternalOperations viewOperations) {
-        LOG.debug("### registered, subpartition {}, consumerId {},", subpartitionId, tierReaderId);
+        LOG.debug(
+                "### registered, subpartition {}, consumerId {},",
+                subpartitionId,
+                tierReaderViewId);
         DfsFileReaderInternalOperations oldView =
-                subpartitionViewOperationsMap.get(subpartitionId).put(tierReaderId, viewOperations);
+                subpartitionViewOperationsMap
+                        .get(subpartitionId)
+                        .put(tierReaderViewId, viewOperations);
         Preconditions.checkState(
                 oldView == null, "Each subpartition view should have unique consumerId.");
-        return getSubpartitionCacheDataManager(subpartitionId).registerNewConsumer(tierReaderId);
+        return getSubpartitionCacheDataManager(subpartitionId)
+                .registerNewConsumer(tierReaderViewId);
     }
 
     /**
@@ -208,10 +214,11 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
     // ------------------------------------
 
     @Override
-    public void onDataAvailable(int subpartitionId, Collection<TierReaderId> tierReaderIds) {
-        Map<TierReaderId, DfsFileReaderInternalOperations> consumerViewMap =
+    public void onDataAvailable(
+            int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
+        Map<TierReaderViewId, DfsFileReaderInternalOperations> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
-        tierReaderIds.forEach(
+        tierReaderViewIds.forEach(
                 consumerId -> {
                     DfsFileReaderInternalOperations consumerView = consumerViewMap.get(consumerId);
                     if (consumerView != null) {
@@ -221,10 +228,10 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
     }
 
     @Override
-    public void onConsumerReleased(int subpartitionId, TierReaderId tierReaderId) {
-        LOG.debug("### Release subpartitionId {}, consumerId {}", subpartitionId, tierReaderId);
-        subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderId);
-        getSubpartitionCacheDataManager(subpartitionId).releaseConsumer(tierReaderId);
+    public void onConsumerReleased(int subpartitionId, TierReaderViewId tierReaderViewId) {
+        LOG.debug("### Release subpartitionId {}, consumerId {}", subpartitionId, tierReaderViewId);
+        subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderViewId);
+        getSubpartitionCacheDataManager(subpartitionId).releaseConsumer(tierReaderViewId);
     }
 
     // ------------------------------------
