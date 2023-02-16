@@ -47,7 +47,7 @@ import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.store.common.TieredStoreProducer;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskTier;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.memory.MemoryDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.memory.MemoryTier;
 import org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsDataManager;
 import org.apache.flink.runtime.io.network.partition.store.writer.TieredStoreProducerImpl;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
@@ -269,8 +269,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         }
     }
 
-    private MemoryDataManager getLocalMemoryDataManager() {
-        return new MemoryDataManager(
+    private MemoryTier getLocalMemoryDataManager() {
+        return new MemoryTier(
                 numSubpartitions,
                 networkBufferSize,
                 bufferPoolHelper,

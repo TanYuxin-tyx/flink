@@ -39,10 +39,11 @@ import java.util.Queue;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The read view of {@link MemoryDataManager}, data will be read from memory. */
-public class MemoryReaderView implements TierReaderView, SubpartitionConsumerInternalOperations {
+/** The read view of {@link MemoryTier}, data will be read from memory. */
+public class SubpartitionMemoryReaderView
+        implements TierReaderView, SubpartitionConsumerInternalOperations {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MemoryReaderView.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionMemoryReaderView.class);
 
     private final BufferAvailabilityListener availabilityListener;
     private final Object lock = new Object();
@@ -70,7 +71,7 @@ public class MemoryReaderView implements TierReaderView, SubpartitionConsumerInt
     // memoryDataView can be null only before initialization.
     private TierReader memoryDataView;
 
-    public MemoryReaderView(BufferAvailabilityListener availabilityListener) {
+    public SubpartitionMemoryReaderView(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 
