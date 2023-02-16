@@ -41,13 +41,13 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * This class is responsible for managing the data of a single consumer. {@link
- * SubpartitionConsumerMemoryDataManager} will create a new {@link
- * SubpartitionConsumerMemoryDataManager} when a consumer is registered.
+ * SubpartitionConsumerMemoryReader} will create a new {@link SubpartitionConsumerMemoryReader} when
+ * a consumer is registered.
  */
-public class SubpartitionConsumerMemoryDataManager implements TierReader {
+public class SubpartitionConsumerMemoryReader implements TierReader {
 
     private static final Logger LOG =
-            LoggerFactory.getLogger(SubpartitionConsumerMemoryDataManager.class);
+            LoggerFactory.getLogger(SubpartitionConsumerMemoryReader.class);
 
     @GuardedBy("consumerLock")
     private final Deque<BufferContext> unConsumedBuffers = new LinkedList<>();
@@ -60,7 +60,7 @@ public class SubpartitionConsumerMemoryDataManager implements TierReader {
 
     private final MemoryDataWriterOperation memoryDataWriterOperation;
 
-    public SubpartitionConsumerMemoryDataManager(
+    public SubpartitionConsumerMemoryReader(
             Lock consumerLock,
             int subpartitionId,
             TierReaderViewId tierReaderViewId,

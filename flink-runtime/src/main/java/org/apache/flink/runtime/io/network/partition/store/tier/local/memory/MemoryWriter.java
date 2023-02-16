@@ -45,9 +45,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
-public class MemoryDataWriter implements TierWriter, MemoryDataWriterOperation {
+public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MemoryDataWriter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(MemoryWriter.class);
 
     private final int numSubpartitions;
 
@@ -68,7 +68,7 @@ public class MemoryDataWriter implements TierWriter, MemoryDataWriterOperation {
 
     private final int numTotalConsumers;
 
-    public MemoryDataWriter(
+    public MemoryWriter(
             int numSubpartitions,
             int bufferSize,
             BufferPoolHelper bufferPoolHelper,
@@ -168,13 +168,11 @@ public class MemoryDataWriter implements TierWriter, MemoryDataWriterOperation {
                 .registerNewConsumer(tierReaderViewId);
     }
 
-    /** Close this {@link MemoryDataWriter}, it means no data will be appended to memory. */
+    /** Close this {@link MemoryWriter}, it means no data will be appended to memory. */
     @Override
     public void close() {}
 
-    /**
-     * Release this {@link MemoryDataWriter}, it means all memory taken by this class will recycle.
-     */
+    /** Release this {@link MemoryWriter}, it means all memory taken by this class will recycle. */
     @Override
     public void release() {
         for (int i = 0; i < numSubpartitions; i++) {

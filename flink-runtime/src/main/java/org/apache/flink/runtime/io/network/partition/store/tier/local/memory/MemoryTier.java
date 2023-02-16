@@ -48,9 +48,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
-public class MemoryDataManager implements StorageTier {
+public class MemoryTier implements StorageTier {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MemoryDataManager.class);
+    private static final Logger LOG = LoggerFactory.getLogger(MemoryTier.class);
 
     public static final int BROADCAST_CHANNEL = 0;
 
@@ -69,7 +69,7 @@ public class MemoryDataManager implements StorageTier {
     /** Record the last assigned consumerId for each subpartition. */
     private final TierReaderViewId[] lastTierReaderViewIds;
 
-    private MemoryDataWriter memoryDataWriter;
+    private MemoryWriter memoryWriter;
 
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
 
@@ -81,7 +81,7 @@ public class MemoryDataManager implements StorageTier {
 
     private volatile boolean isClosed;
 
-    public MemoryDataManager(
+    public MemoryTier(
             int numSubpartitions,
             int networkBufferSize,
             BufferPoolHelper bufferPoolHelper,
@@ -102,8 +102,8 @@ public class MemoryDataManager implements StorageTier {
 
     @Override
     public void setup() throws IOException {
-        this.memoryDataWriter =
-                new MemoryDataWriter(
+        this.memoryWriter =
+                new MemoryWriter(
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
                         bufferPoolHelper,
@@ -111,7 +111,7 @@ public class MemoryDataManager implements StorageTier {
                         segmentIndexTracker,
                         isBroadcastOnly,
                         numSubpartitions);
-        this.memoryDataWriter.setup();
+        this.memoryWriter.setup();
     }
 
     /**
@@ -120,7 +120,7 @@ public class MemoryDataManager implements StorageTier {
      */
     @Override
     public TierWriter createPartitionTierWriter() {
-        return memoryDataWriter;
+        return memoryWriter;
     }
 
     @Override
@@ -131,7 +131,8 @@ public class MemoryDataManager implements StorageTier {
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        MemoryReaderView memoryReader = new MemoryReaderView(availabilityListener);
+        SubpartitionMemoryReaderView memoryReaderView =
+                new SubpartitionMemoryReaderView(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
         checkMultipleConsumerIsAllowed(lastTierReaderViewId, storeConfiguration);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
@@ -139,12 +140,12 @@ public class MemoryDataManager implements StorageTier {
         TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
         lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
 
-        TierReader memoryDataView =
-                checkNotNull(memoryDataWriter)
-                        .registerNewConsumer(subpartitionId, tierReaderViewId, memoryReader);
+        TierReader memoryReader =
+                checkNotNull(memoryWriter)
+                        .registerNewConsumer(subpartitionId, tierReaderViewId, memoryReaderView);
 
-        memoryReader.setMemoryDataView(memoryDataView);
-        return memoryReader;
+        memoryReaderView.setMemoryDataView(memoryReader);
+        return memoryReaderView;
     }
 
     int flag = 0;
@@ -155,7 +156,7 @@ public class MemoryDataManager implements StorageTier {
         //        return flag % 2 == 1;
         // return true;
         return bufferPoolHelper.canStoreNextSegmentForMemoryTier(bufferNumberInSegment)
-                && memoryDataWriter.isConsumerRegistered(subpartitionId);
+                && memoryWriter.isConsumerRegistered(subpartitionId);
     }
 
     @Override
@@ -195,7 +196,7 @@ public class MemoryDataManager implements StorageTier {
 
     @Override
     public void setOutputMetrics(OutputMetrics tieredStoreOutputMetrics) {
-        checkNotNull(memoryDataWriter).setOutputMetrics(tieredStoreOutputMetrics);
+        checkNotNull(memoryWriter).setOutputMetrics(tieredStoreOutputMetrics);
     }
 
     @Override
