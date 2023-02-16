@@ -65,7 +65,7 @@ public class SubpartitionDiskReaderImpl implements SubpartitionDiskReader {
 
     private final FileChannel dataFileChannel;
 
-    private final SubpartitionConsumerInternalOperations operations;
+    private final SubpartitionDiskReaderViewOperations operations;
 
     private final CachedRegionManager cachedRegionManager;
 
@@ -83,7 +83,7 @@ public class SubpartitionDiskReaderImpl implements SubpartitionDiskReader {
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
             FileChannel dataFileChannel,
-            SubpartitionConsumerInternalOperations operations,
+            SubpartitionDiskReaderViewOperations operations,
             RegionBufferIndexTracker dataIndex,
             int maxBufferReadAhead,
             Consumer<SubpartitionDiskReader> fileReaderReleaser,
@@ -503,7 +503,7 @@ public class SubpartitionDiskReaderImpl implements SubpartitionDiskReader {
                 int subpartitionId,
                 TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
-                SubpartitionConsumerInternalOperations operation,
+                SubpartitionDiskReaderViewOperations operation,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
                 Consumer<SubpartitionDiskReader> fileReaderReleaser,

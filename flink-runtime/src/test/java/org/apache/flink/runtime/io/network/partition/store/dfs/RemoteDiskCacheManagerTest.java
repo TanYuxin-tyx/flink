@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelperImpl;
-import org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsCacheDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.remote.RemoteCacheManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,8 +38,8 @@ import static org.apache.flink.runtime.io.network.partition.store.TieredStoreTes
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/** Tests for {@link DfsCacheDataManager}. */
-class DfsCacheDataManagerTest {
+/** Tests for {@link RemoteCacheManager}. */
+class RemoteDiskCacheManagerTest {
 
     private static final int NUM_BUFFERS = 10;
 
@@ -63,7 +63,7 @@ class DfsCacheDataManagerTest {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
         BufferPoolHelper bufferPoolHelper = new BufferPoolHelperImpl(bufferPool, 0.4f, 0.2f, 0.8f);
-        DfsCacheDataManager cacheDataManager = createDfsCacheDataManager(bufferPoolHelper);
+        RemoteCacheManager cacheDataManager = createDfsCacheDataManager(bufferPoolHelper);
 
         cacheDataManager.append(createRecord(0), 0, Buffer.DataType.DATA_BUFFER, false);
         cacheDataManager.append(createRecord(1), 0, Buffer.DataType.DATA_BUFFER, false);
@@ -80,7 +80,7 @@ class DfsCacheDataManagerTest {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
         BufferPoolHelper bufferPoolHelper = new BufferPoolHelperImpl(bufferPool, 0.4f, 0.2f, 0.8f);
-        DfsCacheDataManager cacheDataManager = createDfsCacheDataManager(bufferPoolHelper);
+        RemoteCacheManager cacheDataManager = createDfsCacheDataManager(bufferPoolHelper);
 
         cacheDataManager.startSegment(0, 0);
         assertThrows(IllegalStateException.class, () -> cacheDataManager.startSegment(0, 0));
@@ -92,17 +92,17 @@ class DfsCacheDataManagerTest {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
         BufferPoolHelper bufferPoolHelper = new BufferPoolHelperImpl(bufferPool, 0.4f, 0.2f, 0.8f);
-        DfsCacheDataManager cacheDataManager = createDfsCacheDataManager(bufferPoolHelper);
+        RemoteCacheManager cacheDataManager = createDfsCacheDataManager(bufferPoolHelper);
 
         cacheDataManager.startSegment(0, 0);
         cacheDataManager.finishSegment(0, 0);
         assertThrows(IllegalStateException.class, () -> cacheDataManager.finishSegment(0, 0));
     }
 
-    private DfsCacheDataManager createDfsCacheDataManager(BufferPoolHelper bufferPoolHelper)
+    private RemoteCacheManager createDfsCacheDataManager(BufferPoolHelper bufferPoolHelper)
             throws Exception {
-        DfsCacheDataManager cacheDataManager =
-                new DfsCacheDataManager(
+        RemoteCacheManager cacheDataManager =
+                new RemoteCacheManager(
                         JobID.generate(),
                         new ResultPartitionID(),
                         NUM_SUBPARTITIONS,

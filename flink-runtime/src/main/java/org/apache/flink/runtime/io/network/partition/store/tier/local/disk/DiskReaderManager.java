@@ -63,8 +63,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  * loading data w.r.t. their offset in the file.
  */
 @ThreadSafe
-public class DiskDataManager implements Runnable, BufferRecycler {
-    private static final Logger LOG = LoggerFactory.getLogger(DiskDataManager.class);
+public class DiskReaderManager implements Runnable, BufferRecycler {
+    private static final Logger LOG = LoggerFactory.getLogger(DiskReaderManager.class);
 
     /** Executor to run the shuffle data reading task. */
     private final ScheduledExecutorService ioExecutor;
@@ -125,7 +125,7 @@ public class DiskDataManager implements Runnable, BufferRecycler {
     @GuardedBy("lock")
     private FileChannel dataFileChannel;
 
-    public DiskDataManager(
+    public DiskReaderManager(
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
             RegionBufferIndexTracker dataIndex,
@@ -161,7 +161,7 @@ public class DiskDataManager implements Runnable, BufferRecycler {
     public TierReader registerNewConsumer(
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
-            SubpartitionConsumerInternalOperations operation)
+            SubpartitionDiskReaderViewOperations operation)
             throws IOException {
         synchronized (lock) {
             checkState(!isReleased, "HsFileDataManager is already released.");
@@ -191,7 +191,7 @@ public class DiskDataManager implements Runnable, BufferRecycler {
     }
 
     /**
-     * Release specific {@link SubpartitionDiskReader} from {@link DiskDataManager}.
+     * Release specific {@link SubpartitionDiskReader} from {@link DiskReaderManager}.
      *
      * @param subpartitionDiskReaderView to release.
      */

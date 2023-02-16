@@ -38,10 +38,10 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * This class is responsible for managing the data of a single consumer. {@link
- * SubpartitionDfsCacheDataManager} will create a new {@link
- * SubpartitionDfsConsumerCacheDataManager} when a consumer is registered.
+ * SubpartitionRemoteCacheManager} will create a new {@link SubpartitionRemoteReader} when a
+ * consumer is registered.
  */
-public class SubpartitionDfsConsumerCacheDataManager implements TierReader {
+public class SubpartitionRemoteReader implements TierReader {
 
     @GuardedBy("consumerLock")
     private final Deque<BufferContext> unConsumedBuffers = new LinkedList<>();
@@ -54,14 +54,14 @@ public class SubpartitionDfsConsumerCacheDataManager implements TierReader {
 
     private final int subpartitionId;
 
-    private final DfsCacheDataManagerOperation cacheDataManagerOperation;
+    private final RemoteCacheManagerOperation cacheDataManagerOperation;
 
-    public SubpartitionDfsConsumerCacheDataManager(
+    public SubpartitionRemoteReader(
             Lock resultPartitionLock,
             Lock consumerLock,
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
-            DfsCacheDataManagerOperation cacheDataManagerOperation) {
+            RemoteCacheManagerOperation cacheDataManagerOperation) {
         this.resultPartitionLock = resultPartitionLock;
         this.consumerLock = consumerLock;
         this.subpartitionId = subpartitionId;

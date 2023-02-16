@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.store.common;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreMode;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTrackerImpl;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -71,7 +71,7 @@ class BufferPoolHelperImplTest {
 
     private void createCacheDataManagerInLocalDiskTier(BufferPoolHelper bufferPoolHelper)
             throws Exception {
-        new CacheDataManager(
+        new DiskCacheManager(
                 NUM_SUBPARTITIONS,
                 bufferSize,
                 bufferPoolHelper,

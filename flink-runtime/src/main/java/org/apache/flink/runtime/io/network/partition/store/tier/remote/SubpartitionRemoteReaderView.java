@@ -37,10 +37,10 @@ import java.util.Optional;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The read view of {@link DfsDataManager}, data can be read from dfs. */
-public class DfsFileReaderView implements TierReaderView, DfsFileReaderInternalOperations {
+/** The read view of {@link RemoteTier}, data can be read from dfs. */
+public class SubpartitionRemoteReaderView implements TierReaderView, RemoteReaderOperations {
 
-    private static final Logger LOG = LoggerFactory.getLogger(DfsFileReaderView.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionRemoteReaderView.class);
 
     private final BufferAvailabilityListener availabilityListener;
     private final Object lock = new Object();
@@ -68,7 +68,7 @@ public class DfsFileReaderView implements TierReaderView, DfsFileReaderInternalO
     // dfsDataView can be null only before initialization.
     private TierReader dfsDataView;
 
-    public DfsFileReaderView(BufferAvailabilityListener availabilityListener) {
+    public SubpartitionRemoteReaderView(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 
@@ -157,7 +157,7 @@ public class DfsFileReaderView implements TierReaderView, DfsFileReaderInternalO
 
     /**
      * Set {@link TierReader} for this subpartition, this method only called when {@link
-     * DfsFileReaderView} is creating.
+     * SubpartitionRemoteReaderView} is creating.
      */
     public void setDfsDataView(TierReader dfsDataView) {
         synchronized (lock) {

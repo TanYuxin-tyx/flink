@@ -33,9 +33,9 @@ import org.apache.flink.runtime.io.network.partition.store.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManagerOperation;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskCacheManagerOperation;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionCacheDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionDiskCacheManager;
 
 import org.junit.jupiter.api.Test;
 
@@ -56,8 +56,8 @@ import static org.apache.flink.runtime.io.network.partition.store.TieredStoreTes
 import static org.apache.flink.runtime.io.network.partition.store.TieredStoreTestUtils.createTestingOutputMetrics;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Tests for {@link SubpartitionCacheDataManager}. */
-class SubpartitionCacheDataManagerTest {
+/** Tests for {@link SubpartitionDiskCacheManager}. */
+class SubpartitionDiskCacheManagerTest {
     private static final int SUBPARTITION_ID = 0;
 
     private static final int RECORD_SIZE = Long.BYTES;
@@ -67,34 +67,34 @@ class SubpartitionCacheDataManagerTest {
     @Test
     void testAppendDataRequestBuffer() throws Exception {
         CompletableFuture<Void> requestBufferFuture = new CompletableFuture<>();
-        CacheDataManagerOperation cacheDataManagerOperation =
-                TestingCacheDataManagerOperation.builder()
+        DiskCacheManagerOperation diskCacheManagerOperation =
+                TestingDiskCacheManagerOperation.builder()
                         .setRequestBufferFromPoolSupplier(
                                 () -> {
                                     requestBufferFuture.complete(null);
                                     return createBufferBuilder(bufferSize);
                                 })
                         .build();
-        SubpartitionCacheDataManager subpartitionCacheDataManager =
-                createSubpartitionMemoryDataManager(cacheDataManagerOperation);
-        subpartitionCacheDataManager.append(createRecord(0), DataType.DATA_BUFFER, false);
+        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
+                createSubpartitionMemoryDataManager(diskCacheManagerOperation);
+        subpartitionDiskCacheManager.append(createRecord(0), DataType.DATA_BUFFER, false);
         assertThat(requestBufferFuture).isCompleted();
     }
 
     @Test
     void testAppendEventNotRequestBuffer() throws Exception {
         CompletableFuture<Void> requestBufferFuture = new CompletableFuture<>();
-        CacheDataManagerOperation cacheDataManagerOperation =
-                TestingCacheDataManagerOperation.builder()
+        DiskCacheManagerOperation diskCacheManagerOperation =
+                TestingDiskCacheManagerOperation.builder()
                         .setRequestBufferFromPoolSupplier(
                                 () -> {
                                     requestBufferFuture.complete(null);
                                     return null;
                                 })
                         .build();
-        SubpartitionCacheDataManager subpartitionCacheDataManager =
-                createSubpartitionMemoryDataManager(cacheDataManagerOperation);
-        subpartitionCacheDataManager.append(createRecord(0), DataType.EVENT_BUFFER, false);
+        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
+                createSubpartitionMemoryDataManager(diskCacheManagerOperation);
+        subpartitionDiskCacheManager.append(createRecord(0), DataType.EVENT_BUFFER, false);
         assertThat(requestBufferFuture).isNotDone();
     }
 
@@ -102,17 +102,17 @@ class SubpartitionCacheDataManagerTest {
     void testAppendEventFinishCurrentBuffer() throws Exception {
         bufferSize = RECORD_SIZE * 3;
         AtomicInteger finishedBuffers = new AtomicInteger(0);
-        CacheDataManagerOperation cacheDataManagerOperation =
-                TestingCacheDataManagerOperation.builder()
+        DiskCacheManagerOperation diskCacheManagerOperation =
+                TestingDiskCacheManagerOperation.builder()
                         .setRequestBufferFromPoolSupplier(() -> createBufferBuilder(bufferSize))
                         .setOnBufferFinishedRunnable(finishedBuffers::incrementAndGet)
                         .build();
-        SubpartitionCacheDataManager subpartitionCacheDataManager =
-                createSubpartitionMemoryDataManager(cacheDataManagerOperation);
-        subpartitionCacheDataManager.append(createRecord(0), DataType.DATA_BUFFER, false);
-        subpartitionCacheDataManager.append(createRecord(1), DataType.DATA_BUFFER, false);
+        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
+                createSubpartitionMemoryDataManager(diskCacheManagerOperation);
+        subpartitionDiskCacheManager.append(createRecord(0), DataType.DATA_BUFFER, false);
+        subpartitionDiskCacheManager.append(createRecord(1), DataType.DATA_BUFFER, false);
         assertThat(finishedBuffers).hasValue(0);
-        subpartitionCacheDataManager.append(createRecord(2), DataType.EVENT_BUFFER, false);
+        subpartitionDiskCacheManager.append(createRecord(2), DataType.EVENT_BUFFER, false);
         assertThat(finishedBuffers).hasValue(2);
     }
 
@@ -249,21 +249,21 @@ class SubpartitionCacheDataManagerTest {
     @Test
     void testSpillSubpartitionBuffers() throws Exception {
         CompletableFuture<Void> spilledDoneFuture = new CompletableFuture<>();
-        TestingCacheDataManagerOperation memoryDataManagerOperation =
-                TestingCacheDataManagerOperation.builder()
+        TestingDiskCacheManagerOperation memoryDataManagerOperation =
+                TestingDiskCacheManagerOperation.builder()
                         .setRequestBufferFromPoolSupplier(() -> createBufferBuilder(RECORD_SIZE))
                         .build();
-        SubpartitionCacheDataManager subpartitionCacheDataManager =
+        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
                 createSubpartitionMemoryDataManager(memoryDataManagerOperation);
         final int numBuffers = 3;
         for (int i = 0; i < numBuffers; i++) {
-            subpartitionCacheDataManager.append(createRecord(i), DataType.DATA_BUFFER, false);
+            subpartitionDiskCacheManager.append(createRecord(i), DataType.DATA_BUFFER, false);
         }
 
         List<BufferIndexAndChannel> toStartSpilling =
                 TieredStoreTestUtils.createBufferIndexAndChannelsList(0, 0, 1, 2);
         List<BufferWithIdentity> buffers =
-                subpartitionCacheDataManager.spillSubpartitionBuffers(
+                subpartitionDiskCacheManager.spillSubpartitionBuffers(
                         toStartSpilling, spilledDoneFuture);
         assertThat(toStartSpilling)
                 .zipSatisfy(
@@ -284,8 +284,8 @@ class SubpartitionCacheDataManagerTest {
         int targetChannel = 0;
         List<Integer> readableBufferIndex = new ArrayList<>();
         List<MemorySegment> recycledBuffers = new ArrayList<>();
-        TestingCacheDataManagerOperation memoryDataManagerOperation =
-                TestingCacheDataManagerOperation.builder()
+        TestingDiskCacheManagerOperation memoryDataManagerOperation =
+                TestingDiskCacheManagerOperation.builder()
                         .setRequestBufferFromPoolSupplier(
                                 () ->
                                         new BufferBuilder(
@@ -298,20 +298,20 @@ class SubpartitionCacheDataManagerTest {
                                     readableBufferIndex.add(bufferIndex);
                                 })
                         .build();
-        SubpartitionCacheDataManager subpartitionCacheDataManager =
+        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
                 createSubpartitionMemoryDataManager(memoryDataManagerOperation);
         // append data
         final int numBuffers = 3;
         for (int i = 0; i < numBuffers; i++) {
-            subpartitionCacheDataManager.append(createRecord(i), DataType.DATA_BUFFER, false);
+            subpartitionDiskCacheManager.append(createRecord(i), DataType.DATA_BUFFER, false);
         }
         // spill the last buffer and release all buffers.
         List<BufferIndexAndChannel> toRelease =
                 TieredStoreTestUtils.createBufferIndexAndChannelsList(targetChannel, 0, 1, 2);
         CompletableFuture<Void> spilledFuture = new CompletableFuture<>();
-        subpartitionCacheDataManager.spillSubpartitionBuffers(
+        subpartitionDiskCacheManager.spillSubpartitionBuffers(
                 toRelease.subList(numBuffers - 1, numBuffers), spilledFuture);
-        subpartitionCacheDataManager.releaseSubpartitionBuffers(toRelease);
+        subpartitionDiskCacheManager.releaseSubpartitionBuffers(toRelease);
         assertThat(readableBufferIndex).isEmpty();
         // not start spilling buffers should be recycled after release.
         checkMemorySegmentValue(recycledBuffers, Arrays.asList(0, 1));
@@ -325,21 +325,21 @@ class SubpartitionCacheDataManagerTest {
     @Test
     void testMetricsUpdate() throws Exception {
         final int recordSize = bufferSize / 2;
-        TestingCacheDataManagerOperation memoryDataManagerOperation =
-                TestingCacheDataManagerOperation.builder()
+        TestingDiskCacheManagerOperation memoryDataManagerOperation =
+                TestingDiskCacheManagerOperation.builder()
                         .setRequestBufferFromPoolSupplier(() -> createBufferBuilder(bufferSize))
                         .build();
 
         OutputMetrics metrics = createTestingOutputMetrics();
-        SubpartitionCacheDataManager subpartitionCacheDataManager =
+        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
                 createSubpartitionMemoryDataManager(memoryDataManagerOperation);
-        subpartitionCacheDataManager.setOutputMetrics(metrics);
+        subpartitionDiskCacheManager.setOutputMetrics(metrics);
 
-        subpartitionCacheDataManager.append(
+        subpartitionDiskCacheManager.append(
                 ByteBuffer.allocate(recordSize), DataType.DATA_BUFFER, false);
         ByteBuffer eventBuffer = EventSerializer.toSerializedEvent(EndOfPartitionEvent.INSTANCE);
         final int eventSize = eventBuffer.remaining();
-        subpartitionCacheDataManager.append(
+        subpartitionDiskCacheManager.append(
                 EventSerializer.toSerializedEvent(EndOfPartitionEvent.INSTANCE),
                 DataType.EVENT_BUFFER,
                 false);
@@ -349,9 +349,9 @@ class SubpartitionCacheDataManagerTest {
 
     @Test
     void testConsumerRegisterRepeatedly() {
-        TestingCacheDataManagerOperation memoryDataManagerOperation =
-                TestingCacheDataManagerOperation.builder().build();
-        SubpartitionCacheDataManager subpartitionCacheDataManager =
+        TestingDiskCacheManagerOperation memoryDataManagerOperation =
+                TestingDiskCacheManagerOperation.builder().build();
+        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
                 createSubpartitionMemoryDataManager(memoryDataManagerOperation);
 
         TierReaderViewId tierReaderViewId = TierReaderViewId.newId(null);
@@ -362,9 +362,9 @@ class SubpartitionCacheDataManagerTest {
 
     @Test
     void testRegisterAndReleaseConsumer() {
-        TestingCacheDataManagerOperation memoryDataManagerOperation =
-                TestingCacheDataManagerOperation.builder().build();
-        SubpartitionCacheDataManager subpartitionCacheDataManager =
+        TestingDiskCacheManagerOperation memoryDataManagerOperation =
+                TestingDiskCacheManagerOperation.builder().build();
+        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
                 createSubpartitionMemoryDataManager(memoryDataManagerOperation);
 
         TierReaderViewId tierReaderViewId = TierReaderViewId.newId(null);
@@ -446,19 +446,19 @@ class SubpartitionCacheDataManagerTest {
         }
     }
 
-    private SubpartitionCacheDataManager createSubpartitionMemoryDataManager(
-            CacheDataManagerOperation cacheDataManagerOperation) {
-        return createSubpartitionMemoryDataManager(cacheDataManagerOperation, null);
+    private SubpartitionDiskCacheManager createSubpartitionMemoryDataManager(
+            DiskCacheManagerOperation diskCacheManagerOperation) {
+        return createSubpartitionMemoryDataManager(diskCacheManagerOperation, null);
     }
 
-    private SubpartitionCacheDataManager createSubpartitionMemoryDataManager(
-            CacheDataManagerOperation cacheDataManagerOperation,
+    private SubpartitionDiskCacheManager createSubpartitionMemoryDataManager(
+            DiskCacheManagerOperation diskCacheManagerOperation,
             @Nullable BufferCompressor bufferCompressor) {
-        SubpartitionCacheDataManager subpartitionCacheDataManager =
-                new SubpartitionCacheDataManager(
-                        SUBPARTITION_ID, bufferSize, bufferCompressor, cacheDataManagerOperation);
-        subpartitionCacheDataManager.setOutputMetrics(createTestingOutputMetrics());
-        return subpartitionCacheDataManager;
+        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
+                new SubpartitionDiskCacheManager(
+                        SUBPARTITION_ID, bufferSize, bufferCompressor, diskCacheManagerOperation);
+        subpartitionDiskCacheManager.setOutputMetrics(createTestingOutputMetrics());
+        return subpartitionDiskCacheManager;
     }
 
     private static ByteBuffer createRecord(long value) {

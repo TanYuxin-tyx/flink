@@ -88,9 +88,9 @@ public class DiskTier implements TierWriter, StorageTier {
     /** Record the last assigned consumerId for each subpartition. */
     private final TierReaderViewId[] lastTierReaderViewIds;
 
-    private final DiskDataManager diskDataManager;
+    private final DiskReaderManager diskReaderManager;
 
-    private CacheDataManager cacheDataManager;
+    private DiskCacheManager diskCacheManager;
 
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
 
@@ -123,8 +123,8 @@ public class DiskTier implements TierWriter, StorageTier {
         this.regionBufferIndexTracker =
                 new RegionBufferIndexTrackerImpl(isBroadcastOnly ? 1 : numSubpartitions);
         this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
-        this.diskDataManager =
-                new DiskDataManager(
+        this.diskReaderManager =
+                new DiskReaderManager(
                         readBufferPool,
                         readIOExecutor,
                         regionBufferIndexTracker,
@@ -138,8 +138,8 @@ public class DiskTier implements TierWriter, StorageTier {
 
     @Override
     public void setup() throws IOException {
-        this.cacheDataManager =
-                new CacheDataManager(
+        this.diskCacheManager =
+                new DiskCacheManager(
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
                         bufferPoolHelper,
@@ -149,7 +149,7 @@ public class DiskTier implements TierWriter, StorageTier {
     }
 
     boolean isLastRecordInSegment(int subpartitionId, int bufferIndex) {
-        return cacheDataManager.isLastBufferInSegment(subpartitionId, bufferIndex);
+        return diskCacheManager.isLastBufferInSegment(subpartitionId, bufferIndex);
     }
 
     @Override
@@ -180,7 +180,7 @@ public class DiskTier implements TierWriter, StorageTier {
             Buffer.DataType dataType,
             boolean isLastRecordInSegment)
             throws IOException {
-        cacheDataManager.append(record, targetSubpartition, dataType, isLastRecordInSegment);
+        diskCacheManager.append(record, targetSubpartition, dataType, isLastRecordInSegment);
     }
 
     /**
@@ -215,7 +215,7 @@ public class DiskTier implements TierWriter, StorageTier {
         TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
         lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
         TierReader diskReader =
-                diskDataManager.registerNewConsumer(
+                diskReaderManager.registerNewConsumer(
                         subpartitionId, tierReaderViewId, subpartitionDiskReaderView);
         subpartitionDiskReaderView.setDiskReader(diskReader);
         return subpartitionDiskReaderView;
@@ -245,7 +245,7 @@ public class DiskTier implements TierWriter, StorageTier {
     public void close() {
         if (!isClosed) {
             // close is called when task is finished or failed.
-            checkNotNull(cacheDataManager).close();
+            checkNotNull(diskCacheManager).close();
             isClosed = true;
         }
     }
@@ -258,8 +258,8 @@ public class DiskTier implements TierWriter, StorageTier {
         // 2. delete shuffle file.
         // 3. release all data in memory.
         if (!isReleased) {
-            diskDataManager.release();
-            checkNotNull(cacheDataManager).release();
+            diskReaderManager.release();
+            checkNotNull(diskCacheManager).release();
             segmentIndexTracker.release();
             isReleased = true;
         }
@@ -267,7 +267,7 @@ public class DiskTier implements TierWriter, StorageTier {
 
     @Override
     public void setOutputMetrics(OutputMetrics tieredStoreOutputMetrics) {
-        checkNotNull(cacheDataManager).setOutputMetrics(tieredStoreOutputMetrics);
+        checkNotNull(diskCacheManager).setOutputMetrics(tieredStoreOutputMetrics);
     }
 
     @Override
