@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.store.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.store.common.TieredStoreProducer;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskTier;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.memory.MemoryDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.memory.MemoryTier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -189,7 +189,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         }
         // only for test case Memory and Disk
         if (tierDataGates.length == 2
-                && tierDataGates[0] instanceof MemoryDataManager
+                && tierDataGates[0] instanceof MemoryTier
                 && tierDataGates[1] instanceof DiskTier) {
             if (!isBroadcastOnly && tierDataGates[0].canStoreNextSegment(targetSubpartition)) {
                 return 0;
@@ -198,7 +198,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         }
         for (int tierGateIndex = 0; tierGateIndex < tierDataGates.length; ++tierGateIndex) {
             StorageTier tierDataGate = tierDataGates[tierGateIndex];
-            if (isBroadcastOnly && tierDataGate instanceof MemoryDataManager) {
+            if (isBroadcastOnly && tierDataGate instanceof MemoryTier) {
                 continue;
             }
             if (tierDataGates[tierGateIndex].canStoreNextSegment(targetSubpartition)) {
