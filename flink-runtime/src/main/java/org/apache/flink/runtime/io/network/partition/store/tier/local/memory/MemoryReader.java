@@ -22,8 +22,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,8 +40,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The read view of {@link MemoryDataManager}, data will be read from memory. */
-public class MemoryReader
-        implements SingleTierReader, SubpartitionConsumerInternalOperations {
+public class MemoryReader implements TierReader, SubpartitionConsumerInternalOperations {
 
     private static final Logger LOG = LoggerFactory.getLogger(MemoryReader.class);
 
@@ -69,7 +68,7 @@ public class MemoryReader
     @Nullable
     @GuardedBy("lock")
     // memoryDataView can be null only before initialization.
-    private BufferConsumeView memoryDataView;
+    private TierReaderView memoryDataView;
 
     public MemoryReader(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
@@ -83,7 +82,8 @@ public class MemoryReader
             synchronized (lock) {
                 checkNotNull(memoryDataView, "memory data view must be not null.");
 
-                Optional<BufferAndBacklog> bufferToConsume = memoryDataView.consumeBuffer(lastConsumedBufferIndex + 1, errorBuffers);
+                Optional<BufferAndBacklog> bufferToConsume =
+                        memoryDataView.consumeBuffer(lastConsumedBufferIndex + 1, errorBuffers);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.map(this::handleBacklog).orElse(null);
             }
@@ -166,7 +166,7 @@ public class MemoryReader
         }
     }
 
-    public void setMemoryDataView(BufferConsumeView memoryDataView) {
+    public void setMemoryDataView(TierReaderView memoryDataView) {
         synchronized (lock) {
             checkState(
                     this.memoryDataView == null, "repeatedly set memory data view is not allowed.");

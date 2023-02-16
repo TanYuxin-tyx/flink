@@ -16,21 +16,21 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.file;
+package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.BufferSpillingInfoProvider.ConsumeStatus;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.BufferSpillingInfoProvider.ConsumeStatusWithId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.BufferSpillingInfoProvider.SpillStatus;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.BufferSpillingInfoProvider.ConsumeStatus;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.BufferSpillingInfoProvider.ConsumeStatusWithId;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.BufferSpillingInfoProvider.SpillStatus;
 
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
 import java.util.TreeMap;
 
-import static org.apache.flink.runtime.io.network.partition.store.tier.local.file.SpillingStrategyUtils.getBuffersByConsumptionPriorityInOrder;
+import static org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SpillingStrategyUtils.getBuffersByConsumptionPriorityInOrder;
 
 /**
  * A special implementation of {@link TsSpillingStrategy} that reduce disk writes as much as
@@ -74,13 +74,13 @@ public class SelectiveSpillingStrategy implements TsSpillingStrategy {
                             SpillStatus.NOT_SPILL,
                             // selective spilling strategy does not support multiple consumer.
                             ConsumeStatusWithId.fromStatusAndConsumerId(
-                                    ConsumeStatus.NOT_CONSUMED, ConsumerId.DEFAULT)));
+                                    ConsumeStatus.NOT_CONSUMED, TierReaderId.DEFAULT)));
         }
 
         TreeMap<Integer, List<BufferIndexAndChannel>> subpartitionToHighPriorityBuffers =
                 getBuffersByConsumptionPriorityInOrder(
                         // selective spilling strategy does not support multiple consumer.
-                        spillingInfoProvider.getNextBufferIndexToConsume(ConsumerId.DEFAULT),
+                        spillingInfoProvider.getNextBufferIndexToConsume(TierReaderId.DEFAULT),
                         subpartitionToBuffers,
                         spillNum);
 

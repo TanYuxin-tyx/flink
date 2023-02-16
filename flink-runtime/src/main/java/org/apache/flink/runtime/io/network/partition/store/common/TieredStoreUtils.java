@@ -33,7 +33,7 @@ import java.util.List;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** Utils for reading or writing to tiered store. */
-public class StoreReadWriteUtils {
+public class TieredStoreUtils {
 
     private static final String TIER_STORE_DIR = "tiered-store";
 

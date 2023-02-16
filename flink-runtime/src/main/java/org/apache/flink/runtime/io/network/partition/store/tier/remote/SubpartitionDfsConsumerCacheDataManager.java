@@ -21,9 +21,9 @@ package org.apache.flink.runtime.io.network.partition.store.tier.remote;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
 import org.apache.flink.util.function.SupplierWithException;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -41,7 +41,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * SubpartitionDfsCacheDataManager} will create a new {@link
  * SubpartitionDfsConsumerCacheDataManager} when a consumer is registered.
  */
-public class SubpartitionDfsConsumerCacheDataManager implements BufferConsumeView {
+public class SubpartitionDfsConsumerCacheDataManager implements TierReaderView {
 
     @GuardedBy("consumerLock")
     private final Deque<BufferContext> unConsumedBuffers = new LinkedList<>();
@@ -50,7 +50,7 @@ public class SubpartitionDfsConsumerCacheDataManager implements BufferConsumeVie
 
     private final Lock resultPartitionLock;
 
-    private final ConsumerId consumerId;
+    private final TierReaderId tierReaderId;
 
     private final int subpartitionId;
 
@@ -60,12 +60,12 @@ public class SubpartitionDfsConsumerCacheDataManager implements BufferConsumeVie
             Lock resultPartitionLock,
             Lock consumerLock,
             int subpartitionId,
-            ConsumerId consumerId,
+            TierReaderId tierReaderId,
             DfsCacheDataManagerOperation cacheDataManagerOperation) {
         this.resultPartitionLock = resultPartitionLock;
         this.consumerLock = consumerLock;
         this.subpartitionId = subpartitionId;
-        this.consumerId = consumerId;
+        this.tierReaderId = tierReaderId;
         this.cacheDataManagerOperation = cacheDataManagerOperation;
     }
 
@@ -161,7 +161,7 @@ public class SubpartitionDfsConsumerCacheDataManager implements BufferConsumeVie
 
     @Override
     public void releaseDataView() {
-        cacheDataManagerOperation.onConsumerReleased(subpartitionId, consumerId);
+        cacheDataManagerOperation.onConsumerReleased(subpartitionId, tierReaderId);
     }
 
     @GuardedBy("consumerLock")

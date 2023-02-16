@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.file;
+package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
@@ -24,8 +24,8 @@ import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
 
@@ -158,9 +158,9 @@ public class LocalDiskDataManager implements Runnable, BufferRecycler {
     }
 
     /** This method only called by result partition to create subpartitionFileReader. */
-    public BufferConsumeView registerNewConsumer(
+    public TierReaderView registerNewConsumer(
             int subpartitionId,
-            ConsumerId consumerId,
+            TierReaderId tierReaderId,
             SubpartitionConsumerInternalOperations operation)
             throws IOException {
         synchronized (lock) {
@@ -170,7 +170,7 @@ public class LocalDiskDataManager implements Runnable, BufferRecycler {
             SubpartitionFileReader subpartitionReader =
                     fileReaderFactory.createFileReader(
                             subpartitionId,
-                            consumerId,
+                            tierReaderId,
                             dataFileChannel,
                             operation,
                             dataIndex,

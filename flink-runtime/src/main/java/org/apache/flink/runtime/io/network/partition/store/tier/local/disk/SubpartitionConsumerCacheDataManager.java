@@ -16,14 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.file;
+package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
 import org.apache.flink.util.function.SupplierWithException;
 
 import org.slf4j.Logger;
@@ -44,9 +44,10 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * SubpartitionConsumerCacheDataManager} will create a new {@link
  * SubpartitionConsumerCacheDataManager} when a consumer is registered.
  */
-public class SubpartitionConsumerCacheDataManager implements BufferConsumeView {
+public class SubpartitionConsumerCacheDataManager implements TierReaderView {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionConsumerCacheDataManager.class);
+    private static final Logger LOG =
+            LoggerFactory.getLogger(SubpartitionConsumerCacheDataManager.class);
 
     @GuardedBy("consumerLock")
     private final Deque<BufferContext> unConsumedBuffers = new LinkedList<>();
@@ -55,7 +56,7 @@ public class SubpartitionConsumerCacheDataManager implements BufferConsumeView {
 
     private final Lock resultPartitionLock;
 
-    private final ConsumerId consumerId;
+    private final TierReaderId tierReaderId;
 
     private final int subpartitionId;
 
@@ -65,12 +66,12 @@ public class SubpartitionConsumerCacheDataManager implements BufferConsumeView {
             Lock resultPartitionLock,
             Lock consumerLock,
             int subpartitionId,
-            ConsumerId consumerId,
+            TierReaderId tierReaderId,
             CacheDataManagerOperation cacheDataManagerOperation) {
         this.resultPartitionLock = resultPartitionLock;
         this.consumerLock = consumerLock;
         this.subpartitionId = subpartitionId;
-        this.consumerId = consumerId;
+        this.tierReaderId = tierReaderId;
         this.cacheDataManagerOperation = cacheDataManagerOperation;
     }
 
@@ -103,7 +104,8 @@ public class SubpartitionConsumerCacheDataManager implements BufferConsumeView {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(int toConsumeIndex, Queue<Buffer> errorBuffers) {
+    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(
+            int toConsumeIndex, Queue<Buffer> errorBuffers) {
         Optional<Tuple2<BufferContext, Buffer.DataType>> bufferAndNextDataType =
                 callWithLock(
                         () -> {
@@ -113,7 +115,7 @@ public class SubpartitionConsumerCacheDataManager implements BufferConsumeView {
 
                             BufferContext bufferContext =
                                     checkNotNull(unConsumedBuffers.pollFirst());
-                            bufferContext.consumed(consumerId);
+                            bufferContext.consumed(tierReaderId);
                             Buffer.DataType nextDataType =
                                     peekNextToConsumeDataTypeInternal(toConsumeIndex + 1);
                             return Optional.of(Tuple2.of(bufferContext, nextDataType));
@@ -147,7 +149,8 @@ public class SubpartitionConsumerCacheDataManager implements BufferConsumeView {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // consumerLock.
     @Override
-    public Buffer.DataType peekNextToConsumeDataType(int nextToConsumeIndex, Queue<Buffer> errorBuffers) {
+    public Buffer.DataType peekNextToConsumeDataType(
+            int nextToConsumeIndex, Queue<Buffer> errorBuffers) {
         return callWithLock(() -> peekNextToConsumeDataTypeInternal(nextToConsumeIndex));
     }
 
@@ -177,7 +180,7 @@ public class SubpartitionConsumerCacheDataManager implements BufferConsumeView {
 
     @Override
     public void releaseDataView() {
-        cacheDataManagerOperation.onConsumerReleased(subpartitionId, consumerId);
+        cacheDataManagerOperation.onConsumerReleased(subpartitionId, tierReaderId);
     }
 
     @GuardedBy("consumerLock")

@@ -24,12 +24,12 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.SubpartitionConsumerCacheDataManager;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.SubpartitionConsumerInternalOperations;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerCacheDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerInternalOperations;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.Preconditions;
@@ -70,7 +70,7 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<ConsumerId, DfsFileReaderInternalOperations>>
+    private final List<Map<TierReaderId, DfsFileReaderInternalOperations>>
             subpartitionViewOperationsMap;
 
     private final ExecutorService ioExecutor =
@@ -126,7 +126,7 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
 
     /**
      * Append record to {@link
-     * org.apache.flink.runtime.io.network.partition.store.tier.local.file.CacheDataManager}, It
+     * org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager}, It
      * will be managed by {@link SubpartitionConsumerCacheDataManager} witch it belongs to.
      *
      * @param record to be managed by this class.
@@ -161,21 +161,21 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
      * #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of the
      * subpartition.
      */
-    public BufferConsumeView registerNewConsumer(
+    public TierReaderView registerNewConsumer(
             int subpartitionId,
-            ConsumerId consumerId,
+            TierReaderId tierReaderId,
             DfsFileReaderInternalOperations viewOperations) {
-        LOG.debug("### registered, subpartition {}, consumerId {},", subpartitionId, consumerId);
+        LOG.debug("### registered, subpartition {}, consumerId {},", subpartitionId, tierReaderId);
         DfsFileReaderInternalOperations oldView =
-                subpartitionViewOperationsMap.get(subpartitionId).put(consumerId, viewOperations);
+                subpartitionViewOperationsMap.get(subpartitionId).put(tierReaderId, viewOperations);
         Preconditions.checkState(
                 oldView == null, "Each subpartition view should have unique consumerId.");
-        return getSubpartitionCacheDataManager(subpartitionId).registerNewConsumer(consumerId);
+        return getSubpartitionCacheDataManager(subpartitionId).registerNewConsumer(tierReaderId);
     }
 
     /**
      * Close this {@link
-     * org.apache.flink.runtime.io.network.partition.store.tier.local.file.CacheDataManager}, it
+     * org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager}, it
      * means no data can append to memory.
      */
     public void close() {
@@ -186,7 +186,7 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
 
     /**
      * Release this {@link
-     * org.apache.flink.runtime.io.network.partition.store.tier.local.file.CacheDataManager}, it
+     * org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager}, it
      * means all memory taken by this class will recycle.
      */
     public void release() {
@@ -219,10 +219,10 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
     // ------------------------------------
 
     @Override
-    public void onDataAvailable(int subpartitionId, Collection<ConsumerId> consumerIds) {
-        Map<ConsumerId, DfsFileReaderInternalOperations> consumerViewMap =
+    public void onDataAvailable(int subpartitionId, Collection<TierReaderId> tierReaderIds) {
+        Map<TierReaderId, DfsFileReaderInternalOperations> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
-        consumerIds.forEach(
+        tierReaderIds.forEach(
                 consumerId -> {
                     DfsFileReaderInternalOperations consumerView = consumerViewMap.get(consumerId);
                     if (consumerView != null) {
@@ -232,10 +232,10 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
     }
 
     @Override
-    public void onConsumerReleased(int subpartitionId, ConsumerId consumerId) {
-        LOG.debug("### Release subpartitionId {}, consumerId {}", subpartitionId, consumerId);
-        subpartitionViewOperationsMap.get(subpartitionId).remove(consumerId);
-        getSubpartitionCacheDataManager(subpartitionId).releaseConsumer(consumerId);
+    public void onConsumerReleased(int subpartitionId, TierReaderId tierReaderId) {
+        LOG.debug("### Release subpartitionId {}, consumerId {}", subpartitionId, tierReaderId);
+        subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderId);
+        getSubpartitionCacheDataManager(subpartitionId).releaseConsumer(tierReaderId);
     }
 
     // ------------------------------------

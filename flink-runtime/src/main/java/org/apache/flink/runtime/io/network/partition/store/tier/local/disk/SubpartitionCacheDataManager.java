@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.file;
+package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
@@ -30,9 +30,9 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferWithIdentity;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.BufferSpillingInfoProvider.ConsumeStatus;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.BufferSpillingInfoProvider.ConsumeStatusWithId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.BufferSpillingInfoProvider.SpillStatus;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.BufferSpillingInfoProvider.ConsumeStatus;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.BufferSpillingInfoProvider.ConsumeStatusWithId;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.BufferSpillingInfoProvider.SpillStatus;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
@@ -439,10 +439,10 @@ public class SubpartitionCacheDataManager {
         }
         switch (consumeStatusWithId.status) {
             case NOT_CONSUMED:
-                match &= !bufferContext.isConsumed(consumeStatusWithId.consumerId);
+                match &= !bufferContext.isConsumed(consumeStatusWithId.tierReaderId);
                 break;
             case CONSUMED:
-                match &= bufferContext.isConsumed(consumeStatusWithId.consumerId);
+                match &= bufferContext.isConsumed(consumeStatusWithId.tierReaderId);
                 break;
         }
         return match;

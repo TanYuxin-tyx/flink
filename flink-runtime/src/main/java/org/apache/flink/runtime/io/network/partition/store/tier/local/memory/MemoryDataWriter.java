@@ -22,13 +22,13 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreMode;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
 import org.apache.flink.runtime.io.network.partition.store.common.EndOfSegmentEventBuilder;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierWriter;
 import org.apache.flink.runtime.io.network.partition.store.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.util.Preconditions;
 
 import org.slf4j.Logger;
@@ -45,7 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
-public class MemoryDataWriter implements SingleTierWriter, MemoryDataWriterOperation {
+public class MemoryDataWriter implements TierWriter, MemoryDataWriterOperation {
 
     private static final Logger LOG = LoggerFactory.getLogger(MemoryDataWriter.class);
 
@@ -59,7 +59,7 @@ public class MemoryDataWriter implements SingleTierWriter, MemoryDataWriterOpera
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<ConsumerId, SubpartitionConsumerInternalOperations>>
+    private final List<Map<TierReaderId, SubpartitionConsumerInternalOperations>>
             subpartitionViewOperationsMap;
 
     private final SubpartitionSegmentIndexTracker subpartitionSegmentIndexTracker;
@@ -154,15 +154,15 @@ public class MemoryDataWriter implements SingleTierWriter, MemoryDataWriterOpera
      * to {@link #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of
      * the subpartition.
      */
-    public BufferConsumeView registerNewConsumer(
+    public TierReaderView registerNewConsumer(
             int subpartitionId,
-            ConsumerId consumerId,
+            TierReaderId tierReaderId,
             SubpartitionConsumerInternalOperations viewOperations) {
         SubpartitionConsumerInternalOperations oldView =
-                subpartitionViewOperationsMap.get(subpartitionId).put(consumerId, viewOperations);
+                subpartitionViewOperationsMap.get(subpartitionId).put(tierReaderId, viewOperations);
         Preconditions.checkState(
                 oldView == null, "Each subpartition view should have unique consumerId.");
-        return getSubpartitionMemoryDataManager(subpartitionId).registerNewConsumer(consumerId);
+        return getSubpartitionMemoryDataManager(subpartitionId).registerNewConsumer(tierReaderId);
     }
 
     /** Close this {@link MemoryDataWriter}, it means no data will be appended to memory. */
@@ -208,10 +208,10 @@ public class MemoryDataWriter implements SingleTierWriter, MemoryDataWriterOpera
     }
 
     @Override
-    public void onDataAvailable(int subpartitionId, Collection<ConsumerId> consumerIds) {
-        Map<ConsumerId, SubpartitionConsumerInternalOperations> consumerViewMap =
+    public void onDataAvailable(int subpartitionId, Collection<TierReaderId> tierReaderIds) {
+        Map<TierReaderId, SubpartitionConsumerInternalOperations> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
-        consumerIds.forEach(
+        tierReaderIds.forEach(
                 consumerId -> {
                     SubpartitionConsumerInternalOperations consumerView =
                             consumerViewMap.get(consumerId);
@@ -222,9 +222,9 @@ public class MemoryDataWriter implements SingleTierWriter, MemoryDataWriterOpera
     }
 
     @Override
-    public void onConsumerReleased(int subpartitionId, ConsumerId consumerId) {
-        subpartitionViewOperationsMap.get(subpartitionId).remove(consumerId);
-        getSubpartitionMemoryDataManager(subpartitionId).releaseConsumer(consumerId);
+    public void onConsumerReleased(int subpartitionId, TierReaderId tierReaderId) {
+        subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderId);
+        getSubpartitionMemoryDataManager(subpartitionId).releaseConsumer(tierReaderId);
     }
 
     // ------------------------------------

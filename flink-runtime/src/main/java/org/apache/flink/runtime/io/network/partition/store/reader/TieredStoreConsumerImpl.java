@@ -22,8 +22,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierDataGate;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.store.common.TieredStoreConsumer;
 import org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsDataManager;
 
@@ -45,9 +45,9 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     private final BufferAvailabilityListener availabilityListener;
 
-    private final SingleTierDataGate[] tierDataGates;
+    private final StorageTier[] tierDataGates;
 
-    private final SingleTierReader[] singleTierReaders;
+    private final TierReader[] tierReaders;
 
     private boolean isReleased = false;
 
@@ -66,7 +66,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     public TieredStoreConsumerImpl(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            SingleTierDataGate[] tierDataGates,
+            StorageTier[] tierDataGates,
             String taskName)
             throws IOException {
         checkArgument(tierDataGates.length > 0, "Empty tier transmitters.");
@@ -74,14 +74,14 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
         this.tierDataGates = tierDataGates;
-        this.singleTierReaders = new SingleTierReader[tierDataGates.length];
+        this.tierReaders = new TierReader[tierDataGates.length];
         createSingleTierReaders();
         this.taskName = taskName;
     }
 
     private void createSingleTierReaders() throws IOException {
         for (int i = 0; i < tierDataGates.length; i++) {
-            singleTierReaders[i] =
+            tierReaders[i] =
                     tierDataGates[i].createSubpartitionTierReader(
                             subpartitionId, availabilityListener);
         }
@@ -117,7 +117,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
         }
         LOG.debug("%%% getNextBuffer2");
         BufferAndBacklog bufferAndBacklog =
-                singleTierReaders[viewIndexContainsCurrentSegment].getNextBuffer();
+                tierReaders[viewIndexContainsCurrentSegment].getNextBuffer();
 
         if (bufferAndBacklog != null) {
             LOG.debug("%%% getNextBuffer3 ");
@@ -143,11 +143,11 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable) {
         // first scan all result subpartition views
-        for (SingleTierReader singleTierReader : singleTierReaders) {
-            singleTierReader.getAvailabilityAndBacklog(numCreditsAvailable);
+        for (TierReader tierReader : tierReaders) {
+            tierReader.getAvailabilityAndBacklog(numCreditsAvailable);
         }
         if (findTierContainsNextSegment()) {
-            return singleTierReaders[viewIndexContainsCurrentSegment].getAvailabilityAndBacklog(
+            return tierReaders[viewIndexContainsCurrentSegment].getAvailabilityAndBacklog(
                     numCreditsAvailable);
         }
         return new ResultSubpartitionView.AvailabilityWithBacklog(false, 0);
@@ -159,10 +159,10 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
             return;
         }
         isReleased = true;
-        for (int i = 0; i < singleTierReaders.length; i++) {
-            if (singleTierReaders[i] != null) {
+        for (int i = 0; i < tierReaders.length; i++) {
+            if (tierReaders[i] != null) {
                 try {
-                    singleTierReaders[i].releaseAllResources();
+                    tierReaders[i].releaseAllResources();
                 } catch (IOException ioException) {
                     throw new RuntimeException(
                             "Failed to release partition view resources.", ioException);
@@ -178,8 +178,8 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     @Override
     public Throwable getFailureCause() {
-        for (SingleTierReader singleTierReader : singleTierReaders) {
-            Throwable failureCause = singleTierReader.getFailureCause();
+        for (TierReader tierReader : tierReaders) {
+            Throwable failureCause = tierReader.getFailureCause();
             if (failureCause != null) {
                 return failureCause;
             }
@@ -190,19 +190,19 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
         findTierContainsNextSegment();
-        return singleTierReaders[viewIndexContainsCurrentSegment]
+        return tierReaders[viewIndexContainsCurrentSegment]
                 .unsynchronizedGetNumberOfQueuedBuffers();
     }
 
     @Override
     public int getNumberOfQueuedBuffers() {
         findTierContainsNextSegment();
-        return singleTierReaders[viewIndexContainsCurrentSegment].getNumberOfQueuedBuffers();
+        return tierReaders[viewIndexContainsCurrentSegment].getNumberOfQueuedBuffers();
     }
 
     @Override
     public boolean containSegment(long segmentId) {
-        for (SingleTierDataGate tieredDataGate : tierDataGates) {
+        for (StorageTier tieredDataGate : tierDataGates) {
             if (tieredDataGate.getClass() == DfsDataManager.class) {
                 continue;
             }
@@ -219,8 +219,8 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     private boolean findTierContainsNextSegment() {
 
-        for (SingleTierReader singleTierReader : singleTierReaders) {
-            singleTierReader.getAvailabilityAndBacklog(Integer.MAX_VALUE);
+        for (TierReader tierReader : tierReaders) {
+            tierReader.getAvailabilityAndBacklog(Integer.MAX_VALUE);
         }
 
         if (!hasSegmentFinished) {
@@ -228,7 +228,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
         }
 
         for (int i = 0; i < tierDataGates.length; i++) {
-            SingleTierDataGate tieredDataGate = tierDataGates[i];
+            StorageTier tieredDataGate = tierDataGates[i];
             if (tieredDataGate.hasCurrentSegment(subpartitionId, currentSegmentIndex)) {
                 viewIndexContainsCurrentSegment = i;
                 return true;

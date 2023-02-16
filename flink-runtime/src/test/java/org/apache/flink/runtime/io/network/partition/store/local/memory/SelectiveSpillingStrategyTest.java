@@ -20,8 +20,8 @@ package org.apache.flink.runtime.io.network.partition.store.local.memory;
 
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.SelectiveSpillingStrategy;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.TsSpillingStrategy.Decision;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SelectiveSpillingStrategy;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.TsSpillingStrategy.Decision;
 
 import org.junit.jupiter.api.Test;
 

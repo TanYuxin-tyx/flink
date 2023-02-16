@@ -18,26 +18,26 @@
 
 package org.apache.flink.runtime.io.network.partition.store.common;
 
-import org.junit.jupiter.api.Test;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
-/** Tests for {@link ConsumerId}. */
-class ConsumerIdTest {
-    @Test
-    void testNewIdFromNull() {
-        ConsumerId consumerId = ConsumerId.newId(null);
-        assertThat(consumerId).isNotNull().isEqualTo(ConsumerId.DEFAULT);
-    }
+/** Spilling the caching data in a cached data manager. */
+public interface CacheBufferSpiller {
 
-    @Test
-    void testConsumerIdEquals() {
-        ConsumerId consumerId = ConsumerId.newId(null);
-        ConsumerId consumerId1 = ConsumerId.newId(consumerId);
-        ConsumerId consumerId2 = ConsumerId.newId(consumerId);
-        assertThat(consumerId1.hashCode()).isEqualTo(consumerId2.hashCode());
-        assertThat(consumerId1).isEqualTo(consumerId2);
+    void startSegment(long segmentIndex) throws IOException;
 
-        assertThat(ConsumerId.newId(consumerId2)).isNotEqualTo(consumerId2);
-    }
+    CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spillAsync(
+            List<BufferWithIdentity> bufferToSpill);
+
+    void finishSegment(long segmentIndex);
+
+    void release();
+
+    void close();
+
+    Path getBaseSubpartitionPath();
 }
