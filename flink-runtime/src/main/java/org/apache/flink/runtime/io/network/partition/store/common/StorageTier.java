@@ -31,7 +31,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * The gate for a single tiered data. The gate is used to create {@link TierWriter} and {@link
- * TierReader}. The writing and reading data processes happen in the writer and reader.
+ * TierReaderView}. The writing and reading data processes happen in the writer and reader.
  */
 public interface StorageTier extends ChannelStateHolder, CheckpointedResultPartition {
 
@@ -39,7 +39,7 @@ public interface StorageTier extends ChannelStateHolder, CheckpointedResultParti
 
     TierWriter createPartitionTierWriter() throws IOException;
 
-    TierReader createSubpartitionTierReader(
+    TierReaderView createSubpartitionTierReaderView(
             int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
 
     boolean canStoreNextSegment(int subpartitionId);

@@ -30,9 +30,8 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferWithIdentity;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.BufferSpillingInfoProvider.ConsumeStatus;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.BufferSpillingInfoProvider.ConsumeStatusWithId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.BufferSpillingInfoProvider.SpillStatus;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManagerOperation.ConsumeStatusWithId;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManagerOperation.SpillStatus;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
@@ -118,15 +117,6 @@ public class SubpartitionCacheDataManager {
         }
     }
 
-    /**
-     * Get buffers in {@link #allBuffers} that satisfy expected {@link SpillStatus} and {@link
-     * ConsumeStatus}.
-     *
-     * @param spillStatus the status of spilling expected.
-     * @param consumeStatusWithId the status and consumerId expected.
-     * @return buffers satisfy expected status in order.
-     */
-    @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     public Deque<BufferIndexAndChannel> getBuffersSatisfyStatus(
@@ -427,10 +417,10 @@ public class SubpartitionCacheDataManager {
         }
         switch (consumeStatusWithId.status) {
             case NOT_CONSUMED:
-                match &= !bufferContext.isConsumed(consumeStatusWithId.tierReaderId);
+                match &= !bufferContext.isConsumed(consumeStatusWithId.tierReaderViewId);
                 break;
             case CONSUMED:
-                match &= bufferContext.isConsumed(consumeStatusWithId.tierReaderId);
+                match &= bufferContext.isConsumed(consumeStatusWithId.tierReaderViewId);
                 break;
         }
         return match;

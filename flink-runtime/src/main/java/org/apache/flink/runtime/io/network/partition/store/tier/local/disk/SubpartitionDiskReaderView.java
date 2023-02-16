@@ -39,10 +39,11 @@ import java.util.Queue;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The read view of {@link LocalFileDataManager}, data can be read from memory or disk. */
-public class SubpartitionConsumer implements TierReader, SubpartitionConsumerInternalOperations {
+/** The read view of {@link DiskTier}, data can be read from memory or disk. */
+public class SubpartitionDiskReaderView
+        implements TierReaderView, SubpartitionConsumerInternalOperations {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionConsumer.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionDiskReaderView.class);
 
     private final BufferAvailabilityListener availabilityListener;
     private final Object lock = new Object();
@@ -68,9 +69,9 @@ public class SubpartitionConsumer implements TierReader, SubpartitionConsumerInt
     @Nullable
     @GuardedBy("lock")
     // diskDataView can be null only before initialization.
-    private TierReaderView diskDataView;
+    private TierReader diskReader;
 
-    public SubpartitionConsumer(BufferAvailabilityListener availabilityListener) {
+    public SubpartitionDiskReaderView(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 
@@ -80,7 +81,7 @@ public class SubpartitionConsumer implements TierReader, SubpartitionConsumerInt
         Queue<Buffer> errorBuffers = new ArrayDeque<>();
         try {
             synchronized (lock) {
-                checkNotNull(diskDataView, "disk data view must be not null.");
+                checkNotNull(diskReader, "disk data view must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume = tryReadFromDisk(errorBuffers);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.map(this::handleBacklog).orElse(null);
@@ -172,13 +173,13 @@ public class SubpartitionConsumer implements TierReader, SubpartitionConsumerInt
     }
 
     /**
-     * Set {@link TierReaderView} for this subpartition, this method only called when {@link
-     * SubpartitionFileReader} is creating.
+     * Set {@link TierReader} for this subpartition, this method only called when {@link
+     * SubpartitionDiskReader} is creating.
      */
-    public void setDiskDataView(TierReaderView diskDataView) {
+    public void setDiskReader(TierReader diskReader) {
         synchronized (lock) {
-            checkState(this.diskDataView == null, "repeatedly set disk data view is not allowed.");
-            this.diskDataView = diskDataView;
+            checkState(this.diskReader == null, "repeatedly set disk data view is not allowed.");
+            this.diskReader = diskReader;
         }
     }
 
@@ -200,10 +201,10 @@ public class SubpartitionConsumer implements TierReader, SubpartitionConsumerInt
 
     @SuppressWarnings("FieldAccessNotGuarded")
     private int getSubpartitionBacklog() {
-        if (diskDataView == null) {
+        if (diskReader == null) {
             return 0;
         }
-        return diskDataView.getBacklog();
+        return diskReader.getBacklog();
     }
 
     private BufferAndBacklog handleBacklog(BufferAndBacklog bufferToConsume) {
@@ -221,7 +222,7 @@ public class SubpartitionConsumer implements TierReader, SubpartitionConsumerInt
     private Optional<BufferAndBacklog> tryReadFromDisk(Queue<Buffer> errorBuffers)
             throws Throwable {
         final int nextBufferIndexToConsume = lastConsumedBufferIndex + 1;
-        return checkNotNull(diskDataView).consumeBuffer(nextBufferIndexToConsume, errorBuffers);
+        return checkNotNull(diskReader).consumeBuffer(nextBufferIndexToConsume, errorBuffers);
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -250,7 +251,7 @@ public class SubpartitionConsumer implements TierReader, SubpartitionConsumerInt
             }
             isReleased = true;
             failureCause = throwable;
-            releaseDiskView = diskDataView != null;
+            releaseDiskView = diskReader != null;
         }
 
         if (throwable != null) {
@@ -259,7 +260,7 @@ public class SubpartitionConsumer implements TierReader, SubpartitionConsumerInt
         // release subpartition reader outside of lock to avoid deadlock.
         if (releaseDiskView) {
             //noinspection FieldAccessNotGuarded
-            diskDataView.releaseDataView();
+            diskReader.releaseDataView();
         }
     }
 }

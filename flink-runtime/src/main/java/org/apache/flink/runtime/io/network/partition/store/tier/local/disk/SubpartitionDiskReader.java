@@ -20,8 +20,8 @@ package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -33,11 +33,11 @@ import java.util.function.Consumer;
 /**
  * This component is responsible for reading data from disk for a specific subpartition.
  *
- * <p>In order to access the disk as sequentially as possible {@link SubpartitionFileReader} need to
+ * <p>In order to access the disk as sequentially as possible {@link SubpartitionDiskReader} need to
  * be able to compare priorities.
  */
-public interface SubpartitionFileReader extends Comparable<SubpartitionFileReader>, TierReaderView {
-    /** Do prep work before this {@link SubpartitionFileReader} is scheduled to read data. */
+public interface SubpartitionDiskReader extends Comparable<SubpartitionDiskReader>, TierReader {
+    /** Do prep work before this {@link SubpartitionDiskReader} is scheduled to read data. */
     void prepareForScheduling();
 
     /**
@@ -50,7 +50,7 @@ public interface SubpartitionFileReader extends Comparable<SubpartitionFileReade
     void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler) throws IOException;
 
     /**
-     * Fail this {@link SubpartitionFileReader} caused by failureCause.
+     * Fail this {@link SubpartitionDiskReader} caused by failureCause.
      *
      * @param failureCause represents the reason why it failed.
      */
@@ -58,16 +58,16 @@ public interface SubpartitionFileReader extends Comparable<SubpartitionFileReade
 
     void release();
 
-    /** Factory to create {@link SubpartitionFileReader}. */
+    /** Factory to create {@link SubpartitionDiskReader}. */
     interface Factory {
-        SubpartitionFileReader createFileReader(
+        SubpartitionDiskReader createFileReader(
                 int subpartitionId,
-                TierReaderId tierReaderId,
+                TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
                 SubpartitionConsumerInternalOperations operation,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
-                Consumer<SubpartitionFileReader> fileReaderReleaser,
+                Consumer<SubpartitionDiskReader> fileReaderReleaser,
                 BiFunction<Integer, Integer, Boolean> isLastRecordInSegmentDecider,
                 ByteBuffer headerBuffer);
     }

@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexOrError;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -49,19 +49,19 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * Default implementation of {@link SubpartitionFileReader}.
+ * Default implementation of {@link SubpartitionDiskReader}.
  *
  * <p>Note: This class is not thread safe.
  */
-public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
+public class SubpartitionDiskReaderImpl implements SubpartitionDiskReader {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionFileReaderImpl.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionDiskReaderImpl.class);
 
     private final ByteBuffer headerBuf;
 
     private final int subpartitionId;
 
-    private final TierReaderId tierReaderId;
+    private final TierReaderViewId tierReaderViewId;
 
     private final FileChannel dataFileChannel;
 
@@ -73,24 +73,24 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
 
     private final Deque<BufferIndexOrError> loadedBuffers = new LinkedBlockingDeque<>();
 
-    private final Consumer<SubpartitionFileReader> fileReaderReleaser;
+    private final Consumer<SubpartitionDiskReader> fileReaderReleaser;
 
     private final BiFunction<Integer, Integer, Boolean> isLastRecordInSegmentDecider;
 
     private volatile boolean isFailed;
 
-    public SubpartitionFileReaderImpl(
+    public SubpartitionDiskReaderImpl(
             int subpartitionId,
-            TierReaderId tierReaderId,
+            TierReaderViewId tierReaderViewId,
             FileChannel dataFileChannel,
             SubpartitionConsumerInternalOperations operations,
             RegionBufferIndexTracker dataIndex,
             int maxBufferReadAhead,
-            Consumer<SubpartitionFileReader> fileReaderReleaser,
+            Consumer<SubpartitionDiskReader> fileReaderReleaser,
             BiFunction<Integer, Integer, Boolean> isLastRecordInSegmentDecider,
             ByteBuffer headerBuf) {
         this.subpartitionId = subpartitionId;
-        this.tierReaderId = tierReaderId;
+        this.tierReaderViewId = tierReaderViewId;
         this.dataFileChannel = dataFileChannel;
         this.operations = operations;
         this.headerBuf = headerBuf;
@@ -108,14 +108,14 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        SubpartitionFileReaderImpl that = (SubpartitionFileReaderImpl) o;
+        SubpartitionDiskReaderImpl that = (SubpartitionDiskReaderImpl) o;
         return subpartitionId == that.subpartitionId
-                && Objects.equals(tierReaderId, that.tierReaderId);
+                && Objects.equals(tierReaderViewId, that.tierReaderViewId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(subpartitionId, tierReaderId);
+        return Objects.hash(subpartitionId, tierReaderViewId);
     }
 
     /**
@@ -223,10 +223,10 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
 
     /** Provides priority calculation logic for io scheduler. */
     @Override
-    public int compareTo(SubpartitionFileReader that) {
-        checkArgument(that instanceof SubpartitionFileReaderImpl);
+    public int compareTo(SubpartitionDiskReader that) {
+        checkArgument(that instanceof SubpartitionDiskReaderImpl);
         return Long.compare(
-                getNextOffsetToLoad(), ((SubpartitionFileReaderImpl) that).getNextOffsetToLoad());
+                getNextOffsetToLoad(), ((SubpartitionDiskReaderImpl) that).getNextOffsetToLoad());
     }
 
     public Deque<BufferIndexOrError> getLoadedBuffers() {
@@ -492,26 +492,26 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
         }
     }
 
-    /** Factory of {@link SubpartitionFileReader}. */
-    public static class Factory implements SubpartitionFileReader.Factory {
+    /** Factory of {@link SubpartitionDiskReader}. */
+    public static class Factory implements SubpartitionDiskReader.Factory {
         public static final Factory INSTANCE = new Factory();
 
         private Factory() {}
 
         @Override
-        public SubpartitionFileReader createFileReader(
+        public SubpartitionDiskReader createFileReader(
                 int subpartitionId,
-                TierReaderId tierReaderId,
+                TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
                 SubpartitionConsumerInternalOperations operation,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
-                Consumer<SubpartitionFileReader> fileReaderReleaser,
+                Consumer<SubpartitionDiskReader> fileReaderReleaser,
                 BiFunction<Integer, Integer, Boolean> isLastRecordInSegmentDecider,
                 ByteBuffer headerBuffer) {
-            return new SubpartitionFileReaderImpl(
+            return new SubpartitionDiskReaderImpl(
                     subpartitionId,
-                    tierReaderId,
+                    tierReaderViewId,
                     dataFileChannel,
                     operation,
                     dataIndex,

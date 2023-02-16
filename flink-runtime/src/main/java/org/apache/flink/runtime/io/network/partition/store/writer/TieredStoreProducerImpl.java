@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartit
 import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.store.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.store.common.TieredStoreProducer;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.LocalFileDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskTier;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.memory.MemoryDataManager;
 
 import org.slf4j.Logger;
@@ -190,7 +190,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         // only for test case Memory and Disk
         if (tierDataGates.length == 2
                 && tierDataGates[0] instanceof MemoryDataManager
-                && tierDataGates[1] instanceof LocalFileDataManager) {
+                && tierDataGates[1] instanceof DiskTier) {
             if (!isBroadcastOnly && tierDataGates[0].canStoreNextSegment(targetSubpartition)) {
                 return 0;
             }

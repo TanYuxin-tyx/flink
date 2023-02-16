@@ -29,7 +29,7 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
@@ -93,7 +93,7 @@ public class SubpartitionMemoryDataManager {
     private final BufferPoolHelper bufferPoolHelper;
 
     @GuardedBy("subpartitionLock")
-    private final Map<TierReaderId, SubpartitionConsumerMemoryDataManager> consumerMap;
+    private final Map<TierReaderViewId, SubpartitionConsumerMemoryDataManager> consumerMap;
 
     private final AtomicInteger consumerNum = new AtomicInteger(0);
 
@@ -155,27 +155,28 @@ public class SubpartitionMemoryDataManager {
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
-    public SubpartitionConsumerMemoryDataManager registerNewConsumer(TierReaderId tierReaderId) {
+    public SubpartitionConsumerMemoryDataManager registerNewConsumer(
+            TierReaderViewId tierReaderViewId) {
         return callWithLock(
                 () -> {
-                    checkState(!consumerMap.containsKey(tierReaderId));
+                    checkState(!consumerMap.containsKey(tierReaderViewId));
                     SubpartitionConsumerMemoryDataManager newConsumer =
                             new SubpartitionConsumerMemoryDataManager(
                                     subpartitionLock.readLock(),
                                     targetChannel,
-                                    tierReaderId,
+                                    tierReaderViewId,
                                     memoryDataWriterOperation);
                     newConsumer.addInitialBuffers(allBuffers);
                     consumerNum.getAndIncrement();
-                    consumerMap.put(tierReaderId, newConsumer);
+                    consumerMap.put(tierReaderViewId, newConsumer);
                     return newConsumer;
                 });
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
-    public void releaseConsumer(TierReaderId tierReaderId) {
+    public void releaseConsumer(TierReaderViewId tierReaderViewId) {
         consumerNum.set(-9999);
-        runWithLock(() -> checkNotNull(consumerMap.remove(tierReaderId)));
+        runWithLock(() -> checkNotNull(consumerMap.remove(tierReaderViewId)));
     }
 
     // ------------------------------------------------------------------------
@@ -301,13 +302,13 @@ public class SubpartitionMemoryDataManager {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     private void addFinishedBuffer(boolean isBroadcast, BufferContext bufferContext) {
-        List<TierReaderId> needNotify = new ArrayList<>(consumerMap.size());
+        List<TierReaderViewId> needNotify = new ArrayList<>(consumerMap.size());
         runWithLock(
                 () -> {
                     finishedBufferIndex++;
                     allBuffers.add(bufferContext);
                     retainBufferIfNeeded(isBroadcast, bufferContext);
-                    for (Map.Entry<TierReaderId, SubpartitionConsumerMemoryDataManager>
+                    for (Map.Entry<TierReaderViewId, SubpartitionConsumerMemoryDataManager>
                             consumerEntry : consumerMap.entrySet()) {
                         if (consumerEntry.getValue().addBuffer(bufferContext)) {
                             needNotify.add(consumerEntry.getKey());

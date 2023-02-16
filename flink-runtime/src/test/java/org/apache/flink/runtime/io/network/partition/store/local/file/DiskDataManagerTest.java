@@ -27,18 +27,18 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.store.TestingTierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.TestingTierReader;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.store.local.memory.TestingSubpartitionConsumerInternalOperation;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.LocalDiskDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskDataManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumer;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerInternalOperations;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionFileReaderImpl;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionDiskReader;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionDiskReaderImpl;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionDiskReaderView;
 import org.apache.flink.util.TestLoggerExtension;
 import org.apache.flink.util.function.BiConsumerWithException;
 
@@ -71,9 +71,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Tests for {@link LocalDiskDataManager}. */
+/** Tests for {@link DiskDataManager}. */
 @ExtendWith(TestLoggerExtension.class)
-class LocalDiskDataManagerTest {
+class DiskDataManagerTest {
     private static final int BUFFER_SIZE = 1024;
 
     private static final int NUM_SUBPARTITIONS = 10;
@@ -90,11 +90,11 @@ class LocalDiskDataManagerTest {
 
     private Path dataFilePath;
 
-    private LocalDiskDataManager fileDataManager;
+    private DiskDataManager fileDataManager;
 
     private TestingSubpartitionConsumerInternalOperation subpartitionViewOperation;
 
-    private TestingSubpartitionFileReader.Factory factory;
+    private TestingSubpartitionDiskReader.Factory factory;
 
     @BeforeEach
     void before(@TempDir Path tempDir) throws IOException {
@@ -104,9 +104,9 @@ class LocalDiskDataManagerTest {
         ioExecutor = new ManuallyTriggeredScheduledExecutorService();
         dataFilePath = Files.createFile(tempDir.resolve(".data"));
         dataFileChannel = openFileChannel(dataFilePath);
-        factory = new TestingSubpartitionFileReader.Factory();
+        factory = new TestingSubpartitionDiskReader.Factory();
         fileDataManager =
-                new LocalDiskDataManager(
+                new DiskDataManager(
                         bufferPool,
                         ioExecutor,
                         new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
@@ -131,14 +131,14 @@ class LocalDiskDataManagerTest {
 
     @Test
     void testRegisterReaderTriggerRun() throws Exception {
-        TestingSubpartitionFileReader reader = new TestingSubpartitionFileReader();
+        TestingSubpartitionDiskReader reader = new TestingSubpartitionDiskReader();
         reader.setReadBuffersConsumer(
                 (requestedBuffers, readBuffers) -> readBuffers.addAll(requestedBuffers));
         factory.allReaders.add(reader);
 
         assertThat(reader.readBuffers).isEmpty();
 
-        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
 
         ioExecutor.trigger();
 
@@ -147,7 +147,7 @@ class LocalDiskDataManagerTest {
 
     @Test
     void testBufferReleasedTriggerRun() throws Exception {
-        TestingSubpartitionFileReader reader = new TestingSubpartitionFileReader();
+        TestingSubpartitionDiskReader reader = new TestingSubpartitionDiskReader();
         reader.setReadBuffersConsumer(
                 (requestedBuffer, readBuffers) -> {
                     while (!requestedBuffer.isEmpty()) {
@@ -157,7 +157,7 @@ class LocalDiskDataManagerTest {
 
         factory.allReaders.add(reader);
 
-        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
 
         ioExecutor.trigger();
 
@@ -175,7 +175,7 @@ class LocalDiskDataManagerTest {
     /** Test all not used buffers will be released after run method finish. */
     @Test
     void testRunReleaseUnusedBuffers() throws Exception {
-        TestingSubpartitionFileReader reader = new TestingSubpartitionFileReader();
+        TestingSubpartitionDiskReader reader = new TestingSubpartitionDiskReader();
 
         CompletableFuture<Void> prepareForSchedulingFinished = new CompletableFuture<>();
         reader.setPrepareForSchedulingRunnable(() -> prepareForSchedulingFinished.complete(null));
@@ -189,7 +189,7 @@ class LocalDiskDataManagerTest {
                 });
         factory.allReaders.add(reader);
 
-        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
 
         ioExecutor.trigger();
 
@@ -200,8 +200,8 @@ class LocalDiskDataManagerTest {
     /** Test file data manager will schedule readers in order. */
     @Test
     void testScheduleReadersOrdered() throws Exception {
-        TestingSubpartitionFileReader reader1 = new TestingSubpartitionFileReader();
-        TestingSubpartitionFileReader reader2 = new TestingSubpartitionFileReader();
+        TestingSubpartitionDiskReader reader1 = new TestingSubpartitionDiskReader();
+        TestingSubpartitionDiskReader reader2 = new TestingSubpartitionDiskReader();
 
         CompletableFuture<Void> readBuffersFinished1 = new CompletableFuture<>();
         CompletableFuture<Void> readBuffersFinished2 = new CompletableFuture<>();
@@ -222,8 +222,8 @@ class LocalDiskDataManagerTest {
         factory.allReaders.add(reader1);
         factory.allReaders.add(reader2);
 
-        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
-        fileDataManager.registerNewConsumer(1, TierReaderId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(1, TierReaderViewId.DEFAULT, subpartitionViewOperation);
 
         // trigger run.
         ioExecutor.trigger();
@@ -240,7 +240,7 @@ class LocalDiskDataManagerTest {
         assertThat(bufferPool.getAvailableBuffers()).isZero();
 
         fileDataManager =
-                new LocalDiskDataManager(
+                new DiskDataManager(
                         bufferPool,
                         ioExecutor,
                         new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
@@ -252,14 +252,14 @@ class LocalDiskDataManagerTest {
                                 .build(),
                         (subpartitionIndex, bufferIndex) -> false);
 
-        TestingSubpartitionFileReader reader = new TestingSubpartitionFileReader();
+        TestingSubpartitionDiskReader reader = new TestingSubpartitionDiskReader();
         CompletableFuture<Void> prepareForSchedulingFinished = new CompletableFuture<>();
         CompletableFuture<Throwable> cause = new CompletableFuture<>();
         reader.setPrepareForSchedulingRunnable(() -> prepareForSchedulingFinished.complete(null));
         reader.setFailConsumer((cause::complete));
         factory.allReaders.add(reader);
 
-        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
 
         ioExecutor.trigger();
 
@@ -271,12 +271,12 @@ class LocalDiskDataManagerTest {
     }
 
     /**
-     * When {@link SubpartitionFileReader#readBuffers(Queue, BufferRecycler)} throw IOException,
+     * When {@link SubpartitionDiskReader#readBuffers(Queue, BufferRecycler)} throw IOException,
      * subpartition reader should fail.
      */
     @Test
     void testRunReadBuffersThrowException() throws Exception {
-        TestingSubpartitionFileReader reader = new TestingSubpartitionFileReader();
+        TestingSubpartitionDiskReader reader = new TestingSubpartitionDiskReader();
         CompletableFuture<Throwable> cause = new CompletableFuture<>();
         reader.setFailConsumer((cause::complete));
         reader.setReadBuffersConsumer(
@@ -285,7 +285,7 @@ class LocalDiskDataManagerTest {
                 });
         factory.allReaders.add(reader);
 
-        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
 
         ioExecutor.trigger();
 
@@ -302,7 +302,7 @@ class LocalDiskDataManagerTest {
     @Timeout(10)
     @Disabled("Ignore the test temporally")
     void testReleasedWhenReading() throws Exception {
-        TestingSubpartitionFileReader reader = new TestingSubpartitionFileReader();
+        TestingSubpartitionDiskReader reader = new TestingSubpartitionDiskReader();
 
         CompletableFuture<Throwable> cause = new CompletableFuture<>();
         reader.setFailConsumer((cause::complete));
@@ -331,7 +331,7 @@ class LocalDiskDataManagerTest {
                 };
         releaseThread.start();
 
-        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
 
         ioExecutor.trigger();
 
@@ -346,14 +346,14 @@ class LocalDiskDataManagerTest {
     /** Test file data manager was released, but receive new subpartition reader registration. */
     @Test
     void testRegisterSubpartitionReaderAfterReleased() {
-        TestingSubpartitionFileReader reader = new TestingSubpartitionFileReader();
+        TestingSubpartitionDiskReader reader = new TestingSubpartitionDiskReader();
         factory.allReaders.add(reader);
 
         fileDataManager.release();
         assertThatThrownBy(
                         () -> {
                             fileDataManager.registerNewConsumer(
-                                    0, TierReaderId.DEFAULT, subpartitionViewOperation);
+                                    0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
                             ioExecutor.trigger();
                         })
                 .isInstanceOf(IllegalStateException.class)
@@ -372,13 +372,13 @@ class LocalDiskDataManagerTest {
     void testConsumeWhileReleaseNoDeadlock() throws Exception {
         CompletableFuture<Void> consumerStart = new CompletableFuture<>();
         CompletableFuture<Void> readerFail = new CompletableFuture<>();
-        SubpartitionConsumer subpartitionView =
-                new SubpartitionConsumer(new NoOpBufferAvailablityListener());
+        SubpartitionDiskReaderView subpartitionView =
+                new SubpartitionDiskReaderView(new NoOpBufferAvailablityListener());
 
-        SubpartitionFileReaderImpl subpartitionFileReader =
-                new SubpartitionFileReaderImpl(
+        SubpartitionDiskReaderImpl subpartitionFileReader =
+                new SubpartitionDiskReaderImpl(
                         0,
-                        TierReaderId.DEFAULT,
+                        TierReaderViewId.DEFAULT,
                         dataFileChannel,
                         subpartitionView,
                         new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
@@ -398,11 +398,11 @@ class LocalDiskDataManagerTest {
                     }
                 };
         factory.allReaders.add(subpartitionFileReader);
-        TierReaderView diskDataView =
-                fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionView);
-        subpartitionView.setDiskDataView(diskDataView);
-        TestingTierReaderView memoryDataView =
-                TestingTierReaderView.builder()
+        TierReader diskDataView =
+                fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionView);
+        subpartitionView.setDiskReader(diskDataView);
+        TestingTierReader memoryDataView =
+                TestingTierReader.builder()
                         .setConsumeBufferFunction(
                                 (ignore) -> {
                                     // throw an exception to trigger the release of file reader.
@@ -429,7 +429,7 @@ class LocalDiskDataManagerTest {
         return FileChannel.open(path, StandardOpenOption.READ);
     }
 
-    private static class TestingSubpartitionFileReader implements SubpartitionFileReader {
+    private static class TestingSubpartitionDiskReader implements SubpartitionDiskReader {
         private Runnable prepareForSchedulingRunnable = () -> {};
 
         private BiConsumerWithException<Queue<MemorySegment>, Queue<MemorySegment>, IOException>
@@ -443,7 +443,7 @@ class LocalDiskDataManagerTest {
 
         private int priority;
 
-        private TestingSubpartitionFileReader() {
+        private TestingSubpartitionDiskReader() {
             this.readBuffers = new ArrayDeque<>();
         }
 
@@ -467,9 +467,9 @@ class LocalDiskDataManagerTest {
         public void release() {}
 
         @Override
-        public int compareTo(SubpartitionFileReader that) {
-            checkArgument(that instanceof TestingSubpartitionFileReader);
-            return Integer.compare(priority, ((TestingSubpartitionFileReader) that).priority);
+        public int compareTo(SubpartitionDiskReader that) {
+            checkArgument(that instanceof TestingSubpartitionDiskReader);
+            return Integer.compare(priority, ((TestingSubpartitionDiskReader) that).priority);
         }
 
         public void setPriority(int priority) {
@@ -516,19 +516,19 @@ class LocalDiskDataManagerTest {
             releaseDataViewRunnable.run();
         }
 
-        /** Factory for {@link TestingSubpartitionFileReader}. */
-        private static class Factory implements SubpartitionFileReader.Factory {
-            private final Queue<SubpartitionFileReader> allReaders = new ArrayDeque<>();
+        /** Factory for {@link TestingSubpartitionDiskReader}. */
+        private static class Factory implements SubpartitionDiskReader.Factory {
+            private final Queue<SubpartitionDiskReader> allReaders = new ArrayDeque<>();
 
             @Override
-            public SubpartitionFileReader createFileReader(
+            public SubpartitionDiskReader createFileReader(
                     int subpartitionId,
-                    TierReaderId tierReaderId,
+                    TierReaderViewId tierReaderViewId,
                     FileChannel dataFileChannel,
                     SubpartitionConsumerInternalOperations operation,
                     RegionBufferIndexTracker dataIndex,
                     int maxBuffersReadAhead,
-                    Consumer<SubpartitionFileReader> fileReaderReleaser,
+                    Consumer<SubpartitionDiskReader> fileReaderReleaser,
                     BiFunction<Integer, Integer, Boolean> isLastRecordInSegmentDecider,
                     ByteBuffer headerBuffer) {
                 return checkNotNull(allReaders.poll());

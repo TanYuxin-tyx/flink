@@ -25,8 +25,8 @@ import org.apache.flink.runtime.io.network.partition.store.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.store.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.store.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.store.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.util.Preconditions;
@@ -59,7 +59,7 @@ public class MemoryDataWriter implements TierWriter, MemoryDataWriterOperation {
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderId, SubpartitionConsumerInternalOperations>>
+    private final List<Map<TierReaderViewId, SubpartitionConsumerInternalOperations>>
             subpartitionViewOperationsMap;
 
     private final SubpartitionSegmentIndexTracker subpartitionSegmentIndexTracker;
@@ -154,15 +154,18 @@ public class MemoryDataWriter implements TierWriter, MemoryDataWriterOperation {
      * to {@link #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of
      * the subpartition.
      */
-    public TierReaderView registerNewConsumer(
+    public TierReader registerNewConsumer(
             int subpartitionId,
-            TierReaderId tierReaderId,
+            TierReaderViewId tierReaderViewId,
             SubpartitionConsumerInternalOperations viewOperations) {
         SubpartitionConsumerInternalOperations oldView =
-                subpartitionViewOperationsMap.get(subpartitionId).put(tierReaderId, viewOperations);
+                subpartitionViewOperationsMap
+                        .get(subpartitionId)
+                        .put(tierReaderViewId, viewOperations);
         Preconditions.checkState(
                 oldView == null, "Each subpartition view should have unique consumerId.");
-        return getSubpartitionMemoryDataManager(subpartitionId).registerNewConsumer(tierReaderId);
+        return getSubpartitionMemoryDataManager(subpartitionId)
+                .registerNewConsumer(tierReaderViewId);
     }
 
     /** Close this {@link MemoryDataWriter}, it means no data will be appended to memory. */
@@ -208,10 +211,11 @@ public class MemoryDataWriter implements TierWriter, MemoryDataWriterOperation {
     }
 
     @Override
-    public void onDataAvailable(int subpartitionId, Collection<TierReaderId> tierReaderIds) {
-        Map<TierReaderId, SubpartitionConsumerInternalOperations> consumerViewMap =
+    public void onDataAvailable(
+            int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
+        Map<TierReaderViewId, SubpartitionConsumerInternalOperations> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
-        tierReaderIds.forEach(
+        tierReaderViewIds.forEach(
                 consumerId -> {
                     SubpartitionConsumerInternalOperations consumerView =
                             consumerViewMap.get(consumerId);
@@ -222,9 +226,9 @@ public class MemoryDataWriter implements TierWriter, MemoryDataWriterOperation {
     }
 
     @Override
-    public void onConsumerReleased(int subpartitionId, TierReaderId tierReaderId) {
-        subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderId);
-        getSubpartitionMemoryDataManager(subpartitionId).releaseConsumer(tierReaderId);
+    public void onConsumerReleased(int subpartitionId, TierReaderViewId tierReaderViewId) {
+        subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderViewId);
+        getSubpartitionMemoryDataManager(subpartitionId).releaseConsumer(tierReaderViewId);
     }
 
     // ------------------------------------
