@@ -21,10 +21,8 @@ package org.apache.flink.runtime.io.network.partition.store.common;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreMode;
-import org.apache.flink.runtime.io.network.partition.store.local.memory.TestingSpillingStrategy;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.TsSpillingStrategy;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,35 +58,23 @@ class BufferPoolHelperImplTest {
         BufferPool bufferPool = networkBufferPool.createBufferPool(requiredBuffers, maxBuffers);
         assertThat(bufferPool.getNumBuffers()).isEqualTo(maxBuffers);
 
-        TsSpillingStrategy spillingStrategy =
-                TestingSpillingStrategy.builder()
-                        .setForceFlushCachedBuffersFunction(
-                                (spillingInfoProvider) -> {
-                                    assertThat(spillingInfoProvider.getPoolSize())
-                                            .isEqualTo(requiredBuffers);
-                                    triggerGlobalDecision.complete(null);
-                                    return TsSpillingStrategy.Decision.NO_ACTION;
-                                })
-                        .build();
-
         BufferPoolHelper bufferPoolHelper = new BufferPoolHelperImpl(bufferPool, 0.4f, 0.2f, 0.8f);
-        createCacheDataManagerInLocalDiskTier(spillingStrategy, bufferPoolHelper);
+        createCacheDataManagerInLocalDiskTier(bufferPoolHelper);
         networkBufferPool.createBufferPool(maxBuffers - requiredBuffers, maxBuffers);
         assertThat(bufferPool.getNumBuffers()).isEqualTo(requiredBuffers);
         for (int i = 0; i < requiredBuffers; i++) {
-            bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_LOCAL, false);
+            bufferPoolHelper.requestMemorySegmentBlocking(
+                    TieredStoreMode.TieredType.IN_LOCAL, false);
         }
         assertThat(triggerGlobalDecision).succeedsWithin(10, TimeUnit.SECONDS);
     }
 
-    private void createCacheDataManagerInLocalDiskTier(
-            TsSpillingStrategy spillingStrategy, BufferPoolHelper bufferPoolHelper)
+    private void createCacheDataManagerInLocalDiskTier(BufferPoolHelper bufferPoolHelper)
             throws Exception {
         new CacheDataManager(
                 NUM_SUBPARTITIONS,
                 bufferSize,
                 bufferPoolHelper,
-                spillingStrategy,
                 new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
                 dataFilePath,
                 null);

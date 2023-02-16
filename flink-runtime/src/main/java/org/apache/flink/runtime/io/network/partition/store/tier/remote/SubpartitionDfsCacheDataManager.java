@@ -37,10 +37,8 @@ import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelp
 import org.apache.flink.runtime.io.network.partition.store.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.store.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerCacheDataManager;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
@@ -69,10 +67,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/**
- * This class is responsible for managing the data in a single subpartition. One {@link
- * CacheDataManager} will hold multiple {@link SubpartitionConsumerCacheDataManager}.
- */
+/** This class is responsible for managing the data in a single subpartition. */
 public class SubpartitionDfsCacheDataManager {
 
     private static final Logger LOG =
@@ -159,13 +154,6 @@ public class SubpartitionDfsCacheDataManager {
     //  Called by DfsCacheDataManager
     // ------------------------------------------------------------------------
 
-    /**
-     * Append record to {@link SubpartitionConsumerCacheDataManager}.
-     *
-     * @param record to be managed by this class.
-     * @param dataType the type of this record. In other words, is it data or event.
-     * @param isLastRecordInSegment whether this record is the last record in a segment.
-     */
     public void append(ByteBuffer record, Buffer.DataType dataType, boolean isLastRecordInSegment)
             throws InterruptedException {
         if (dataType.isEvent()) {

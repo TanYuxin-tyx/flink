@@ -29,8 +29,6 @@ import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.TsSpillingStrategy;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.TsSpillingStrategy.Decision;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,7 +37,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -68,20 +65,11 @@ class CacheDataManagerTest {
     @Test
     void testAppendMarkBufferFinished() throws Exception {
         AtomicInteger finishedBuffers = new AtomicInteger(0);
-        TsSpillingStrategy spillingStrategy =
-                TestingSpillingStrategy.builder()
-                        .setOnBufferFinishedFunction(
-                                (numTotalUnSpillBuffers, currentPoolSize) -> {
-                                    finishedBuffers.incrementAndGet();
-                                    return Optional.of(TsSpillingStrategy.Decision.NO_ACTION);
-                                })
-                        .build();
         bufferSize = Integer.BYTES * 3;
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
         BufferPoolHelper bufferPoolHelper = new BufferPoolHelperImpl(bufferPool, 0.4f, 0.2f, 0.8f);
-        CacheDataManager cacheDataManager =
-                createCacheDataManager(spillingStrategy, bufferPoolHelper);
+        CacheDataManager cacheDataManager = createCacheDataManager(bufferPoolHelper);
 
         cacheDataManager.append(createRecord(0), 0, Buffer.DataType.DATA_BUFFER, false);
         cacheDataManager.append(createRecord(1), 0, Buffer.DataType.DATA_BUFFER, false);
@@ -108,21 +96,6 @@ class CacheDataManagerTest {
                 TieredStoreTestUtils.createBufferIndexAndChannelsList(targetSubpartition, 0, 1, 2);
         List<BufferIndexAndChannel> toRelease =
                 TieredStoreTestUtils.createBufferIndexAndChannelsList(targetSubpartition, 2, 3);
-        TsSpillingStrategy spillingStrategy =
-                TestingSpillingStrategy.builder()
-                        .setOnBufferFinishedFunction(
-                                (numFinishedBuffers, poolSize) -> {
-                                    if (numFinishedBuffers < numFinishedBufferToTriggerDecision) {
-                                        return Optional.of(Decision.NO_ACTION);
-                                    }
-                                    return Optional.of(
-                                            Decision.builder()
-                                                    .addBufferToSpill(targetSubpartition, toSpill)
-                                                    .addBufferToRelease(
-                                                            targetSubpartition, toRelease)
-                                                    .build());
-                                })
-                        .build();
         CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spilledFuture =
                 new CompletableFuture<>();
         CompletableFuture<Integer> readableFuture = new CompletableFuture<>();
@@ -133,7 +106,7 @@ class CacheDataManagerTest {
                                 (subpartitionId, bufferIndex) ->
                                         readableFuture.complete(bufferIndex))
                         .build();
-        CacheDataManager cacheDataManager = createCacheDataManager(spillingStrategy, dataIndex);
+        CacheDataManager cacheDataManager = createCacheDataManager(dataIndex);
         for (int i = 0; i < 4; i++) {
             cacheDataManager.append(
                     createRecord(i), targetSubpartition, Buffer.DataType.DATA_BUFFER, false);
@@ -148,23 +121,14 @@ class CacheDataManagerTest {
     @Test
     void testResultPartitionClosed() throws Exception {
         CompletableFuture<Void> resultPartitionReleaseFuture = new CompletableFuture<>();
-        TsSpillingStrategy spillingStrategy =
-                TestingSpillingStrategy.builder()
-                        .setOnResultPartitionClosedFunction(
-                                (ignore) -> {
-                                    resultPartitionReleaseFuture.complete(null);
-                                    return Decision.NO_ACTION;
-                                })
-                        .build();
-        CacheDataManager cacheDataManager = createCacheDataManager(spillingStrategy);
+        CacheDataManager cacheDataManager = createCacheDataManager();
         cacheDataManager.close();
         assertThat(resultPartitionReleaseFuture).isCompleted();
     }
 
     @Test
     void testSubpartitionConsumerRelease() throws Exception {
-        TsSpillingStrategy spillingStrategy = TestingSpillingStrategy.builder().build();
-        CacheDataManager cacheDataManager = createCacheDataManager(spillingStrategy);
+        CacheDataManager cacheDataManager = createCacheDataManager();
         cacheDataManager.registerNewConsumer(
                 0, TierReaderId.DEFAULT, new TestingSubpartitionConsumerInternalOperation());
         assertThatThrownBy(
@@ -180,35 +144,29 @@ class CacheDataManagerTest {
                 0, TierReaderId.DEFAULT, new TestingSubpartitionConsumerInternalOperation());
     }
 
-    private CacheDataManager createCacheDataManager(TsSpillingStrategy spillStrategy)
-            throws Exception {
-        return createCacheDataManager(
-                spillStrategy, new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS));
+    private CacheDataManager createCacheDataManager() throws Exception {
+        return createCacheDataManager(new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS));
     }
 
     private CacheDataManager createCacheDataManager(
-            TsSpillingStrategy spillStrategy, RegionBufferIndexTracker regionBufferIndexTracker)
-            throws Exception {
+            RegionBufferIndexTracker regionBufferIndexTracker) throws Exception {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
-        return createCacheDataManager(bufferPool, spillStrategy, regionBufferIndexTracker);
+        return createCacheDataManager(bufferPool, regionBufferIndexTracker);
     }
 
-    private CacheDataManager createCacheDataManager(
-            TsSpillingStrategy spillingStrategy, BufferPool bufferPool) throws Exception {
+    private CacheDataManager createCacheDataManager(BufferPool bufferPool) throws Exception {
         return createCacheDataManager(
-                bufferPool, spillingStrategy, new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS));
+                bufferPool, new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS));
     }
 
-    private CacheDataManager createCacheDataManager(
-            TsSpillingStrategy spillingStrategy, BufferPoolHelper bufferPoolHelper)
+    private CacheDataManager createCacheDataManager(BufferPoolHelper bufferPoolHelper)
             throws Exception {
         CacheDataManager cacheDataManager =
                 new CacheDataManager(
                         NUM_SUBPARTITIONS,
                         bufferSize,
                         bufferPoolHelper,
-                        spillingStrategy,
                         new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
                         dataFilePath,
                         null);
@@ -217,16 +175,13 @@ class CacheDataManagerTest {
     }
 
     private CacheDataManager createCacheDataManager(
-            BufferPool bufferPool,
-            TsSpillingStrategy spillStrategy,
-            RegionBufferIndexTracker regionBufferIndexTracker)
+            BufferPool bufferPool, RegionBufferIndexTracker regionBufferIndexTracker)
             throws Exception {
         CacheDataManager cacheDataManager =
                 new CacheDataManager(
                         NUM_SUBPARTITIONS,
                         bufferSize,
                         new BufferPoolHelperImpl(bufferPool, 0.4f, 0.2f, 0.8f),
-                        spillStrategy,
                         regionBufferIndexTracker,
                         dataFilePath,
                         null);
