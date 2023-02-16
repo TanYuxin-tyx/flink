@@ -85,7 +85,6 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
 
         this.clientFactory =
                 new SingleChannelDataClientFactory(
-                        this,
                         jobID,
                         resultPartitionIDs,
                         getMemorySegmentProvider(),
