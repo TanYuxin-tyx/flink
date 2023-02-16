@@ -152,10 +152,6 @@ public class LocalFileDataManager implements TierWriter, StorageTier {
         return cacheDataManager.isLastBufferInSegment(subpartitionId, bufferIndex);
     }
 
-    private TsSpillingStrategy getSpillingStrategy(TieredStoreConfiguration storeConfiguration) {
-        return new FullSpillingStrategy(storeConfiguration);
-    }
-
     @Override
     public void emit(
             ByteBuffer record,
