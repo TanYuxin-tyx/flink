@@ -16,14 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.dfs;
+package org.apache.flink.runtime.io.network.partition.store.tier.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierReader;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
+import org.apache.flink.runtime.io.network.partition.store.common.SingleTierReader;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -191,12 +191,13 @@ public class DfsFileReader implements SingleTierReader, DfsFileReaderInternalOpe
     }
 
     private BufferAndBacklog handleBacklog(BufferAndBacklog bufferToConsume) {
-        BufferAndBacklog bufferAndBacklog = new BufferAndBacklog(
-                bufferToConsume.buffer(),
-                getSubpartitionBacklog(),
-                bufferToConsume.getNextDataType(),
-                bufferToConsume.getSequenceNumber(),
-                bufferToConsume.isLastBufferInSegment());
+        BufferAndBacklog bufferAndBacklog =
+                new BufferAndBacklog(
+                        bufferToConsume.buffer(),
+                        getSubpartitionBacklog(),
+                        bufferToConsume.getNextDataType(),
+                        bufferToConsume.getSequenceNumber(),
+                        bufferToConsume.isLastBufferInSegment());
         bufferAndBacklog.setFromDfsTier(true);
         return bufferAndBacklog;
     }

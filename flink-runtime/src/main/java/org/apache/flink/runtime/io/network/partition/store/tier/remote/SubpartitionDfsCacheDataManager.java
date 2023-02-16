@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.dfs;
+package org.apache.flink.runtime.io.network.partition.store.tier.remote;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
@@ -198,7 +198,8 @@ public class SubpartitionDfsCacheDataManager {
                     cacheDataSpiller.finishSegment(segmentIndex);
                     LOG.debug("%%% Dfs generate2");
                     BufferContext segmentInfoBufferContext =
-                            new BufferContext(null, finishedSegmentInfoIndex, targetChannel, true, true);
+                            new BufferContext(
+                                    null, finishedSegmentInfoIndex, targetChannel, true, true);
                     allSegmentInfos.add(segmentInfoBufferContext);
                     ++finishedSegmentInfoIndex;
                     checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
