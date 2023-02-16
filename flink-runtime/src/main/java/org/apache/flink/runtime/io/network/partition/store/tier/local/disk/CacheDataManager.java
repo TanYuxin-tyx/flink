@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.partition.store.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferWithIdentity;
+import org.apache.flink.runtime.io.network.partition.store.common.CacheBufferSpillTrigger;
 import org.apache.flink.runtime.io.network.partition.store.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
@@ -49,7 +50,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
-public class CacheDataManager implements BufferSpillingInfoProvider, CacheDataManagerOperation {
+public class CacheDataManager
+        implements BufferSpillingInfoProvider, CacheDataManagerOperation, CacheBufferSpillTrigger {
 
     private static final Logger LOG = LoggerFactory.getLogger(CacheDataManager.class);
 
@@ -58,8 +60,6 @@ public class CacheDataManager implements BufferSpillingInfoProvider, CacheDataMa
     private final SubpartitionCacheDataManager[] subpartitionCacheDataManagers;
 
     private final CacheBufferSpiller spiller;
-
-    private final TsSpillingStrategy spillStrategy;
 
     private final RegionBufferIndexTracker regionBufferIndexTracker;
 
@@ -78,7 +78,6 @@ public class CacheDataManager implements BufferSpillingInfoProvider, CacheDataMa
             int numSubpartitions,
             int bufferSize,
             BufferPoolHelper bufferPoolHelper,
-            TsSpillingStrategy spillStrategy,
             RegionBufferIndexTracker regionBufferIndexTracker,
             Path dataFilePath,
             BufferCompressor bufferCompressor)
@@ -86,7 +85,6 @@ public class CacheDataManager implements BufferSpillingInfoProvider, CacheDataMa
         this.numSubpartitions = numSubpartitions;
         this.bufferPoolHelper = bufferPoolHelper;
         this.spiller = new CacheBufferLocalFileSpiller(dataFilePath);
-        this.spillStrategy = spillStrategy;
         this.regionBufferIndexTracker = regionBufferIndexTracker;
         this.subpartitionCacheDataManagers = new SubpartitionCacheDataManager[numSubpartitions];
 
@@ -98,7 +96,7 @@ public class CacheDataManager implements BufferSpillingInfoProvider, CacheDataMa
             subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
         }
         bufferPoolHelper.registerSubpartitionTieredManager(
-                TieredStoreMode.TieredType.IN_LOCAL, this::flushSubpartitionCachedBuffers);
+                TieredStoreMode.TieredType.IN_LOCAL, this);
     }
 
     // ------------------------------------
@@ -128,7 +126,7 @@ public class CacheDataManager implements BufferSpillingInfoProvider, CacheDataMa
         }
         // force spill all buffers to disk.
         if (isLastRecordInSegment) {
-            flushSubpartitionCachedBuffers();
+            notifyFlushCachedBuffers();
         }
     }
 
@@ -151,9 +149,7 @@ public class CacheDataManager implements BufferSpillingInfoProvider, CacheDataMa
 
     /** Close this {@link CacheDataManager}, it means no data can append to memory. */
     public void close() {
-        TsSpillingStrategy.Decision decision = spillStrategy.onResultPartitionClosed(this);
-        LOG.debug("%%% release buffer when close");
-        handleDecision(Optional.of(decision));
+        notifyFlushCachedBuffers();
         spiller.close();
     }
 
@@ -238,23 +234,6 @@ public class CacheDataManager implements BufferSpillingInfoProvider, CacheDataMa
     }
 
     @Override
-    public void onBufferConsumed(BufferIndexAndChannel consumedBuffer) {
-        Optional<TsSpillingStrategy.Decision> decision =
-                spillStrategy.onBufferConsumed(consumedBuffer);
-        LOG.debug("%%% release buffer when onBufferConsumed");
-        handleDecision(decision);
-    }
-
-    @Override
-    public void onBufferFinished() {
-        LOG.debug("%%% release buffer when buffer finished..");
-        Optional<TsSpillingStrategy.Decision> decision =
-                spillStrategy.onBufferFinished(numUnSpillBuffers.incrementAndGet(), getPoolSize());
-        handleDecision(decision);
-        bufferPoolHelper.checkNeedFlushCachedBuffers();
-    }
-
-    @Override
     public void onDataAvailable(int subpartitionId, Collection<TierReaderId> tierReaderIds) {
         Map<TierReaderId, SubpartitionConsumerInternalOperations> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
@@ -271,7 +250,6 @@ public class CacheDataManager implements BufferSpillingInfoProvider, CacheDataMa
     @Override
     public void onConsumerReleased(int subpartitionId, TierReaderId tierReaderId) {
         subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderId);
-        // getSubpartitionMemoryDataManager(subpartitionId).releaseConsumer(consumerId);
     }
 
     @Override
@@ -298,9 +276,17 @@ public class CacheDataManager implements BufferSpillingInfoProvider, CacheDataMa
         }
     }
 
-    private void flushSubpartitionCachedBuffers() {
-        LOG.debug("%%% release buffer when flushSubpartitionCachedBuffers");
-        TsSpillingStrategy.Decision decision = spillStrategy.forceTriggerFlushCachedBuffers(this);
+    @Override
+    public void notifyFlushCachedBuffers() {
+        TsSpillingStrategy.Decision.Builder builder = TsSpillingStrategy.Decision.builder();
+        for (int subpartitionId = 0; subpartitionId < getNumSubpartitions(); subpartitionId++) {
+            Deque<BufferIndexAndChannel> buffersInOrder =
+                    getBuffersInOrder(
+                            subpartitionId, SpillStatus.NOT_SPILL, ConsumeStatusWithId.ALL_ANY);
+            builder.addBufferToSpill(subpartitionId, buffersInOrder)
+                    .addBufferToRelease(subpartitionId, buffersInOrder);
+        }
+        TsSpillingStrategy.Decision decision = builder.build();
         spillBuffers(decision.getBufferToSpill());
         releaseBuffers(decision.getBufferToRelease());
     }

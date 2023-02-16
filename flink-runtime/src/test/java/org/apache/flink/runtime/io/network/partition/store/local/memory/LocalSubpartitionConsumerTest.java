@@ -36,7 +36,6 @@ import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumer;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.TsSpillingStrategy;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -103,28 +102,11 @@ class LocalSubpartitionConsumerTest {
                     }
                 };
 
-        TestingSpillingStrategy spillingStrategy =
-                TestingSpillingStrategy.builder()
-                        .setOnMemoryUsageChangedFunction((ignore1, ignore2) -> Optional.empty())
-                        .setDecideActionWithGlobalInfoFunction(
-                                (spillingInfoProvider) -> {
-                                    acquireWriteLock.complete(null);
-                                    try {
-                                        consumerThread.trySync(10);
-                                    } catch (Exception e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                    spillingInfoProvider.getNextBufferIndexToConsume(
-                                            TierReaderId.DEFAULT);
-                                    return TsSpillingStrategy.Decision.NO_ACTION;
-                                })
-                        .build();
         CacheDataManager cacheDataManager =
                 new CacheDataManager(
                         1,
                         bufferSize,
                         bufferPoolHelper,
-                        spillingStrategy,
                         new RegionBufferIndexTrackerImpl(1),
                         dataFilePath.resolve(".data"),
                         null);

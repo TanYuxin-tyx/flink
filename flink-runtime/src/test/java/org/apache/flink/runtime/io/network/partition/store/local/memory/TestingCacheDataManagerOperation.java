@@ -35,10 +35,6 @@ public class TestingCacheDataManagerOperation implements CacheDataManagerOperati
 
     private final BiConsumer<Integer, Integer> markBufferReadableConsumer;
 
-    private final Consumer<BufferIndexAndChannel> onBufferConsumedConsumer;
-
-    private final Runnable onBufferFinishedRunnable;
-
     private final Runnable onDataAvailableRunnable;
 
     private final BiConsumer<Integer, TierReaderId> onConsumerReleasedBiConsumer;
@@ -47,14 +43,10 @@ public class TestingCacheDataManagerOperation implements CacheDataManagerOperati
             SupplierWithException<BufferBuilder, InterruptedException>
                     requestBufferFromPoolSupplier,
             BiConsumer<Integer, Integer> markBufferReadableConsumer,
-            Consumer<BufferIndexAndChannel> onBufferConsumedConsumer,
-            Runnable onBufferFinishedRunnable,
             Runnable onDataAvailableRunnable,
             BiConsumer<Integer, TierReaderId> onConsumerReleasedBiConsumer) {
         this.requestBufferFromPoolSupplier = requestBufferFromPoolSupplier;
         this.markBufferReadableConsumer = markBufferReadableConsumer;
-        this.onBufferConsumedConsumer = onBufferConsumedConsumer;
-        this.onBufferFinishedRunnable = onBufferFinishedRunnable;
         this.onDataAvailableRunnable = onDataAvailableRunnable;
         this.onConsumerReleasedBiConsumer = onConsumerReleasedBiConsumer;
     }
@@ -67,16 +59,6 @@ public class TestingCacheDataManagerOperation implements CacheDataManagerOperati
     @Override
     public void markBufferReleasedFromFile(int subpartitionId, int bufferIndex) {
         markBufferReadableConsumer.accept(subpartitionId, bufferIndex);
-    }
-
-    @Override
-    public void onBufferConsumed(BufferIndexAndChannel consumedBuffer) {
-        onBufferConsumedConsumer.accept(consumedBuffer);
-    }
-
-    @Override
-    public void onBufferFinished() {
-        onBufferFinishedRunnable.run();
     }
 
     @Override
@@ -155,8 +137,6 @@ public class TestingCacheDataManagerOperation implements CacheDataManagerOperati
             return new TestingCacheDataManagerOperation(
                     requestBufferFromPoolSupplier,
                     markBufferReadableConsumer,
-                    onBufferConsumedConsumer,
-                    onBufferFinishedRunnable,
                     onDataAvailableRunnable,
                     onConsumerReleasedBiConsumer);
         }

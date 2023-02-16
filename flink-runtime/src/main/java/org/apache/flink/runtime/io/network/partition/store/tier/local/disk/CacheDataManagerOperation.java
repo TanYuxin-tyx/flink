@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
 
 import java.util.Collection;
@@ -44,16 +43,6 @@ public interface CacheDataManagerOperation {
      * @param bufferIndex index of buffer to mark as released.
      */
     void markBufferReleasedFromFile(int subpartitionId, int bufferIndex);
-
-    /**
-     * This method is called when buffer is consumed.
-     *
-     * @param consumedBuffer target buffer to mark as consumed.
-     */
-    void onBufferConsumed(BufferIndexAndChannel consumedBuffer);
-
-    /** This method is called when buffer is finished. */
-    void onBufferFinished();
 
     /**
      * This method is called when subpartition data become available.
