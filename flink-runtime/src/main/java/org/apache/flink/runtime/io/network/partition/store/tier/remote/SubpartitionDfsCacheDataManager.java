@@ -35,12 +35,12 @@ import org.apache.flink.runtime.io.network.partition.store.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferWithIdentity;
-import org.apache.flink.runtime.io.network.partition.store.common.CacheDataSpiller;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.CacheDataManager;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.SubpartitionConsumerCacheDataManager;
+import org.apache.flink.runtime.io.network.partition.store.common.CacheBufferSpiller;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerCacheDataManager;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
@@ -104,7 +104,7 @@ public class SubpartitionDfsCacheDataManager {
     @GuardedBy("subpartitionLock")
     private final Map<Integer, BufferContext> bufferIndexToContexts = new HashMap<>();
 
-    private final CacheDataSpiller cacheDataSpiller;
+    private final CacheBufferSpiller cacheBufferSpiller;
 
     private final BufferPoolHelper bufferPoolHelper;
 
@@ -115,7 +115,7 @@ public class SubpartitionDfsCacheDataManager {
     private final ReentrantReadWriteLock subpartitionLock = new ReentrantReadWriteLock();
 
     @GuardedBy("subpartitionLock")
-    private final Map<ConsumerId, SubpartitionDfsConsumerCacheDataManager> consumerMap;
+    private final Map<TierReaderId, SubpartitionDfsConsumerCacheDataManager> consumerMap;
 
     @Nullable private final BufferCompressor bufferCompressor;
 
@@ -147,8 +147,8 @@ public class SubpartitionDfsCacheDataManager {
         this.cacheDataManagerOperation = cacheDataManagerOperation;
         this.bufferCompressor = bufferCompressor;
         this.consumerMap = new HashMap<>();
-        this.cacheDataSpiller =
-                new CacheDataDfsFileSpiller(
+        this.cacheBufferSpiller =
+                new CacheBufferDfsFileSpiller(
                         jobID, resultPartitionID, targetChannel, baseDfsPath, ioExecutor);
         bufferPoolHelper.registerSubpartitionTieredManager(
                 targetChannel, TieredStoreMode.TieredType.IN_DFS, this::flushCachedBuffers);
@@ -180,11 +180,11 @@ public class SubpartitionDfsCacheDataManager {
     }
 
     public void startSegment(long segmentIndex) throws IOException {
-        cacheDataSpiller.startSegment(segmentIndex);
+        cacheBufferSpiller.startSegment(segmentIndex);
     }
 
     public void finishSegment(long segmentIndex) {
-        List<ConsumerId> needNotify = new ArrayList<>(consumerMap.size());
+        List<TierReaderId> needNotify = new ArrayList<>(consumerMap.size());
         runWithLock(
                 () -> {
                     LOG.debug("%%% Dfs generate1");
@@ -195,7 +195,7 @@ public class SubpartitionDfsCacheDataManager {
                     } catch (Exception e) {
                         throw new RuntimeException("Spiller finish segment failed!", e);
                     }
-                    cacheDataSpiller.finishSegment(segmentIndex);
+                    cacheBufferSpiller.finishSegment(segmentIndex);
                     LOG.debug("%%% Dfs generate2");
                     BufferContext segmentInfoBufferContext =
                             new BufferContext(
@@ -205,7 +205,7 @@ public class SubpartitionDfsCacheDataManager {
                     checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
                     LOG.debug("%%% Dfs generate3 {}", consumerMap.entrySet().size());
                     // notify downstream
-                    for (Map.Entry<ConsumerId, SubpartitionDfsConsumerCacheDataManager>
+                    for (Map.Entry<TierReaderId, SubpartitionDfsConsumerCacheDataManager>
                             consumerEntry : consumerMap.entrySet()) {
                         if (consumerEntry.getValue().addBuffer(segmentInfoBufferContext)) {
                             needNotify.add(consumerEntry.getKey());
@@ -227,24 +227,24 @@ public class SubpartitionDfsCacheDataManager {
         }
     }
 
-    public void releaseConsumer(ConsumerId consumerId) {
-        runWithLock(() -> checkNotNull(consumerMap.remove(consumerId)));
+    public void releaseConsumer(TierReaderId tierReaderId) {
+        runWithLock(() -> checkNotNull(consumerMap.remove(tierReaderId)));
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
-    public SubpartitionDfsConsumerCacheDataManager registerNewConsumer(ConsumerId consumerId) {
+    public SubpartitionDfsConsumerCacheDataManager registerNewConsumer(TierReaderId tierReaderId) {
         return callWithLock(
                 () -> {
-                    checkState(!consumerMap.containsKey(consumerId));
+                    checkState(!consumerMap.containsKey(tierReaderId));
                     SubpartitionDfsConsumerCacheDataManager newConsumer =
                             new SubpartitionDfsConsumerCacheDataManager(
                                     resultPartitionLock,
                                     subpartitionLock.readLock(),
                                     targetChannel,
-                                    consumerId,
+                                    tierReaderId,
                                     cacheDataManagerOperation);
                     newConsumer.addInitialBuffers(allSegmentInfos);
-                    consumerMap.put(consumerId, newConsumer);
+                    consumerMap.put(tierReaderId, newConsumer);
                     return newConsumer;
                 });
     }
@@ -435,7 +435,7 @@ public class SubpartitionDfsCacheDataManager {
                         });
 
         List<BufferWithIdentity> toSpillBuffersWithId = getStSpillBuffersWithId(toSpillBuffers);
-        return cacheDataSpiller.spillAsync(toSpillBuffersWithId);
+        return cacheBufferSpiller.spillAsync(toSpillBuffersWithId);
     }
 
     private List<BufferWithIdentity> getStSpillBuffersWithId(
@@ -496,6 +496,6 @@ public class SubpartitionDfsCacheDataManager {
 
     @VisibleForTesting
     public Path getBaseSubpartitionPath() {
-        return cacheDataSpiller.getBaseSubpartitionPath();
+        return cacheBufferSpiller.getBaseSubpartitionPath();
     }
 }

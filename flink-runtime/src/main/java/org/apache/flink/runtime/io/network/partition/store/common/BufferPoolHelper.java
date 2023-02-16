@@ -47,7 +47,7 @@ public interface BufferPoolHelper {
      * helper. If all subpartition can share the same flush listener, call this registration method.
      */
     void registerSubpartitionTieredManager(
-            TieredStoreMode.TieredType tieredType, NotifyFlushListener notifyFlushListener);
+            TieredStoreMode.TieredType tieredType, CacheBufferSpillTrigger cacheBufferSpillTrigger);
 
     MemorySegment requestMemorySegmentBlocking(
             TieredStoreMode.TieredType tieredType, boolean isInMemory);
@@ -71,7 +71,7 @@ public interface BufferPoolHelper {
     void registerSubpartitionTieredManager(
             int subpartitionId,
             TieredStoreMode.TieredType tieredType,
-            NotifyFlushListener notifyFlushListener);
+            CacheBufferSpillTrigger cacheBufferSpillTrigger);
 
     // ------------------------------------
     //                Common

@@ -26,9 +26,9 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferWithIdentity;
-import org.apache.flink.runtime.io.network.partition.store.common.CacheDataSpiller;
-import org.apache.flink.runtime.io.network.partition.store.common.StoreReadWriteUtils;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.store.common.CacheBufferSpiller;
+import org.apache.flink.runtime.io.network.partition.store.common.TieredStoreUtils;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -44,17 +44,17 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
-import static org.apache.flink.runtime.io.network.partition.store.common.StoreReadWriteUtils.createBaseSubpartitionPath;
-import static org.apache.flink.runtime.io.network.partition.store.common.StoreReadWriteUtils.generateBufferWithHeaders;
+import static org.apache.flink.runtime.io.network.partition.store.common.TieredStoreUtils.createBaseSubpartitionPath;
+import static org.apache.flink.runtime.io.network.partition.store.common.TieredStoreUtils.generateBufferWithHeaders;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * This component is responsible for asynchronously writing in-memory data to DFS file. Each
  * spilling operation will write the DFS file sequentially.
  */
-public class CacheDataDfsFileSpiller implements CacheDataSpiller {
+public class CacheBufferDfsFileSpiller implements CacheBufferSpiller {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CacheDataDfsFileSpiller.class);
+    private static final Logger LOG = LoggerFactory.getLogger(CacheBufferDfsFileSpiller.class);
 
     private final ExecutorService ioExecutor;
 
@@ -79,7 +79,7 @@ public class CacheDataDfsFileSpiller implements CacheDataSpiller {
 
     private long currentSegmentIndex = -1;
 
-    public CacheDataDfsFileSpiller(
+    public CacheBufferDfsFileSpiller(
             JobID jobID,
             ResultPartitionID resultPartitionID,
             int subpartitionId,
@@ -212,7 +212,7 @@ public class CacheDataDfsFileSpiller implements CacheDataSpiller {
         }
         ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferWithIdentities);
 
-        StoreReadWriteUtils.writeDfsBuffers(writingChannel, expectedBytes, bufferWithHeaders);
+        TieredStoreUtils.writeDfsBuffers(writingChannel, expectedBytes, bufferWithHeaders);
         totalBytesWritten += expectedBytes;
     }
 

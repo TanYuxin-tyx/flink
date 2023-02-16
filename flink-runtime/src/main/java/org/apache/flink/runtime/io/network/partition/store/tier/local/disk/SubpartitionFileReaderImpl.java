@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.file;
+package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexOrError;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -61,7 +61,7 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
 
     private final int subpartitionId;
 
-    private final ConsumerId consumerId;
+    private final TierReaderId tierReaderId;
 
     private final FileChannel dataFileChannel;
 
@@ -81,7 +81,7 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
 
     public SubpartitionFileReaderImpl(
             int subpartitionId,
-            ConsumerId consumerId,
+            TierReaderId tierReaderId,
             FileChannel dataFileChannel,
             SubpartitionConsumerInternalOperations operations,
             RegionBufferIndexTracker dataIndex,
@@ -90,7 +90,7 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
             BiFunction<Integer, Integer, Boolean> isLastRecordInSegmentDecider,
             ByteBuffer headerBuf) {
         this.subpartitionId = subpartitionId;
-        this.consumerId = consumerId;
+        this.tierReaderId = tierReaderId;
         this.dataFileChannel = dataFileChannel;
         this.operations = operations;
         this.headerBuf = headerBuf;
@@ -109,12 +109,13 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
             return false;
         }
         SubpartitionFileReaderImpl that = (SubpartitionFileReaderImpl) o;
-        return subpartitionId == that.subpartitionId && Objects.equals(consumerId, that.consumerId);
+        return subpartitionId == that.subpartitionId
+                && Objects.equals(tierReaderId, that.tierReaderId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(subpartitionId, consumerId);
+        return Objects.hash(subpartitionId, tierReaderId);
     }
 
     /**
@@ -233,8 +234,8 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
     }
 
     @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(int nextBufferToConsume, Queue<Buffer> errorBuffers)
-            throws Throwable {
+    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(
+            int nextBufferToConsume, Queue<Buffer> errorBuffers) throws Throwable {
         if (!checkAndGetFirstBufferIndexOrError(nextBufferToConsume, errorBuffers).isPresent()) {
             return Optional.empty();
         }
@@ -254,10 +255,10 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
                                         new NullPointerException(
                                                 "Get a non-throwable and non-buffer bufferIndexOrError, which is not allowed"));
 
-        //Boolean apply = isLastRecordInSegmentDecider.apply(subpartitionId, nextBufferToConsume);
-        //if(buffer.getDataType() == Buffer.DataType.SEGMENT_EVENT){
+        // Boolean apply = isLastRecordInSegmentDecider.apply(subpartitionId, nextBufferToConsume);
+        // if(buffer.getDataType() == Buffer.DataType.SEGMENT_EVENT){
         //    System.out.println();
-        //}
+        // }
 
         return Optional.of(
                 ResultSubpartition.BufferAndBacklog.fromBufferAndLookahead(
@@ -265,12 +266,12 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
                         nextDataType,
                         backlog,
                         bufferIndex,
-                        buffer.getDataType() == Buffer.DataType.SEGMENT_EVENT
-                        ));
+                        buffer.getDataType() == Buffer.DataType.SEGMENT_EVENT));
     }
 
     @Override
-    public Buffer.DataType peekNextToConsumeDataType(int nextBufferToConsume, Queue<Buffer> errorBuffers) {
+    public Buffer.DataType peekNextToConsumeDataType(
+            int nextBufferToConsume, Queue<Buffer> errorBuffers) {
         Buffer.DataType dataType = Buffer.DataType.NONE;
         try {
             dataType =
@@ -297,8 +298,8 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private Optional<BufferIndexOrError> checkAndGetFirstBufferIndexOrError(int expectedBufferIndex, Queue<Buffer> errorBuffers)
-            throws Throwable {
+    private Optional<BufferIndexOrError> checkAndGetFirstBufferIndexOrError(
+            int expectedBufferIndex, Queue<Buffer> errorBuffers) throws Throwable {
         if (loadedBuffers.isEmpty()) {
             return Optional.empty();
         }
@@ -321,7 +322,8 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
         return Optional.of(peek);
     }
 
-    private void pollAndRecycleBuffer(Deque<BufferIndexOrError> loadedBuffers, Queue<Buffer> errorBuffers){
+    private void pollAndRecycleBuffer(
+            Deque<BufferIndexOrError> loadedBuffers, Queue<Buffer> errorBuffers) {
         BufferIndexOrError peek = loadedBuffers.peek();
         checkNotNull(peek);
         errorBuffers.add(checkNotNull(peek.getBuffer().get()));
@@ -499,7 +501,7 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
         @Override
         public SubpartitionFileReader createFileReader(
                 int subpartitionId,
-                ConsumerId consumerId,
+                TierReaderId tierReaderId,
                 FileChannel dataFileChannel,
                 SubpartitionConsumerInternalOperations operation,
                 RegionBufferIndexTracker dataIndex,
@@ -509,7 +511,7 @@ public class SubpartitionFileReaderImpl implements SubpartitionFileReader {
                 ByteBuffer headerBuffer) {
             return new SubpartitionFileReaderImpl(
                     subpartitionId,
-                    consumerId,
+                    tierReaderId,
                     dataFileChannel,
                     operation,
                     dataIndex,

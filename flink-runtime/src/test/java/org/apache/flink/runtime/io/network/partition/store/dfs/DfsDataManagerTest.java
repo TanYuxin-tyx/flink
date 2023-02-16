@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelperImpl;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierWriter;
+import org.apache.flink.runtime.io.network.partition.store.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsDataManager;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -61,7 +61,7 @@ class DfsDataManagerTest {
     @Test
     void testDataManagerHasSegment() throws Exception {
         DfsDataManager dataManager = createDfsDataManager();
-        SingleTierWriter writer = dataManager.createPartitionTierWriter();
+        TierWriter writer = dataManager.createPartitionTierWriter();
         assertThat(dataManager.hasCurrentSegment(0, 0)).isFalse();
         writer.emit(createRecord(0), 0, Buffer.DataType.DATA_BUFFER, false, false, false, 0);
         assertThat(dataManager.hasCurrentSegment(0, 0)).isTrue();

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.file;
+package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
@@ -28,14 +28,14 @@ import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartit
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
 import org.apache.flink.runtime.io.network.partition.store.common.EndOfSegmentEventBuilder;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierDataGate;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierReader;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierWriter;
+import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.store.common.SubpartitionSegmentIndexTracker;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierWriter;
 import org.apache.flink.runtime.metrics.TimerGauge;
 
 import org.slf4j.Logger;
@@ -59,7 +59,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
-public class LocalFileDataManager implements SingleTierWriter, SingleTierDataGate {
+public class LocalFileDataManager implements TierWriter, StorageTier {
 
     private static final Logger LOG = LoggerFactory.getLogger(LocalFileDataManager.class);
 
@@ -86,7 +86,7 @@ public class LocalFileDataManager implements SingleTierWriter, SingleTierDataGat
     private final TieredStoreConfiguration storeConfiguration;
 
     /** Record the last assigned consumerId for each subpartition. */
-    private final ConsumerId[] lastConsumerIds;
+    private final TierReaderId[] lastTierReaderIds;
 
     private final LocalDiskDataManager localDiskDataManager;
 
@@ -122,7 +122,7 @@ public class LocalFileDataManager implements SingleTierWriter, SingleTierDataGat
         this.storeConfiguration = storeConfiguration;
         this.regionBufferIndexTracker =
                 new RegionBufferIndexTrackerImpl(isBroadcastOnly ? 1 : numSubpartitions);
-        this.lastConsumerIds = new ConsumerId[numSubpartitions];
+        this.lastTierReaderIds = new TierReaderId[numSubpartitions];
         this.localDiskDataManager =
                 new LocalDiskDataManager(
                         readBufferPool,
@@ -193,12 +193,12 @@ public class LocalFileDataManager implements SingleTierWriter, SingleTierDataGat
      * and the subpartitionId is not used. So return directly.
      */
     @Override
-    public SingleTierWriter createPartitionTierWriter() {
+    public TierWriter createPartitionTierWriter() {
         return this;
     }
 
     @Override
-    public SingleTierReader createSubpartitionTierReader(
+    public TierReader createSubpartitionTierReader(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         // If data file is not readable, throw PartitionNotFoundException to mark this result
@@ -212,15 +212,15 @@ public class LocalFileDataManager implements SingleTierWriter, SingleTierDataGat
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
         SubpartitionConsumer subpartitionConsumer = new SubpartitionConsumer(availabilityListener);
-        ConsumerId lastConsumerId = lastConsumerIds[subpartitionId];
-        checkMultipleConsumerIsAllowed(lastConsumerId, storeConfiguration);
+        TierReaderId lastTierReaderId = lastTierReaderIds[subpartitionId];
+        checkMultipleConsumerIsAllowed(lastTierReaderId, storeConfiguration);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
-        ConsumerId consumerId = ConsumerId.newId(lastConsumerId);
-        lastConsumerIds[subpartitionId] = consumerId;
-        BufferConsumeView diskDataView =
+        TierReaderId tierReaderId = TierReaderId.newId(lastTierReaderId);
+        lastTierReaderIds[subpartitionId] = tierReaderId;
+        TierReaderView diskDataView =
                 localDiskDataManager.registerNewConsumer(
-                        subpartitionId, consumerId, subpartitionConsumer);
+                        subpartitionId, tierReaderId, subpartitionConsumer);
         subpartitionConsumer.setDiskDataView(diskDataView);
         return subpartitionConsumer;
     }
@@ -280,10 +280,10 @@ public class LocalFileDataManager implements SingleTierWriter, SingleTierDataGat
     }
 
     private static void checkMultipleConsumerIsAllowed(
-            ConsumerId lastConsumerId, TieredStoreConfiguration storeConfiguration) {
+            TierReaderId lastTierReaderId, TieredStoreConfiguration storeConfiguration) {
         if (Objects.equals(storeConfiguration.getTieredStoreSpillingType(), SELECTIVE.toString())) {
             checkState(
-                    lastConsumerId == null,
+                    lastTierReaderId == null,
                     "Multiple consumer is not allowed for %s spilling strategy mode",
                     storeConfiguration.getTieredStoreSpillingType());
         }

@@ -18,29 +18,26 @@
 
 package org.apache.flink.runtime.io.network.partition.store.common;
 
-import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
+import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * This {@link SingleTierWriter} is the writer for specific tier. Each tier may contain data of all
- * subpartitions.
- */
-public interface SingleTierWriter {
-    void setup() throws IOException;
+/** Tests for {@link TierReaderId}. */
+class TierReaderIdTest {
+    @Test
+    void testNewIdFromNull() {
+        TierReaderId tierReaderId = TierReaderId.newId(null);
+        assertThat(tierReaderId).isNotNull().isEqualTo(TierReaderId.DEFAULT);
+    }
 
-    void emit(
-            ByteBuffer record,
-            int targetSubpartition,
-            Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isLastRecordInSegment,
-            boolean isEndOfPartition,
-            long segmentIndex)
-            throws IOException;
+    @Test
+    void testConsumerIdEquals() {
+        TierReaderId tierReaderId = TierReaderId.newId(null);
+        TierReaderId tierReaderId1 = TierReaderId.newId(tierReaderId);
+        TierReaderId tierReaderId2 = TierReaderId.newId(tierReaderId);
+        assertThat(tierReaderId1.hashCode()).isEqualTo(tierReaderId2.hashCode());
+        assertThat(tierReaderId1).isEqualTo(tierReaderId2);
 
-    void release();
-
-    void close();
+        assertThat(TierReaderId.newId(tierReaderId2)).isNotEqualTo(tierReaderId2);
+    }
 }

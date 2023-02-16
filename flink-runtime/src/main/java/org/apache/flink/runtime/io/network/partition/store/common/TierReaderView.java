@@ -26,7 +26,7 @@ import java.util.Optional;
 import java.util.Queue;
 
 /** A view to find out what data exists in LOCAL, or REMOTE, or DFS. */
-public interface BufferConsumeView {
+public interface TierReaderView {
 
     /**
      * Try to consume next buffer.
@@ -37,7 +37,8 @@ public interface BufferConsumeView {
      * @return If the target buffer does exist, return buffer and next buffer's backlog, otherwise
      *     return {@link Optional#empty()}.
      */
-    Optional<BufferAndBacklog> consumeBuffer(int nextBufferToConsume, Queue<Buffer> errorBuffers) throws Throwable;
+    Optional<BufferAndBacklog> consumeBuffer(int nextBufferToConsume, Queue<Buffer> errorBuffers)
+            throws Throwable;
 
     /**
      * Get dataType of next buffer to consume.
@@ -56,6 +57,6 @@ public interface BufferConsumeView {
         return 0;
     }
 
-    /** Release this {@link BufferConsumeView} when related subpartition view is releasing. */
+    /** Release this {@link TierReaderView} when related subpartition view is releasing. */
     void releaseDataView();
 }

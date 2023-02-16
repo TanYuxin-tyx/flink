@@ -28,7 +28,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * {@link SubpartitionSegmentIndexTracker} is to track segment index for each subpartition. Each
- * {@link SingleTierDataGate}'s data manager has a separate {@link SubpartitionSegmentIndexTracker}.
+ * {@link StorageTier}'s data manager has a separate {@link SubpartitionSegmentIndexTracker}.
  */
 public class SubpartitionSegmentIndexTracker {
 
@@ -57,8 +57,7 @@ public class SubpartitionSegmentIndexTracker {
     public boolean addSubpartitionSegmentIndex(int subpartitionId, long segmentIndex) {
         if (isBroadCastOnly) {
             return callWithSubpartitionLock(
-                    0,
-                    () -> subpartitionSegmentIndexes.get(0).add(segmentIndex));
+                    0, () -> subpartitionSegmentIndexes.get(0).add(segmentIndex));
         } else {
             return callWithSubpartitionLock(
                     subpartitionId,

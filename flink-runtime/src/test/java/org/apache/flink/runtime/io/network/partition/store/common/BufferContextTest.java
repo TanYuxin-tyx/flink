@@ -81,40 +81,40 @@ class BufferContextTest {
 
     @Test
     void testBufferConsumed() {
-        final ConsumerId consumerId = ConsumerId.DEFAULT;
+        final TierReaderId tierReaderId = TierReaderId.DEFAULT;
         Buffer buffer = bufferContext.getBuffer();
-        bufferContext.consumed(consumerId);
-        assertThat(bufferContext.isConsumed(consumerId)).isTrue();
+        bufferContext.consumed(tierReaderId);
+        assertThat(bufferContext.isConsumed(tierReaderId)).isTrue();
         assertThat(buffer.refCnt()).isEqualTo(2);
     }
 
     @Test
     void testBufferConsumedRepeatedly() {
-        final ConsumerId consumerId = ConsumerId.DEFAULT;
-        bufferContext.consumed(consumerId);
-        assertThatThrownBy(() -> bufferContext.consumed(consumerId))
+        final TierReaderId tierReaderId = TierReaderId.DEFAULT;
+        bufferContext.consumed(tierReaderId);
+        assertThatThrownBy(() -> bufferContext.consumed(tierReaderId))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Consume buffer repeatedly is unexpected.");
     }
 
     @Test
     void testBufferConsumedMultipleConsumer() {
-        ConsumerId consumer0 = ConsumerId.newId(null);
-        ConsumerId consumer1 = ConsumerId.newId(consumer0);
+        TierReaderId consumer0 = TierReaderId.newId(null);
+        TierReaderId consumer1 = TierReaderId.newId(consumer0);
         bufferContext.consumed(consumer0);
         bufferContext.consumed(consumer1);
 
         assertThat(bufferContext.isConsumed(consumer0)).isTrue();
         assertThat(bufferContext.isConsumed(consumer1)).isTrue();
 
-        assertThat(bufferContext.isConsumed(ConsumerId.newId(consumer1))).isFalse();
+        assertThat(bufferContext.isConsumed(TierReaderId.newId(consumer1))).isFalse();
     }
 
     @Test
     void testBufferStartSpillOrConsumedAfterReleased() {
         bufferContext.release();
         assertThat(bufferContext.startSpilling(new CompletableFuture<>())).isFalse();
-        assertThatThrownBy(() -> bufferContext.consumed(ConsumerId.DEFAULT))
+        assertThatThrownBy(() -> bufferContext.consumed(TierReaderId.DEFAULT))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Buffer is already released.");
     }
@@ -132,7 +132,7 @@ class BufferContextTest {
     @Test
     void testBufferConsumedThenRelease() {
         Buffer buffer = bufferContext.getBuffer();
-        bufferContext.consumed(ConsumerId.DEFAULT);
+        bufferContext.consumed(TierReaderId.DEFAULT);
         bufferContext.release();
         assertThat(buffer.refCnt()).isEqualTo(1);
     }

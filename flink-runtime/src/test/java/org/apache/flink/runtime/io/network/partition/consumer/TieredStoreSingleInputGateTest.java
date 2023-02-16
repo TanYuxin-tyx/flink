@@ -102,7 +102,7 @@ import static org.apache.flink.runtime.io.network.partition.InputChannelTestUtil
 import static org.apache.flink.runtime.io.network.partition.InputChannelTestUtils.createRemoteInputChannel;
 import static org.apache.flink.runtime.io.network.partition.InputChannelTestUtils.createResultSubpartitionView;
 import static org.apache.flink.runtime.io.network.partition.InputGateFairnessTest.setupInputGate;
-import static org.apache.flink.runtime.io.network.partition.store.common.StoreReadWriteUtils.createBaseSubpartitionPath;
+import static org.apache.flink.runtime.io.network.partition.store.common.TieredStoreUtils.createBaseSubpartitionPath;
 import static org.apache.flink.runtime.io.network.partition.store.dfs.DfsFetcherDataQueueTest.BUFFERS_IN_SEGMENT;
 import static org.apache.flink.runtime.io.network.partition.store.dfs.DfsFetcherDataQueueTest.MEMORY_SEGMENT_SIZE;
 import static org.apache.flink.runtime.io.network.partition.store.dfs.DfsFetcherDataQueueTest.NUM_BUFFERS;

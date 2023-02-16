@@ -26,10 +26,8 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-/**
- * The Reader of Single Tier.
- */
-public interface SingleTierReader {
+/** The Reader of Single Tier. */
+public interface TierReader {
 
     @Nullable
     ResultSubpartition.BufferAndBacklog getNextBuffer() throws IOException;

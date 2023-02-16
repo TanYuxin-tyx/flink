@@ -16,10 +16,10 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.file;
+package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
 
 import java.util.Deque;
 import java.util.List;
@@ -36,12 +36,12 @@ public interface BufferSpillingInfoProvider {
     /**
      * Get all subpartition's next buffer index to consume of specific consumer.
      *
-     * @param consumerId of the target downstream consumer.
+     * @param tierReaderId of the target downstream consumer.
      * @return A list containing all subpartition's next buffer index to consume of specific
      *     consumer, if the downstream subpartition view has not been registered, the corresponding
      *     return value is -1.
      */
-    List<Integer> getNextBufferIndexToConsume(ConsumerId consumerId);
+    List<Integer> getNextBufferIndexToConsume(TierReaderId tierReaderId);
 
     /**
      * Get all buffers with the expected status from the subpartition.
@@ -85,24 +85,24 @@ public interface BufferSpillingInfoProvider {
     /** This class represents a pair of {@link ConsumeStatus} and consumer id. */
     class ConsumeStatusWithId {
         public static final ConsumeStatusWithId ALL_ANY =
-                new ConsumeStatusWithId(ConsumeStatus.ALL, ConsumerId.ANY);
+                new ConsumeStatusWithId(ConsumeStatus.ALL, TierReaderId.ANY);
 
         ConsumeStatus status;
 
-        ConsumerId consumerId;
+        TierReaderId tierReaderId;
 
-        private ConsumeStatusWithId(ConsumeStatus status, ConsumerId consumerId) {
+        private ConsumeStatusWithId(ConsumeStatus status, TierReaderId tierReaderId) {
             this.status = status;
-            this.consumerId = consumerId;
+            this.tierReaderId = tierReaderId;
         }
 
         public static ConsumeStatusWithId fromStatusAndConsumerId(
-                ConsumeStatus consumeStatus, ConsumerId consumerId) {
-            return new ConsumeStatusWithId(consumeStatus, consumerId);
+                ConsumeStatus consumeStatus, TierReaderId tierReaderId) {
+            return new ConsumeStatusWithId(consumeStatus, tierReaderId);
         }
 
-        public ConsumerId getConsumerId() {
-            return consumerId;
+        public TierReaderId getConsumerId() {
+            return tierReaderId;
         }
 
         public ConsumeStatus getStatus() {

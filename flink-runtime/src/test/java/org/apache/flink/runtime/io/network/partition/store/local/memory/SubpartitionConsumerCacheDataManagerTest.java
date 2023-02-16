@@ -22,9 +22,9 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.ReadOnlySlicedNetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.CacheDataManagerOperation;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.SubpartitionConsumerCacheDataManager;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManagerOperation;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerCacheDataManager;
 
 import org.junit.jupiter.api.Test;
 
@@ -52,7 +52,9 @@ class SubpartitionConsumerCacheDataManagerTest {
                 createSubpartitionConsumerMemoryDataManager(memoryDataManagerOperation);
 
         subpartitionConsumerCacheDataManager.addBuffer(createBufferContext(0, false));
-        assertThat(subpartitionConsumerCacheDataManager.peekNextToConsumeDataType(1, new ArrayDeque<>()))
+        assertThat(
+                        subpartitionConsumerCacheDataManager.peekNextToConsumeDataType(
+                                1, new ArrayDeque<>()))
                 .isEqualTo(Buffer.DataType.NONE);
     }
 
@@ -72,7 +74,9 @@ class SubpartitionConsumerCacheDataManagerTest {
         buffer1.release();
         buffer2.release();
 
-        assertThat(subpartitionConsumerCacheDataManager.peekNextToConsumeDataType(2, new ArrayDeque<>()))
+        assertThat(
+                        subpartitionConsumerCacheDataManager.peekNextToConsumeDataType(
+                                2, new ArrayDeque<>()))
                 .isEqualTo(Buffer.DataType.EVENT_BUFFER);
     }
 
@@ -84,7 +88,8 @@ class SubpartitionConsumerCacheDataManagerTest {
                 createSubpartitionConsumerMemoryDataManager(memoryDataManagerOperation);
 
         subpartitionConsumerCacheDataManager.addBuffer(createBufferContext(0, false));
-        assertThat(subpartitionConsumerCacheDataManager.consumeBuffer(1, new ArrayDeque<>())).isNotPresent();
+        assertThat(subpartitionConsumerCacheDataManager.consumeBuffer(1, new ArrayDeque<>()))
+                .isNotPresent();
     }
 
     @Test
@@ -103,7 +108,8 @@ class SubpartitionConsumerCacheDataManagerTest {
         buffer1.release();
         buffer2.release();
 
-        assertThat(subpartitionConsumerCacheDataManager.consumeBuffer(2, new ArrayDeque<>())).isPresent();
+        assertThat(subpartitionConsumerCacheDataManager.consumeBuffer(2, new ArrayDeque<>()))
+                .isPresent();
     }
 
     @Test
@@ -161,7 +167,7 @@ class SubpartitionConsumerCacheDataManagerTest {
 
     @Test
     void testRelease() {
-        CompletableFuture<ConsumerId> consumerReleasedFuture = new CompletableFuture<>();
+        CompletableFuture<TierReaderId> consumerReleasedFuture = new CompletableFuture<>();
         TestingCacheDataManagerOperation memoryDataManagerOperation =
                 TestingCacheDataManagerOperation.builder()
                         .setOnConsumerReleasedBiConsumer(
@@ -169,11 +175,12 @@ class SubpartitionConsumerCacheDataManagerTest {
                                     consumerReleasedFuture.complete(consumerId);
                                 })
                         .build();
-        ConsumerId consumerId = ConsumerId.newId(null);
+        TierReaderId tierReaderId = TierReaderId.newId(null);
         SubpartitionConsumerCacheDataManager subpartitionConsumerCacheDataManager =
-                createSubpartitionConsumerMemoryDataManager(consumerId, memoryDataManagerOperation);
+                createSubpartitionConsumerMemoryDataManager(
+                        tierReaderId, memoryDataManagerOperation);
         subpartitionConsumerCacheDataManager.releaseDataView();
-        assertThat(consumerReleasedFuture).isCompletedWithValue(consumerId);
+        assertThat(consumerReleasedFuture).isCompletedWithValue(tierReaderId);
     }
 
     private static BufferContext createBufferContext(int bufferIndex, boolean isEvent) {
@@ -184,18 +191,18 @@ class SubpartitionConsumerCacheDataManagerTest {
     private SubpartitionConsumerCacheDataManager createSubpartitionConsumerMemoryDataManager(
             CacheDataManagerOperation cacheDataManagerOperation) {
         return createSubpartitionConsumerMemoryDataManager(
-                ConsumerId.DEFAULT, cacheDataManagerOperation);
+                TierReaderId.DEFAULT, cacheDataManagerOperation);
     }
 
     private SubpartitionConsumerCacheDataManager createSubpartitionConsumerMemoryDataManager(
-            ConsumerId consumerId, CacheDataManagerOperation cacheDataManagerOperation) {
+            TierReaderId tierReaderId, CacheDataManagerOperation cacheDataManagerOperation) {
         return new SubpartitionConsumerCacheDataManager(
                 new ReentrantLock(),
                 new ReentrantLock(),
                 // consumerMemoryDataManager is a member of subpartitionMemoryDataManager, using a
                 // fixed subpartition id is enough.
                 SUBPARTITION_ID,
-                consumerId,
+                tierReaderId,
                 cacheDataManagerOperation);
     }
 }

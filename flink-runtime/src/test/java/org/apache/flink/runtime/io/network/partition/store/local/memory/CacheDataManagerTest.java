@@ -25,12 +25,12 @@ import org.apache.flink.runtime.io.network.partition.store.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelperImpl;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.CacheDataManager;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.TsSpillingStrategy;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.TsSpillingStrategy.Decision;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.TsSpillingStrategy;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.TsSpillingStrategy.Decision;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -166,18 +166,18 @@ class CacheDataManagerTest {
         TsSpillingStrategy spillingStrategy = TestingSpillingStrategy.builder().build();
         CacheDataManager cacheDataManager = createCacheDataManager(spillingStrategy);
         cacheDataManager.registerNewConsumer(
-                0, ConsumerId.DEFAULT, new TestingSubpartitionConsumerInternalOperation());
+                0, TierReaderId.DEFAULT, new TestingSubpartitionConsumerInternalOperation());
         assertThatThrownBy(
                         () ->
                                 cacheDataManager.registerNewConsumer(
                                         0,
-                                        ConsumerId.DEFAULT,
+                                        TierReaderId.DEFAULT,
                                         new TestingSubpartitionConsumerInternalOperation()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Each subpartition view should have unique consumerId.");
-        cacheDataManager.onConsumerReleased(0, ConsumerId.DEFAULT);
+        cacheDataManager.onConsumerReleased(0, TierReaderId.DEFAULT);
         cacheDataManager.registerNewConsumer(
-                0, ConsumerId.DEFAULT, new TestingSubpartitionConsumerInternalOperation());
+                0, TierReaderId.DEFAULT, new TestingSubpartitionConsumerInternalOperation());
     }
 
     private CacheDataManager createCacheDataManager(TsSpillingStrategy spillStrategy)

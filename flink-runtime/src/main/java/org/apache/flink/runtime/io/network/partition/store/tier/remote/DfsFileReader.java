@@ -22,8 +22,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,7 +38,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The read view of {@link DfsDataManager}, data can be read from dfs. */
-public class DfsFileReader implements SingleTierReader, DfsFileReaderInternalOperations {
+public class DfsFileReader implements TierReader, DfsFileReaderInternalOperations {
 
     private static final Logger LOG = LoggerFactory.getLogger(DfsFileReader.class);
 
@@ -66,7 +66,7 @@ public class DfsFileReader implements SingleTierReader, DfsFileReaderInternalOpe
     @Nullable
     @GuardedBy("lock")
     // dfsDataView can be null only before initialization.
-    private BufferConsumeView dfsDataView;
+    private TierReaderView dfsDataView;
 
     public DfsFileReader(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
@@ -156,10 +156,10 @@ public class DfsFileReader implements SingleTierReader, DfsFileReaderInternalOpe
     }
 
     /**
-     * Set {@link BufferConsumeView} for this subpartition, this method only called when {@link
+     * Set {@link TierReaderView} for this subpartition, this method only called when {@link
      * DfsFileReader} is creating.
      */
-    public void setDfsDataView(BufferConsumeView dfsDataView) {
+    public void setDfsDataView(TierReaderView dfsDataView) {
         synchronized (lock) {
             checkState(this.dfsDataView == null, "repeatedly set dfs data view is not allowed.");
             this.dfsDataView = dfsDataView;

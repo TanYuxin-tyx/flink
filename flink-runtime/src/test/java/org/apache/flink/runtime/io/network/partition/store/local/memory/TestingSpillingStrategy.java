@@ -19,8 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.store.local.memory;
 
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.BufferSpillingInfoProvider;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.TsSpillingStrategy;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.BufferSpillingInfoProvider;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.TsSpillingStrategy;
 
 import java.util.Optional;
 import java.util.function.BiFunction;

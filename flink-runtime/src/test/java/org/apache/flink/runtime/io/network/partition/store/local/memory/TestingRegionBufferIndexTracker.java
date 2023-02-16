@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.store.local.memory;
 
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.function.TriFunction;
 
 import java.util.List;

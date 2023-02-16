@@ -23,23 +23,23 @@ import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultPartition;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.metrics.TimerGauge;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * The gate for a single tiered data. The gate is used to create {@link SingleTierWriter} and {@link
- * SingleTierReader}. The writing and reading data processes happen in the writer and reader.
+ * The gate for a single tiered data. The gate is used to create {@link TierWriter} and {@link
+ * TierReader}. The writing and reading data processes happen in the writer and reader.
  */
-public interface SingleTierDataGate extends ChannelStateHolder, CheckpointedResultPartition {
+public interface StorageTier extends ChannelStateHolder, CheckpointedResultPartition {
 
     void setup() throws IOException;
 
-    SingleTierWriter createPartitionTierWriter() throws IOException;
+    TierWriter createPartitionTierWriter() throws IOException;
 
-    SingleTierReader createSubpartitionTierReader(
+    TierReader createSubpartitionTierReader(
             int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
 
     boolean canStoreNextSegment(int subpartitionId);

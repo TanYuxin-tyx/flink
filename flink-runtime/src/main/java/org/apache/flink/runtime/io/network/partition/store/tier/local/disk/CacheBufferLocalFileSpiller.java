@@ -16,14 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.file;
+package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferWithIdentity;
-import org.apache.flink.runtime.io.network.partition.store.common.CacheDataSpiller;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTracker.SpilledBuffer;
+import org.apache.flink.runtime.io.network.partition.store.common.CacheBufferSpiller;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker.SpilledBuffer;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
@@ -45,15 +45,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static org.apache.flink.runtime.io.network.partition.store.common.StoreReadWriteUtils.generateBufferWithHeaders;
+import static org.apache.flink.runtime.io.network.partition.store.common.TieredStoreUtils.generateBufferWithHeaders;
 
 /**
  * This component is responsible for asynchronously writing in-memory data to disk. Each spilling
  * operation will write the disk file sequentially.
  */
-public class CacheDataLocalFileSpiller implements CacheDataSpiller {
+public class CacheBufferLocalFileSpiller implements CacheBufferSpiller {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CacheDataLocalFileSpiller.class);
+    private static final Logger LOG = LoggerFactory.getLogger(CacheBufferLocalFileSpiller.class);
 
     /** One thread to perform spill operation. */
     private final ExecutorService ioExecutor =
@@ -74,7 +74,7 @@ public class CacheDataLocalFileSpiller implements CacheDataSpiller {
     /** Records the current writing location. */
     private long totalBytesWritten;
 
-    public CacheDataLocalFileSpiller(Path dataFilePath) throws IOException {
+    public CacheBufferLocalFileSpiller(Path dataFilePath) throws IOException {
         LOG.info("Creating partition file " + dataFilePath);
         this.dataFileChannel =
                 FileChannel.open(
@@ -166,8 +166,8 @@ public class CacheDataLocalFileSpiller implements CacheDataSpiller {
     }
 
     /**
-     * Close this {@link CacheDataLocalFileSpiller} when resultPartition is closed. It means spiller
-     * will no longer accept new spilling operation.
+     * Close this {@link CacheBufferLocalFileSpiller} when resultPartition is closed. It means
+     * spiller will no longer accept new spilling operation.
      *
      * <p>This method only called by main task thread.
      */
@@ -177,7 +177,7 @@ public class CacheDataLocalFileSpiller implements CacheDataSpiller {
     }
 
     /**
-     * Release this {@link CacheDataLocalFileSpiller} when resultPartition is released. It means
+     * Release this {@link CacheBufferLocalFileSpiller} when resultPartition is released. It means
      * spiller will wait for all previous spilling operation done blocking and close the file
      * channel.
      *

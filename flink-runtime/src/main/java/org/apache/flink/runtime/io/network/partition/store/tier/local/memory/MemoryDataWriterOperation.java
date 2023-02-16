@@ -19,7 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.store.tier.local.memory;
 
 import org.apache.flink.core.memory.MemorySegment;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
 
 import java.util.Collection;
 
@@ -39,17 +39,17 @@ public interface MemoryDataWriterOperation {
      * This method is called when subpartition data become available.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param consumerIds the consumer's identifier which need notify data available.
+     * @param tierReaderIds the consumer's identifier which need notify data available.
      */
-    void onDataAvailable(int subpartitionId, Collection<ConsumerId> consumerIds);
+    void onDataAvailable(int subpartitionId, Collection<TierReaderId> tierReaderIds);
 
     /**
      * This method is called when consumer is decided to released.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param consumerId the consumer's identifier which decided to be released.
+     * @param tierReaderId the consumer's identifier which decided to be released.
      */
-    void onConsumerReleased(int subpartitionId, ConsumerId consumerId);
+    void onConsumerReleased(int subpartitionId, TierReaderId tierReaderId);
 
     boolean isConsumerRegistered(int subpartitionId);
 }

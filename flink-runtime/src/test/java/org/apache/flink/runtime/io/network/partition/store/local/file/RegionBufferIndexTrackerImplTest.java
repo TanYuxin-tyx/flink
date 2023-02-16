@@ -18,10 +18,10 @@
 
 package org.apache.flink.runtime.io.network.partition.store.local.file;
 
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTracker.ReadableRegion;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTracker.SpilledBuffer;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker.ReadableRegion;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker.SpilledBuffer;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.util.TestLoggerExtension;
 
 import org.junit.jupiter.api.BeforeEach;

@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.store.local.memory;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsSpillingStrategyUtils;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.SpillingStrategyUtils;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SpillingStrategyUtils;
 
 import org.junit.jupiter.api.Test;
 

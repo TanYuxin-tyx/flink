@@ -20,8 +20,8 @@ package org.apache.flink.runtime.io.network.partition.store.local.memory;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.CacheDataManagerOperation;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManagerOperation;
 import org.apache.flink.util.function.SupplierWithException;
 
 import java.util.Collection;
@@ -41,7 +41,7 @@ public class TestingCacheDataManagerOperation implements CacheDataManagerOperati
 
     private final Runnable onDataAvailableRunnable;
 
-    private final BiConsumer<Integer, ConsumerId> onConsumerReleasedBiConsumer;
+    private final BiConsumer<Integer, TierReaderId> onConsumerReleasedBiConsumer;
 
     private TestingCacheDataManagerOperation(
             SupplierWithException<BufferBuilder, InterruptedException>
@@ -50,7 +50,7 @@ public class TestingCacheDataManagerOperation implements CacheDataManagerOperati
             Consumer<BufferIndexAndChannel> onBufferConsumedConsumer,
             Runnable onBufferFinishedRunnable,
             Runnable onDataAvailableRunnable,
-            BiConsumer<Integer, ConsumerId> onConsumerReleasedBiConsumer) {
+            BiConsumer<Integer, TierReaderId> onConsumerReleasedBiConsumer) {
         this.requestBufferFromPoolSupplier = requestBufferFromPoolSupplier;
         this.markBufferReadableConsumer = markBufferReadableConsumer;
         this.onBufferConsumedConsumer = onBufferConsumedConsumer;
@@ -80,13 +80,13 @@ public class TestingCacheDataManagerOperation implements CacheDataManagerOperati
     }
 
     @Override
-    public void onDataAvailable(int subpartitionId, Collection<ConsumerId> consumerIds) {
+    public void onDataAvailable(int subpartitionId, Collection<TierReaderId> tierReaderIds) {
         onDataAvailableRunnable.run();
     }
 
     @Override
-    public void onConsumerReleased(int subpartitionId, ConsumerId consumerId) {
-        onConsumerReleasedBiConsumer.accept(subpartitionId, consumerId);
+    public void onConsumerReleased(int subpartitionId, TierReaderId tierReaderId) {
+        onConsumerReleasedBiConsumer.accept(subpartitionId, tierReaderId);
     }
 
     @Override
@@ -111,7 +111,7 @@ public class TestingCacheDataManagerOperation implements CacheDataManagerOperati
 
         private Runnable onDataAvailableRunnable = () -> {};
 
-        private BiConsumer<Integer, ConsumerId> onConsumerReleasedBiConsumer =
+        private BiConsumer<Integer, TierReaderId> onConsumerReleasedBiConsumer =
                 (ignore1, ignore2) -> {};
 
         public Builder setRequestBufferFromPoolSupplier(
@@ -144,7 +144,7 @@ public class TestingCacheDataManagerOperation implements CacheDataManagerOperati
         }
 
         public Builder setOnConsumerReleasedBiConsumer(
-                BiConsumer<Integer, ConsumerId> onConsumerReleasedBiConsumer) {
+                BiConsumer<Integer, TierReaderId> onConsumerReleasedBiConsumer) {
             this.onConsumerReleasedBiConsumer = onConsumerReleasedBiConsumer;
             return this;
         }

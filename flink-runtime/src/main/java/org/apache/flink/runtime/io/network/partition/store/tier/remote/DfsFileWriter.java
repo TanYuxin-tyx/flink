@@ -19,8 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.store.tier.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierWriter;
 import org.apache.flink.runtime.io.network.partition.store.common.SubpartitionSegmentIndexTracker;
+import org.apache.flink.runtime.io.network.partition.store.common.TierWriter;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -29,7 +29,7 @@ import java.nio.ByteBuffer;
  * Through the {@link DfsFileWriter}, records from {@link DfsDataManager} is writen to cached
  * buffers.
  */
-public class DfsFileWriter implements SingleTierWriter {
+public class DfsFileWriter implements TierWriter {
 
     public static final int BROADCAST_CHANNEL = 0;
 
