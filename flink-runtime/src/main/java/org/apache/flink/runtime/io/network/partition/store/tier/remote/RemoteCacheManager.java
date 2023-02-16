@@ -27,8 +27,9 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerInternalOperations;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionDiskReaderViewOperations;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.Preconditions;
@@ -56,12 +57,12 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /** This class is responsible for managing cached buffers data before flush to DFS files. */
-public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
-    private static final Logger LOG = LoggerFactory.getLogger(DfsCacheDataManager.class);
+public class RemoteCacheManager implements RemoteCacheManagerOperation {
+    private static final Logger LOG = LoggerFactory.getLogger(RemoteCacheManager.class);
 
     private final int numSubpartitions;
 
-    private final SubpartitionDfsCacheDataManager[] subpartitionCacheDataManagers;
+    private final SubpartitionRemoteCacheManager[] subpartitionCacheDataManagers;
 
     private final Lock lock;
 
@@ -69,8 +70,7 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderViewId, DfsFileReaderInternalOperations>>
-            subpartitionViewOperationsMap;
+    private final List<Map<TierReaderViewId, RemoteReaderOperations>> subpartitionViewOperationsMap;
 
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadScheduledExecutor(
@@ -84,7 +84,7 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
                             .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
                             .build());
 
-    public DfsCacheDataManager(
+    public RemoteCacheManager(
             JobID jobID,
             ResultPartitionID resultPartitionID,
             int numSubpartitions,
@@ -95,7 +95,7 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
             BufferCompressor bufferCompressor)
             throws IOException {
         this.numSubpartitions = numSubpartitions;
-        this.subpartitionCacheDataManagers = new SubpartitionDfsCacheDataManager[numSubpartitions];
+        this.subpartitionCacheDataManagers = new SubpartitionRemoteCacheManager[numSubpartitions];
 
         ReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
         this.lock = readWriteLock.writeLock();
@@ -103,7 +103,7 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
         this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionCacheDataManagers[subpartitionId] =
-                    new SubpartitionDfsCacheDataManager(
+                    new SubpartitionRemoteCacheManager(
                             jobID,
                             resultPartitionID,
                             subpartitionId,
@@ -146,19 +146,19 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
     }
 
     /**
-     * Register {@link SubpartitionConsumerInternalOperations} to {@link
+     * Register {@link SubpartitionDiskReaderViewOperations} to {@link
      * #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of the
      * subpartition.
      */
     public TierReader registerNewConsumer(
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
-            DfsFileReaderInternalOperations viewOperations) {
+            RemoteReaderOperations viewOperations) {
         LOG.debug(
                 "### registered, subpartition {}, consumerId {},",
                 subpartitionId,
                 tierReaderViewId);
-        DfsFileReaderInternalOperations oldView =
+        RemoteReaderOperations oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
                         .put(tierReaderViewId, viewOperations);
@@ -168,21 +168,14 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
                 .registerNewConsumer(tierReaderViewId);
     }
 
-    /**
-     * Close this {@link
-     * org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager}, it
-     * means no data can append to memory.
-     */
+    /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
     public void close() {
-        Arrays.stream(subpartitionCacheDataManagers)
-                .forEach(SubpartitionDfsCacheDataManager::close);
+        Arrays.stream(subpartitionCacheDataManagers).forEach(SubpartitionRemoteCacheManager::close);
         ioExecutor.shutdown();
     }
 
     /**
-     * Release this {@link
-     * org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager}, it
-     * means all memory taken by this class will recycle.
+     * Release this {@link DiskCacheManager}, it means all memory taken by this class will recycle.
      */
     public void release() {
         for (int i = 0; i < numSubpartitions; i++) {
@@ -216,11 +209,11 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
     @Override
     public void onDataAvailable(
             int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, DfsFileReaderInternalOperations> consumerViewMap =
+        Map<TierReaderViewId, RemoteReaderOperations> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
         tierReaderViewIds.forEach(
                 consumerId -> {
-                    DfsFileReaderInternalOperations consumerView = consumerViewMap.get(consumerId);
+                    RemoteReaderOperations consumerView = consumerViewMap.get(consumerId);
                     if (consumerView != null) {
                         consumerView.notifyDataAvailable();
                     }
@@ -238,7 +231,7 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
     //           Internal Method
     // ------------------------------------
 
-    private SubpartitionDfsCacheDataManager getSubpartitionCacheDataManager(int targetChannel) {
+    private SubpartitionRemoteCacheManager getSubpartitionCacheDataManager(int targetChannel) {
         return subpartitionCacheDataManagers[targetChannel];
     }
 

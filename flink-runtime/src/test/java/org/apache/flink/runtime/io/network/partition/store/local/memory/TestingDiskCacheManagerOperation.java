@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.store.local.memory;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManagerOperation;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskCacheManagerOperation;
 import org.apache.flink.util.function.SupplierWithException;
 
 import java.util.Collection;
@@ -29,8 +29,8 @@ import java.util.Deque;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
-/** Mock {@link CacheDataManagerOperation} for testing. */
-public class TestingCacheDataManagerOperation implements CacheDataManagerOperation {
+/** Mock {@link DiskCacheManagerOperation} for testing. */
+public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperation {
     private final SupplierWithException<BufferBuilder, InterruptedException>
             requestBufferFromPoolSupplier;
 
@@ -40,7 +40,7 @@ public class TestingCacheDataManagerOperation implements CacheDataManagerOperati
 
     private final BiConsumer<Integer, TierReaderViewId> onConsumerReleasedBiConsumer;
 
-    private TestingCacheDataManagerOperation(
+    private TestingDiskCacheManagerOperation(
             SupplierWithException<BufferBuilder, InterruptedException>
                     requestBufferFromPoolSupplier,
             BiConsumer<Integer, Integer> markBufferReadableConsumer,
@@ -98,7 +98,7 @@ public class TestingCacheDataManagerOperation implements CacheDataManagerOperati
         return new Builder();
     }
 
-    /** Builder for {@link TestingCacheDataManagerOperation}. */
+    /** Builder for {@link TestingDiskCacheManagerOperation}. */
     public static class Builder {
         private SupplierWithException<BufferBuilder, InterruptedException>
                 requestBufferFromPoolSupplier = () -> null;
@@ -151,8 +151,8 @@ public class TestingCacheDataManagerOperation implements CacheDataManagerOperati
 
         private Builder() {}
 
-        public TestingCacheDataManagerOperation build() {
-            return new TestingCacheDataManagerOperation(
+        public TestingDiskCacheManagerOperation build() {
+            return new TestingDiskCacheManagerOperation(
                     requestBufferFromPoolSupplier,
                     markBufferReadableConsumer,
                     onDataAvailableRunnable,

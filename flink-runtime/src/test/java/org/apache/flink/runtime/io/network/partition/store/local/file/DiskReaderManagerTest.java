@@ -31,14 +31,14 @@ import org.apache.flink.runtime.io.network.partition.store.TestingTierReader;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.store.local.memory.TestingSubpartitionConsumerInternalOperation;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskDataManager;
+import org.apache.flink.runtime.io.network.partition.store.local.memory.TestingSubpartitionDiskReaderViewOperation;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskReaderManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerInternalOperations;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionDiskReader;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionDiskReaderImpl;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionDiskReaderView;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionDiskReaderViewOperations;
 import org.apache.flink.util.TestLoggerExtension;
 import org.apache.flink.util.function.BiConsumerWithException;
 
@@ -71,9 +71,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Tests for {@link DiskDataManager}. */
+/** Tests for {@link DiskReaderManager}. */
 @ExtendWith(TestLoggerExtension.class)
-class DiskDataManagerTest {
+class DiskReaderManagerTest {
     private static final int BUFFER_SIZE = 1024;
 
     private static final int NUM_SUBPARTITIONS = 10;
@@ -90,9 +90,9 @@ class DiskDataManagerTest {
 
     private Path dataFilePath;
 
-    private DiskDataManager fileDataManager;
+    private DiskReaderManager fileDataManager;
 
-    private TestingSubpartitionConsumerInternalOperation subpartitionViewOperation;
+    private TestingSubpartitionDiskReaderViewOperation subpartitionViewOperation;
 
     private TestingSubpartitionDiskReader.Factory factory;
 
@@ -106,7 +106,7 @@ class DiskDataManagerTest {
         dataFileChannel = openFileChannel(dataFilePath);
         factory = new TestingSubpartitionDiskReader.Factory();
         fileDataManager =
-                new DiskDataManager(
+                new DiskReaderManager(
                         bufferPool,
                         ioExecutor,
                         new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
@@ -116,7 +116,7 @@ class DiskDataManagerTest {
                                         NUM_SUBPARTITIONS, bufferPool.getNumBuffersPerRequest())
                                 .build(),
                         (subpartitionIndex, bufferIndex) -> false);
-        subpartitionViewOperation = new TestingSubpartitionConsumerInternalOperation();
+        subpartitionViewOperation = new TestingSubpartitionDiskReaderViewOperation();
     }
 
     @AfterEach
@@ -240,7 +240,7 @@ class DiskDataManagerTest {
         assertThat(bufferPool.getAvailableBuffers()).isZero();
 
         fileDataManager =
-                new DiskDataManager(
+                new DiskReaderManager(
                         bufferPool,
                         ioExecutor,
                         new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
@@ -525,7 +525,7 @@ class DiskDataManagerTest {
                     int subpartitionId,
                     TierReaderViewId tierReaderViewId,
                     FileChannel dataFileChannel,
-                    SubpartitionConsumerInternalOperations operation,
+                    SubpartitionDiskReaderViewOperations operation,
                     RegionBufferIndexTracker dataIndex,
                     int maxBuffersReadAhead,
                     Consumer<SubpartitionDiskReader> fileReaderReleaser,

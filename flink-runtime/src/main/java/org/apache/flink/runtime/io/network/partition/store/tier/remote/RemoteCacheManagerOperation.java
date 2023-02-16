@@ -22,8 +22,8 @@ import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView
 
 import java.util.Collection;
 
-/** This interface is used by {@link DfsCacheDataManager}. */
-public interface DfsCacheDataManagerOperation {
+/** This interface is used by {@link RemoteCacheManager}. */
+public interface RemoteCacheManagerOperation {
     /**
      * This method is called when subpartition data become available.
      *

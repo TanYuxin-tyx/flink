@@ -26,10 +26,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
- * Through the {@link DfsFileWriter}, records from {@link DfsDataManager} is writen to cached
- * buffers.
+ * Through the {@link RemoteWriter}, records from {@link RemoteTier} is writen to cached buffers.
  */
-public class DfsFileWriter implements TierWriter {
+public class RemoteWriter implements TierWriter {
 
     public static final int BROADCAST_CHANNEL = 0;
 
@@ -39,17 +38,17 @@ public class DfsFileWriter implements TierWriter {
 
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
 
-    private final DfsCacheDataManager cacheDataManager;
+    private final RemoteCacheManager cacheDataManager;
 
-    public DfsFileWriter(
+    public RemoteWriter(
             int numSubpartitions,
             boolean isBroadcastOnly,
             SubpartitionSegmentIndexTracker segmentIndexTracker,
-            DfsCacheDataManager dfsCacheDataManager) {
+            RemoteCacheManager remoteCacheManager) {
         this.numSubpartitions = numSubpartitions;
         this.isBroadcastOnly = isBroadcastOnly;
         this.segmentIndexTracker = segmentIndexTracker;
-        this.cacheDataManager = dfsCacheDataManager;
+        this.cacheDataManager = remoteCacheManager;
     }
 
     @Override

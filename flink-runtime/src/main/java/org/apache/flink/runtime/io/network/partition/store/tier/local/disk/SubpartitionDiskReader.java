@@ -64,7 +64,7 @@ public interface SubpartitionDiskReader extends Comparable<SubpartitionDiskReade
                 int subpartitionId,
                 TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
-                SubpartitionConsumerInternalOperations operation,
+                SubpartitionDiskReaderViewOperations operation,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
                 Consumer<SubpartitionDiskReader> fileReaderReleaser,

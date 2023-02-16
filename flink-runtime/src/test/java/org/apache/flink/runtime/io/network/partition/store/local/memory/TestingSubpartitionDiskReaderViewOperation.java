@@ -18,11 +18,11 @@
 
 package org.apache.flink.runtime.io.network.partition.store.local.memory;
 
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerInternalOperations;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionDiskReaderViewOperations;
 
-/** Mock {@link SubpartitionConsumerInternalOperations} for test. */
-public class TestingSubpartitionConsumerInternalOperation
-        implements SubpartitionConsumerInternalOperations {
+/** Mock {@link SubpartitionDiskReaderViewOperations} for test. */
+public class TestingSubpartitionDiskReaderViewOperation
+        implements SubpartitionDiskReaderViewOperations {
     // -1 indicates downstream just start consuming offset.
     private int consumingOffset = -1;
 

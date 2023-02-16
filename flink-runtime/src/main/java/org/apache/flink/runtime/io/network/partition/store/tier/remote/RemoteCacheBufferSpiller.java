@@ -52,9 +52,9 @@ import static org.apache.flink.util.Preconditions.checkState;
  * This component is responsible for asynchronously writing in-memory data to DFS file. Each
  * spilling operation will write the DFS file sequentially.
  */
-public class CacheBufferDfsFileSpiller implements CacheBufferSpiller {
+public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CacheBufferDfsFileSpiller.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RemoteCacheBufferSpiller.class);
 
     private final ExecutorService ioExecutor;
 
@@ -79,7 +79,7 @@ public class CacheBufferDfsFileSpiller implements CacheBufferSpiller {
 
     private long currentSegmentIndex = -1;
 
-    public CacheBufferDfsFileSpiller(
+    public RemoteCacheBufferSpiller(
             JobID jobID,
             ResultPartitionID resultPartitionID,
             int subpartitionId,

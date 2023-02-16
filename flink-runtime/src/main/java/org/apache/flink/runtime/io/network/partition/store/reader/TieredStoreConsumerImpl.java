@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.store.common.TieredStoreConsumer;
-import org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.remote.RemoteTier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -203,7 +203,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     @Override
     public boolean containSegment(long segmentId) {
         for (StorageTier tieredDataGate : tierDataGates) {
-            if (tieredDataGate.getClass() == DfsDataManager.class) {
+            if (tieredDataGate.getClass() == RemoteTier.class) {
                 continue;
             }
             if (tieredDataGate.hasCurrentSegment(subpartitionId, segmentId)) {

@@ -50,13 +50,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
-public class CacheDataManager implements CacheDataManagerOperation, CacheBufferSpillTrigger {
+public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferSpillTrigger {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CacheDataManager.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DiskCacheManager.class);
 
     private final int numSubpartitions;
 
-    private final SubpartitionCacheDataManager[] subpartitionCacheDataManagers;
+    private final SubpartitionDiskCacheManager[] subpartitionDiskCacheManagers;
 
     private final CacheBufferSpiller spiller;
 
@@ -70,10 +70,10 @@ public class CacheDataManager implements CacheDataManagerOperation, CacheBufferS
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderViewId, SubpartitionConsumerInternalOperations>>
+    private final List<Map<TierReaderViewId, SubpartitionDiskReaderViewOperations>>
             subpartitionViewOperationsMap;
 
-    public CacheDataManager(
+    public DiskCacheManager(
             int numSubpartitions,
             int bufferSize,
             BufferPoolHelper bufferPoolHelper,
@@ -83,14 +83,14 @@ public class CacheDataManager implements CacheDataManagerOperation, CacheBufferS
             throws IOException {
         this.numSubpartitions = numSubpartitions;
         this.bufferPoolHelper = bufferPoolHelper;
-        this.spiller = new CacheBufferLocalFileSpiller(dataFilePath);
+        this.spiller = new DiskCacheBufferSpiller(dataFilePath);
         this.regionBufferIndexTracker = regionBufferIndexTracker;
-        this.subpartitionCacheDataManagers = new SubpartitionCacheDataManager[numSubpartitions];
+        this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
 
         this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
-            subpartitionCacheDataManagers[subpartitionId] =
-                    new SubpartitionCacheDataManager(
+            subpartitionDiskCacheManagers[subpartitionId] =
+                    new SubpartitionDiskCacheManager(
                             subpartitionId, bufferSize, bufferCompressor, this);
             subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
         }
@@ -103,7 +103,7 @@ public class CacheDataManager implements CacheDataManagerOperation, CacheBufferS
     // ------------------------------------
 
     /**
-     * Append record to {@link CacheDataManager}.
+     * Append record to {@link DiskCacheManager}.
      *
      * @param record to be managed by this class.
      * @param targetChannel target subpartition of this record.
@@ -129,15 +129,15 @@ public class CacheDataManager implements CacheDataManagerOperation, CacheBufferS
     }
 
     /**
-     * Register {@link SubpartitionConsumerInternalOperations} to {@link
+     * Register {@link SubpartitionDiskReaderViewOperations} to {@link
      * #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of the
      * subpartition.
      */
     public TierReader registerNewConsumer(
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
-            SubpartitionConsumerInternalOperations viewOperations) {
-        SubpartitionConsumerInternalOperations oldView =
+            SubpartitionDiskReaderViewOperations viewOperations) {
+        SubpartitionDiskReaderViewOperations oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
                         .put(tierReaderViewId, viewOperations);
@@ -147,14 +147,14 @@ public class CacheDataManager implements CacheDataManagerOperation, CacheBufferS
         return null;
     }
 
-    /** Close this {@link CacheDataManager}, it means no data can append to memory. */
+    /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
     public void close() {
         notifyFlushCachedBuffers();
         spiller.close();
     }
 
     /**
-     * Release this {@link CacheDataManager}, it means all memory taken by this class will recycle.
+     * Release this {@link DiskCacheManager}, it means all memory taken by this class will recycle.
      */
     public void release() {
         spiller.release();
@@ -189,7 +189,7 @@ public class CacheDataManager implements CacheDataManagerOperation, CacheBufferS
     @Override
     public Deque<BufferIndexAndChannel> getBuffersInOrder(
             int subpartitionId, SpillStatus spillStatus, ConsumeStatusWithId consumeStatusWithId) {
-        SubpartitionCacheDataManager targetSubpartitionDataManager =
+        SubpartitionDiskCacheManager targetSubpartitionDataManager =
                 getSubpartitionMemoryDataManager(subpartitionId);
         return targetSubpartitionDataManager.getBuffersSatisfyStatus(
                 spillStatus, consumeStatusWithId);
@@ -215,11 +215,11 @@ public class CacheDataManager implements CacheDataManagerOperation, CacheBufferS
     @Override
     public void onDataAvailable(
             int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, SubpartitionConsumerInternalOperations> consumerViewMap =
+        Map<TierReaderViewId, SubpartitionDiskReaderViewOperations> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
         tierReaderViewIds.forEach(
                 consumerId -> {
-                    SubpartitionConsumerInternalOperations consumerView =
+                    SubpartitionDiskReaderViewOperations consumerView =
                             consumerViewMap.get(consumerId);
                     if (consumerView != null) {
                         consumerView.notifyDataAvailable();
@@ -274,7 +274,7 @@ public class CacheDataManager implements CacheDataManagerOperation, CacheBufferS
         List<BufferWithIdentity> bufferWithIdentities = new ArrayList<>();
         toSpill.forEach(
                 (subpartitionId, bufferIndexAndChannels) -> {
-                    SubpartitionCacheDataManager subpartitionDataManager =
+                    SubpartitionDiskCacheManager subpartitionDataManager =
                             getSubpartitionMemoryDataManager(subpartitionId);
                     bufferWithIdentities.addAll(
                             subpartitionDataManager.spillSubpartitionBuffers(
@@ -311,8 +311,8 @@ public class CacheDataManager implements CacheDataManagerOperation, CacheBufferS
                                 .releaseSubpartitionBuffers(subpartitionBuffers));
     }
 
-    private SubpartitionCacheDataManager getSubpartitionMemoryDataManager(int targetChannel) {
-        return subpartitionCacheDataManagers[targetChannel];
+    private SubpartitionDiskCacheManager getSubpartitionMemoryDataManager(int targetChannel) {
+        return subpartitionDiskCacheManagers[targetChannel];
     }
 
     private void recycleBuffer(MemorySegment buffer) {
