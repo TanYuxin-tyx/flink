@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.store;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierDataGate;
+import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.store.common.TieredStoreConsumer;
 import org.apache.flink.runtime.io.network.partition.store.reader.TieredStoreConsumerImpl;
 
@@ -40,7 +40,7 @@ class TieredStoreSubpartitionViewDelegate implements ResultSubpartitionView {
     TieredStoreSubpartitionViewDelegate(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            SingleTierDataGate[] tierDataGates,
+            StorageTier[] tierDataGates,
             String taskName)
             throws IOException {
         checkArgument(tierDataGates.length > 0, "Empty tier transmitters.");

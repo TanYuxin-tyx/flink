@@ -27,14 +27,14 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierDataGate;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierReader;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierWriter;
+import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.store.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.metrics.TimerGauge;
 
 import javax.annotation.Nullable;
@@ -45,14 +45,14 @@ import java.util.concurrent.CompletableFuture;
 import static org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsFileWriter.BROADCAST_CHANNEL;
 
 /** The DataManager of DFS. */
-public class DfsDataManager implements SingleTierDataGate {
+public class DfsDataManager implements StorageTier {
 
     private final int numSubpartitions;
 
     private final boolean isBroadcastOnly;
 
     /** Record the last assigned consumerId for each subpartition. */
-    private final ConsumerId[] lastConsumerIds;
+    private final TierReaderId[] lastTierReaderIds;
 
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
 
@@ -73,7 +73,7 @@ public class DfsDataManager implements SingleTierDataGate {
             throws IOException {
         this.numSubpartitions = numSubpartitions;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.lastConsumerIds = new ConsumerId[numSubpartitions];
+        this.lastTierReaderIds = new TierReaderId[numSubpartitions];
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTracker(numSubpartitions, isBroadcastOnly);
         this.dfsCacheDataManager =
@@ -92,13 +92,13 @@ public class DfsDataManager implements SingleTierDataGate {
     public void setup() throws IOException {}
 
     @Override
-    public SingleTierWriter createPartitionTierWriter() throws IOException {
+    public TierWriter createPartitionTierWriter() throws IOException {
         return new DfsFileWriter(
                 numSubpartitions, isBroadcastOnly, segmentIndexTracker, dfsCacheDataManager);
     }
 
     @Override
-    public SingleTierReader createSubpartitionTierReader(
+    public TierReader createSubpartitionTierReader(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
@@ -106,13 +106,14 @@ public class DfsDataManager implements SingleTierDataGate {
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
         DfsFileReader dfsFileReader = new DfsFileReader(availabilityListener);
-        ConsumerId lastConsumerId = lastConsumerIds[subpartitionId];
+        TierReaderId lastTierReaderId = lastTierReaderIds[subpartitionId];
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
-        ConsumerId consumerId = ConsumerId.newId(lastConsumerId);
-        lastConsumerIds[subpartitionId] = consumerId;
-        BufferConsumeView dfsDataView =
-                dfsCacheDataManager.registerNewConsumer(subpartitionId, consumerId, dfsFileReader);
+        TierReaderId tierReaderId = TierReaderId.newId(lastTierReaderId);
+        lastTierReaderIds[subpartitionId] = tierReaderId;
+        TierReaderView dfsDataView =
+                dfsCacheDataManager.registerNewConsumer(
+                        subpartitionId, tierReaderId, dfsFileReader);
 
         dfsFileReader.setDfsDataView(dfsDataView);
         return dfsFileReader;

@@ -16,12 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.file;
+package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -36,8 +36,7 @@ import java.util.function.Consumer;
  * <p>In order to access the disk as sequentially as possible {@link SubpartitionFileReader} need to
  * be able to compare priorities.
  */
-public interface SubpartitionFileReader
-        extends Comparable<SubpartitionFileReader>, BufferConsumeView {
+public interface SubpartitionFileReader extends Comparable<SubpartitionFileReader>, TierReaderView {
     /** Do prep work before this {@link SubpartitionFileReader} is scheduled to read data. */
     void prepareForScheduling();
 
@@ -63,7 +62,7 @@ public interface SubpartitionFileReader
     interface Factory {
         SubpartitionFileReader createFileReader(
                 int subpartitionId,
-                ConsumerId consumerId,
+                TierReaderId tierReaderId,
                 FileChannel dataFileChannel,
                 SubpartitionConsumerInternalOperations operation,
                 RegionBufferIndexTracker dataIndex,

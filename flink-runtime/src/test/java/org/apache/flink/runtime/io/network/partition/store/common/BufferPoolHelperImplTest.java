@@ -22,9 +22,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.store.local.memory.TestingSpillingStrategy;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.CacheDataManager;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.TsSpillingStrategy;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.TsSpillingStrategy;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

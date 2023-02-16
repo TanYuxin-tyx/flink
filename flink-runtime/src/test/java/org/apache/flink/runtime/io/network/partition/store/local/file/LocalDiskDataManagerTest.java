@@ -27,18 +27,18 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.store.TestingBufferConsumeView;
+import org.apache.flink.runtime.io.network.partition.store.TestingTierReaderView;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.store.local.memory.TestingSubpartitionConsumerInternalOperation;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.LocalDiskDataManager;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.SubpartitionConsumer;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.SubpartitionConsumerInternalOperations;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.SubpartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.SubpartitionFileReaderImpl;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.LocalDiskDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumer;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerInternalOperations;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionFileReaderImpl;
 import org.apache.flink.util.TestLoggerExtension;
 import org.apache.flink.util.function.BiConsumerWithException;
 
@@ -138,7 +138,7 @@ class LocalDiskDataManagerTest {
 
         assertThat(reader.readBuffers).isEmpty();
 
-        fileDataManager.registerNewConsumer(0, ConsumerId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
 
         ioExecutor.trigger();
 
@@ -157,7 +157,7 @@ class LocalDiskDataManagerTest {
 
         factory.allReaders.add(reader);
 
-        fileDataManager.registerNewConsumer(0, ConsumerId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
 
         ioExecutor.trigger();
 
@@ -189,7 +189,7 @@ class LocalDiskDataManagerTest {
                 });
         factory.allReaders.add(reader);
 
-        fileDataManager.registerNewConsumer(0, ConsumerId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
 
         ioExecutor.trigger();
 
@@ -222,8 +222,8 @@ class LocalDiskDataManagerTest {
         factory.allReaders.add(reader1);
         factory.allReaders.add(reader2);
 
-        fileDataManager.registerNewConsumer(0, ConsumerId.DEFAULT, subpartitionViewOperation);
-        fileDataManager.registerNewConsumer(1, ConsumerId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(1, TierReaderId.DEFAULT, subpartitionViewOperation);
 
         // trigger run.
         ioExecutor.trigger();
@@ -259,7 +259,7 @@ class LocalDiskDataManagerTest {
         reader.setFailConsumer((cause::complete));
         factory.allReaders.add(reader);
 
-        fileDataManager.registerNewConsumer(0, ConsumerId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
 
         ioExecutor.trigger();
 
@@ -285,7 +285,7 @@ class LocalDiskDataManagerTest {
                 });
         factory.allReaders.add(reader);
 
-        fileDataManager.registerNewConsumer(0, ConsumerId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
 
         ioExecutor.trigger();
 
@@ -331,7 +331,7 @@ class LocalDiskDataManagerTest {
                 };
         releaseThread.start();
 
-        fileDataManager.registerNewConsumer(0, ConsumerId.DEFAULT, subpartitionViewOperation);
+        fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionViewOperation);
 
         ioExecutor.trigger();
 
@@ -353,7 +353,7 @@ class LocalDiskDataManagerTest {
         assertThatThrownBy(
                         () -> {
                             fileDataManager.registerNewConsumer(
-                                    0, ConsumerId.DEFAULT, subpartitionViewOperation);
+                                    0, TierReaderId.DEFAULT, subpartitionViewOperation);
                             ioExecutor.trigger();
                         })
                 .isInstanceOf(IllegalStateException.class)
@@ -378,7 +378,7 @@ class LocalDiskDataManagerTest {
         SubpartitionFileReaderImpl subpartitionFileReader =
                 new SubpartitionFileReaderImpl(
                         0,
-                        ConsumerId.DEFAULT,
+                        TierReaderId.DEFAULT,
                         dataFileChannel,
                         subpartitionView,
                         new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
@@ -398,18 +398,18 @@ class LocalDiskDataManagerTest {
                     }
                 };
         factory.allReaders.add(subpartitionFileReader);
-        BufferConsumeView diskDataView =
-                fileDataManager.registerNewConsumer(0, ConsumerId.DEFAULT, subpartitionView);
+        TierReaderView diskDataView =
+                fileDataManager.registerNewConsumer(0, TierReaderId.DEFAULT, subpartitionView);
         subpartitionView.setDiskDataView(diskDataView);
-        TestingBufferConsumeView memoryDataView =
-                TestingBufferConsumeView.builder()
+        TestingTierReaderView memoryDataView =
+                TestingTierReaderView.builder()
                         .setConsumeBufferFunction(
                                 (ignore) -> {
                                     // throw an exception to trigger the release of file reader.
                                     throw new RuntimeException("expected exception.");
                                 })
                         .build();
-        //subpartitionView.setMemoryDataView(memoryDataView);
+        // subpartitionView.setMemoryDataView(memoryDataView);
 
         CheckedThread consumerThread =
                 new CheckedThread() {
@@ -501,7 +501,8 @@ class LocalDiskDataManagerTest {
         }
 
         @Override
-        public Buffer.DataType peekNextToConsumeDataType(int nextBufferToConsume, Queue<Buffer> errorBuffers) {
+        public Buffer.DataType peekNextToConsumeDataType(
+                int nextBufferToConsume, Queue<Buffer> errorBuffers) {
             return Buffer.DataType.NONE;
         }
 
@@ -522,7 +523,7 @@ class LocalDiskDataManagerTest {
             @Override
             public SubpartitionFileReader createFileReader(
                     int subpartitionId,
-                    ConsumerId consumerId,
+                    TierReaderId tierReaderId,
                     FileChannel dataFileChannel,
                     SubpartitionConsumerInternalOperations operation,
                     RegionBufferIndexTracker dataIndex,

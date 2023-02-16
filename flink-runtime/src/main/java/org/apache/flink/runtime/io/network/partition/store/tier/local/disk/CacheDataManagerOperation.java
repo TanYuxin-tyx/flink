@@ -16,11 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.file;
+package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
 
 import java.util.Collection;
 
@@ -59,17 +59,17 @@ public interface CacheDataManagerOperation {
      * This method is called when subpartition data become available.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param consumerIds the consumer's identifier which need notify data available.
+     * @param tierReaderIds the consumer's identifier which need notify data available.
      */
-    void onDataAvailable(int subpartitionId, Collection<ConsumerId> consumerIds);
+    void onDataAvailable(int subpartitionId, Collection<TierReaderId> tierReaderIds);
 
     /**
      * This method is called when consumer is decided to released.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param consumerId the consumer's identifier which decided to be released.
+     * @param tierReaderId the consumer's identifier which decided to be released.
      */
-    void onConsumerReleased(int subpartitionId, ConsumerId consumerId);
+    void onConsumerReleased(int subpartitionId, TierReaderId tierReaderId);
 
     /**
      * This method is called when consumer is get next buffer.

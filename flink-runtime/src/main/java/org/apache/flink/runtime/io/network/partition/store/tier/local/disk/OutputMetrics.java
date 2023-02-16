@@ -16,28 +16,26 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.common;
+package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.RegionBufferIndexTracker;
+import org.apache.flink.metrics.Counter;
+import org.apache.flink.runtime.io.network.partition.store.TieredStoreResultPartition;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
+/** All metrics that {@link TieredStoreResultPartition} needs to count, except numBytesProduced. */
+public class OutputMetrics {
+    private final Counter numBytesOut;
+    private final Counter numBuffersOut;
 
-/** Spilling the caching data in a cached data manager. */
-public interface CacheDataSpiller {
+    public OutputMetrics(Counter numBytesOut, Counter numBuffersOut) {
+        this.numBytesOut = numBytesOut;
+        this.numBuffersOut = numBuffersOut;
+    }
 
-    void startSegment(long segmentIndex) throws IOException;
+    public Counter getNumBytesOut() {
+        return numBytesOut;
+    }
 
-    CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spillAsync(
-            List<BufferWithIdentity> bufferToSpill);
-
-    void finishSegment(long segmentIndex);
-
-    void release();
-
-    void close();
-
-    Path getBaseSubpartitionPath();
+    public Counter getNumBuffersOut() {
+        return numBuffersOut;
+    }
 }

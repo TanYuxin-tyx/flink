@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;

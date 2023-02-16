@@ -43,10 +43,10 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelperImpl;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierDataGate;
+import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.store.common.TieredStoreProducer;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.LocalFileDataManager;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.LocalFileDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.memory.MemoryDataManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsDataManager;
 import org.apache.flink.runtime.io.network.partition.store.writer.TieredStoreProducerImpl;
@@ -94,7 +94,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private BufferPoolHelper bufferPoolHelper;
 
-    private SingleTierDataGate[] tierDataGates;
+    private StorageTier[] tierDataGates;
 
     private TieredStoreProducer tieredStoreProducer;
 
@@ -162,9 +162,9 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     @Override
     public void setMetricGroup(TaskIOMetricGroup metrics) {
         super.setMetricGroup(metrics);
-        for (SingleTierDataGate singleTierDataGate : this.tierDataGates) {
-            singleTierDataGate.setOutputMetrics(new OutputMetrics(numBytesOut, numBuffersOut));
-            singleTierDataGate.setTimerGauge(metrics.getHardBackPressuredTimePerSecond());
+        for (StorageTier storageTier : this.tierDataGates) {
+            storageTier.setOutputMetrics(new OutputMetrics(numBytesOut, numBuffersOut));
+            storageTier.setTimerGauge(metrics.getHardBackPressuredTimePerSecond());
         }
     }
 
@@ -187,7 +187,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                         "spilling type must be %s if the tiers is %s",
                         NO_FLUSH,
                         MEMORY);
-                this.tierDataGates = new SingleTierDataGate[1];
+                this.tierDataGates = new StorageTier[1];
                 this.tierDataGates[0] = getLocalMemoryDataManager();
                 this.tierDataGates[0].setup();
                 break;
@@ -197,7 +197,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                         "spilling type must not be %s if the tiers is %s",
                         NO_FLUSH,
                         LOCAL);
-                this.tierDataGates = new SingleTierDataGate[1];
+                this.tierDataGates = new StorageTier[1];
                 this.tierDataGates[0] = getLocalFileDataManager();
                 this.tierDataGates[0].setup();
                 break;
@@ -207,7 +207,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                         "spilling type must be %s if the tiers is %s",
                         FULL,
                         DFS);
-                this.tierDataGates = new SingleTierDataGate[1];
+                this.tierDataGates = new StorageTier[1];
                 this.tierDataGates[0] = getDfsDataManager();
                 this.tierDataGates[0].setup();
                 break;
@@ -217,10 +217,10 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                         "spilling type must not be %s if the tiers is %s",
                         NO_FLUSH,
                         MEMORY_LOCAL);
-                this.tierDataGates = new SingleTierDataGate[2];
+                this.tierDataGates = new StorageTier[2];
                 this.tierDataGates[0] = getLocalMemoryDataManager();
                 this.tierDataGates[1] = getLocalFileDataManager();
-                for (SingleTierDataGate tierDataGate : tierDataGates) {
+                for (StorageTier tierDataGate : tierDataGates) {
                     tierDataGate.setup();
                 }
                 break;
@@ -230,10 +230,10 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                         "spilling type must not be %s if the tiers is %s",
                         NO_FLUSH,
                         MEMORY_DFS);
-                this.tierDataGates = new SingleTierDataGate[2];
+                this.tierDataGates = new StorageTier[2];
                 this.tierDataGates[0] = getLocalMemoryDataManager();
                 this.tierDataGates[1] = getDfsDataManager();
-                for (SingleTierDataGate tierDataGate : tierDataGates) {
+                for (StorageTier tierDataGate : tierDataGates) {
                     tierDataGate.setup();
                 }
                 break;
@@ -243,11 +243,11 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                         "spilling type must not be %s if the tiers is %s",
                         NO_FLUSH,
                         MEMORY_LOCAL_DFS);
-                this.tierDataGates = new SingleTierDataGate[3];
+                this.tierDataGates = new StorageTier[3];
                 this.tierDataGates[0] = getLocalMemoryDataManager();
                 this.tierDataGates[1] = getLocalFileDataManager();
                 this.tierDataGates[2] = getDfsDataManager();
-                for (SingleTierDataGate tierDataGate : tierDataGates) {
+                for (StorageTier tierDataGate : tierDataGates) {
                     tierDataGate.setup();
                 }
                 break;
@@ -257,10 +257,10 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                         "spilling type must be %s if the tiers is %s",
                         FULL,
                         LOCAL_DFS);
-                this.tierDataGates = new SingleTierDataGate[2];
+                this.tierDataGates = new StorageTier[2];
                 this.tierDataGates[0] = getLocalFileDataManager();
                 this.tierDataGates[1] = getDfsDataManager();
-                for (SingleTierDataGate tierDataGate : tierDataGates) {
+                for (StorageTier tierDataGate : tierDataGates) {
                     tierDataGate.setup();
                 }
                 break;
@@ -465,7 +465,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     @VisibleForTesting
     public List<Path> getBaseSubpartitionPath(int subpartitionId) {
         List<Path> paths = new ArrayList<>();
-        for (SingleTierDataGate tierDataGate : tierDataGates) {
+        for (StorageTier tierDataGate : tierDataGates) {
             paths.add(tierDataGate.getBaseSubpartitionPath(subpartitionId));
         }
         return paths;

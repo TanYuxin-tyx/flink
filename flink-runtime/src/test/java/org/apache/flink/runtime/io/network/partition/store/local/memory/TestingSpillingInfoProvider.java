@@ -19,8 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.store.local.memory;
 
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.BufferSpillingInfoProvider;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.BufferSpillingInfoProvider;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -77,7 +77,7 @@ public class TestingSpillingInfoProvider implements BufferSpillingInfoProvider {
     }
 
     @Override
-    public List<Integer> getNextBufferIndexToConsume(ConsumerId consumerId) {
+    public List<Integer> getNextBufferIndexToConsume(TierReaderId tierReaderId) {
         return getNextBufferIndexToConsumeSupplier.get();
     }
 

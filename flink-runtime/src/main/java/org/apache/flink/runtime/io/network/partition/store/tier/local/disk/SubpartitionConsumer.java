@@ -16,14 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.file;
+package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,8 +40,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The read view of {@link LocalFileDataManager}, data can be read from memory or disk. */
-public class SubpartitionConsumer
-        implements SingleTierReader, SubpartitionConsumerInternalOperations {
+public class SubpartitionConsumer implements TierReader, SubpartitionConsumerInternalOperations {
 
     private static final Logger LOG = LoggerFactory.getLogger(SubpartitionConsumer.class);
 
@@ -69,7 +68,7 @@ public class SubpartitionConsumer
     @Nullable
     @GuardedBy("lock")
     // diskDataView can be null only before initialization.
-    private BufferConsumeView diskDataView;
+    private TierReaderView diskDataView;
 
     public SubpartitionConsumer(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
@@ -173,10 +172,10 @@ public class SubpartitionConsumer
     }
 
     /**
-     * Set {@link BufferConsumeView} for this subpartition, this method only called when {@link
+     * Set {@link TierReaderView} for this subpartition, this method only called when {@link
      * SubpartitionFileReader} is creating.
      */
-    public void setDiskDataView(BufferConsumeView diskDataView) {
+    public void setDiskDataView(TierReaderView diskDataView) {
         synchronized (lock) {
             checkState(this.diskDataView == null, "repeatedly set disk data view is not allowed.");
             this.diskDataView = diskDataView;
@@ -222,8 +221,7 @@ public class SubpartitionConsumer
     private Optional<BufferAndBacklog> tryReadFromDisk(Queue<Buffer> errorBuffers)
             throws Throwable {
         final int nextBufferIndexToConsume = lastConsumedBufferIndex + 1;
-        return checkNotNull(diskDataView)
-                .consumeBuffer(nextBufferIndexToConsume, errorBuffers);
+        return checkNotNull(diskDataView).consumeBuffer(nextBufferIndexToConsume, errorBuffers);
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

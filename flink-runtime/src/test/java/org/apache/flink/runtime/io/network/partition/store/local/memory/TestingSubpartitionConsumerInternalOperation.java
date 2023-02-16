@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.store.local.memory;
 
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.SubpartitionConsumerInternalOperations;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerInternalOperations;
 
 /** Mock {@link SubpartitionConsumerInternalOperations} for test. */
 public class TestingSubpartitionConsumerInternalOperation

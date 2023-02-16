@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.store;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
 import org.apache.flink.util.function.FunctionWithException;
 
 import java.util.Optional;
@@ -28,9 +28,9 @@ import java.util.Queue;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/** Mock {@link BufferConsumeView} for testing. */
-public class TestingBufferConsumeView implements BufferConsumeView {
-    public static final TestingBufferConsumeView NO_OP = TestingBufferConsumeView.builder().build();
+/** Mock {@link TierReaderView} for testing. */
+public class TestingTierReaderView implements TierReaderView {
+    public static final TestingTierReaderView NO_OP = TestingTierReaderView.builder().build();
 
     private final FunctionWithException<
                     Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
@@ -42,7 +42,7 @@ public class TestingBufferConsumeView implements BufferConsumeView {
 
     private final Runnable releaseDataViewRunnable;
 
-    private TestingBufferConsumeView(
+    private TestingTierReaderView(
             FunctionWithException<Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
                     consumeBufferFunction,
             Function<Integer, Buffer.DataType> peekNextToConsumeDataTypeFunction,
@@ -59,13 +59,14 @@ public class TestingBufferConsumeView implements BufferConsumeView {
     }
 
     @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(int nextBufferToConsume, Queue<Buffer> errorBuffers)
-            throws Throwable {
+    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(
+            int nextBufferToConsume, Queue<Buffer> errorBuffers) throws Throwable {
         return consumeBufferFunction.apply(nextBufferToConsume);
     }
 
     @Override
-    public Buffer.DataType peekNextToConsumeDataType(int nextBufferToConsume, Queue<Buffer> errorBuffers) {
+    public Buffer.DataType peekNextToConsumeDataType(
+            int nextBufferToConsume, Queue<Buffer> errorBuffers) {
         return peekNextToConsumeDataTypeFunction.apply(nextBufferToConsume);
     }
 
@@ -79,7 +80,7 @@ public class TestingBufferConsumeView implements BufferConsumeView {
         releaseDataViewRunnable.run();
     }
 
-    /** Builder for {@link TestingBufferConsumeView}. */
+    /** Builder for {@link TestingTierReaderView}. */
     public static class Builder {
         private FunctionWithException<
                         Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
@@ -118,8 +119,8 @@ public class TestingBufferConsumeView implements BufferConsumeView {
             return this;
         }
 
-        public TestingBufferConsumeView build() {
-            return new TestingBufferConsumeView(
+        public TestingTierReaderView build() {
+            return new TestingTierReaderView(
                     consumeBufferFunction,
                     peekNextToConsumeDataTypeFunction,
                     getBacklogSupplier,

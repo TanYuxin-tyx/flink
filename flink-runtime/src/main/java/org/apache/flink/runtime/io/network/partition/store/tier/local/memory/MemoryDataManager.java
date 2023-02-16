@@ -25,14 +25,14 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreMode;
-import org.apache.flink.runtime.io.network.partition.store.common.BufferConsumeView;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierDataGate;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierReader;
-import org.apache.flink.runtime.io.network.partition.store.common.SingleTierWriter;
+import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.store.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.file.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.metrics.TimerGauge;
 
 import org.slf4j.Logger;
@@ -48,7 +48,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
-public class MemoryDataManager implements SingleTierDataGate {
+public class MemoryDataManager implements StorageTier {
 
     private static final Logger LOG = LoggerFactory.getLogger(MemoryDataManager.class);
 
@@ -67,7 +67,7 @@ public class MemoryDataManager implements SingleTierDataGate {
     private final TieredStoreConfiguration storeConfiguration;
 
     /** Record the last assigned consumerId for each subpartition. */
-    private final ConsumerId[] lastConsumerIds;
+    private final TierReaderId[] lastTierReaderIds;
 
     private MemoryDataWriter memoryDataWriter;
 
@@ -95,7 +95,7 @@ public class MemoryDataManager implements SingleTierDataGate {
         this.bufferCompressor = bufferCompressor;
         checkNotNull(bufferCompressor);
         this.storeConfiguration = storeConfiguration;
-        this.lastConsumerIds = new ConsumerId[numSubpartitions];
+        this.lastTierReaderIds = new TierReaderId[numSubpartitions];
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTracker(numSubpartitions, isBroadcastOnly);
     }
@@ -119,12 +119,12 @@ public class MemoryDataManager implements SingleTierDataGate {
      * and the subpartitionId is not used. So return directly.
      */
     @Override
-    public SingleTierWriter createPartitionTierWriter() {
+    public TierWriter createPartitionTierWriter() {
         return memoryDataWriter;
     }
 
     @Override
-    public SingleTierReader createSubpartitionTierReader(
+    public TierReader createSubpartitionTierReader(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
@@ -132,16 +132,16 @@ public class MemoryDataManager implements SingleTierDataGate {
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
         MemoryReader memoryReader = new MemoryReader(availabilityListener);
-        ConsumerId lastConsumerId = lastConsumerIds[subpartitionId];
-        checkMultipleConsumerIsAllowed(lastConsumerId, storeConfiguration);
+        TierReaderId lastTierReaderId = lastTierReaderIds[subpartitionId];
+        checkMultipleConsumerIsAllowed(lastTierReaderId, storeConfiguration);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
-        ConsumerId consumerId = ConsumerId.newId(lastConsumerId);
-        lastConsumerIds[subpartitionId] = consumerId;
+        TierReaderId tierReaderId = TierReaderId.newId(lastTierReaderId);
+        lastTierReaderIds[subpartitionId] = tierReaderId;
 
-        BufferConsumeView memoryDataView =
+        TierReaderView memoryDataView =
                 checkNotNull(memoryDataWriter)
-                        .registerNewConsumer(subpartitionId, consumerId, memoryReader);
+                        .registerNewConsumer(subpartitionId, tierReaderId, memoryReader);
 
         memoryReader.setMemoryDataView(memoryDataView);
         return memoryReader;
@@ -204,11 +204,11 @@ public class MemoryDataManager implements SingleTierDataGate {
     }
 
     private static void checkMultipleConsumerIsAllowed(
-            ConsumerId lastConsumerId, TieredStoreConfiguration storeConfiguration) {
+            TierReaderId lastTierReaderId, TieredStoreConfiguration storeConfiguration) {
         if (TieredStoreMode.SpillingType.valueOf(storeConfiguration.getTieredStoreSpillingType())
                 == SELECTIVE) {
             checkState(
-                    lastConsumerId == null,
+                    lastTierReaderId == null,
                     "Multiple consumer is not allowed for %s spilling strategy mode",
                     storeConfiguration.getTieredStoreSpillingType());
         }

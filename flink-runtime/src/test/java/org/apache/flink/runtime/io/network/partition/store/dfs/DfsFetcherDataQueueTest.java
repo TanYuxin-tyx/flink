@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.runtime.io.network.partition.store.common.StoreReadWriteUtils.createBaseSubpartitionPath;
+import static org.apache.flink.runtime.io.network.partition.store.common.TieredStoreUtils.createBaseSubpartitionPath;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** The test for {@link DfsFetcherDataQueue}. */

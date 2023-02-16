@@ -16,26 +16,31 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.file;
+package org.apache.flink.runtime.io.network.partition.store.common;
 
-import org.apache.flink.metrics.Counter;
-import org.apache.flink.runtime.io.network.partition.store.TieredStoreResultPartition;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 
-/** All metrics that {@link TieredStoreResultPartition} needs to count, except numBytesProduced. */
-public class OutputMetrics {
-    private final Counter numBytesOut;
-    private final Counter numBuffersOut;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
-    public OutputMetrics(Counter numBytesOut, Counter numBuffersOut) {
-        this.numBytesOut = numBytesOut;
-        this.numBuffersOut = numBuffersOut;
-    }
+/**
+ * This {@link TierWriter} is the writer for specific tier. Each tier may contain data of all
+ * subpartitions.
+ */
+public interface TierWriter {
+    void setup() throws IOException;
 
-    public Counter getNumBytesOut() {
-        return numBytesOut;
-    }
+    void emit(
+            ByteBuffer record,
+            int targetSubpartition,
+            Buffer.DataType dataType,
+            boolean isBroadcast,
+            boolean isLastRecordInSegment,
+            boolean isEndOfPartition,
+            long segmentIndex)
+            throws IOException;
 
-    public Counter getNumBuffersOut() {
-        return numBuffersOut;
-    }
+    void release();
+
+    void close();
 }
