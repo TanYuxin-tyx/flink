@@ -60,10 +60,7 @@ import java.util.stream.Collectors;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-/**
- * This class is responsible for managing the data in a single subpartition. One {@link
- * CacheDataManager} will hold multiple {@link SubpartitionConsumerCacheDataManager}.
- */
+/** This class is responsible for managing the data in a single subpartition. */
 public class SubpartitionCacheDataManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(SubpartitionCacheDataManager.class);
@@ -112,13 +109,6 @@ public class SubpartitionCacheDataManager {
     //  Called by MemoryDataManager
     // ------------------------------------------------------------------------
 
-    /**
-     * Append record to {@link SubpartitionConsumerCacheDataManager}.
-     *
-     * @param record to be managed by this class.
-     * @param dataType the type of this record. In other words, is it data or event.
-     * @param isLastRecordInSegment whether this record is the last record in a segment.
-     */
     public void append(ByteBuffer record, DataType dataType, boolean isLastRecordInSegment)
             throws InterruptedException {
         if (dataType.isEvent()) {
@@ -244,7 +234,6 @@ public class SubpartitionCacheDataManager {
                         buffer, finishedBufferIndex, targetChannel, isLastRecordInSegment);
         LOG.debug("%%% add a finished Event");
         addFinishedBuffer(bufferContext);
-        cacheDataManagerOperation.onBufferFinished();
     }
 
     private void writeRecord(ByteBuffer record, DataType dataType, boolean isLastRecordInSegment)
@@ -325,7 +314,6 @@ public class SubpartitionCacheDataManager {
                         targetChannel,
                         isLastBufferInSegment);
         addFinishedBuffer(bufferContext);
-        cacheDataManagerOperation.onBufferFinished();
     }
 
     private Buffer compressBuffersIfPossible(Buffer buffer) {

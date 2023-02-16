@@ -143,7 +143,6 @@ public class LocalFileDataManager implements TierWriter, StorageTier {
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
                         bufferPoolHelper,
-                        getSpillingStrategy(storeConfiguration),
                         regionBufferIndexTracker,
                         dataFilePath,
                         bufferCompressor);

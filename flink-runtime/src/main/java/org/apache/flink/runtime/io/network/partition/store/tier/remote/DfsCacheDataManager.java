@@ -28,7 +28,6 @@ import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelp
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerCacheDataManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionConsumerInternalOperations;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
@@ -124,16 +123,6 @@ public class DfsCacheDataManager implements DfsCacheDataManagerOperation {
     //          For DfsDataManager
     // ------------------------------------
 
-    /**
-     * Append record to {@link
-     * org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager}, It
-     * will be managed by {@link SubpartitionConsumerCacheDataManager} witch it belongs to.
-     *
-     * @param record to be managed by this class.
-     * @param targetChannel target subpartition of this record.
-     * @param dataType the type of this record. In other words, is it data or event.
-     * @param isLastRecordInSegment whether this record is the last record in a segment.
-     */
     public void append(
             ByteBuffer record,
             int targetChannel,
