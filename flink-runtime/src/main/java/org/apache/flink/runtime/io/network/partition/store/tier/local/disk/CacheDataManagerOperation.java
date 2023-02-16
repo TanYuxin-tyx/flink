@@ -19,9 +19,11 @@
 package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderId;
+import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
 
 import java.util.Collection;
+import java.util.Deque;
 
 /**
  * This interface is used by {@link SubpartitionConsumerCacheDataManager} to operate {@link
@@ -29,7 +31,31 @@ import java.util.Collection;
  */
 public interface CacheDataManagerOperation {
     /**
-     * Request buffer from buffer pool.
+     * Get the number of downstream consumers.
+     *
+     * @return Number of subpartitions.
+     */
+    int getNumSubpartitions();
+
+    /**
+     * Get all buffers with the expected status from the subpartition.
+     *
+     * @param subpartitionId target buffers belong to.
+     * @param spillStatus expected buffer spill status.
+     * @param consumeStatusWithId expected buffer consume status and consumer id.
+     * @return all buffers satisfy specific status of this subpartition, This queue must be sorted
+     *     according to bufferIndex from small to large, in other words, head is the buffer with the
+     *     minimum bufferIndex in the current subpartition.
+     */
+    Deque<BufferIndexAndChannel> getBuffersInOrder(
+            int subpartitionId, SpillStatus spillStatus, ConsumeStatusWithId consumeStatusWithId);
+
+    int getNumTotalUnSpillBuffers();
+
+    /**
+     * Get the current size of buffer pool. *
+     *
+     * <p>/** Request buffer from buffer pool.
      *
      * @return requested buffer.
      */
@@ -48,17 +74,17 @@ public interface CacheDataManagerOperation {
      * This method is called when subpartition data become available.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param tierReaderIds the consumer's identifier which need notify data available.
+     * @param tierReaderViewIds the consumer's identifier which need notify data available.
      */
-    void onDataAvailable(int subpartitionId, Collection<TierReaderId> tierReaderIds);
+    void onDataAvailable(int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds);
 
     /**
      * This method is called when consumer is decided to released.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param tierReaderId the consumer's identifier which decided to be released.
+     * @param tierReaderViewId the consumer's identifier which decided to be released.
      */
-    void onConsumerReleased(int subpartitionId, TierReaderId tierReaderId);
+    void onConsumerReleased(int subpartitionId, TierReaderViewId tierReaderViewId);
 
     /**
      * This method is called when consumer is get next buffer.
@@ -67,4 +93,49 @@ public interface CacheDataManagerOperation {
      * @param bufferIndex the index the consumer needs.
      */
     boolean isLastBufferInSegment(int subpartitionId, int bufferIndex);
+
+    enum SpillStatus {
+        /** The buffer is spilling or spilled already. */
+        SPILL,
+        /** The buffer not start spilling. */
+        NOT_SPILL,
+    }
+
+    /** This enum represents buffer status of consume in hybrid shuffle mode. */
+    enum ConsumeStatus {
+        /** The buffer has already consumed by downstream. */
+        CONSUMED,
+        /** The buffer is not consumed by downstream. */
+        NOT_CONSUMED,
+        /** The buffer is either consumed or not consumed. */
+        ALL
+    }
+
+    /** This class represents a pair of {@link ConsumeStatus} and consumer id. */
+    class ConsumeStatusWithId {
+        public static final ConsumeStatusWithId ALL_ANY =
+                new ConsumeStatusWithId(ConsumeStatus.ALL, TierReaderViewId.ANY);
+
+        ConsumeStatus status;
+
+        TierReaderViewId tierReaderViewId;
+
+        private ConsumeStatusWithId(ConsumeStatus status, TierReaderViewId tierReaderViewId) {
+            this.status = status;
+            this.tierReaderViewId = tierReaderViewId;
+        }
+
+        public static ConsumeStatusWithId fromStatusAndConsumerId(
+                ConsumeStatus consumeStatus, TierReaderViewId tierReaderViewId) {
+            return new ConsumeStatusWithId(consumeStatus, tierReaderViewId);
+        }
+
+        public TierReaderViewId getConsumerId() {
+            return tierReaderViewId;
+        }
+
+        public ConsumeStatus getStatus() {
+            return status;
+        }
+    }
 }

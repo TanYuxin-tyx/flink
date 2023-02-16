@@ -71,7 +71,8 @@ public class BufferContext {
 
     private boolean spillStarted;
 
-    private final Set<TierReaderId> consumed = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<TierReaderViewId> consumed =
+            Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     @Nullable private CompletableFuture<Void> spilledFuture;
 
@@ -118,8 +119,8 @@ public class BufferContext {
         return spillStarted;
     }
 
-    public boolean isConsumed(TierReaderId tierReaderId) {
-        return consumed.contains(tierReaderId);
+    public boolean isConsumed(TierReaderViewId tierReaderViewId) {
+        return consumed.contains(tierReaderViewId);
     }
 
     public Optional<CompletableFuture<Void>> getSpilledFuture() {
@@ -156,9 +157,9 @@ public class BufferContext {
         return true;
     }
 
-    public void consumed(TierReaderId tierReaderId) {
+    public void consumed(TierReaderViewId tierReaderViewId) {
         checkState(!released, "Buffer is already released.");
-        checkState(consumed.add(tierReaderId), "Consume buffer repeatedly is unexpected.");
+        checkState(consumed.add(tierReaderViewId), "Consume buffer repeatedly is unexpected.");
         // increase ref count when buffer is consumed, will be decreased when downstream finish
         // consuming.
         buffer.retainBuffer();

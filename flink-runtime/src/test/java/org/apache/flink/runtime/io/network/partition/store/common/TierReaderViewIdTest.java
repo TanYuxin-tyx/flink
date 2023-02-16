@@ -22,22 +22,22 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Tests for {@link TierReaderId}. */
-class TierReaderIdTest {
+/** Tests for {@link TierReaderViewId}. */
+class TierReaderViewIdTest {
     @Test
     void testNewIdFromNull() {
-        TierReaderId tierReaderId = TierReaderId.newId(null);
-        assertThat(tierReaderId).isNotNull().isEqualTo(TierReaderId.DEFAULT);
+        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(null);
+        assertThat(tierReaderViewId).isNotNull().isEqualTo(TierReaderViewId.DEFAULT);
     }
 
     @Test
     void testConsumerIdEquals() {
-        TierReaderId tierReaderId = TierReaderId.newId(null);
-        TierReaderId tierReaderId1 = TierReaderId.newId(tierReaderId);
-        TierReaderId tierReaderId2 = TierReaderId.newId(tierReaderId);
-        assertThat(tierReaderId1.hashCode()).isEqualTo(tierReaderId2.hashCode());
-        assertThat(tierReaderId1).isEqualTo(tierReaderId2);
+        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(null);
+        TierReaderViewId tierReaderViewId1 = TierReaderViewId.newId(tierReaderViewId);
+        TierReaderViewId tierReaderViewId2 = TierReaderViewId.newId(tierReaderViewId);
+        assertThat(tierReaderViewId1.hashCode()).isEqualTo(tierReaderViewId2.hashCode());
+        assertThat(tierReaderViewId1).isEqualTo(tierReaderViewId2);
 
-        assertThat(TierReaderId.newId(tierReaderId2)).isNotEqualTo(tierReaderId2);
+        assertThat(TierReaderViewId.newId(tierReaderViewId2)).isNotEqualTo(tierReaderViewId2);
     }
 }

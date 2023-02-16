@@ -45,7 +45,7 @@ import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelp
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelperImpl;
 import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.store.common.TieredStoreProducer;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.LocalFileDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskTier;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.memory.MemoryDataManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsDataManager;
@@ -279,8 +279,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 storeConfiguration);
     }
 
-    private LocalFileDataManager getLocalFileDataManager() {
-        return new LocalFileDataManager(
+    private DiskTier getLocalFileDataManager() {
+        return new DiskTier(
                 numSubpartitions,
                 networkBufferSize,
                 getPartitionId(),

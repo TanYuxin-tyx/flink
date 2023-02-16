@@ -23,7 +23,7 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.store.common.StorageTier;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.store.common.TieredStoreConsumer;
 import org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsDataManager;
 
@@ -47,7 +47,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     private final StorageTier[] tierDataGates;
 
-    private final TierReader[] tierReaders;
+    private final TierReaderView[] tierReaderViews;
 
     private boolean isReleased = false;
 
@@ -74,15 +74,15 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
         this.tierDataGates = tierDataGates;
-        this.tierReaders = new TierReader[tierDataGates.length];
+        this.tierReaderViews = new TierReaderView[tierDataGates.length];
         createSingleTierReaders();
         this.taskName = taskName;
     }
 
     private void createSingleTierReaders() throws IOException {
         for (int i = 0; i < tierDataGates.length; i++) {
-            tierReaders[i] =
-                    tierDataGates[i].createSubpartitionTierReader(
+            tierReaderViews[i] =
+                    tierDataGates[i].createSubpartitionTierReaderView(
                             subpartitionId, availabilityListener);
         }
     }
@@ -117,7 +117,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
         }
         LOG.debug("%%% getNextBuffer2");
         BufferAndBacklog bufferAndBacklog =
-                tierReaders[viewIndexContainsCurrentSegment].getNextBuffer();
+                tierReaderViews[viewIndexContainsCurrentSegment].getNextBuffer();
 
         if (bufferAndBacklog != null) {
             LOG.debug("%%% getNextBuffer3 ");
@@ -143,11 +143,11 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable) {
         // first scan all result subpartition views
-        for (TierReader tierReader : tierReaders) {
-            tierReader.getAvailabilityAndBacklog(numCreditsAvailable);
+        for (TierReaderView tierReaderView : tierReaderViews) {
+            tierReaderView.getAvailabilityAndBacklog(numCreditsAvailable);
         }
         if (findTierContainsNextSegment()) {
-            return tierReaders[viewIndexContainsCurrentSegment].getAvailabilityAndBacklog(
+            return tierReaderViews[viewIndexContainsCurrentSegment].getAvailabilityAndBacklog(
                     numCreditsAvailable);
         }
         return new ResultSubpartitionView.AvailabilityWithBacklog(false, 0);
@@ -159,10 +159,10 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
             return;
         }
         isReleased = true;
-        for (int i = 0; i < tierReaders.length; i++) {
-            if (tierReaders[i] != null) {
+        for (int i = 0; i < tierReaderViews.length; i++) {
+            if (tierReaderViews[i] != null) {
                 try {
-                    tierReaders[i].releaseAllResources();
+                    tierReaderViews[i].releaseAllResources();
                 } catch (IOException ioException) {
                     throw new RuntimeException(
                             "Failed to release partition view resources.", ioException);
@@ -178,8 +178,8 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     @Override
     public Throwable getFailureCause() {
-        for (TierReader tierReader : tierReaders) {
-            Throwable failureCause = tierReader.getFailureCause();
+        for (TierReaderView tierReaderView : tierReaderViews) {
+            Throwable failureCause = tierReaderView.getFailureCause();
             if (failureCause != null) {
                 return failureCause;
             }
@@ -190,14 +190,14 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
         findTierContainsNextSegment();
-        return tierReaders[viewIndexContainsCurrentSegment]
+        return tierReaderViews[viewIndexContainsCurrentSegment]
                 .unsynchronizedGetNumberOfQueuedBuffers();
     }
 
     @Override
     public int getNumberOfQueuedBuffers() {
         findTierContainsNextSegment();
-        return tierReaders[viewIndexContainsCurrentSegment].getNumberOfQueuedBuffers();
+        return tierReaderViews[viewIndexContainsCurrentSegment].getNumberOfQueuedBuffers();
     }
 
     @Override
@@ -219,8 +219,8 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     private boolean findTierContainsNextSegment() {
 
-        for (TierReader tierReader : tierReaders) {
-            tierReader.getAvailabilityAndBacklog(Integer.MAX_VALUE);
+        for (TierReaderView tierReaderView : tierReaderViews) {
+            tierReaderView.getAvailabilityAndBacklog(Integer.MAX_VALUE);
         }
 
         if (!hasSegmentFinished) {

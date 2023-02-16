@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.store;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.store.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
 import org.apache.flink.util.function.FunctionWithException;
 
 import java.util.Optional;
@@ -28,9 +28,9 @@ import java.util.Queue;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/** Mock {@link TierReaderView} for testing. */
-public class TestingTierReaderView implements TierReaderView {
-    public static final TestingTierReaderView NO_OP = TestingTierReaderView.builder().build();
+/** Mock {@link TierReader} for testing. */
+public class TestingTierReader implements TierReader {
+    public static final TestingTierReader NO_OP = TestingTierReader.builder().build();
 
     private final FunctionWithException<
                     Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
@@ -42,7 +42,7 @@ public class TestingTierReaderView implements TierReaderView {
 
     private final Runnable releaseDataViewRunnable;
 
-    private TestingTierReaderView(
+    private TestingTierReader(
             FunctionWithException<Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
                     consumeBufferFunction,
             Function<Integer, Buffer.DataType> peekNextToConsumeDataTypeFunction,
@@ -80,7 +80,7 @@ public class TestingTierReaderView implements TierReaderView {
         releaseDataViewRunnable.run();
     }
 
-    /** Builder for {@link TestingTierReaderView}. */
+    /** Builder for {@link TestingTierReader}. */
     public static class Builder {
         private FunctionWithException<
                         Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
@@ -119,8 +119,8 @@ public class TestingTierReaderView implements TierReaderView {
             return this;
         }
 
-        public TestingTierReaderView build() {
-            return new TestingTierReaderView(
+        public TestingTierReader build() {
+            return new TestingTierReader(
                     consumeBufferFunction,
                     peekNextToConsumeDataTypeFunction,
                     getBacklogSupplier,

@@ -40,9 +40,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The read view of {@link MemoryDataManager}, data will be read from memory. */
-public class MemoryReader implements TierReader, SubpartitionConsumerInternalOperations {
+public class MemoryReaderView implements TierReaderView, SubpartitionConsumerInternalOperations {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MemoryReader.class);
+    private static final Logger LOG = LoggerFactory.getLogger(MemoryReaderView.class);
 
     private final BufferAvailabilityListener availabilityListener;
     private final Object lock = new Object();
@@ -68,9 +68,9 @@ public class MemoryReader implements TierReader, SubpartitionConsumerInternalOpe
     @Nullable
     @GuardedBy("lock")
     // memoryDataView can be null only before initialization.
-    private TierReaderView memoryDataView;
+    private TierReader memoryDataView;
 
-    public MemoryReader(BufferAvailabilityListener availabilityListener) {
+    public MemoryReaderView(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 
@@ -166,7 +166,7 @@ public class MemoryReader implements TierReader, SubpartitionConsumerInternalOpe
         }
     }
 
-    public void setMemoryDataView(TierReaderView memoryDataView) {
+    public void setMemoryDataView(TierReader memoryDataView) {
         synchronized (lock) {
             checkState(
                     this.memoryDataView == null, "repeatedly set memory data view is not allowed.");
