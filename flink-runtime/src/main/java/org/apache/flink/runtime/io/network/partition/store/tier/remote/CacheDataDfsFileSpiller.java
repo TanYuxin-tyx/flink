@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.dfs;
+package org.apache.flink.runtime.io.network.partition.store.tier.remote;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
@@ -124,8 +124,7 @@ public class CacheDataDfsFileSpiller implements CacheDataSpiller {
     }
 
     @Override
-    public void release() {
-    }
+    public void release() {}
 
     @Override
     public void close() {
@@ -134,12 +133,9 @@ public class CacheDataDfsFileSpiller implements CacheDataSpiller {
 
     private void openNewSegmentFile() throws IOException {
         if (baseSubpartitionPath == null) {
-            baseSubpartitionPath = createBaseSubpartitionPath(
-                    jobID,
-                    resultPartitionID,
-                    subpartitionId,
-                    baseDfsPath,
-                    false);
+            baseSubpartitionPath =
+                    createBaseSubpartitionPath(
+                            jobID, resultPartitionID, subpartitionId, baseDfsPath, false);
         }
 
         generateNewSegmentPath();
@@ -189,8 +185,7 @@ public class CacheDataDfsFileSpiller implements CacheDataSpiller {
      *
      * @param toWrite for create {@link RegionBufferIndexTracker.SpilledBuffer}.
      * @param spilledBuffers receive the created {@link RegionBufferIndexTracker.SpilledBuffer} by
-     *         this method.
-     *
+     *     this method.
      * @return total bytes(header size + buffer size) of all buffers to write.
      */
     private long createSpilledBuffersAndGetTotalBytes(

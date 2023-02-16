@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.store.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelperImpl;
-import org.apache.flink.runtime.io.network.partition.store.tier.dfs.DfsCacheDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsCacheDataManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

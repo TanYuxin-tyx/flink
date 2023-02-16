@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.store.common.SingleTierDataGate;
 import org.apache.flink.runtime.io.network.partition.store.common.SingleTierReader;
 import org.apache.flink.runtime.io.network.partition.store.common.TieredStoreConsumer;
-import org.apache.flink.runtime.io.network.partition.store.tier.dfs.DfsDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsDataManager;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -125,7 +125,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
             hasSegmentFinished = bufferAndBacklog.isLastBufferInSegment();
             if (hasSegmentFinished) {
                 Buffer buffer = bufferAndBacklog.buffer();
-                if(buffer != null && buffer.getDataType() == Buffer.DataType.DATA_BUFFER){
+                if (buffer != null && buffer.getDataType() == Buffer.DataType.DATA_BUFFER) {
                     System.out.println();
                 }
                 currentSegmentIndex++;
