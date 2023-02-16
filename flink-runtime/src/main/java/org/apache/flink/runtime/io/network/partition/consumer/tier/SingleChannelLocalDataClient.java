@@ -7,7 +7,6 @@ import org.apache.flink.runtime.io.network.partition.consumer.tier.common.Single
 
 import java.io.IOException;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -27,13 +26,8 @@ public class SingleChannelLocalDataClient implements SingleChannelDataClient {
             inputChannel.notifyRequiredSegmentId(segmentId);
         }
         latestSegmentId = segmentId;
-        if (inputChannel.containSegment(segmentId)) {
-            return true;
-        }
-        return false;
+        return inputChannel.containSegment(segmentId);
     }
-
-    private int sleepChannel = -1;
 
     @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
@@ -41,10 +35,6 @@ public class SingleChannelLocalDataClient implements SingleChannelDataClient {
         if (inputChannel.getClass() == RemoteRecoveredInputChannel.class
                 || inputChannel.getClass() == LocalRecoveredInputChannel.class) {
             return inputChannel.getNextBuffer();
-        }
-        if (segmentId != latestSegmentId) {
-            sleepChannel = inputChannel.getChannelIndex();
-            TimeUnit.SECONDS.sleep(100000000);
         }
         checkState(
                 segmentId == latestSegmentId,
