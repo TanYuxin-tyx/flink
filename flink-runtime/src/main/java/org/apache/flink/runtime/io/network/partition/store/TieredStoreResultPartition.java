@@ -45,10 +45,10 @@ import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelp
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelperImpl;
 import org.apache.flink.runtime.io.network.partition.store.common.SingleTierDataGate;
 import org.apache.flink.runtime.io.network.partition.store.common.TieredStoreProducer;
-import org.apache.flink.runtime.io.network.partition.store.tier.dfs.DfsDataManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.file.LocalFileDataManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.file.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.memory.MemoryDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsDataManager;
 import org.apache.flink.runtime.io.network.partition.store.writer.TieredStoreProducerImpl;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.StringUtils;

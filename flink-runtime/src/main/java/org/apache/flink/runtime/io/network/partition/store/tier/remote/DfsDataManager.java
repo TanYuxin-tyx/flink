@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.dfs;
+package org.apache.flink.runtime.io.network.partition.store.tier.remote;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
@@ -43,7 +43,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
-import static org.apache.flink.runtime.io.network.partition.store.tier.dfs.DfsFileWriter.BROADCAST_CHANNEL;
+import static org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsFileWriter.BROADCAST_CHANNEL;
 
 /** The DataManager of DFS. */
 public class DfsDataManager implements SingleTierDataGate, DataManagerOperation {

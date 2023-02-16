@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.dfs;
+package org.apache.flink.runtime.io.network.partition.store.tier.remote;
 
 import org.apache.flink.runtime.io.network.partition.store.common.ConsumerId;
 
