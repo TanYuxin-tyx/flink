@@ -19,10 +19,10 @@
 package org.apache.flink.runtime.io.network.partition.store.tier.remote;
 
 /**
- * Operations provided by {@link DfsFileReaderView} that will be used in {@link
- * SubpartitionDfsCacheDataManager}.
+ * Operations provided by {@link SubpartitionRemoteReaderView} that will be used in {@link
+ * SubpartitionRemoteCacheManager}.
  */
-public interface DfsFileReaderInternalOperations {
+public interface RemoteReaderOperations {
 
     /** Callback for new data become available. */
     void notifyDataAvailable();

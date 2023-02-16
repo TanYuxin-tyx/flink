@@ -51,9 +51,9 @@ import static org.apache.flink.runtime.io.network.partition.store.common.TieredS
  * This component is responsible for asynchronously writing in-memory data to disk. Each spilling
  * operation will write the disk file sequentially.
  */
-public class CacheBufferLocalFileSpiller implements CacheBufferSpiller {
+public class DiskCacheBufferSpiller implements CacheBufferSpiller {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CacheBufferLocalFileSpiller.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DiskCacheBufferSpiller.class);
 
     /** One thread to perform spill operation. */
     private final ExecutorService ioExecutor =
@@ -74,7 +74,7 @@ public class CacheBufferLocalFileSpiller implements CacheBufferSpiller {
     /** Records the current writing location. */
     private long totalBytesWritten;
 
-    public CacheBufferLocalFileSpiller(Path dataFilePath) throws IOException {
+    public DiskCacheBufferSpiller(Path dataFilePath) throws IOException {
         LOG.info("Creating partition file " + dataFilePath);
         this.dataFileChannel =
                 FileChannel.open(
@@ -166,8 +166,8 @@ public class CacheBufferLocalFileSpiller implements CacheBufferSpiller {
     }
 
     /**
-     * Close this {@link CacheBufferLocalFileSpiller} when resultPartition is closed. It means
-     * spiller will no longer accept new spilling operation.
+     * Close this {@link DiskCacheBufferSpiller} when resultPartition is closed. It means spiller
+     * will no longer accept new spilling operation.
      *
      * <p>This method only called by main task thread.
      */
@@ -177,7 +177,7 @@ public class CacheBufferLocalFileSpiller implements CacheBufferSpiller {
     }
 
     /**
-     * Release this {@link CacheBufferLocalFileSpiller} when resultPartition is released. It means
+     * Release this {@link DiskCacheBufferSpiller} when resultPartition is released. It means
      * spiller will wait for all previous spilling operation done blocking and close the file
      * channel.
      *

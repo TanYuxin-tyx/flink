@@ -27,9 +27,9 @@ import java.util.Deque;
 
 /**
  * This interface is used by {@link SubpartitionConsumerCacheDataManager} to operate {@link
- * CacheDataManager}. Spilling decision may be made and handled inside these operations.
+ * DiskCacheManager}. Spilling decision may be made and handled inside these operations.
  */
-public interface CacheDataManagerOperation {
+public interface DiskCacheManagerOperation {
     /**
      * Get the number of downstream consumers.
      *

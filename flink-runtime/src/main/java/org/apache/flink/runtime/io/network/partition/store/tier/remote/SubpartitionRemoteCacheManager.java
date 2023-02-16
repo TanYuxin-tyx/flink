@@ -16,22 +16,29 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.store.tier.local.disk;
+package org.apache.flink.runtime.io.network.partition.store.tier.remote;
 
+import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.JobID;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.store.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferIndexAndChannel;
+import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferWithIdentity;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManagerOperation.ConsumeStatusWithId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManagerOperation.SpillStatus;
+import org.apache.flink.runtime.io.network.partition.store.common.CacheBufferSpiller;
+import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
@@ -41,34 +48,37 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** This class is responsible for managing the data in a single subpartition. */
-public class SubpartitionCacheDataManager {
+public class SubpartitionRemoteCacheManager {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionCacheDataManager.class);
+    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionRemoteCacheManager.class);
 
     private final int targetChannel;
 
     private final int bufferSize;
 
-    private final CacheDataManagerOperation cacheDataManagerOperation;
+    private static final int NUM_BUFFERS_TO_FLUSH = 1;
+
+    private final RemoteCacheManagerOperation cacheDataManagerOperation;
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
@@ -76,39 +86,74 @@ public class SubpartitionCacheDataManager {
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
 
+    // Not guarded by lock because it is expected only accessed from task's main thread.
+    private int finishedSegmentInfoIndex;
+
+    @GuardedBy("subpartitionLock")
+    private final Deque<BufferContext> allSegmentInfos = new LinkedList<>();
+
     @GuardedBy("subpartitionLock")
     private final Deque<BufferContext> allBuffers = new LinkedList<>();
 
     @GuardedBy("subpartitionLock")
     private final Map<Integer, BufferContext> bufferIndexToContexts = new HashMap<>();
 
-    @GuardedBy("subpartitionLock")
-    private final Set<Integer> lastBufferIndexOfSegments;
+    private final CacheBufferSpiller cacheBufferSpiller;
+
+    private final BufferPoolHelper bufferPoolHelper;
+
+    /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
+    private final Lock resultPartitionLock;
 
     /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
     private final ReentrantReadWriteLock subpartitionLock = new ReentrantReadWriteLock();
+
+    @GuardedBy("subpartitionLock")
+    private final Map<TierReaderViewId, SubpartitionRemoteReader> consumerMap;
 
     @Nullable private final BufferCompressor bufferCompressor;
 
     @Nullable private OutputMetrics outputMetrics;
 
-    public SubpartitionCacheDataManager(
+    private volatile boolean isClosed;
+
+    private volatile boolean isReleased;
+
+    private final boolean isBroadcastOnly;
+
+    public SubpartitionRemoteCacheManager(
+            JobID jobID,
+            ResultPartitionID resultPartitionID,
             int targetChannel,
             int bufferSize,
+            boolean isBroadcastOnly,
+            BufferPoolHelper bufferPoolHelper,
+            String baseDfsPath,
+            Lock resultPartitionLock,
             @Nullable BufferCompressor bufferCompressor,
-            CacheDataManagerOperation cacheDataManagerOperation) {
+            RemoteCacheManagerOperation cacheDataManagerOperation,
+            ExecutorService ioExecutor)
+            throws IOException {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
+        this.bufferPoolHelper = bufferPoolHelper;
+        this.resultPartitionLock = resultPartitionLock;
         this.cacheDataManagerOperation = cacheDataManagerOperation;
         this.bufferCompressor = bufferCompressor;
-        this.lastBufferIndexOfSegments = new HashSet<>();
+        this.consumerMap = new HashMap<>();
+        this.cacheBufferSpiller =
+                new RemoteCacheBufferSpiller(
+                        jobID, resultPartitionID, targetChannel, baseDfsPath, ioExecutor);
+        bufferPoolHelper.registerSubpartitionTieredManager(
+                targetChannel, TieredStoreMode.TieredType.IN_DFS, this::flushCachedBuffers);
+        this.isBroadcastOnly = isBroadcastOnly;
     }
 
     // ------------------------------------------------------------------------
-    //  Called by MemoryDataManager
+    //  Called by DfsCacheDataManager
     // ------------------------------------------------------------------------
 
-    public void append(ByteBuffer record, DataType dataType, boolean isLastRecordInSegment)
+    public void append(ByteBuffer record, Buffer.DataType dataType, boolean isLastRecordInSegment)
             throws InterruptedException {
         if (dataType.isEvent()) {
             writeEvent(record, dataType, isLastRecordInSegment);
@@ -117,98 +162,86 @@ public class SubpartitionCacheDataManager {
         }
     }
 
-    // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
-    // subpartitionLock.
-    public Deque<BufferIndexAndChannel> getBuffersSatisfyStatus(
-            SpillStatus spillStatus, ConsumeStatusWithId consumeStatusWithId) {
-        return callWithLock(
-                () -> {
-                    // TODO return iterator to avoid completely traversing the queue for each call.
-                    Deque<BufferIndexAndChannel> targetBuffers = new ArrayDeque<>();
-                    // traverse buffers in order.
-                    allBuffers.forEach(
-                            (bufferContext -> {
-                                if (isBufferSatisfyStatus(
-                                        bufferContext, spillStatus, consumeStatusWithId)) {
-                                    targetBuffers.add(bufferContext.getBufferIndexAndChannel());
-                                }
-                            }));
-                    return targetBuffers;
-                });
-    }
-
-    /**
-     * Spill this subpartition's buffers in a decision.
-     *
-     * @param toSpill All buffers that need to be spilled belong to this subpartition in a decision.
-     * @param spillDoneFuture completed when spill is finished.
-     * @return {@link BufferWithIdentity}s about these spill buffers.
-     */
-    @SuppressWarnings("FieldAccessNotGuarded")
-    // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
-    // subpartitionLock.
-    public List<BufferWithIdentity> spillSubpartitionBuffers(
-            List<BufferIndexAndChannel> toSpill, CompletableFuture<Void> spillDoneFuture) {
-        return callWithLock(
-                () ->
-                        toSpill.stream()
-                                .map(
-                                        indexAndChannel -> {
-                                            int bufferIndex = indexAndChannel.getBufferIndex();
-                                            return startSpillingBuffer(bufferIndex, spillDoneFuture)
-                                                    .map(
-                                                            (context) ->
-                                                                    new BufferWithIdentity(
-                                                                            context.getBuffer(),
-                                                                            bufferIndex,
-                                                                            targetChannel));
-                                        })
-                                .filter(Optional::isPresent)
-                                .map(Optional::get)
-                                .collect(Collectors.toList()));
-    }
-
-    /**
-     * Release this subpartition's buffers in a decision.
-     *
-     * @param toRelease All buffers that need to be released belong to this subpartition in a
-     *     decision.
-     */
-    @SuppressWarnings("FieldAccessNotGuarded")
-    // Note that: runWithLock ensure that code block guarded by resultPartitionReadLock and
-    // subpartitionLock.
-    public void releaseSubpartitionBuffers(List<BufferIndexAndChannel> toRelease) {
-        runWithLock(
-                () ->
-                        toRelease.forEach(
-                                (indexAndChannel) -> {
-                                    int bufferIndex = indexAndChannel.getBufferIndex();
-                                    BufferContext bufferContext =
-                                            bufferIndexToContexts.get(bufferIndex);
-                                    if (bufferContext != null) {
-                                        checkAndMarkBufferReadable(bufferContext);
-                                        releaseBuffer(bufferIndex);
-                                    }
-                                }));
-    }
-
     public void setOutputMetrics(OutputMetrics outputMetrics) {
         this.outputMetrics = checkNotNull(outputMetrics);
     }
 
-    Set<Integer> getLastBufferIndexOfSegments() {
-        return lastBufferIndexOfSegments;
+    public void startSegment(long segmentIndex) throws IOException {
+        cacheBufferSpiller.startSegment(segmentIndex);
     }
 
+    public void finishSegment(long segmentIndex) {
+        List<TierReaderViewId> needNotify = new ArrayList<>(consumerMap.size());
+        runWithLock(
+                () -> {
+                    LOG.debug("%%% Dfs generate1");
+                    CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>>
+                            spillDoneFuture = flushCachedBuffers();
+                    try {
+                        spillDoneFuture.get();
+                    } catch (Exception e) {
+                        throw new RuntimeException("Spiller finish segment failed!", e);
+                    }
+                    cacheBufferSpiller.finishSegment(segmentIndex);
+                    LOG.debug("%%% Dfs generate2");
+                    BufferContext segmentInfoBufferContext =
+                            new BufferContext(
+                                    null, finishedSegmentInfoIndex, targetChannel, true, true);
+                    allSegmentInfos.add(segmentInfoBufferContext);
+                    ++finishedSegmentInfoIndex;
+                    checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
+                    LOG.debug("%%% Dfs generate3 {}", consumerMap.entrySet().size());
+                    // notify downstream
+                    for (Map.Entry<TierReaderViewId, SubpartitionRemoteReader> consumerEntry :
+                            consumerMap.entrySet()) {
+                        if (consumerEntry.getValue().addBuffer(segmentInfoBufferContext)) {
+                            needNotify.add(consumerEntry.getKey());
+                        }
+                    }
+                });
+        cacheDataManagerOperation.onDataAvailable(targetChannel, needNotify);
+    }
+
+    /** Release all buffers. */
     public void release() {
-        lastBufferIndexOfSegments.clear();
+        if (!isReleased) {
+            for (BufferContext bufferContext : allBuffers) {
+                bufferContext.release();
+            }
+            allBuffers.clear();
+            bufferIndexToContexts.clear();
+            isReleased = true;
+        }
+    }
+
+    public void releaseConsumer(TierReaderViewId tierReaderViewId) {
+        runWithLock(() -> checkNotNull(consumerMap.remove(tierReaderViewId)));
+    }
+
+    @SuppressWarnings("FieldAccessNotGuarded")
+    public SubpartitionRemoteReader registerNewConsumer(TierReaderViewId tierReaderViewId) {
+        return callWithLock(
+                () -> {
+                    checkState(!consumerMap.containsKey(tierReaderViewId));
+                    SubpartitionRemoteReader newConsumer =
+                            new SubpartitionRemoteReader(
+                                    resultPartitionLock,
+                                    subpartitionLock.readLock(),
+                                    targetChannel,
+                                    tierReaderViewId,
+                                    cacheDataManagerOperation);
+                    newConsumer.addInitialBuffers(allSegmentInfos);
+                    consumerMap.put(tierReaderViewId, newConsumer);
+                    return newConsumer;
+                });
     }
 
     // ------------------------------------------------------------------------
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private void writeEvent(ByteBuffer event, DataType dataType, boolean isLastRecordInSegment) {
+    private void writeEvent(
+            ByteBuffer event, Buffer.DataType dataType, boolean isLastRecordInSegment) {
         checkArgument(dataType.isEvent());
 
         // each Event must take an exclusive buffer
@@ -222,11 +255,11 @@ public class SubpartitionCacheDataManager {
         BufferContext bufferContext =
                 new BufferContext(
                         buffer, finishedBufferIndex, targetChannel, isLastRecordInSegment);
-        LOG.debug("%%% add a finished Event");
         addFinishedBuffer(bufferContext);
     }
 
-    private void writeRecord(ByteBuffer record, DataType dataType, boolean isLastRecordInSegment)
+    private void writeRecord(
+            ByteBuffer record, Buffer.DataType dataType, boolean isLastRecordInSegment)
             throws InterruptedException {
         checkArgument(!dataType.isEvent());
 
@@ -247,7 +280,7 @@ public class SubpartitionCacheDataManager {
 
         while (availableBytes < numRecordBytes) {
             // request unfinished buffer.
-            BufferBuilder bufferBuilder = cacheDataManagerOperation.requestBufferFromPool();
+            BufferBuilder bufferBuilder = requestBufferFromPool();
             unfinishedBuffers.add(bufferBuilder);
             availableBytes += bufferSize;
         }
@@ -255,21 +288,22 @@ public class SubpartitionCacheDataManager {
 
     private void writeRecord(ByteBuffer record, boolean isLastRecordInSegment) {
         while (record.hasRemaining()) {
+            LOG.debug("%%% Dfs write record1");
             BufferBuilder currentWritingBuffer =
                     checkNotNull(
                             unfinishedBuffers.peek(), "Expect enough capacity for the record.");
             currentWritingBuffer.append(record);
-            LOG.debug("%%% add a finished record1");
+            LOG.debug("%%% Dfs write record2");
             if (currentWritingBuffer.isFull() && record.hasRemaining()) {
-                LOG.debug("%%% add a finished record2");
+                LOG.debug("%%% Dfs write record3");
                 finishCurrentWritingBuffer(false);
             } else if (currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                LOG.debug("%%% add a finished record3");
+                LOG.debug("%%% Dfs write record4");
                 finishCurrentWritingBuffer(isLastRecordInSegment);
             } else if (!currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                LOG.debug("%%% add a finished record4");
+                LOG.debug("%%% Dfs write record4.1");
                 if (isLastRecordInSegment) {
-                    LOG.debug("%%% add a finished record5");
+                    LOG.debug("%%% Dfs write record5");
                     finishCurrentWritingBuffer(true);
                 }
             }
@@ -287,11 +321,11 @@ public class SubpartitionCacheDataManager {
 
     private void finishCurrentWritingBuffer(boolean isLastBufferInSegment) {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
-        LOG.debug("%%% add a finished record6");
-        if (currentWritingBuffer == null) {
+
+        if (currentWritingBuffer == null || isClosed) {
             return;
         }
-        LOG.debug("%%% add a finished record7");
+
         currentWritingBuffer.finish();
         BufferConsumer bufferConsumer = currentWritingBuffer.createBufferConsumerFromBeginning();
         Buffer buffer = bufferConsumer.build();
@@ -321,21 +355,32 @@ public class SubpartitionCacheDataManager {
         return bufferCompressor != null && buffer.isBuffer() && buffer.readableBytes() > 0;
     }
 
+    public BufferBuilder requestBufferFromPool() {
+        MemorySegment segment =
+                bufferPoolHelper.requestMemorySegmentBlocking(
+                        targetChannel, TieredStoreMode.TieredType.IN_DFS, false);
+        return new BufferBuilder(segment, this::recycleBuffer);
+    }
+
+    private void recycleBuffer(MemorySegment buffer) {
+        bufferPoolHelper.recycleBuffer(
+                targetChannel, buffer, TieredStoreMode.TieredType.IN_DFS, false);
+    }
+
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     private void addFinishedBuffer(BufferContext bufferContext) {
         runWithLock(
                 () -> {
-                    LOG.debug("%%% add a finished Buffer");
                     finishedBufferIndex++;
                     allBuffers.add(bufferContext);
                     bufferIndexToContexts.put(
                             bufferContext.getBufferIndexAndChannel().getBufferIndex(),
                             bufferContext);
                     updateStatistics(bufferContext.getBuffer());
-                    if (bufferContext.isLastBufferInSegment()) {
-                        lastBufferIndexOfSegments.add(finishedBufferIndex - 1);
+                    if (allBuffers.size() >= NUM_BUFFERS_TO_FLUSH) {
+                        flushCachedBuffers();
                     }
                 });
     }
@@ -347,21 +392,8 @@ public class SubpartitionCacheDataManager {
     @GuardedBy("subpartitionLock")
     private void trimHeadingReleasedBuffers(Deque<BufferContext> bufferQueue) {
         while (!bufferQueue.isEmpty() && bufferQueue.peekFirst().isReleased()) {
-            LOG.debug("%%% I'm trying to remove Buffer.. ");
             bufferQueue.removeFirst();
         }
-    }
-
-    @GuardedBy("subpartitionLock")
-    private void releaseBuffer(int bufferIndex) {
-        BufferContext bufferContext = bufferIndexToContexts.remove(bufferIndex);
-        if (bufferContext == null) {
-            return;
-        }
-        bufferContext.release();
-        // remove released buffers from head lazy.
-        LOG.debug("%%% I'm trying to release Buffer.. ");
-        trimHeadingReleasedBuffers(allBuffers);
     }
 
     @GuardedBy("subpartitionLock")
@@ -376,54 +408,37 @@ public class SubpartitionCacheDataManager {
                 : Optional.empty();
     }
 
-    @GuardedBy("subpartitionLock")
-    private void checkAndMarkBufferReadable(BufferContext bufferContext) {
-        // only spill buffer needs to be marked as released.
-        if (isBufferSatisfyStatus(bufferContext, SpillStatus.SPILL, ConsumeStatusWithId.ALL_ANY)) {
-            bufferContext
-                    .getSpilledFuture()
-                    .orElseThrow(
-                            () ->
-                                    new IllegalStateException(
-                                            "Buffer in spill status should already set spilled future."))
-                    .thenRun(
-                            () -> {
-                                BufferIndexAndChannel bufferIndexAndChannel =
-                                        bufferContext.getBufferIndexAndChannel();
-                                cacheDataManagerOperation.markBufferReleasedFromFile(
-                                        bufferIndexAndChannel.getChannel(),
-                                        bufferIndexAndChannel.getBufferIndex());
-                            });
-        }
+    private CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> flushCachedBuffers() {
+        List<BufferIndexAndChannel> toSpillBuffers =
+                callWithLock(
+                        () -> {
+                            List<BufferIndexAndChannel> targetBuffers = new ArrayList<>();
+                            allBuffers.forEach(
+                                    (bufferContext ->
+                                            targetBuffers.add(
+                                                    bufferContext.getBufferIndexAndChannel())));
+                            allBuffers.clear();
+                            return targetBuffers;
+                        });
+
+        List<BufferWithIdentity> toSpillBuffersWithId = getStSpillBuffersWithId(toSpillBuffers);
+        return cacheBufferSpiller.spillAsync(toSpillBuffersWithId);
     }
 
-    @GuardedBy("subpartitionLock")
-    private boolean isBufferSatisfyStatus(
-            BufferContext bufferContext,
-            SpillStatus spillStatus,
-            ConsumeStatusWithId consumeStatusWithId) {
-        // released buffer is not needed.
-        if (bufferContext.isReleased()) {
-            return false;
+    private List<BufferWithIdentity> getStSpillBuffersWithId(
+            List<BufferIndexAndChannel> toSpillBuffers) {
+        List<BufferWithIdentity> toSpillBuffersWithId = new ArrayList<>();
+        for (BufferIndexAndChannel spillBuffer : toSpillBuffers) {
+            int bufferIndex = spillBuffer.getBufferIndex();
+            Optional<BufferContext> bufferContext =
+                    startSpillingBuffer(bufferIndex, CompletableFuture.completedFuture(null));
+            checkState(bufferContext.isPresent());
+            BufferWithIdentity bufferWithIdentity =
+                    new BufferWithIdentity(
+                            bufferContext.get().getBuffer(), bufferIndex, targetChannel);
+            toSpillBuffersWithId.add(bufferWithIdentity);
         }
-        boolean match = true;
-        switch (spillStatus) {
-            case NOT_SPILL:
-                match = !bufferContext.isSpillStarted();
-                break;
-            case SPILL:
-                match = bufferContext.isSpillStarted();
-                break;
-        }
-        switch (consumeStatusWithId.status) {
-            case NOT_CONSUMED:
-                match &= !bufferContext.isConsumed(consumeStatusWithId.tierReaderViewId);
-                break;
-            case CONSUMED:
-                match &= bufferContext.isConsumed(consumeStatusWithId.tierReaderViewId);
-                break;
-        }
-        return match;
+        return toSpillBuffersWithId;
     }
 
     private void updateStatistics(Buffer buffer) {
@@ -431,21 +446,43 @@ public class SubpartitionCacheDataManager {
         checkNotNull(outputMetrics).getNumBytesOut().inc(buffer.readableBytes());
     }
 
+    void close() {
+        isClosed = true;
+        try {
+            flushCachedBuffers().get();
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Flush data to dfs failed when DfsFileWriter is trying to close.", e);
+        }
+        while (!unfinishedBuffers.isEmpty()) {
+            unfinishedBuffers.poll().close();
+        }
+    }
+
     private <E extends Exception> void runWithLock(ThrowingRunnable<E> runnable) throws E {
         try {
+            resultPartitionLock.lock();
             subpartitionLock.writeLock().lock();
             runnable.run();
         } finally {
             subpartitionLock.writeLock().unlock();
+            resultPartitionLock.unlock();
         }
     }
 
     private <R, E extends Exception> R callWithLock(SupplierWithException<R, E> callable) throws E {
         try {
+            resultPartitionLock.lock();
             subpartitionLock.writeLock().lock();
             return callable.get();
         } finally {
             subpartitionLock.writeLock().unlock();
+            resultPartitionLock.unlock();
         }
+    }
+
+    @VisibleForTesting
+    public Path getBaseSubpartitionPath() {
+        return cacheBufferSpiller.getBaseSubpartitionPath();
     }
 }

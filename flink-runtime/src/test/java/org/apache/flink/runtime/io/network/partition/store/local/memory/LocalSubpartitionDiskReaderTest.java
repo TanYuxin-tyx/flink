@@ -33,7 +33,7 @@ import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelp
 import org.apache.flink.runtime.io.network.partition.store.common.BufferPoolHelperImpl;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.store.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.SubpartitionDiskReaderView;
 
@@ -102,23 +102,23 @@ class LocalSubpartitionDiskReaderTest {
                     }
                 };
 
-        CacheDataManager cacheDataManager =
-                new CacheDataManager(
+        DiskCacheManager diskCacheManager =
+                new DiskCacheManager(
                         1,
                         bufferSize,
                         bufferPoolHelper,
                         new RegionBufferIndexTrackerImpl(1),
                         dataFilePath.resolve(".data"),
                         null);
-        cacheDataManager.setOutputMetrics(createTestingOutputMetrics());
+        diskCacheManager.setOutputMetrics(createTestingOutputMetrics());
         TierReader tierReader =
-                cacheDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionView);
+                diskCacheManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionView);
         // subpartitionView.setMemoryDataView(bufferConsumeView);
         subpartitionView.setDiskReader(TestingTierReader.NO_OP);
 
         consumerThread.start();
         // trigger request buffer.
-        cacheDataManager.append(ByteBuffer.allocate(bufferSize), 0, DataType.DATA_BUFFER, false);
+        diskCacheManager.append(ByteBuffer.allocate(bufferSize), 0, DataType.DATA_BUFFER, false);
     }
 
     // @Test

@@ -48,7 +48,7 @@ import org.apache.flink.runtime.io.network.partition.store.common.TieredStorePro
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskTier;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.memory.MemoryTier;
-import org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsDataManager;
+import org.apache.flink.runtime.io.network.partition.store.tier.remote.RemoteTier;
 import org.apache.flink.runtime.io.network.partition.store.writer.TieredStoreProducerImpl;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.StringUtils;
@@ -293,7 +293,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 storeConfiguration);
     }
 
-    private DfsDataManager getDfsDataManager() throws IOException {
+    private RemoteTier getDfsDataManager() throws IOException {
         String baseDfsPath = storeConfiguration.getBaseDfsHomePath();
         if (StringUtils.isNullOrWhitespaceOnly(baseDfsPath)) {
             throw new IllegalArgumentException(
@@ -301,7 +301,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                             "Must specify DFS home path by %s when using DFS in Tiered Store.",
                             NettyShuffleEnvironmentOptions.SHUFFLE_BASE_DFS_HOME_PATH.key()));
         }
-        return new DfsDataManager(
+        return new RemoteTier(
                 jobID,
                 numSubpartitions,
                 networkBufferSize,

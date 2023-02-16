@@ -42,10 +42,10 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
-import static org.apache.flink.runtime.io.network.partition.store.tier.remote.DfsFileWriter.BROADCAST_CHANNEL;
+import static org.apache.flink.runtime.io.network.partition.store.tier.remote.RemoteWriter.BROADCAST_CHANNEL;
 
 /** The DataManager of DFS. */
-public class DfsDataManager implements StorageTier {
+public class RemoteTier implements StorageTier {
 
     private final int numSubpartitions;
 
@@ -56,12 +56,12 @@ public class DfsDataManager implements StorageTier {
 
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
 
-    private final DfsCacheDataManager dfsCacheDataManager;
+    private final RemoteCacheManager remoteCacheManager;
 
     // TODO, Make this configurable.
     private int numBytesInASegment = 4 * 1024; // 4 M
 
-    public DfsDataManager(
+    public RemoteTier(
             JobID jobID,
             int numSubpartitions,
             int networkBufferSize,
@@ -76,8 +76,8 @@ public class DfsDataManager implements StorageTier {
         this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTracker(numSubpartitions, isBroadcastOnly);
-        this.dfsCacheDataManager =
-                new DfsCacheDataManager(
+        this.remoteCacheManager =
+                new RemoteCacheManager(
                         jobID,
                         resultPartitionID,
                         isBroadcastOnly ? 1 : numSubpartitions,
@@ -93,8 +93,8 @@ public class DfsDataManager implements StorageTier {
 
     @Override
     public TierWriter createPartitionTierWriter() throws IOException {
-        return new DfsFileWriter(
-                numSubpartitions, isBroadcastOnly, segmentIndexTracker, dfsCacheDataManager);
+        return new RemoteWriter(
+                numSubpartitions, isBroadcastOnly, segmentIndexTracker, remoteCacheManager);
     }
 
     @Override
@@ -105,18 +105,19 @@ public class DfsDataManager implements StorageTier {
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        DfsFileReaderView dfsFileReader = new DfsFileReaderView(availabilityListener);
+        SubpartitionRemoteReaderView remoteReaderView =
+                new SubpartitionRemoteReaderView(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
         TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
         lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
-        TierReader dfsDataView =
-                dfsCacheDataManager.registerNewConsumer(
-                        subpartitionId, tierReaderViewId, dfsFileReader);
+        TierReader remoteReader =
+                remoteCacheManager.registerNewConsumer(
+                        subpartitionId, tierReaderViewId, remoteReaderView);
 
-        dfsFileReader.setDfsDataView(dfsDataView);
-        return dfsFileReader;
+        remoteReaderView.setDfsDataView(remoteReader);
+        return remoteReaderView;
     }
 
     @Override
@@ -141,7 +142,7 @@ public class DfsDataManager implements StorageTier {
 
     @Override
     public void setOutputMetrics(OutputMetrics tieredStoreOutputMetrics) {
-        dfsCacheDataManager.setOutputMetrics(tieredStoreOutputMetrics);
+        remoteCacheManager.setOutputMetrics(tieredStoreOutputMetrics);
     }
 
     @Override
@@ -160,7 +161,7 @@ public class DfsDataManager implements StorageTier {
     @VisibleForTesting
     @Override
     public Path getBaseSubpartitionPath(int subpartitionId) {
-        return dfsCacheDataManager.getBaseSubpartitionPath(subpartitionId);
+        return remoteCacheManager.getBaseSubpartitionPath(subpartitionId);
     }
 
     @Override

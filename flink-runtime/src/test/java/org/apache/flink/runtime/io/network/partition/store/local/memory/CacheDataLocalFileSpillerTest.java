@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.store.common.BufferWithIdentity;
-import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.CacheBufferLocalFileSpiller;
+import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.DiskCacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.store.tier.local.disk.RegionBufferIndexTracker.SpilledBuffer;
 import org.apache.flink.util.TestLoggerExtension;
 
@@ -53,7 +53,7 @@ import java.util.concurrent.TimeUnit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Tests for {@link CacheBufferLocalFileSpiller}. */
+/** Tests for {@link DiskCacheBufferSpiller}. */
 @ExtendWith(TestLoggerExtension.class)
 class CacheDataLocalFileSpillerTest {
 
@@ -62,7 +62,7 @@ class CacheDataLocalFileSpillerTest {
     private static final long BUFFER_WITH_HEADER_SIZE =
             BUFFER_SIZE + BufferReaderWriterUtil.HEADER_LENGTH;
 
-    private CacheBufferLocalFileSpiller cacheDataSpiller;
+    private DiskCacheBufferSpiller cacheDataSpiller;
 
     private @TempDir Path tempDir;
 
@@ -218,8 +218,8 @@ class CacheDataLocalFileSpillerTest {
         }
     }
 
-    private static CacheBufferLocalFileSpiller createMemoryDataSpiller(Path dataFilePath)
+    private static DiskCacheBufferSpiller createMemoryDataSpiller(Path dataFilePath)
             throws Exception {
-        return new CacheBufferLocalFileSpiller(dataFilePath);
+        return new DiskCacheBufferSpiller(dataFilePath);
     }
 }

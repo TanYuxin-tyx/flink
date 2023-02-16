@@ -41,7 +41,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** The read view of {@link DiskTier}, data can be read from memory or disk. */
 public class SubpartitionDiskReaderView
-        implements TierReaderView, SubpartitionConsumerInternalOperations {
+        implements TierReaderView, SubpartitionDiskReaderViewOperations {
 
     private static final Logger LOG = LoggerFactory.getLogger(SubpartitionDiskReaderView.class);
 
