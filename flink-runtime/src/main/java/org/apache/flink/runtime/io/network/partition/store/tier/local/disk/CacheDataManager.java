@@ -42,9 +42,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -262,22 +262,9 @@ public class CacheDataManager
     //           Internal Method
     // ------------------------------------
 
-    // Attention: Do not call this method within the read lock and subpartition lock, otherwise
-    // deadlock may occur as this method maybe acquire write lock and other subpartition's lock
-    // inside.
-    private void handleDecision(
-            @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-                    Optional<TsSpillingStrategy.Decision> decisionOpt) {
-        if (decisionOpt.isPresent()) {
-            TsSpillingStrategy.Decision decision = decisionOpt.get();
-            spillBuffers(decision.getBufferToSpill());
-            releaseBuffers(decision.getBufferToRelease());
-        }
-    }
-
     @Override
     public void notifyFlushCachedBuffers() {
-        TsSpillingStrategy.Decision.Builder builder = TsSpillingStrategy.Decision.builder();
+        Decision.Builder builder = Decision.builder();
         for (int subpartitionId = 0; subpartitionId < getNumSubpartitions(); subpartitionId++) {
             Deque<BufferIndexAndChannel> buffersInOrder =
                     getBuffersInOrder(
@@ -285,7 +272,7 @@ public class CacheDataManager
             builder.addBufferToSpill(subpartitionId, buffersInOrder)
                     .addBufferToRelease(subpartitionId, buffersInOrder);
         }
-        TsSpillingStrategy.Decision decision = builder.build();
+        Decision decision = builder.build();
         spillBuffers(decision.getBufferToSpill());
         releaseBuffers(decision.getBufferToRelease());
     }
@@ -349,5 +336,60 @@ public class CacheDataManager
 
     private void recycleBuffer(MemorySegment buffer) {
         bufferPoolHelper.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_LOCAL, false);
+    }
+
+    private static class Decision {
+        /** A collection of buffer that needs to be spilled to disk. */
+        private final Map<Integer, List<BufferIndexAndChannel>> bufferToSpill;
+
+        /** A collection of buffer that needs to be released. */
+        private final Map<Integer, List<BufferIndexAndChannel>> bufferToRelease;
+
+        private Decision(
+                Map<Integer, List<BufferIndexAndChannel>> bufferToSpill,
+                Map<Integer, List<BufferIndexAndChannel>> bufferToRelease) {
+            this.bufferToSpill = bufferToSpill;
+            this.bufferToRelease = bufferToRelease;
+        }
+
+        public Map<Integer, List<BufferIndexAndChannel>> getBufferToSpill() {
+            return bufferToSpill;
+        }
+
+        public Map<Integer, List<BufferIndexAndChannel>> getBufferToRelease() {
+            return bufferToRelease;
+        }
+
+        public static Decision.Builder builder() {
+            return new Decision.Builder();
+        }
+
+        /** Builder for {@link Decision}. */
+        public static class Builder {
+            /** A collection of buffer that needs to be spilled to disk. */
+            private final Map<Integer, List<BufferIndexAndChannel>> bufferToSpill = new HashMap<>();
+
+            /** A collection of buffer that needs to be released. */
+            private final Map<Integer, List<BufferIndexAndChannel>> bufferToRelease =
+                    new HashMap<>();
+
+            private Builder() {}
+
+            public Decision.Builder addBufferToSpill(
+                    int subpartitionId, Deque<BufferIndexAndChannel> buffers) {
+                bufferToSpill.computeIfAbsent(subpartitionId, ArrayList::new).addAll(buffers);
+                return this;
+            }
+
+            public Decision.Builder addBufferToRelease(
+                    int subpartitionId, Deque<BufferIndexAndChannel> buffers) {
+                bufferToRelease.computeIfAbsent(subpartitionId, ArrayList::new).addAll(buffers);
+                return this;
+            }
+
+            public Decision build() {
+                return new Decision(bufferToSpill, bufferToRelease);
+            }
+        }
     }
 }
