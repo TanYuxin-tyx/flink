@@ -14,7 +14,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelDataClient;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClient;
 
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
@@ -31,7 +31,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The data client is used to fetch data from DFS tier. */
-public class SingleChannelDfsDataClient implements SingleChannelDataClient {
+public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
 
     private static final String SEGMENT_NAME_PREFIX = "/seg-";
 
@@ -53,7 +53,7 @@ public class SingleChannelDfsDataClient implements SingleChannelDataClient {
 
     private long currentSegmentId = -1L;
 
-    public SingleChannelDfsDataClient(
+    public SingleChannelRemoteTierClient(
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             int subpartitionIndex,
