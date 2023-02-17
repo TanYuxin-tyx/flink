@@ -4,13 +4,13 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.SingleChannelDfsDataClient;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.SingleChannelLocalDataClient;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.SingleChannelRemoteTierClient;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.SingleChannelLocalTierClient;
 
 import java.util.List;
 
-/** The factory of {@link SingleChannelDataClient}. */
-public class SingleChannelDataClientFactory {
+/** The factory of {@link SingleChannelTierClient}. */
+public class SingleChannelTierClientFactory {
 
     private final JobID jobID;
 
@@ -24,7 +24,7 @@ public class SingleChannelDataClientFactory {
 
     private final boolean hasDfsClient;
 
-    public SingleChannelDataClientFactory(
+    public SingleChannelTierClientFactory(
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             MemorySegmentProvider memorySegmentProvider,
@@ -38,15 +38,15 @@ public class SingleChannelDataClientFactory {
         this.networkBufferPool = (NetworkBufferPool) memorySegmentProvider;
     }
 
-    public SingleChannelDataClient createLocalSingleChannelDataClient() {
-        return new SingleChannelLocalDataClient();
+    public SingleChannelTierClient createLocalSingleChannelDataClient() {
+        return new SingleChannelLocalTierClient();
     }
 
-    public SingleChannelDataClient createDfsSingleChannelDataClient() {
+    public SingleChannelTierClient createDfsSingleChannelDataClient() {
         if (!hasDfsClient) {
             return null;
         }
-        return new SingleChannelDfsDataClient(
+        return new SingleChannelRemoteTierClient(
                 jobID, resultPartitionIDs, subpartitionIndex, networkBufferPool, baseDfsPath);
     }
 

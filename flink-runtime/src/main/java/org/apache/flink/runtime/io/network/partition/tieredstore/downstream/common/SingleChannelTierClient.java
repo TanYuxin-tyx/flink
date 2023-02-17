@@ -5,8 +5,8 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import java.io.IOException;
 import java.util.Optional;
 
-/** The interface of {@link SingleChannelDataClient} in Tiered Store. */
-public interface SingleChannelDataClient {
+/** The interface of {@link SingleChannelTierClient} in Tiered Store. */
+public interface SingleChannelTierClient {
 
     boolean hasSegmentId(InputChannel inputChannel, long segmentId) throws IOException;
 
