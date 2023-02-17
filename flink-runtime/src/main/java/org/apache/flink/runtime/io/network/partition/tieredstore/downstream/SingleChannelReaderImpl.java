@@ -6,25 +6,25 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelDataClient;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelDataClientFactory;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelDataFetcher;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClient;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClientFactory;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelReader;
 
 import java.io.IOException;
 import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The implementation of {@link SingleChannelDataFetcher} interface. */
-public class SingleChannelDataFetcherImpl implements SingleChannelDataFetcher {
+/** The implementation of {@link SingleChannelReader} interface. */
+public class SingleChannelReaderImpl implements SingleChannelReader {
 
-    private final SingleChannelDataClient localClient;
+    private final SingleChannelTierClient localClient;
 
-    private final SingleChannelDataClient dfsClient;
+    private final SingleChannelTierClient dfsClient;
 
     private long currentSegmentId = 0L;
 
-    public SingleChannelDataFetcherImpl(SingleChannelDataClientFactory clientFactory) {
+    public SingleChannelReaderImpl(SingleChannelTierClientFactory clientFactory) {
         this.localClient = clientFactory.createLocalSingleChannelDataClient();
         this.dfsClient = clientFactory.createDfsSingleChannelDataClient();
     }

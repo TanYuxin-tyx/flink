@@ -30,8 +30,8 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.DataFetcher;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelDataClientFactory;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.TieredStoreReader;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClientFactory;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.throughput.BufferDebloater;
 import org.apache.flink.runtime.throughput.ThroughputCalculator;
@@ -46,9 +46,9 @@ import java.util.Optional;
 /** The input gate for Tiered Store. */
 public class TieredStoreSingleInputGate extends SingleInputGate {
 
-    private final DataFetcher dataFetcher;
+    private final TieredStoreReader tieredStoreReader;
 
-    private final SingleChannelDataClientFactory clientFactory;
+    private final SingleChannelTierClientFactory clientFactory;
 
     public TieredStoreSingleInputGate(
             String owningTaskName,
@@ -84,20 +84,20 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
                 bufferDebloater);
 
         this.clientFactory =
-                new SingleChannelDataClientFactory(
+                new SingleChannelTierClientFactory(
                         jobID,
                         resultPartitionIDs,
                         getMemorySegmentProvider(),
                         subpartitionIndex,
                         baseDfsPath);
 
-        this.dataFetcher = new DataFetcherImpl(numberOfInputChannels, clientFactory);
+        this.tieredStoreReader = new TieredStoreReaderImpl(numberOfInputChannels, clientFactory);
     }
 
     @Override
     public void setup() throws IOException {
         super.setup();
-        this.dataFetcher.setup();
+        this.tieredStoreReader.setup();
     }
 
     @Override
@@ -113,7 +113,7 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
         }
         inputChannel.checkError();
         Optional<InputWithData<InputChannel, InputChannel.BufferAndAvailability>> nextBuffer =
-                dataFetcher.getNextBuffer(inputChannel);
+                tieredStoreReader.getNextBuffer(inputChannel);
         enqueueChannelWhenSatisfyCondition(inputChannel, nextBuffer.isPresent());
         return nextBuffer;
     }
@@ -150,6 +150,6 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
     @Override
     public void close() throws IOException {
         super.close();
-        dataFetcher.close();
+        tieredStoreReader.close();
     }
 }

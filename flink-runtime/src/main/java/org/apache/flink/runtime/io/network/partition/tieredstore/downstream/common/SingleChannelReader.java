@@ -7,11 +7,8 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputGate.InputWit
 import java.io.IOException;
 import java.util.Optional;
 
-/** The interface of {@link DataFetcher} in Tiered Store. */
-public interface DataFetcher {
-
-    void setup() throws IOException;
-
+/** The interface of {@link SingleChannelReader} in Tiered Store. */
+public interface SingleChannelReader {
     Optional<InputWithData<InputChannel, BufferAndAvailability>> getNextBuffer(
             InputChannel inputChannel) throws IOException, InterruptedException;
 
