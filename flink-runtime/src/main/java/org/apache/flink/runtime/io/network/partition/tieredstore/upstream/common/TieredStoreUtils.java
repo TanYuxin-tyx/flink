@@ -24,8 +24,10 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.List;
@@ -36,6 +38,10 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class TieredStoreUtils {
 
     private static final String TIER_STORE_DIR = "tiered-store";
+
+    private static final String SEGMENT_FILE_PREFIX = "seg-";
+
+    private static final String SEGMENT_FINISH_FILE_SUFFIX = ".FINISH";
 
     public static ByteBuffer[] generateBufferWithHeaders(
             List<BufferWithIdentity> bufferWithIdentities) {
@@ -113,5 +119,31 @@ public class TieredStoreUtils {
             fs.delete(basePath, true);
         }
         return basePathStr;
+    }
+
+    public static Path generateNewSegmentPath(
+            String baseSubpartitionPath, long currentSegmentIndex) {
+        return new Path(baseSubpartitionPath, "/" + SEGMENT_FILE_PREFIX + currentSegmentIndex);
+    }
+
+    public static Path generateSegmentFinishPath(
+            String baseSubpartitionPath, long currentSegmentIndex) {
+        return new Path(
+                baseSubpartitionPath,
+                "/" + SEGMENT_FILE_PREFIX + currentSegmentIndex + SEGMENT_FINISH_FILE_SUFFIX);
+    }
+
+    public static void writeSegmentFinishFile(
+            String baseSubpartitionPath, long currentSegmentIndex) {
+        Path markFinishSegmentPath =
+                generateSegmentFinishPath(baseSubpartitionPath, currentSegmentIndex);
+        try {
+            FileSystem fs = markFinishSegmentPath.getFileSystem();
+            OutputStream outputStream =
+                    fs.create(markFinishSegmentPath, FileSystem.WriteMode.OVERWRITE);
+            outputStream.close();
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e);
+        }
     }
 }
