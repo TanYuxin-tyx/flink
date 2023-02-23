@@ -26,14 +26,14 @@ import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.parseBufferHeader;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.throwCorruptDataException;
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.generateNewSegmentPath;
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.generateSegmentFinishPath;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.getBaseSubpartitionPath;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The data client is used to fetch data from DFS tier. */
 public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
-
-    private static final String SEGMENT_NAME_PREFIX = "/seg-";
 
     private final NetworkBufferPool networkBufferPool;
 
@@ -48,6 +48,8 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
     private final String baseDfsPath;
 
     private Path currentPath;
+
+    private Path currentSegmentFinishPath;
 
     private FSDataInputStream currentInputStream;
 
@@ -72,13 +74,23 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
     public boolean hasSegmentId(InputChannel inputChannel, long segmentId) throws IOException {
         if (segmentId != currentSegmentId) {
             currentSegmentId = segmentId;
-            currentPath = getDfsPath(inputChannel, segmentId);
+            boolean isBroadcastOnly = inputChannel.isUpstreamBroadcastOnly();
+            String baseSubpartitionPath =
+                    getBaseSubpartitionPath(
+                            jobID,
+                            resultPartitionIDs.get(inputChannel.getChannelIndex()),
+                            subpartitionIndex,
+                            baseDfsPath,
+                            isBroadcastOnly);
+            currentPath = generateNewSegmentPath(baseSubpartitionPath, segmentId);
+            currentSegmentFinishPath = generateSegmentFinishPath(baseSubpartitionPath, segmentId);
             if (currentInputStream != null) {
                 currentInputStream.close();
                 currentInputStream = null;
             }
         }
-        if (isPathExist(currentPath)) {
+        if (isPathExist(currentSegmentFinishPath)) {
+            checkState(isPathExist(currentPath), "Empty Segment data file path.");
             if (currentInputStream == null) {
                 currentInputStream = currentPath.getFileSystem().open(currentPath);
             }
@@ -116,7 +128,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
     //           Internal Method
     // ------------------------------------
 
-    public Path getDfsPath(InputChannel inputChannel, long segmentId) {
+    private Path getRemoteStoragePath(InputChannel inputChannel, long segmentId) {
         boolean isBroadcastOnly = inputChannel.isUpstreamBroadcastOnly();
         String baseSubpartitionPath =
                 getBaseSubpartitionPath(
@@ -125,7 +137,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
                         subpartitionIndex,
                         baseDfsPath,
                         isBroadcastOnly);
-        return new Path(baseSubpartitionPath, SEGMENT_NAME_PREFIX + segmentId);
+        return generateNewSegmentPath(baseSubpartitionPath, segmentId);
     }
 
     private boolean isPathExist(Path path) {

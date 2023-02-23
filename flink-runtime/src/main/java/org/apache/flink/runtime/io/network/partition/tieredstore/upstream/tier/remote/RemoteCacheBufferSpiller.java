@@ -46,6 +46,8 @@ import java.util.concurrent.ExecutorService;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.createBaseSubpartitionPath;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.generateBufferWithHeaders;
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.generateNewSegmentPath;
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.writeSegmentFinishFile;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -138,7 +140,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
                             jobID, resultPartitionID, subpartitionId, baseDfsPath, false);
         }
 
-        generateNewSegmentPath();
+        writingSegmentPath = generateNewSegmentPath(baseSubpartitionPath, currentSegmentIndex);
 
         try {
             FileSystem fs = writingSegmentPath.getFileSystem();
@@ -153,10 +155,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
     private void closeCurrentSegmentFile() {
         checkState(writingChannel.isOpen(), "Writing channel is already closed.");
         closeWritingChannel();
-    }
-
-    private void generateNewSegmentPath() {
-        writingSegmentPath = new Path(baseSubpartitionPath, "/seg-" + currentSegmentIndex);
+        writeFinishSegmentFile();
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
@@ -224,6 +223,11 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
                 LOG.warn("Failed to close writing segment channel.", e);
             }
         }
+    }
+
+    private void writeFinishSegmentFile() {
+        checkState(baseSubpartitionPath != null, "Empty subpartition path.");
+        writeSegmentFinishFile(baseSubpartitionPath, currentSegmentIndex);
     }
 
     @VisibleForTesting
