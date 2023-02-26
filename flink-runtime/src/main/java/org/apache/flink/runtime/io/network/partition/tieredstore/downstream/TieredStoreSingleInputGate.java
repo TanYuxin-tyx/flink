@@ -21,12 +21,14 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.runtime.executiongraph.IndexRange;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
@@ -46,7 +48,7 @@ import java.util.Optional;
 /** The input gate for Tiered Store. */
 public class TieredStoreSingleInputGate extends SingleInputGate {
 
-    private final TieredStoreReader tieredStoreReader;
+    private final TieredStoreReader dataFetcher;
 
     private final SingleChannelTierClientFactory clientFactory;
 
@@ -91,40 +93,73 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
                         subpartitionIndex,
                         baseDfsPath);
 
-        this.tieredStoreReader = new TieredStoreReaderImpl(numberOfInputChannels, clientFactory);
+        this.dataFetcher = new TieredStoreReaderImpl(numberOfInputChannels, clientFactory);
     }
 
     @Override
     public void setup() throws IOException {
         super.setup();
-        this.tieredStoreReader.setup();
+        this.dataFetcher.setup();
     }
 
     @Override
     public Optional<InputWithData<InputChannel, InputChannel.BufferAndAvailability>>
             waitAndGetNextData(boolean blocking) throws IOException, InterruptedException {
-        InputChannel inputChannel;
-        synchronized (inputChannelsWithData) {
-            inputChannel = getChannel(false).orElse(null);
-            if (inputChannel == null) {
+        while (true) {
+            synchronized (inputChannelsWithData) {
+                Optional<InputChannel.BufferAndAvailability> bufferAndAvailabilityOpt;
+                InputChannel inputChannel;
+                Optional<InputChannel> inputChannelOpt = getChannel(blocking);
+                if (!inputChannelOpt.isPresent()) {
+                    return Optional.empty();
+                }
+                inputChannel = inputChannelOpt.get();
+                enqueueChannelWhenSatisfyCondition(inputChannel);
+                 bufferAndAvailabilityOpt = dataFetcher.getNextBuffer(inputChannel);
+                //bufferAndAvailabilityOpt = inputChannel.getNextBuffer();
+                if (!bufferAndAvailabilityOpt.isPresent()) {
+                    checkUnavailability();
+                    continue;
+                }
+                final InputChannel.BufferAndAvailability bufferAndAvailability =
+                        bufferAndAvailabilityOpt.get();
+                if (bufferAndAvailability.moreAvailable()) {
+                    // enqueue the inputChannel at the end to avoid starvation
+                    queueChannelUnsafe(inputChannel, bufferAndAvailability.morePriorityEvents());
+                }
+
+                final boolean morePriorityEvents =
+                        inputChannelsWithData.getNumPriorityElements() > 0;
+                if (bufferAndAvailability.hasPriority()) {
+                    lastPrioritySequenceNumber[inputChannel.getChannelIndex()] =
+                            bufferAndAvailability.getSequenceNumber();
+                    if (!morePriorityEvents) {
+                        priorityAvailabilityHelper.resetUnavailable();
+                    }
+                }
+                if (bufferAndAvailability.buffer().getDataType() == Buffer.DataType.SEGMENT_EVENT) {
+                    bufferAndAvailability.buffer().recycleBuffer();
+                    synchronized (inputChannelsWithData) {
+                        queueChannelUnsafe(inputChannel, false);
+                    }
+                    continue;
+                }
                 checkUnavailability();
-                return Optional.empty();
+                return Optional.of(
+                        new InputGate.InputWithData<>(
+                                inputChannel,
+                                bufferAndAvailability,
+                                !inputChannelsWithData.isEmpty(),
+                                morePriorityEvents));
             }
         }
-        inputChannel.checkError();
-        Optional<InputWithData<InputChannel, InputChannel.BufferAndAvailability>> nextBuffer =
-                tieredStoreReader.getNextBuffer(inputChannel);
-        enqueueChannelWhenSatisfyCondition(inputChannel, nextBuffer.isPresent());
-        return nextBuffer;
     }
 
     /** Enqueue input channel when satisfy the condition. */
-    private void enqueueChannelWhenSatisfyCondition(
-            InputChannel inputChannel, boolean hasNextBuffer) {
-        if (hasNextBuffer
-                || (clientFactory.hasDfsClient()
-                        && (inputChannel.getClass() == LocalInputChannel.class
-                                || inputChannel.getClass() == RemoteInputChannel.class))) {
+    private void enqueueChannelWhenSatisfyCondition(InputChannel inputChannel) {
+        if (clientFactory.hasDfsClient()
+                && (inputChannel.getClass() == LocalInputChannel.class
+                        || inputChannel.getClass() == RemoteInputChannel.class)) {
             synchronized (inputChannelsWithData) {
                 queueChannelUnsafe(inputChannel, false);
             }
@@ -132,24 +167,19 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
     }
 
     @Override
-    protected void internalRequestPartitions() {
+    public void requestPartitions() {
+        super.requestPartitions();
         for (InputChannel inputChannel : inputChannels.values()) {
-            try {
-                inputChannel.requestSubpartition();
-                // enqueue all channels
-                synchronized (inputChannelsWithData) {
-                    inputChannelsWithData.add(inputChannel);
-                }
-            } catch (Throwable t) {
-                inputChannel.setError(t);
-                return;
+            synchronized (inputChannelsWithData) {
+                inputChannelsWithData.add(inputChannel);
             }
+            markAvailable();
         }
     }
 
     @Override
     public void close() throws IOException {
         super.close();
-        tieredStoreReader.close();
+        dataFetcher.close();
     }
 }

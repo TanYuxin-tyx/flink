@@ -1,10 +1,9 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.TieredStoreReader;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClientFactory;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelReader;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClientFactory;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.TieredStoreReader;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -32,7 +31,7 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
     }
 
     @Override
-    public Optional<InputGate.InputWithData<InputChannel, InputChannel.BufferAndAvailability>>
+    public Optional<InputChannel.BufferAndAvailability>
             getNextBuffer(InputChannel inputChannel) throws IOException, InterruptedException {
         return singleChannelReaders[inputChannel.getChannelIndex()].getNextBuffer(
                 inputChannel);

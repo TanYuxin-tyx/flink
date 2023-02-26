@@ -2,7 +2,6 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.downstream.com
 
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
-import org.apache.flink.runtime.io.network.partition.consumer.InputGate.InputWithData;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -12,7 +11,7 @@ public interface TieredStoreReader {
 
     void setup() throws IOException;
 
-    Optional<InputWithData<InputChannel, BufferAndAvailability>> getNextBuffer(
+    Optional<BufferAndAvailability> getNextBuffer(
             InputChannel inputChannel) throws IOException, InterruptedException;
 
     void close() throws IOException;
