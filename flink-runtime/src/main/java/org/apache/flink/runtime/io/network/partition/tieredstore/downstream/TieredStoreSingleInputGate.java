@@ -166,16 +166,16 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
         }
     }
 
-    @Override
-    public void requestPartitions() {
-        super.requestPartitions();
-        for (InputChannel inputChannel : inputChannels.values()) {
-            synchronized (inputChannelsWithData) {
-                inputChannelsWithData.add(inputChannel);
-            }
-            markAvailable();
-        }
-    }
+    //@Override
+    //public void requestPartitions() {
+    //    super.requestPartitions();
+    //    for (InputChannel inputChannel : inputChannels.values()) {
+    //        synchronized (inputChannelsWithData) {
+    //            inputChannelsWithData.add(inputChannel);
+    //        }
+    //        markAvailable();
+    //    }
+    //}
 
     @Override
     public void close() throws IOException {
