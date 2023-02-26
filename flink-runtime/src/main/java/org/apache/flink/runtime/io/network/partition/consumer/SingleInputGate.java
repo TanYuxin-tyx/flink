@@ -918,7 +918,7 @@ public class SingleInputGate extends IndexedInputGate {
         return buffer;
     }
 
-    private void markAvailable() {
+    protected void markAvailable() {
         CompletableFuture<?> toNotify;
         synchronized (inputChannelsWithData) {
             toNotify = availabilityHelper.getUnavailableToResetAvailable();
