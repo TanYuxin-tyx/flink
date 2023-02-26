@@ -95,7 +95,7 @@ public class DiskTier implements TierWriter, StorageTier {
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
 
     // TODO, Make this configurable.
-    private int numBytesInASegment = 4 * 1024; // 4 M
+    private int numBytesInASegment = 4 * 1024 * 1024; // 4 M
 
     private volatile boolean isReleased;
 
