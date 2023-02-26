@@ -8,7 +8,7 @@ import java.util.Optional;
 /** The interface of {@link SingleChannelTierClient} in Tiered Store. */
 public interface SingleChannelTierClient {
 
-    boolean hasSegmentId(InputChannel inputChannel, long segmentId) throws IOException;
+    //boolean hasSegmentId(InputChannel inputChannel, long segmentId) throws IOException;
 
     Optional<InputChannel.BufferAndAvailability> getNextBuffer(
             InputChannel inputChannel, long segmentId) throws IOException, InterruptedException;

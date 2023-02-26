@@ -70,7 +70,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
         this.baseDfsPath = baseDfsPath;
     }
 
-    @Override
+    //@Override
     public boolean hasSegmentId(InputChannel inputChannel, long segmentId) throws IOException {
         if (segmentId != currentSegmentId) {
             currentSegmentId = segmentId;

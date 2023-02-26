@@ -5,12 +5,13 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
-import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClient;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClientFactory;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelReader;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkState;
@@ -18,27 +19,34 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** The implementation of {@link SingleChannelReader} interface. */
 public class SingleChannelReaderImpl implements SingleChannelReader {
 
-    private final SingleChannelTierClient localClient;
+    private final SingleChannelTierClientFactory clientFactory;
 
-    private final SingleChannelTierClient dfsClient;
+    private final List<SingleChannelTierClient> clientList = new ArrayList<>();
 
     private long currentSegmentId = 0L;
 
     public SingleChannelReaderImpl(SingleChannelTierClientFactory clientFactory) {
-        this.localClient = clientFactory.createLocalSingleChannelDataClient();
-        this.dfsClient = clientFactory.createDfsSingleChannelDataClient();
+        this.clientFactory = clientFactory;
+        setupClientList();
+    }
+
+    private void setupClientList() {
+        SingleChannelTierClient localSingleChannelDataClient =
+                clientFactory.createLocalSingleChannelDataClient();
+        if (localSingleChannelDataClient != null) {
+            clientList.add(localSingleChannelDataClient);
+        }
+        if (clientFactory.hasDfsClient()) {
+            clientList.add(clientFactory.createDfsSingleChannelDataClient());
+        }
     }
 
     @Override
-    public Optional<InputGate.InputWithData<InputChannel, InputChannel.BufferAndAvailability>>
-            getNextBuffer(InputChannel inputChannel) throws IOException, InterruptedException {
-        Optional<BufferAndAvailability> bufferAndAvailability;
-        if (localClient.hasSegmentId(inputChannel, currentSegmentId)) {
-            bufferAndAvailability = localClient.getNextBuffer(inputChannel, currentSegmentId);
-        } else if (dfsClient != null && dfsClient.hasSegmentId(inputChannel, currentSegmentId)) {
-            bufferAndAvailability = dfsClient.getNextBuffer(inputChannel, currentSegmentId);
-        } else {
-            return Optional.empty();
+    public Optional<InputChannel.BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
+            throws IOException, InterruptedException {
+        Optional<BufferAndAvailability> bufferAndAvailability = Optional.empty();
+        for (SingleChannelTierClient client : clientList) {
+            bufferAndAvailability = client.getNextBuffer(inputChannel, currentSegmentId);
         }
         if (!bufferAndAvailability.isPresent()) {
             return Optional.empty();
@@ -52,21 +60,14 @@ public class SingleChannelReaderImpl implements SingleChannelReader {
                                     Thread.currentThread().getContextClassLoader());
             checkState(endOfSegmentEvent.getSegmentId() == (currentSegmentId + 1L));
             currentSegmentId++;
-            bufferData.buffer().recycleBuffer();
-            return getNextBuffer(inputChannel);
         }
-        return Optional.of(
-                new InputGate.InputWithData<>(
-                        inputChannel, bufferAndAvailability.get(), true, false));
+        return Optional.of(bufferData);
     }
 
     @Override
     public void close() throws IOException {
-        if (localClient != null) {
-            localClient.close();
-        }
-        if (dfsClient != null) {
-            dfsClient.close();
+        for (SingleChannelTierClient client : clientList) {
+            client.close();
         }
     }
 }
