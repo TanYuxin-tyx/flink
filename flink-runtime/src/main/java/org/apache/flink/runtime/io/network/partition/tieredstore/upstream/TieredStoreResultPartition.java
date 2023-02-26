@@ -354,13 +354,10 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 .emit(record, targetSubpartition, dataType, isBroadcast, isEndOfPartition);
     }
 
-    private int[] createdSubpartitions = new int[10];
-
     @Override
     public ResultSubpartitionView createSubpartitionView(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
-        createdSubpartitions[subpartitionId] = 1;
         checkState(!isReleased(), "ResultPartition already released.");
         return new TieredStoreSubpartitionViewDelegate(
                 subpartitionId, availabilityListener, tierDataGates, getOwningTaskName());
