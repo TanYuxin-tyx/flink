@@ -202,7 +202,7 @@ public enum ResultPartitionType {
      * type, use {@link #mustBePipelinedConsumed()} or {@link #canBePipelinedConsumed()} instead.
      */
     public boolean isHybridResultPartition() {
-        return this == HYBRID_FULL || this == HYBRID_SELECTIVE || this == TIERED_STORE;
+        return this == HYBRID_FULL || this == HYBRID_SELECTIVE;
     }
 
     /**
