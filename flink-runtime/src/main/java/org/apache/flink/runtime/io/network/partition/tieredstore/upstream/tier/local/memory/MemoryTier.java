@@ -73,7 +73,7 @@ public class MemoryTier implements StorageTier {
 
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
 
-    private int numBytesInASegment = 4 * 1024;
+    private int numBytesInASegment = 10 * 32 * 1024;
 
     private final int bufferNumberInSegment = numBytesInASegment / 32 / 1024;
 
@@ -155,8 +155,10 @@ public class MemoryTier implements StorageTier {
         //        flag++;
         //        return flag % 2 == 1;
         // return true;
-        return bufferPoolHelper.canStoreNextSegmentForMemoryTier(bufferNumberInSegment)
-                && memoryWriter.isConsumerRegistered(subpartitionId);
+        // return bufferPoolHelper.canStoreNextSegmentForMemoryTier(bufferNumberInSegment)
+        //        && memoryWriter.isConsumerRegistered(subpartitionId);
+
+        return bufferPoolHelper.canStoreNextSegmentForMemoryTier(bufferNumberInSegment);
     }
 
     @Override
