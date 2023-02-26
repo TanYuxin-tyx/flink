@@ -280,7 +280,7 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 
     @Override
     public void notifyRequiredSegmentId(long segmentId, RemoteInputChannel inputChannel) {
-        LOG.info("%%% send requiredSegmentId {}", segmentId);
+        //LOG.info("%%% send requiredSegmentId {}", segmentId);
         sendToChannel(new SegmentIdMessage(segmentId, inputChannel));
     }
 
