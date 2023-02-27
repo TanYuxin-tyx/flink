@@ -51,6 +51,8 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.UUID;
 
+import static org.apache.flink.configuration.JobManagerOptions.SCHEDULER;
+import static org.apache.flink.configuration.JobManagerOptions.SchedulerType.Default;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Base class for batch shuffle related tiered store IT tests. */
@@ -130,6 +132,7 @@ public class TieredStoreBatchShuffleITCaseBase {
             numReceivedRecords = new int[parallelism];
         }
         configuration.setBoolean(BatchExecutionOptions.ADAPTIVE_AUTO_PARALLELISM_ENABLED, false);
+        configuration.set(SCHEDULER, Default);
         StreamExecutionEnvironment env =
                 StreamExecutionEnvironment.getExecutionEnvironment(configuration);
         env.setRestartStrategy(RestartStrategies.fixedDelayRestart(10, 0L));
