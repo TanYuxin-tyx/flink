@@ -1,5 +1,6 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
+import org.apache.flink.runtime.execution.CancelTaskException;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
@@ -13,6 +14,8 @@ public class SingleChannelLocalTierClient implements SingleChannelTierClient {
 
     private long latestSegmentId = 0;
 
+    private boolean hasRegistered = false;
+
     @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
             InputChannel inputChannel, long segmentId) throws IOException, InterruptedException {
@@ -20,26 +23,22 @@ public class SingleChannelLocalTierClient implements SingleChannelTierClient {
                 || inputChannel.getClass() == LocalRecoveredInputChannel.class) {
             return inputChannel.getNextBuffer();
         }
-        if (segmentId > 0L && segmentId != latestSegmentId) {
+        if (segmentId > 0L && (segmentId != latestSegmentId || !hasRegistered)) {
             latestSegmentId = segmentId;
             inputChannel.notifyRequiredSegmentId(segmentId);
         }
-        return inputChannel.getNextBuffer();
+        Optional<InputChannel.BufferAndAvailability> buffer = Optional.empty();
+        // If the Remote Tier is enabled, we may query a channel when it's already released and then
+        // CancelTaskException is thrown. We should Ignore the Exception temporally.
+        try {
+            buffer = inputChannel.getNextBuffer();
+        } catch (CancelTaskException ignored) {
+        }
+        if (!hasRegistered && buffer.isPresent()) {
+            hasRegistered = true;
+        }
+        return buffer;
     }
-
-    // @Override
-    // public boolean hasSegmentId(InputChannel inputChannel, long segmentId) {
-    //    checkState(
-    //            segmentId >= latestSegmentId,
-    //            "The segmentId is illegal, current: %s, latest: %s",
-    //            segmentId,
-    //            latestSegmentId);
-    //    if (segmentId > latestSegmentId) {
-    //        inputChannel.notifyRequiredSegmentId(segmentId);
-    //    }
-    //    latestSegmentId = segmentId;
-    //    return inputChannel.containSegment(segmentId);
-    // }
 
     @Override
     public void close() throws IOException {

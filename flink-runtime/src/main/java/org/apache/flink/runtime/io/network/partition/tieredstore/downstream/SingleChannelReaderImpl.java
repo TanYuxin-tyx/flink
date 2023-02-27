@@ -36,7 +36,7 @@ public class SingleChannelReaderImpl implements SingleChannelReader {
         if (localSingleChannelDataClient != null) {
             clientList.add(localSingleChannelDataClient);
         }
-        if (clientFactory.hasDfsClient()) {
+        if (clientFactory.hasRemoteClient()) {
             clientList.add(clientFactory.createDfsSingleChannelDataClient());
         }
     }
@@ -47,6 +47,9 @@ public class SingleChannelReaderImpl implements SingleChannelReader {
         Optional<BufferAndAvailability> bufferAndAvailability = Optional.empty();
         for (SingleChannelTierClient client : clientList) {
             bufferAndAvailability = client.getNextBuffer(inputChannel, currentSegmentId);
+            if(bufferAndAvailability.isPresent()){
+                break;
+            }
         }
         if (!bufferAndAvailability.isPresent()) {
             return Optional.empty();
