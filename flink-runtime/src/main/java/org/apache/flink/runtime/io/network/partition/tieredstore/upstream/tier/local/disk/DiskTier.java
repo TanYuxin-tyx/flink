@@ -49,7 +49,6 @@ import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -76,6 +75,8 @@ public class DiskTier implements TierWriter, StorageTier {
     private final BufferPoolHelper bufferPoolHelper;
 
     private final Path dataFilePath;
+
+    private final long minDiskReserveBytes;
 
     private final boolean isBroadcastOnly;
 
@@ -107,6 +108,7 @@ public class DiskTier implements TierWriter, StorageTier {
             ResultPartitionID resultPartitionID,
             BufferPoolHelper bufferPoolHelper,
             String dataFileBasePath,
+            long minDiskReserveBytes,
             boolean isBroadcastOnly,
             @Nullable BufferCompressor bufferCompressor,
             BatchShuffleReadBufferPool readBufferPool,
@@ -116,6 +118,7 @@ public class DiskTier implements TierWriter, StorageTier {
         this.networkBufferSize = networkBufferSize;
         this.resultPartitionID = resultPartitionID;
         this.dataFilePath = new File(dataFileBasePath + DATA_FILE_SUFFIX).toPath();
+        this.minDiskReserveBytes = minDiskReserveBytes;
         this.isBroadcastOnly = isBroadcastOnly;
         this.bufferPoolHelper = bufferPoolHelper;
         this.bufferCompressor = bufferCompressor;
@@ -223,7 +226,7 @@ public class DiskTier implements TierWriter, StorageTier {
 
     @Override
     public boolean canStoreNextSegment(int subpartitionId) {
-        return new Random().nextBoolean();
+        return dataFilePath.toFile().getUsableSpace() > minDiskReserveBytes;
     }
 
     @Override

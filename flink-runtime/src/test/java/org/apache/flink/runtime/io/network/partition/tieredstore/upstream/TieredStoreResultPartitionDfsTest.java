@@ -607,6 +607,7 @@ class TieredStoreResultPartitionDfsTest {
                         new ResultPartitionManager(),
                         bufferSize,
                         null,
+                        0L,
                         isBroadcastOnly,
                         tieredStoreConfiguration,
                         null,
