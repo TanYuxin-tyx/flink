@@ -280,7 +280,6 @@ public class NettyShuffleEnvironmentBuilder {
                         baseDfsHomePath,
                         minDiskReserveBytes,
                         isUsingTieredStore,
-                        "",
                         ""),
                 taskManagerLocation,
                 new TaskEventDispatcher(),

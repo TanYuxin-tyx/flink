@@ -87,8 +87,6 @@ public class TieredStoreConfiguration {
 
     private final String tieredStoreTiers;
 
-    private final String tieredStoreSpillingType;
-
     private TieredStoreConfiguration(
             int maxBuffersReadAhead,
             Duration bufferRequestTimeout,
@@ -104,8 +102,7 @@ public class TieredStoreConfiguration {
             long bufferPoolSizeCheckIntervalMs,
             String baseDfsHomePath,
             int configuredNetworkBuffersPerChannel,
-            String tieredStoreTiers,
-            String tieredStoreSpillingType) {
+            String tieredStoreTiers) {
         this.maxBuffersReadAhead = maxBuffersReadAhead;
         this.bufferRequestTimeout = bufferRequestTimeout;
         this.maxRequestedBuffers = maxRequestedBuffers;
@@ -122,7 +119,6 @@ public class TieredStoreConfiguration {
         this.baseDfsHomePath = baseDfsHomePath;
         this.configuredNetworkBuffersPerChannel = configuredNetworkBuffersPerChannel;
         this.tieredStoreTiers = tieredStoreTiers;
-        this.tieredStoreSpillingType = tieredStoreSpillingType;
     }
 
     public static TieredStoreConfiguration.Builder builder(
@@ -211,10 +207,6 @@ public class TieredStoreConfiguration {
 
     public String getTieredStoreTiers() {
         return tieredStoreTiers;
-    }
-
-    public String getTieredStoreSpillingType() {
-        return tieredStoreSpillingType;
     }
 
     /** Builder for {@link TieredStoreConfiguration}. */
@@ -342,11 +334,6 @@ public class TieredStoreConfiguration {
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setTieredStoreSpillingType(String tieredStoreSpillingType) {
-            this.tieredStoreSpillingType = tieredStoreSpillingType;
-            return this;
-        }
-
         public TieredStoreConfiguration build() {
             return new TieredStoreConfiguration(
                     maxBuffersReadAhead,
@@ -363,8 +350,7 @@ public class TieredStoreConfiguration {
                     bufferPoolSizeCheckIntervalMs,
                     baseDfsHomePath,
                     configuredNetworkBuffersPerChannel,
-                    tieredStoreTiers,
-                    tieredStoreSpillingType);
+                    tieredStoreTiers);
         }
     }
 }

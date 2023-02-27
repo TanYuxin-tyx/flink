@@ -371,7 +371,6 @@ class TieredStoreResultPartitionTest {
                         TieredStoreConfiguration.builder(
                                         numSubpartitions, readBufferPool.getNumBuffersPerRequest())
                                 .setTieredStoreTiers("LOCAL")
-                                .setTieredStoreSpillingType("FULL")
                                 .setFullStrategyNumBuffersTriggerSpillingRatio(0.6f)
                                 .setFullStrategyReleaseBufferRatio(0.8f)
                                 .build());
@@ -443,7 +442,6 @@ class TieredStoreResultPartitionTest {
                         TieredStoreConfiguration.builder(
                                         numSubpartitions, readBufferPool.getNumBuffersPerRequest())
                                 .setTieredStoreTiers("LOCAL")
-                                .setTieredStoreSpillingType("SELECTIVE")
                                 .build())) {
             partition.createSubpartitionView(0, new NoOpBufferAvailablityListener());
             assertThatThrownBy(
@@ -466,7 +464,6 @@ class TieredStoreResultPartitionTest {
                         TieredStoreConfiguration.builder(
                                         numSubpartitions, readBufferPool.getNumBuffersPerRequest())
                                 .setTieredStoreTiers("LOCAL")
-                                .setTieredStoreSpillingType("FULL")
                                 .build())) {
             partition.createSubpartitionView(0, new NoOpBufferAvailablityListener());
             assertThatNoException()
@@ -582,7 +579,6 @@ class TieredStoreResultPartitionTest {
                 TieredStoreConfiguration.builder(
                                 numSubpartitions, readBufferPool.getNumBuffersPerRequest())
                         .setTieredStoreTiers("LOCAL")
-                        .setTieredStoreSpillingType("FULL")
                         .build());
     }
 
@@ -599,7 +595,7 @@ class TieredStoreResultPartitionTest {
                         "TieredStoreResultPartitionTest",
                         0,
                         new ResultPartitionID(),
-                        ResultPartitionType.TIERED_STORE,
+                        ResultPartitionType.HYBRID_SELECTIVE,
                         numSubpartitions,
                         numSubpartitions,
                         readBufferPool,
@@ -611,8 +607,7 @@ class TieredStoreResultPartitionTest {
                         isBroadcastOnly,
                         tieredStoreConfiguration,
                         null,
-                        () -> bufferPool,
-                        null);
+                        () -> bufferPool);
         taskIOMetricGroup =
                 UnregisteredMetricGroups.createUnregisteredTaskMetricGroup().getIOMetricGroup();
         tieredStoreResultPartition.setup();

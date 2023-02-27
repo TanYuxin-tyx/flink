@@ -18,10 +18,8 @@
 
 package org.apache.flink.runtime.taskmanager;
 
-import org.apache.flink.api.common.BatchShuffleMode;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.ConfigurationUtils;
-import org.apache.flink.configuration.ExecutionOptions;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.configuration.TaskManagerOptions;
@@ -112,13 +110,11 @@ public class NettyShuffleEnvironmentConfiguration {
 
     private final long minDiskReserveBytes;
 
-    private final boolean isUsingTieredStore;
+    private final boolean enableTieredStoreForHybridShuffle;
 
     @Nullable private final String baseDfsHomePath;
 
     private final String tieredStoreTiers;
-
-    private final String tieredStoreSpillingType;
 
     public NettyShuffleEnvironmentConfiguration(
             int numNetworkBuffers,
@@ -147,9 +143,8 @@ public class NettyShuffleEnvironmentConfiguration {
             long hybridShuffleNumRetainedInMemoryRegionsMax,
             @Nullable String baseDfsHomePath,
             long minDiskReserveBytes,
-            boolean isUsingTieredStore,
-            String tieredStoreTiers,
-            String tieredStoreSpillingType) {
+            boolean enableTieredStoreForHybridShuffle,
+            String tieredStoreTiers) {
 
         this.numNetworkBuffers = numNetworkBuffers;
         this.networkBufferSize = networkBufferSize;
@@ -177,10 +172,9 @@ public class NettyShuffleEnvironmentConfiguration {
         this.hybridShuffleNumRetainedInMemoryRegionsMax =
                 hybridShuffleNumRetainedInMemoryRegionsMax;
         this.baseDfsHomePath = baseDfsHomePath;
-        this.isUsingTieredStore = isUsingTieredStore;
+        this.enableTieredStoreForHybridShuffle = enableTieredStoreForHybridShuffle;
         this.minDiskReserveBytes = minDiskReserveBytes;
         this.tieredStoreTiers = tieredStoreTiers;
-        this.tieredStoreSpillingType = tieredStoreSpillingType;
     }
 
     // ------------------------------------------------------------------------
@@ -293,16 +287,12 @@ public class NettyShuffleEnvironmentConfiguration {
         return minDiskReserveBytes;
     }
 
-    public boolean isUsingTieredStore() {
-        return isUsingTieredStore;
+    public boolean enableTieredStoreForHybridShuffle() {
+        return enableTieredStoreForHybridShuffle;
     }
 
     public String getTieredStoreTiers() {
         return tieredStoreTiers;
-    }
-
-    public String getTieredStoreSpillingType() {
-        return tieredStoreSpillingType;
     }
 
     // ------------------------------------------------------------------------
@@ -388,10 +378,6 @@ public class NettyShuffleEnvironmentConfiguration {
                         configuration.getLong(
                                 NettyShuffleEnvironmentOptions
                                         .NETWORK_EXCLUSIVE_BUFFERS_REQUEST_TIMEOUT_MILLISECONDS));
-
-        String baseDfsHomePath =
-                configuration.getString(
-                        NettyShuffleEnvironmentOptions.NETWORK_REMOTE_STORAGE_BASE_HOME_PATH);
         long minDiskReserveBytes =
                 configuration
                         .get(
@@ -441,16 +427,16 @@ public class NettyShuffleEnvironmentConfiguration {
 
         checkArgument(minDiskReserveBytes >= 0, "Must be non-negative.");
 
-        boolean usingTieredStore =
-                configuration
-                        .get(ExecutionOptions.BATCH_SHUFFLE_MODE)
-                        .equals(BatchShuffleMode.ALL_EXCHANGES_TIERED_STORE);
+        String baseDfsHomePath =
+                configuration.getString(
+                        NettyShuffleEnvironmentOptions.NETWORK_REMOTE_STORAGE_BASE_HOME_PATH);
+
+        boolean enableTieredStoreForHybridShuffle =
+                configuration.get(
+                        NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE);
 
         String tieredStoreTiers =
                 configuration.get(NettyShuffleEnvironmentOptions.TIERED_STORE_TIERS);
-
-        String tieredStoreSpillingType =
-                configuration.get(NettyShuffleEnvironmentOptions.TIERED_STORE_SPILLING_TYPE);
 
         return new NettyShuffleEnvironmentConfiguration(
                 numberOfNetworkBuffers,
@@ -479,9 +465,8 @@ public class NettyShuffleEnvironmentConfiguration {
                 hybridShuffleNumRetainedInMemoryRegionsMax,
                 baseDfsHomePath,
                 minDiskReserveBytes,
-                usingTieredStore,
-                tieredStoreTiers,
-                tieredStoreSpillingType);
+                enableTieredStoreForHybridShuffle,
+                tieredStoreTiers);
     }
 
     /**

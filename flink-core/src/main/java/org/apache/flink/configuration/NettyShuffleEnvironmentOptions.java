@@ -19,6 +19,7 @@
 package org.apache.flink.configuration;
 
 import org.apache.flink.annotation.Experimental;
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.docs.Documentation;
 
@@ -380,16 +381,6 @@ public class NettyShuffleEnvironmentOptions {
                                     + "the tie by failing the request of exclusive buffers and ask users to increase the number of total buffers.");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
-    public static final ConfigOption<String> NETWORK_REMOTE_STORAGE_BASE_HOME_PATH =
-            key("taskmanager.network.hybrid-shuffle.remote.path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The base home path of remote storage to store shuffle data. If Hybrid"
-                                    + " Shuffle uses remote storage, this option must be specified,"
-                                    + " otherwise, an exception will be thrown.");
-
-    @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
     public static final ConfigOption<MemorySize> NETWORK_LOCAL_DISK_MIN_RESERVE_SPACE_BYTES =
             key("taskmanager.network.hybrid-shuffle.local-disk.min-reserve-space-bytes")
                     .memoryType()
@@ -406,18 +397,27 @@ public class NettyShuffleEnvironmentOptions {
                                     + " the remote storage.");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+    public static final ConfigOption<Boolean> ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE =
+            ConfigOptions.key("execution.hybrid-shuffle.enable-tiered-store")
+                    .booleanType()
+                    .defaultValue(false);
+
+    @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+    public static final ConfigOption<String> NETWORK_REMOTE_STORAGE_BASE_HOME_PATH =
+            key("taskmanager.network.hybrid-shuffle.remote.path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The base home path of remote storage to store shuffle data. If Hybrid"
+                                    + " Shuffle uses remote storage, this option must be specified,"
+                                    + " otherwise, an exception will be thrown.");
+
+    @Internal
     public static final ConfigOption<String> TIERED_STORE_TIERS =
             key("tiered.store.tiers")
                     .stringType()
                     .defaultValue("MEMORY_LOCAL")
                     .withDescription("The tiers of Tiered Store");
-
-    @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
-    public static final ConfigOption<String> TIERED_STORE_SPILLING_TYPE =
-            key("tiered.store.spilling.type")
-                    .stringType()
-                    .defaultValue("SELECTIVE")
-                    .withDescription("The spilling type of Tiered Store");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
     public static final ConfigOption<String> NETWORK_BLOCKING_SHUFFLE_TYPE =

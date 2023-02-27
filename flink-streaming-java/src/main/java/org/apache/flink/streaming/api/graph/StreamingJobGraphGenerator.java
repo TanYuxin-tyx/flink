@@ -1495,8 +1495,6 @@ public class StreamingJobGraphGenerator {
                 return ResultPartitionType.HYBRID_FULL;
             case ALL_EDGES_HYBRID_SELECTIVE:
                 return ResultPartitionType.HYBRID_SELECTIVE;
-            case ALL_EDGES_TIERED_STORE:
-                return ResultPartitionType.TIERED_STORE;
             default:
                 throw new RuntimeException(
                         "Unrecognized global data exchange mode "
