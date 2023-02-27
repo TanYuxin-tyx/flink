@@ -115,8 +115,8 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
                 }
                 inputChannel = inputChannelOpt.get();
                 enqueueChannelWhenSatisfyCondition(inputChannel);
-                 bufferAndAvailabilityOpt = dataFetcher.getNextBuffer(inputChannel);
-                //bufferAndAvailabilityOpt = inputChannel.getNextBuffer();
+                bufferAndAvailabilityOpt = dataFetcher.getNextBuffer(inputChannel);
+                // bufferAndAvailabilityOpt = inputChannel.getNextBuffer();
                 if (!bufferAndAvailabilityOpt.isPresent()) {
                     checkUnavailability();
                     continue;
@@ -157,7 +157,12 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
 
     /** Enqueue input channel when satisfy the condition. */
     private void enqueueChannelWhenSatisfyCondition(InputChannel inputChannel) {
-        if (clientFactory.hasDfsClient()
+        // The input channel will be enqueued when satisfied the following conditions:
+        // 1. The current thread has been interrupted because of fail over.
+        // 2. The Remote Tier is enabled.
+        // 3. The InputChannel is LocalInputChannel or RemoteInputChannel.
+        if (!Thread.currentThread().isInterrupted()
+                && clientFactory.hasRemoteClient()
                 && (inputChannel.getClass() == LocalInputChannel.class
                         || inputChannel.getClass() == RemoteInputChannel.class)) {
             synchronized (inputChannelsWithData) {
@@ -166,16 +171,18 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
         }
     }
 
-    //@Override
-    //public void requestPartitions() {
-    //    super.requestPartitions();
-    //    for (InputChannel inputChannel : inputChannels.values()) {
-    //        synchronized (inputChannelsWithData) {
-    //            inputChannelsWithData.add(inputChannel);
-    //        }
-    //        markAvailable();
-    //    }
-    //}
+    @Override
+    public void requestPartitions() {
+        super.requestPartitions();
+        for (InputChannel inputChannel : inputChannels.values()) {
+            if (inputChannel.getClass() == RemoteInputChannel.class) {
+                synchronized (inputChannelsWithData) {
+                    inputChannelsWithData.add(inputChannel);
+                }
+                markAvailable();
+            }
+        }
+    }
 
     @Override
     public void close() throws IOException {
