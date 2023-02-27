@@ -2,6 +2,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FSDataInputStream;
+import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
@@ -14,6 +15,8 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClient;
 
 import java.io.IOException;
@@ -47,6 +50,8 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
 
     private final String baseDfsPath;
 
+    private final FileSystem remoteFileSystem;
+
     private Path currentPath;
 
     private Path currentSegmentFinishPath;
@@ -68,10 +73,49 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
         this.subpartitionIndex = subpartitionIndex;
         this.networkBufferPool = networkBufferPool;
         this.baseDfsPath = baseDfsPath;
+        try {
+            this.remoteFileSystem = new Path(baseDfsPath).getFileSystem();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to initialize the FileSystem", e);
+        }
     }
 
-    //@Override
-    public boolean hasSegmentId(InputChannel inputChannel, long segmentId) throws IOException {
+    @Override
+    public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
+            InputChannel inputChannel, long segmentId) throws IOException {
+        if (inputChannel.getClass() == RemoteRecoveredInputChannel.class
+                || inputChannel.getClass() == LocalRecoveredInputChannel.class) {
+            return Optional.empty();
+        }
+
+        if (!hasSegmentId(inputChannel, segmentId)) {
+            return Optional.empty();
+        }
+        checkState(currentInputStream != null, "CurrentInputStream must not be null.");
+        if (currentInputStream.available() == 0) {
+            return Optional.of(
+                    new InputChannel.BufferAndAvailability(
+                            buildEndOfSegmentBuffer(currentSegmentId + 1),
+                            Buffer.DataType.SEGMENT_EVENT,
+                            0,
+                            0));
+        } else {
+            return Optional.of(getDfsBuffer(currentInputStream));
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (currentInputStream != null) {
+            currentInputStream.close();
+        }
+    }
+
+    // ------------------------------------
+    //           Internal Method
+    // ------------------------------------
+
+    private boolean hasSegmentId(InputChannel inputChannel, long segmentId) throws IOException {
         if (segmentId != currentSegmentId) {
             currentSegmentId = segmentId;
             boolean isBroadcastOnly = inputChannel.isUpstreamBroadcastOnly();
@@ -91,8 +135,8 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
         }
         if (isPathExist(currentSegmentFinishPath)) {
             checkState(isPathExist(currentPath), "Empty Segment data file path.");
-            if (currentInputStream == null) {
-                currentInputStream = currentPath.getFileSystem().open(currentPath);
+            if(currentInputStream == null){
+                currentInputStream = remoteFileSystem.open(currentPath);
             }
             return true;
         } else {
@@ -100,49 +144,9 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
         }
     }
 
-    @Override
-    public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
-            InputChannel inputChannel, long segmentId) throws IOException {
-        checkState(
-                segmentId == currentSegmentId,
-                "SegmentId is illegal, currentSegmentId: %s, segmentId: %s",
-                currentSegmentId,
-                segmentId);
-        checkState(currentInputStream != null, "CurrentInputStream must not be null.");
-        if (currentInputStream.available() == 0) {
-            return Optional.of(
-                    new InputChannel.BufferAndAvailability(
-                            buildEndOfSegmentBuffer(currentSegmentId + 1),
-                            Buffer.DataType.SEGMENT_EVENT,
-                            0,
-                            0));
-        } else {
-            return Optional.of(getDfsBuffer(currentInputStream));
-        }
-    }
-
-    @Override
-    public void close() throws IOException {}
-
-    // ------------------------------------
-    //           Internal Method
-    // ------------------------------------
-
-    private Path getRemoteStoragePath(InputChannel inputChannel, long segmentId) {
-        boolean isBroadcastOnly = inputChannel.isUpstreamBroadcastOnly();
-        String baseSubpartitionPath =
-                getBaseSubpartitionPath(
-                        jobID,
-                        resultPartitionIDs.get(inputChannel.getChannelIndex()),
-                        subpartitionIndex,
-                        baseDfsPath,
-                        isBroadcastOnly);
-        return generateNewSegmentPath(baseSubpartitionPath, segmentId);
-    }
-
     private boolean isPathExist(Path path) {
         try {
-            return path.getFileSystem().exists(path);
+            return remoteFileSystem.exists(path);
         } catch (IOException e) {
             throw new RuntimeException(
                     "Failed to check the existing state of segment path:" + this.currentPath);
