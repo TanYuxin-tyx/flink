@@ -22,7 +22,7 @@ public class SingleChannelTierClientFactory {
 
     private final int subpartitionIndex;
 
-    private final boolean hasDfsClient;
+    private final boolean hasRemoteClient;
 
     public SingleChannelTierClientFactory(
             JobID jobID,
@@ -34,7 +34,7 @@ public class SingleChannelTierClientFactory {
         this.resultPartitionIDs = resultPartitionIDs;
         this.subpartitionIndex = subpartitionIndex;
         this.baseDfsPath = baseDfsPath;
-        this.hasDfsClient = baseDfsPath != null;
+        this.hasRemoteClient = baseDfsPath != null;
         this.networkBufferPool = (NetworkBufferPool) memorySegmentProvider;
     }
 
@@ -43,14 +43,14 @@ public class SingleChannelTierClientFactory {
     }
 
     public SingleChannelTierClient createDfsSingleChannelDataClient() {
-        if (!hasDfsClient) {
+        if (!hasRemoteClient) {
             return null;
         }
         return new SingleChannelRemoteTierClient(
                 jobID, resultPartitionIDs, subpartitionIndex, networkBufferPool, baseDfsPath);
     }
 
-    public boolean hasDfsClient() {
-        return hasDfsClient;
+    public boolean hasRemoteClient() {
+        return hasRemoteClient;
     }
 }
