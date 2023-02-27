@@ -73,7 +73,9 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
         sortShuffleMinBuffers =
                 conf.getInteger(NettyShuffleEnvironmentOptions.NETWORK_SORT_SHUFFLE_MIN_BUFFERS);
         networkBufferSize = ConfigurationParserUtils.getPageSize(conf);
-        baseDfsPath = conf.getString(NettyShuffleEnvironmentOptions.SHUFFLE_BASE_DFS_HOME_PATH);
+        baseDfsPath =
+                conf.getString(
+                        NettyShuffleEnvironmentOptions.NETWORK_REMOTE_STORAGE_BASE_HOME_PATH);
 
         checkArgument(
                 !maxRequiredBuffersPerGate.isPresent() || maxRequiredBuffersPerGate.get() >= 1,

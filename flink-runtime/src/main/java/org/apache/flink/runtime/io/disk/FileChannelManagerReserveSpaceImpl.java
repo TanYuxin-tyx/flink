@@ -18,8 +18,7 @@
 
 package org.apache.flink.runtime.io.disk;
 
-import org.apache.flink.runtime.io.disk.iomanager.FileIOChannel.Enumerator;
-import org.apache.flink.runtime.io.disk.iomanager.FileIOChannel.ID;
+import org.apache.flink.runtime.io.disk.iomanager.FileIOChannel;
 import org.apache.flink.util.FileUtils;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.ShutdownHookUtil;
@@ -40,9 +39,14 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The manager used for creating/deleting file channels based on config temp dirs. */
-public class FileChannelManagerImpl implements FileChannelManager {
-    private static final Logger LOG = LoggerFactory.getLogger(FileChannelManagerImpl.class);
+/**
+ * The manager used for creating/deleting file channels based on config temp dirs. The manager will
+ * reserve some disk space to avoid no more disk space exceptions.
+ */
+public class FileChannelManagerReserveSpaceImpl implements FileChannelManager {
+
+    private static final Logger LOG =
+            LoggerFactory.getLogger(FileChannelManagerReserveSpaceImpl.class);
 
     /** The temporary directories for files. */
     private final File[] paths;
@@ -56,6 +60,8 @@ public class FileChannelManagerImpl implements FileChannelManager {
     /** Prefix of the temporary directories to create. */
     private final String prefix;
 
+    private final long minDiskReserveBytes;
+
     /**
      * Flag to signal that the file channel manager has been shutdown already. The flag should
      * support concurrent access for cases like multiple shutdown hooks.
@@ -65,12 +71,14 @@ public class FileChannelManagerImpl implements FileChannelManager {
     /** Shutdown hook to make sure that the directories are removed on exit. */
     private final Thread shutdownHook;
 
-    public FileChannelManagerImpl(String[] tempDirs, String prefix) {
+    public FileChannelManagerReserveSpaceImpl(
+            String[] tempDirs, String prefix, long minDiskReserveBytes) {
         checkNotNull(tempDirs, "The temporary directories must not be null.");
         checkArgument(tempDirs.length > 0, "The temporary directories must not be empty.");
 
         this.random = new Random();
         this.prefix = prefix;
+        this.minDiskReserveBytes = minDiskReserveBytes;
 
         shutdownHook =
                 ShutdownHookUtil.addShutdownHook(
@@ -103,18 +111,18 @@ public class FileChannelManagerImpl implements FileChannelManager {
     }
 
     @Override
-    public ID createChannel() {
+    public FileIOChannel.ID createChannel() {
         checkState(!isShutdown.get(), "File channel manager has shutdown.");
 
         int num = (int) (nextPath.getAndIncrement() % paths.length);
-        return new ID(paths[num], num, random);
+        return new FileIOChannel.ID(paths[num], num, random);
     }
 
     @Override
-    public Enumerator createChannelEnumerator() {
+    public FileIOChannel.Enumerator createChannelEnumerator() {
         checkState(!isShutdown.get(), "File channel manager has shutdown.");
 
-        return new Enumerator(paths, random);
+        return new FileIOChannel.Enumerator(paths, random);
     }
 
     @Override
@@ -126,7 +134,12 @@ public class FileChannelManagerImpl implements FileChannelManager {
 
     @Override
     public boolean hasMoreUsableSpace() {
-        return true;
+        for (File filePath : paths) {
+            if (filePath.getUsableSpace() > minDiskReserveBytes) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Remove all the temp directories. */
@@ -140,7 +153,7 @@ public class FileChannelManagerImpl implements FileChannelManager {
         IOUtils.closeAll(
                 Arrays.stream(paths)
                         .filter(File::exists)
-                        .map(FileChannelManagerImpl::getFileCloser)
+                        .map(FileChannelManagerReserveSpaceImpl::getFileCloser)
                         .collect(Collectors.toList()));
 
         ShutdownHookUtil.removeShutdownHook(

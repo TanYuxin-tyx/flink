@@ -90,6 +90,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private final String dataFileBasePath;
 
+    private final long minDiskReserveBytes;
+
     private final boolean isBroadcast;
 
     private BufferPoolHelper bufferPoolHelper;
@@ -115,6 +117,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
             ResultPartitionManager partitionManager,
             int networkBufferSize,
             String dataFileBasePath,
+            long minDiskReserveBytes,
             boolean isBroadcast,
             TieredStoreConfiguration storeConfiguration,
             @Nullable BufferCompressor bufferCompressor,
@@ -136,6 +139,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         this.readIOExecutor = readIOExecutor;
         this.networkBufferSize = networkBufferSize;
         this.dataFileBasePath = dataFileBasePath;
+        this.minDiskReserveBytes = minDiskReserveBytes;
         this.isBroadcast = isBroadcast;
         this.storeConfiguration = storeConfiguration;
         this.subpartitions = subpartitions;
@@ -286,6 +290,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 getPartitionId(),
                 bufferPoolHelper,
                 dataFileBasePath,
+                minDiskReserveBytes,
                 isBroadcast,
                 bufferCompressor,
                 readBufferPool,
@@ -299,7 +304,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
             throw new IllegalArgumentException(
                     String.format(
                             "Must specify DFS home path by %s when using DFS in Tiered Store.",
-                            NettyShuffleEnvironmentOptions.SHUFFLE_BASE_DFS_HOME_PATH.key()));
+                            NettyShuffleEnvironmentOptions.NETWORK_REMOTE_STORAGE_BASE_HOME_PATH
+                                    .key()));
         }
         return new RemoteTier(
                 jobID,

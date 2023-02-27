@@ -34,4 +34,6 @@ public interface FileChannelManager extends AutoCloseable {
 
     /** Gets all the files corresponding to the config temp dirs. */
     File[] getPaths();
+
+    boolean hasMoreUsableSpace();
 }

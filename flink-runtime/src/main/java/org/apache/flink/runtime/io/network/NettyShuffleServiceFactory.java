@@ -27,6 +27,7 @@ import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.disk.FileChannelManager;
 import org.apache.flink.runtime.io.disk.FileChannelManagerImpl;
+import org.apache.flink.runtime.io.disk.FileChannelManagerReserveSpaceImpl;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.netty.NettyConfig;
 import org.apache.flink.runtime.io.network.netty.NettyConnectionManager;
@@ -167,7 +168,12 @@ public class NettyShuffleServiceFactory
         checkNotNull(connectionManager);
 
         FileChannelManager fileChannelManager =
-                new FileChannelManagerImpl(config.getTempDirs(), DIR_NAME_PREFIX);
+                config.isUsingTieredStore()
+                        ? new FileChannelManagerReserveSpaceImpl(
+                                config.getTempDirs(),
+                                DIR_NAME_PREFIX,
+                                config.getMinDiskReserveBytes())
+                        : new FileChannelManagerImpl(config.getTempDirs(), DIR_NAME_PREFIX);
         if (LOG.isInfoEnabled()) {
             LOG.info(
                     "Created a new {} for storing result partitions of BLOCKING shuffles. Used directories:\n\t{}",
@@ -225,6 +231,7 @@ public class NettyShuffleServiceFactory
                         config.getHybridShuffleSpilledIndexSegmentSize(),
                         config.getHybridShuffleNumRetainedInMemoryRegionsMax(),
                         config.getBaseDfsHomePath(),
+                        config.getMinDiskReserveBytes(),
                         config.getTieredStoreTiers(),
                         config.getTieredStoreSpillingType());
 

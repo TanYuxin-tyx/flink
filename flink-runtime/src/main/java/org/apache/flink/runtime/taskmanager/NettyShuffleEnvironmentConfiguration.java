@@ -109,6 +109,9 @@ public class NettyShuffleEnvironmentConfiguration {
     private final int hybridShuffleSpilledIndexSegmentSize;
 
     private final long hybridShuffleNumRetainedInMemoryRegionsMax;
+
+    private final long minDiskReserveBytes;
+
     private final boolean isUsingTieredStore;
 
     @Nullable private final String baseDfsHomePath;
@@ -143,6 +146,7 @@ public class NettyShuffleEnvironmentConfiguration {
             int hybridShuffleSpilledIndexSegmentSize,
             long hybridShuffleNumRetainedInMemoryRegionsMax,
             @Nullable String baseDfsHomePath,
+            long minDiskReserveBytes,
             boolean isUsingTieredStore,
             String tieredStoreTiers,
             String tieredStoreSpillingType) {
@@ -174,6 +178,7 @@ public class NettyShuffleEnvironmentConfiguration {
                 hybridShuffleNumRetainedInMemoryRegionsMax;
         this.baseDfsHomePath = baseDfsHomePath;
         this.isUsingTieredStore = isUsingTieredStore;
+        this.minDiskReserveBytes = minDiskReserveBytes;
         this.tieredStoreTiers = tieredStoreTiers;
         this.tieredStoreSpillingType = tieredStoreSpillingType;
     }
@@ -284,6 +289,10 @@ public class NettyShuffleEnvironmentConfiguration {
         return baseDfsHomePath;
     }
 
+    public long getMinDiskReserveBytes() {
+        return minDiskReserveBytes;
+    }
+
     public boolean isUsingTieredStore() {
         return isUsingTieredStore;
     }
@@ -381,7 +390,14 @@ public class NettyShuffleEnvironmentConfiguration {
                                         .NETWORK_EXCLUSIVE_BUFFERS_REQUEST_TIMEOUT_MILLISECONDS));
 
         String baseDfsHomePath =
-                configuration.getString(NettyShuffleEnvironmentOptions.SHUFFLE_BASE_DFS_HOME_PATH);
+                configuration.getString(
+                        NettyShuffleEnvironmentOptions.NETWORK_REMOTE_STORAGE_BASE_HOME_PATH);
+        long minDiskReserveBytes =
+                configuration
+                        .get(
+                                NettyShuffleEnvironmentOptions
+                                        .NETWORK_LOCAL_DISK_MIN_RESERVE_SPACE_BYTES)
+                        .getBytes();
 
         BoundedBlockingSubpartitionType blockingSubpartitionType =
                 getBlockingSubpartitionType(configuration);
@@ -423,6 +439,8 @@ public class NettyShuffleEnvironmentConfiguration {
                         "The configured floating buffer should be at least 1, please increase the value of %s.",
                         NettyShuffleEnvironmentOptions.NETWORK_EXTRA_BUFFERS_PER_GATE.key()));
 
+        checkArgument(minDiskReserveBytes >= 0, "Must be non-negative.");
+
         boolean usingTieredStore =
                 configuration
                         .get(ExecutionOptions.BATCH_SHUFFLE_MODE)
@@ -460,6 +478,7 @@ public class NettyShuffleEnvironmentConfiguration {
                 hybridShuffleSpilledIndexSegmentSize,
                 hybridShuffleNumRetainedInMemoryRegionsMax,
                 baseDfsHomePath,
+                minDiskReserveBytes,
                 usingTieredStore,
                 tieredStoreTiers,
                 tieredStoreSpillingType);
