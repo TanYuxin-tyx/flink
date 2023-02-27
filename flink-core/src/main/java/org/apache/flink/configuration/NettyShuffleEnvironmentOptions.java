@@ -380,14 +380,30 @@ public class NettyShuffleEnvironmentOptions {
                                     + "the tie by failing the request of exclusive buffers and ask users to increase the number of total buffers.");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
-    public static final ConfigOption<String> SHUFFLE_BASE_DFS_HOME_PATH =
-            key("taskmanager.network.dfs.base-home-path")
+    public static final ConfigOption<String> NETWORK_REMOTE_STORAGE_BASE_HOME_PATH =
+            key("taskmanager.network.hybrid-shuffle.remote.path")
                     .stringType()
-                    .defaultValue(null)
+                    .noDefaultValue()
                     .withDescription(
-                            "The DFS base home path for storing network data. When using Tiered Store, "
-                                    + "if the DFS tier is used, this option must be specified, otherwise, "
-                                    + "an exception maybe thrown.");
+                            "The base home path of remote storage to store shuffle data. If Hybrid"
+                                    + " Shuffle uses remote storage, this option must be specified,"
+                                    + " otherwise, an exception will be thrown.");
+
+    @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+    public static final ConfigOption<MemorySize> NETWORK_LOCAL_DISK_MIN_RESERVE_SPACE_BYTES =
+            key("taskmanager.network.hybrid-shuffle.local-disk.min-reserve-space-bytes")
+                    .memoryType()
+                    .defaultValue(MemorySize.parse("1g"))
+                    .withDescription(
+                            "The minimum reserved space in bytes per local disk when using Hybrid"
+                                    + " Shuffle. When using a local disk to store shuffle data, the"
+                                    + " local disk space may be exhausted if it is used without any"
+                                    + " limit, leading to job failures. This option controls the"
+                                    + " minimum reserved disk space which cannot be used to store"
+                                    + " the shuffle data. This option is enabled only when the"
+                                    + " remote storage is used. When the left available disk space"
+                                    + " reaches this limit, the new arriving data will be written to"
+                                    + " the remote storage.");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
     public static final ConfigOption<String> TIERED_STORE_TIERS =

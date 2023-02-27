@@ -167,6 +167,7 @@ class ResultPartitionFactoryTest {
                         256,
                         Long.MAX_VALUE,
                         null,
+                        0L,
                         "",
                         "");
 

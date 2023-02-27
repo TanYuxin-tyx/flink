@@ -493,7 +493,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
 
     private void setupDfsConfigurations(Configuration configuration) {
         configuration.set(
-                NettyShuffleEnvironmentOptions.SHUFFLE_BASE_DFS_HOME_PATH,
+                NettyShuffleEnvironmentOptions.NETWORK_REMOTE_STORAGE_BASE_HOME_PATH,
                 tmp.getRoot().getAbsolutePath());
     }
 }

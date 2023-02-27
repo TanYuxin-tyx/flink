@@ -94,6 +94,8 @@ public class ResultPartitionBuilder {
 
     private String baseDfsHomePath = null;
 
+    private long minDiskReserveBytes = 0L;
+
     private String tieredStoreTiers = null;
 
     private String tieredStoreSpillingType = null;
@@ -235,6 +237,11 @@ public class ResultPartitionBuilder {
         return this;
     }
 
+    public ResultPartitionBuilder setMinDiskReserveBytes(long minDiskReserveBytes) {
+        this.minDiskReserveBytes = minDiskReserveBytes;
+        return this;
+    }
+
     public ResultPartitionBuilder setTieredStoreTiers(String tieredStoreTiers) {
         this.tieredStoreTiers = tieredStoreTiers;
         return this;
@@ -285,6 +292,7 @@ public class ResultPartitionBuilder {
                         hybridShuffleSpilledIndexSegmentSize,
                         hybridShuffleNumRetainedInMemoryRegionsMax,
                         baseDfsHomePath,
+                        minDiskReserveBytes,
                         tieredStoreTiers,
                         tieredStoreSpillingType);
 
