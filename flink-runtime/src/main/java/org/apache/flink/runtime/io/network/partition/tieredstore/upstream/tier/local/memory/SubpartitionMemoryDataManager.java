@@ -44,14 +44,11 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.TieredType.IN_MEM;
@@ -84,9 +81,6 @@ public class SubpartitionMemoryDataManager {
     @GuardedBy("subpartitionLock")
     private final Deque<BufferContext> allBuffers = new LinkedList<>();
 
-    @GuardedBy("subpartitionLock")
-    private final Set<Integer> lastBufferIndexOfSegments;
-
     /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
     private final ReentrantReadWriteLock subpartitionLock = new ReentrantReadWriteLock();
 
@@ -94,8 +88,6 @@ public class SubpartitionMemoryDataManager {
 
     @GuardedBy("subpartitionLock")
     private final Map<TierReaderViewId, SubpartitionConsumerMemoryReader> consumerMap;
-
-    private final AtomicInteger consumerNum = new AtomicInteger(0);
 
     @Nullable private final BufferCompressor bufferCompressor;
 
@@ -115,7 +107,6 @@ public class SubpartitionMemoryDataManager {
         this.bufferCompressor = bufferCompressor;
         this.bufferPoolHelper = bufferPoolHelper;
         this.consumerMap = new HashMap<>();
-        this.lastBufferIndexOfSegments = new HashSet<>();
     }
 
     // ------------------------------------------------------------------------
@@ -146,12 +137,8 @@ public class SubpartitionMemoryDataManager {
         this.outputMetrics = checkNotNull(outputMetrics);
     }
 
-    Set<Integer> getLastBufferIndexOfSegments() {
-        return lastBufferIndexOfSegments;
-    }
-
     public void release() {
-        lastBufferIndexOfSegments.clear();
+        allBuffers.clear();
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
@@ -166,7 +153,6 @@ public class SubpartitionMemoryDataManager {
                                     tierReaderViewId,
                                     memoryDataWriterOperation);
                     newConsumer.addInitialBuffers(allBuffers);
-                    consumerNum.getAndIncrement();
                     consumerMap.put(tierReaderViewId, newConsumer);
                     return newConsumer;
                 });
@@ -174,7 +160,6 @@ public class SubpartitionMemoryDataManager {
 
     @SuppressWarnings("FieldAccessNotGuarded")
     public void releaseConsumer(TierReaderViewId tierReaderViewId) {
-        consumerNum.set(-9999);
         runWithLock(() -> checkNotNull(consumerMap.remove(tierReaderViewId)));
     }
 
@@ -305,7 +290,9 @@ public class SubpartitionMemoryDataManager {
         runWithLock(
                 () -> {
                     finishedBufferIndex++;
-                    allBuffers.add(bufferContext);
+                    if(consumerMap.size() == 0){
+                        allBuffers.add(bufferContext);
+                    }
                     retainBufferIfNeeded(isBroadcast, bufferContext);
                     for (Map.Entry<TierReaderViewId, SubpartitionConsumerMemoryReader>
                             consumerEntry : consumerMap.entrySet()) {
@@ -314,9 +301,6 @@ public class SubpartitionMemoryDataManager {
                         }
                     }
                     updateStatistics(bufferContext.getBuffer());
-                    if (bufferContext.isLastBufferInSegment()) {
-                        lastBufferIndexOfSegments.add(finishedBufferIndex - 1);
-                    }
                 });
         memoryDataWriterOperation.onDataAvailable(targetChannel, needNotify);
     }
