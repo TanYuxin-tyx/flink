@@ -168,7 +168,7 @@ public class NettyShuffleServiceFactory
         checkNotNull(connectionManager);
 
         FileChannelManager fileChannelManager =
-                config.isUsingTieredStore()
+                config.enableTieredStoreForHybridShuffle()
                         ? new FileChannelManagerReserveSpaceImpl(
                                 config.getTempDirs(),
                                 DIR_NAME_PREFIX,
@@ -232,11 +232,11 @@ public class NettyShuffleServiceFactory
                         config.getHybridShuffleNumRetainedInMemoryRegionsMax(),
                         config.getBaseDfsHomePath(),
                         config.getMinDiskReserveBytes(),
-                        config.getTieredStoreTiers(),
-                        config.getTieredStoreSpillingType());
+                        config.enableTieredStoreForHybridShuffle(),
+                        config.getTieredStoreTiers());
 
         SingleInputGateFactory singleInputGateFactory =
-                config.isUsingTieredStore()
+                config.enableTieredStoreForHybridShuffle()
                         ? new TieredStoreSingleInputGateFactory(
                                 taskExecutorResourceId,
                                 config,

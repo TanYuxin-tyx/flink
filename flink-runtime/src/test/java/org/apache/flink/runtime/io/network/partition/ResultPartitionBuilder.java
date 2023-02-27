@@ -293,8 +293,8 @@ public class ResultPartitionBuilder {
                         hybridShuffleNumRetainedInMemoryRegionsMax,
                         baseDfsHomePath,
                         minDiskReserveBytes,
-                        tieredStoreTiers,
-                        tieredStoreSpillingType);
+                        false,
+                        tieredStoreTiers);
 
         SupplierWithException<BufferPool, IOException> factory =
                 bufferPoolFactory.orElseGet(

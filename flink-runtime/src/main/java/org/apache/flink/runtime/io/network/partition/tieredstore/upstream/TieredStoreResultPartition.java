@@ -39,7 +39,6 @@ import org.apache.flink.runtime.io.network.partition.ResultPartition;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
@@ -63,15 +62,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.SpillingType.FULL;
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.SpillingType.NO_FLUSH;
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.Tiers.DFS;
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.Tiers.LOCAL;
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.Tiers.LOCAL_DFS;
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.Tiers.MEMORY;
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.Tiers.MEMORY_DFS;
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.Tiers.MEMORY_LOCAL;
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.Tiers.MEMORY_LOCAL_DFS;
+import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.HYBRID_SELECTIVE;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -102,8 +93,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private boolean hasNotifiedEndOfUserRecords;
 
-    private final ResultSubpartition[] subpartitions;
-
     public TieredStoreResultPartition(
             JobID jobID,
             String owningTaskName,
@@ -121,8 +110,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
             boolean isBroadcast,
             TieredStoreConfiguration storeConfiguration,
             @Nullable BufferCompressor bufferCompressor,
-            SupplierWithException<BufferPool, IOException> bufferPoolFactory,
-            ResultSubpartition[] subpartitions) {
+            SupplierWithException<BufferPool, IOException> bufferPoolFactory) {
         super(
                 owningTaskName,
                 partitionIndex,
@@ -142,7 +130,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         this.minDiskReserveBytes = minDiskReserveBytes;
         this.isBroadcast = isBroadcast;
         this.storeConfiguration = storeConfiguration;
-        this.subpartitions = subpartitions;
     }
 
     // Called by task thread.
@@ -174,96 +161,81 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private void setupTierDataGates() throws IOException {
         TieredStoreMode.Tiers tiers;
-        TieredStoreMode.SpillingType spillingType;
         try {
             tiers = TieredStoreMode.Tiers.valueOf(storeConfiguration.getTieredStoreTiers());
-            spillingType =
-                    TieredStoreMode.SpillingType.valueOf(
-                            storeConfiguration.getTieredStoreSpillingType());
         } catch (Exception e) {
-            throw new RuntimeException("Illegal tiers or spilling types for Tiered Store.", e);
+            throw new RuntimeException("Illegal tiers for Tiered Store.", e);
         }
-
+        ResultPartitionType partitionType = getPartitionType();
         switch (tiers) {
             case MEMORY:
-                checkState(
-                        spillingType == NO_FLUSH,
-                        "spilling type must be %s if the tiers is %s",
-                        NO_FLUSH,
-                        MEMORY);
                 this.tierDataGates = new StorageTier[1];
-                this.tierDataGates[0] = getLocalMemoryDataManager();
+                this.tierDataGates[0] = getMemoryTier();
                 this.tierDataGates[0].setup();
                 break;
             case LOCAL:
-                checkState(
-                        spillingType != NO_FLUSH,
-                        "spilling type must not be %s if the tiers is %s",
-                        NO_FLUSH,
-                        LOCAL);
                 this.tierDataGates = new StorageTier[1];
-                this.tierDataGates[0] = getLocalFileDataManager();
+                this.tierDataGates[0] = getDiskTier();
                 this.tierDataGates[0].setup();
                 break;
             case DFS:
-                checkState(
-                        spillingType == FULL,
-                        "spilling type must be %s if the tiers is %s",
-                        FULL,
-                        DFS);
                 this.tierDataGates = new StorageTier[1];
-                this.tierDataGates[0] = getDfsDataManager();
+                this.tierDataGates[0] = getRemoteTier();
                 this.tierDataGates[0].setup();
                 break;
             case MEMORY_LOCAL:
-                checkState(
-                        spillingType != NO_FLUSH,
-                        "spilling type must not be %s if the tiers is %s",
-                        NO_FLUSH,
-                        MEMORY_LOCAL);
-                this.tierDataGates = new StorageTier[2];
-                this.tierDataGates[0] = getLocalMemoryDataManager();
-                this.tierDataGates[1] = getLocalFileDataManager();
-                for (StorageTier tierDataGate : tierDataGates) {
-                    tierDataGate.setup();
+                if (partitionType == HYBRID_SELECTIVE) {
+                    this.tierDataGates = new StorageTier[2];
+                    this.tierDataGates[0] = getMemoryTier();
+                    this.tierDataGates[1] = getDiskTier();
+                    for (StorageTier tierDataGate : tierDataGates) {
+                        tierDataGate.setup();
+                    }
+                    break;
+                } else {
+                    this.tierDataGates = new StorageTier[1];
+                    this.tierDataGates[0] = getDiskTier();
+                    this.tierDataGates[0].setup();
+                    break;
                 }
-                break;
             case MEMORY_DFS:
-                checkState(
-                        spillingType != NO_FLUSH,
-                        "spilling type must not be %s if the tiers is %s",
-                        NO_FLUSH,
-                        MEMORY_DFS);
-                this.tierDataGates = new StorageTier[2];
-                this.tierDataGates[0] = getLocalMemoryDataManager();
-                this.tierDataGates[1] = getDfsDataManager();
-                for (StorageTier tierDataGate : tierDataGates) {
-                    tierDataGate.setup();
+                if (partitionType == HYBRID_SELECTIVE) {
+                    this.tierDataGates = new StorageTier[2];
+                    this.tierDataGates[0] = getMemoryTier();
+                    this.tierDataGates[1] = getRemoteTier();
+                    for (StorageTier tierDataGate : tierDataGates) {
+                        tierDataGate.setup();
+                    }
+                    break;
+                } else {
+                    this.tierDataGates = new StorageTier[1];
+                    this.tierDataGates[0] = getRemoteTier();
+                    this.tierDataGates[0].setup();
+                    break;
                 }
-                break;
             case MEMORY_LOCAL_DFS:
-                checkState(
-                        spillingType != NO_FLUSH,
-                        "spilling type must not be %s if the tiers is %s",
-                        NO_FLUSH,
-                        MEMORY_LOCAL_DFS);
-                this.tierDataGates = new StorageTier[3];
-                this.tierDataGates[0] = getLocalMemoryDataManager();
-                this.tierDataGates[1] = getLocalFileDataManager();
-                this.tierDataGates[2] = getDfsDataManager();
-                for (StorageTier tierDataGate : tierDataGates) {
-                    tierDataGate.setup();
+                if (partitionType == HYBRID_SELECTIVE) {
+                    this.tierDataGates = new StorageTier[3];
+                    this.tierDataGates[0] = getMemoryTier();
+                    this.tierDataGates[1] = getDiskTier();
+                    this.tierDataGates[2] = getRemoteTier();
+                    for (StorageTier tierDataGate : tierDataGates) {
+                        tierDataGate.setup();
+                    }
+                    break;
+                } else {
+                    this.tierDataGates = new StorageTier[2];
+                    this.tierDataGates[0] = getDiskTier();
+                    this.tierDataGates[1] = getRemoteTier();
+                    for (StorageTier tierDataGate : tierDataGates) {
+                        tierDataGate.setup();
+                    }
+                    break;
                 }
-                break;
             case LOCAL_DFS:
-                checkState(
-                        spillingType == FULL,
-                        "spilling type must be %s if the tiers is %s",
-                        FULL,
-                        LOCAL_DFS);
                 this.tierDataGates = new StorageTier[2];
-                this.tierDataGates[0] = getLocalFileDataManager();
-                this.tierDataGates[1] = getDfsDataManager();
+                this.tierDataGates[0] = getDiskTier();
+                this.tierDataGates[1] = getRemoteTier();
                 for (StorageTier tierDataGate : tierDataGates) {
                     tierDataGate.setup();
                 }
@@ -273,17 +245,16 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         }
     }
 
-    private MemoryTier getLocalMemoryDataManager() {
+    private MemoryTier getMemoryTier() {
         return new MemoryTier(
                 numSubpartitions,
                 networkBufferSize,
                 bufferPoolHelper,
                 isBroadcast,
-                bufferCompressor,
-                storeConfiguration);
+                bufferCompressor);
     }
 
-    private DiskTier getLocalFileDataManager() {
+    private DiskTier getDiskTier() {
         return new DiskTier(
                 numSubpartitions,
                 networkBufferSize,
@@ -298,7 +269,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 storeConfiguration);
     }
 
-    private RemoteTier getDfsDataManager() throws IOException {
+    private RemoteTier getRemoteTier() throws IOException {
         String baseDfsPath = storeConfiguration.getBaseDfsHomePath();
         if (StringUtils.isNullOrWhitespaceOnly(baseDfsPath)) {
             throw new IllegalArgumentException(

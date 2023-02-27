@@ -48,14 +48,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.SpillingType.SELECTIVE;
 import static org.apache.flink.util.Preconditions.checkNotNull;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
 public class DiskTier implements TierWriter, StorageTier {
@@ -83,8 +80,6 @@ public class DiskTier implements TierWriter, StorageTier {
     private final RegionBufferIndexTracker regionBufferIndexTracker;
 
     private final BufferCompressor bufferCompressor;
-
-    private final TieredStoreConfiguration storeConfiguration;
 
     /** Record the last assigned consumerId for each subpartition. */
     private final TierReaderViewId[] lastTierReaderViewIds;
@@ -122,7 +117,6 @@ public class DiskTier implements TierWriter, StorageTier {
         this.isBroadcastOnly = isBroadcastOnly;
         this.bufferPoolHelper = bufferPoolHelper;
         this.bufferCompressor = bufferCompressor;
-        this.storeConfiguration = storeConfiguration;
         this.regionBufferIndexTracker =
                 new RegionBufferIndexTrackerImpl(isBroadcastOnly ? 1 : numSubpartitions);
         this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
@@ -212,7 +206,6 @@ public class DiskTier implements TierWriter, StorageTier {
         SubpartitionDiskReaderView subpartitionDiskReaderView =
                 new SubpartitionDiskReaderView(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
-        checkMultipleConsumerIsAllowed(lastTierReaderViewId, storeConfiguration);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
         TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
@@ -276,16 +269,6 @@ public class DiskTier implements TierWriter, StorageTier {
     @Override
     public void setTimerGauge(TimerGauge timerGauge) {
         // nothing to do
-    }
-
-    private static void checkMultipleConsumerIsAllowed(
-            TierReaderViewId lastTierReaderViewId, TieredStoreConfiguration storeConfiguration) {
-        if (Objects.equals(storeConfiguration.getTieredStoreSpillingType(), SELECTIVE.toString())) {
-            checkState(
-                    lastTierReaderViewId == null,
-                    "Multiple consumer is not allowed for %s spilling strategy mode",
-                    storeConfiguration.getTieredStoreSpillingType());
-        }
     }
 
     @Override
