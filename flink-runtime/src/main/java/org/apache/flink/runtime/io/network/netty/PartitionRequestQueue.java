@@ -181,9 +181,11 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
         if (fatalError) {
             return;
         }
-        LOG.debug("%%% Server received!!!");
-        NetworkSequenceViewReader reader = obtainReader(receiverId);
-        operation.accept(reader);
+        try {
+            NetworkSequenceViewReader reader = obtainReader(receiverId);
+            operation.accept(reader);
+        } catch (IllegalStateException ignored) {
+        }
     }
 
     void acknowledgeAllRecordsProcessed(InputChannelID receiverId) {
