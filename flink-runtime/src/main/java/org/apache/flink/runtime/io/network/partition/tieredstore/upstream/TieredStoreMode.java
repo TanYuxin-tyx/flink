@@ -36,10 +36,4 @@ public interface TieredStoreMode {
         MEMORY_LOCAL_DFS,
         LOCAL_DFS
     }
-
-    enum SpillingType implements TieredStoreMode {
-        NO_FLUSH,
-        FULL,
-        SELECTIVE
-    }
 }

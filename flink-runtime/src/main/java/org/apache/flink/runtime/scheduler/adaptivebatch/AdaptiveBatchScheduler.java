@@ -81,7 +81,6 @@ import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.HYBRID_FULL;
 import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.HYBRID_SELECTIVE;
-import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.TIERED_STORE;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -351,8 +350,7 @@ public class AdaptiveBatchScheduler extends DefaultScheduler {
                             .anyMatch(
                                     ir ->
                                             ir.getResultType() == HYBRID_FULL
-                                                    || ir.getResultType() == HYBRID_SELECTIVE
-                                                    || ir.getResultType() == TIERED_STORE);
+                                                    || ir.getResultType() == HYBRID_SELECTIVE);
             if (intermediateResults.isEmpty() || hasHybridEdge) {
                 continue;
             }

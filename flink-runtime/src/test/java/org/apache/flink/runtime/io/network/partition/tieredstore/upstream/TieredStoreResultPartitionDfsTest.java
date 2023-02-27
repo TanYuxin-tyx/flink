@@ -95,7 +95,6 @@ class TieredStoreResultPartitionDfsTest {
         TieredStoreConfiguration configuration =
                 TieredStoreConfiguration.builder(numSubpartitions, 0)
                         .setTieredStoreTiers("DFS")
-                        .setTieredStoreSpillingType("FULL")
                         .setBaseDfsHomePath(getTempStorePathDir())
                         .build();
         TieredStoreResultPartition tieredStoreResultPartition =
@@ -145,7 +144,6 @@ class TieredStoreResultPartitionDfsTest {
         TieredStoreConfiguration configuration =
                 TieredStoreConfiguration.builder(numSubpartitions, 0)
                         .setTieredStoreTiers("DFS")
-                        .setTieredStoreSpillingType("FULL")
                         .setBaseDfsHomePath(getTempStorePathDir())
                         .build();
         TieredStoreResultPartition tieredStoreResultPartition =
@@ -183,7 +181,6 @@ class TieredStoreResultPartitionDfsTest {
         TieredStoreConfiguration configuration =
                 TieredStoreConfiguration.builder(numSubpartitions, 0)
                         .setTieredStoreTiers("DFS")
-                        .setTieredStoreSpillingType("FULL")
                         .setBaseDfsHomePath(getTempStorePathDir())
                         .build();
         TieredStoreResultPartition tieredStoreResultPartition =
@@ -234,7 +231,6 @@ class TieredStoreResultPartitionDfsTest {
         TieredStoreConfiguration configuration =
                 TieredStoreConfiguration.builder(numSubpartitions, 0)
                         .setTieredStoreTiers("DFS")
-                        .setTieredStoreSpillingType("FULL")
                         .setBaseDfsHomePath(getTempStorePathDir())
                         .build();
         TieredStoreResultPartition tieredStoreResultPartition =
@@ -284,7 +280,6 @@ class TieredStoreResultPartitionDfsTest {
         TieredStoreConfiguration configuration =
                 TieredStoreConfiguration.builder(numSubpartitions, 0)
                         .setTieredStoreTiers("DFS")
-                        .setTieredStoreSpillingType("FULL")
                         .setBaseDfsHomePath(getTempStorePathDir())
                         .build();
         TieredStoreResultPartition tieredStoreResultPartition =
@@ -329,7 +324,6 @@ class TieredStoreResultPartitionDfsTest {
         TieredStoreConfiguration configuration =
                 TieredStoreConfiguration.builder(numSubpartitions, 0)
                         .setTieredStoreTiers("DFS")
-                        .setTieredStoreSpillingType("FULL")
                         .setBaseDfsHomePath(getTempStorePathDir())
                         .build();
         TieredStoreResultPartition tieredStoreResultPartition =
@@ -368,7 +362,6 @@ class TieredStoreResultPartitionDfsTest {
         TieredStoreConfiguration configuration =
                 TieredStoreConfiguration.builder(1, 0)
                         .setTieredStoreTiers("DFS")
-                        .setTieredStoreSpillingType("FULL")
                         .setBaseDfsHomePath(getTempStorePathDir())
                         .build();
         TieredStoreResultPartition tieredStoreResultPartition =
@@ -389,7 +382,6 @@ class TieredStoreResultPartitionDfsTest {
         TieredStoreConfiguration configuration =
                 TieredStoreConfiguration.builder(numSubpartitions, 0)
                         .setTieredStoreTiers("DFS")
-                        .setTieredStoreSpillingType("FULL")
                         .setBaseDfsHomePath(getTempStorePathDir())
                         .build();
         TieredStoreResultPartition tieredStoreResultPartition =
@@ -414,7 +406,6 @@ class TieredStoreResultPartitionDfsTest {
         TieredStoreConfiguration configuration =
                 TieredStoreConfiguration.builder(2, 0)
                         .setTieredStoreTiers("DFS")
-                        .setTieredStoreSpillingType("FULL")
                         .setBaseDfsHomePath(getTempStorePathDir())
                         .build();
         TieredStoreResultPartition tieredStoreResultPartition =
@@ -434,7 +425,6 @@ class TieredStoreResultPartitionDfsTest {
         TieredStoreConfiguration configuration =
                 TieredStoreConfiguration.builder(2, 0)
                         .setTieredStoreTiers("DFS")
-                        .setTieredStoreSpillingType("FULL")
                         .setBaseDfsHomePath(getTempStorePathDir())
                         .build();
         TieredStoreResultPartition tieredStoreResultPartition =
@@ -456,7 +446,6 @@ class TieredStoreResultPartitionDfsTest {
         TieredStoreConfiguration configuration =
                 TieredStoreConfiguration.builder(2, 0)
                         .setTieredStoreTiers("DFS")
-                        .setTieredStoreSpillingType("FULL")
                         .setBaseDfsHomePath(getTempStorePathDir())
                         .build();
         try (TieredStoreResultPartition partition =
@@ -475,7 +464,6 @@ class TieredStoreResultPartitionDfsTest {
         TieredStoreConfiguration configuration =
                 TieredStoreConfiguration.builder(2, 0)
                         .setTieredStoreTiers("DFS")
-                        .setTieredStoreSpillingType("FULL")
                         .setBaseDfsHomePath(getTempStorePathDir())
                         .build();
         try (TieredStoreResultPartition partition =
@@ -599,7 +587,7 @@ class TieredStoreResultPartitionDfsTest {
                         "TieredStoreResultPartitionTest",
                         0,
                         new ResultPartitionID(),
-                        ResultPartitionType.TIERED_STORE,
+                        ResultPartitionType.HYBRID_SELECTIVE,
                         numSubpartitions,
                         numSubpartitions,
                         null,
@@ -611,8 +599,7 @@ class TieredStoreResultPartitionDfsTest {
                         isBroadcastOnly,
                         tieredStoreConfiguration,
                         null,
-                        () -> bufferPool,
-                        null);
+                        () -> bufferPool);
         taskIOMetricGroup =
                 UnregisteredMetricGroups.createUnregisteredTaskMetricGroup().getIOMetricGroup();
         tieredStoreResultPartition.setup();

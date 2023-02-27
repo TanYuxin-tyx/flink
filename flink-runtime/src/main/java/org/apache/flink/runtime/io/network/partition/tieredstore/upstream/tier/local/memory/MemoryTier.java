@@ -23,8 +23,6 @@ import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
@@ -43,7 +41,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.SpillingType.SELECTIVE;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -63,8 +60,6 @@ public class MemoryTier implements StorageTier {
     private final boolean isBroadcastOnly;
 
     private final BufferCompressor bufferCompressor;
-
-    private final TieredStoreConfiguration storeConfiguration;
 
     /** Record the last assigned consumerId for each subpartition. */
     private final TierReaderViewId[] lastTierReaderViewIds;
@@ -86,15 +81,13 @@ public class MemoryTier implements StorageTier {
             int networkBufferSize,
             BufferPoolHelper bufferPoolHelper,
             boolean isBroadcastOnly,
-            @Nullable BufferCompressor bufferCompressor,
-            TieredStoreConfiguration storeConfiguration) {
+            @Nullable BufferCompressor bufferCompressor) {
         this.numSubpartitions = numSubpartitions;
         this.networkBufferSize = networkBufferSize;
         this.isBroadcastOnly = isBroadcastOnly;
         this.bufferPoolHelper = bufferPoolHelper;
         this.bufferCompressor = bufferCompressor;
         checkNotNull(bufferCompressor);
-        this.storeConfiguration = storeConfiguration;
         this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTracker(numSubpartitions, isBroadcastOnly);
@@ -134,7 +127,7 @@ public class MemoryTier implements StorageTier {
         SubpartitionMemoryReaderView memoryReaderView =
                 new SubpartitionMemoryReaderView(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
-        checkMultipleConsumerIsAllowed(lastTierReaderViewId, storeConfiguration);
+        checkMultipleConsumerIsAllowed(lastTierReaderViewId);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
         TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
@@ -206,15 +199,8 @@ public class MemoryTier implements StorageTier {
         // nothing to do
     }
 
-    private static void checkMultipleConsumerIsAllowed(
-            TierReaderViewId lastTierReaderViewId, TieredStoreConfiguration storeConfiguration) {
-        if (TieredStoreMode.SpillingType.valueOf(storeConfiguration.getTieredStoreSpillingType())
-                == SELECTIVE) {
-            checkState(
-                    lastTierReaderViewId == null,
-                    "Multiple consumer is not allowed for %s spilling strategy mode",
-                    storeConfiguration.getTieredStoreSpillingType());
-        }
+    private static void checkMultipleConsumerIsAllowed(TierReaderViewId lastTierReaderViewId) {
+        checkState(lastTierReaderViewId == null, "Memory Tier does not support multiple consumers");
     }
 
     @Override
