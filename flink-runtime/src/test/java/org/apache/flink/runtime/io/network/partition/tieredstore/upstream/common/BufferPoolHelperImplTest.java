@@ -63,8 +63,7 @@ class BufferPoolHelperImplTest {
         networkBufferPool.createBufferPool(maxBuffers - requiredBuffers, maxBuffers);
         assertThat(bufferPool.getNumBuffers()).isEqualTo(requiredBuffers);
         for (int i = 0; i < requiredBuffers; i++) {
-            bufferPoolHelper.requestMemorySegmentBlocking(
-                    TieredStoreMode.TieredType.IN_LOCAL, false);
+            bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_LOCAL);
         }
         assertThat(triggerGlobalDecision).succeedsWithin(10, TimeUnit.SECONDS);
     }

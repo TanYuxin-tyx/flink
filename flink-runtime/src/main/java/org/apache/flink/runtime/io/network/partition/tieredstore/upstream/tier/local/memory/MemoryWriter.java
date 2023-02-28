@@ -149,10 +149,9 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
     }
 
     /**
-     * Register {@link
-     * SubpartitionConsumerInternalOperations}
-     * to {@link #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of
-     * the subpartition.
+     * Register {@link SubpartitionConsumerInternalOperations} to {@link
+     * #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of the
+     * subpartition.
      */
     public TierReader registerNewConsumer(
             int subpartitionId,
@@ -203,8 +202,7 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
     @Override
     public MemorySegment requestBufferFromPool(int subpartitionId) throws InterruptedException {
         MemorySegment segment =
-                bufferPoolHelper.requestMemorySegmentBlocking(
-                        subpartitionId, TieredStoreMode.TieredType.IN_MEM, true);
+                bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_MEM);
         return segment;
     }
 

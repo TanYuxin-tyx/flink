@@ -54,6 +54,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     private static final Logger LOG = LoggerFactory.getLogger(DiskCacheManager.class);
 
+    private static final float NUM_TRIGGER_FLUSH_RATIO = 0.8f;
+
     private final int numSubpartitions;
 
     private final SubpartitionDiskCacheManager[] subpartitionDiskCacheManagers;
@@ -94,8 +96,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                             subpartitionId, bufferSize, bufferCompressor, this);
             subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
         }
-        bufferPoolHelper.registerSubpartitionTieredManager(
-                TieredStoreMode.TieredType.IN_LOCAL, this);
+        //        bufferPoolHelper.registerSubpartitionTieredManager(
+        //                TieredStoreMode.TieredType.IN_LOCAL, this);
     }
 
     // ------------------------------------
@@ -207,8 +209,12 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     @Override
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment =
-                bufferPoolHelper.requestMemorySegmentBlocking(
-                        TieredStoreMode.TieredType.IN_LOCAL, false);
+                bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_LOCAL);
+        int numAvailable = bufferPoolHelper.numAvailableBuffers();
+        int numTotal = bufferPoolHelper.numTotalBuffers();
+        if ((numAvailable * 1.0 / numTotal) > NUM_TRIGGER_FLUSH_RATIO) {
+            notifyFlushCachedBuffers();
+        }
         return new BufferBuilder(segment, this::recycleBuffer);
     }
 
@@ -316,7 +322,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     }
 
     private void recycleBuffer(MemorySegment buffer) {
-        bufferPoolHelper.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_LOCAL, false);
+        bufferPoolHelper.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_LOCAL);
     }
 
     private static class Decision {

@@ -357,8 +357,7 @@ public class SubpartitionRemoteCacheManager {
 
     public BufferBuilder requestBufferFromPool() {
         MemorySegment segment =
-                bufferPoolHelper.requestMemorySegmentBlocking(
-                        targetChannel, TieredStoreMode.TieredType.IN_DFS, false);
+                bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_DFS);
         return new BufferBuilder(segment, this::recycleBuffer);
     }
 
