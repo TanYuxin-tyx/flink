@@ -290,7 +290,7 @@ public class SubpartitionMemoryDataManager {
         runWithLock(
                 () -> {
                     finishedBufferIndex++;
-                    if(consumerMap.size() == 0){
+                    if (consumerMap.size() == 0) {
                         allBuffers.add(bufferContext);
                     }
                     retainBufferIfNeeded(isBroadcast, bufferContext);
@@ -314,7 +314,7 @@ public class SubpartitionMemoryDataManager {
     }
 
     private void recycle(MemorySegment memorySegment) {
-        bufferPoolHelper.recycleBuffer(targetChannel, memorySegment, IN_MEM, true);
+        bufferPoolHelper.recycleBuffer(memorySegment, IN_MEM);
     }
 
     private void updateStatistics(Buffer buffer) {

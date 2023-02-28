@@ -28,14 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-/**
- * All buffers of Tiered Store are acquired from this {@link BufferPoolHelperImpl}. The buffers
- * mainly include two types, the first is the memory buffers and the second is the cached buffers.
- * If the memory buffer usage or the cached buffer usage exceed the ratio, no more buffers can be
- * acquired. If the total buffer usage exceeds the flush ratio, cached buffers will be flushed to
- * the corresponding disk files or DFS files to release the cached buffers.
- */
-public class BufferPoolHelperNewImpl implements BufferPoolHelper {
+/** All buffers of Tiered Store are acquired from this {@link BufferPoolHelperImpl}. */
+public class BufferPoolHelperImpl implements BufferPoolHelper {
 
     private final BufferPool bufferPool;
 
@@ -45,7 +39,7 @@ public class BufferPoolHelperNewImpl implements BufferPoolHelper {
 
     private final int numSubpartitions;
 
-    public BufferPoolHelperNewImpl(
+    public BufferPoolHelperImpl(
             BufferPool bufferPool,
             Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers,
             int numSubpartitions) {
@@ -68,11 +62,6 @@ public class BufferPoolHelperNewImpl implements BufferPoolHelper {
             default:
                 throw new RuntimeException("Unsupported tiered type " + tieredType);
         }
-    }
-
-    @Override
-    public int numTotalBuffers(TieredStoreMode.TieredType tieredType) {
-        return 0;
     }
 
     @Override
@@ -104,24 +93,7 @@ public class BufferPoolHelperNewImpl implements BufferPoolHelper {
     }
 
     @Override
-    public boolean canStoreNextSegmentForMemoryTier(int numSegmentSize) {
-        return false;
-    }
-
-    @Override
-    public void registerSubpartitionTieredManager(
-            TieredStoreMode.TieredType tieredType,
-            CacheBufferSpillTrigger cacheBufferSpillTrigger) {}
-
-    @Override
-    public MemorySegment requestMemorySegmentBlocking(
-            TieredStoreMode.TieredType tieredType, boolean isInMemory) {
-        return null;
-    }
-
-    @Override
-    public void recycleBuffer(
-            MemorySegment buffer, TieredStoreMode.TieredType tieredType, boolean isInMemory) {}
+    public void close() {}
 
     private void incRequestedBufferCounter(TieredStoreMode.TieredType tieredType) {
         tierRequestedBuffersCounter.putIfAbsent(tieredType, new AtomicInteger(0));
@@ -132,36 +104,6 @@ public class BufferPoolHelperNewImpl implements BufferPoolHelper {
         AtomicInteger numRequestedBuffers = tierRequestedBuffersCounter.get(tieredType);
         checkNotNull(numRequestedBuffers).decrementAndGet();
     }
-
-    @Override
-    public int numCachedBuffers() {
-        return 0;
-    }
-
-    @Override
-    public void checkNeedFlushCachedBuffers() {}
-
-    @Override
-    public void registerSubpartitionTieredManager(
-            int subpartitionId,
-            TieredStoreMode.TieredType tieredType,
-            CacheBufferSpillTrigger cacheBufferSpillTrigger) {}
-
-    @Override
-    public MemorySegment requestMemorySegmentBlocking(
-            int subpartitionId, TieredStoreMode.TieredType tieredType, boolean isInMemory) {
-        return null;
-    }
-
-    @Override
-    public void recycleBuffer(
-            int subpartitionId,
-            MemorySegment buffer,
-            TieredStoreMode.TieredType tieredType,
-            boolean isInMemory) {}
-
-    @Override
-    public void close() {}
 
     // Available - numSubpartitions + numExclusiveBuffersInMem - numRequestedFromMem
     private int getAvailableBuffersForMemory(int numAvailableBuffers) {
