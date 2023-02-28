@@ -275,7 +275,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
             throw new IllegalArgumentException(
                     String.format(
                             "Must specify DFS home path by %s when using DFS in Tiered Store.",
-                            NettyShuffleEnvironmentOptions.NETWORK_REMOTE_STORAGE_BASE_HOME_PATH
+                            NettyShuffleEnvironmentOptions
+                                    .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH
                                     .key()));
         }
         return new RemoteTier(

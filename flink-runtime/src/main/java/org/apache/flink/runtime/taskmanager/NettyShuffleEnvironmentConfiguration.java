@@ -382,7 +382,7 @@ public class NettyShuffleEnvironmentConfiguration {
                 configuration
                         .get(
                                 NettyShuffleEnvironmentOptions
-                                        .NETWORK_LOCAL_DISK_MIN_RESERVE_SPACE_BYTES)
+                                        .NETWORK_HYBRID_SHUFFLE_LOCAL_DISK_MIN_RESERVE_SPACE_BYTES)
                         .getBytes();
 
         BoundedBlockingSubpartitionType blockingSubpartitionType =
@@ -429,11 +429,12 @@ public class NettyShuffleEnvironmentConfiguration {
 
         String baseDfsHomePath =
                 configuration.getString(
-                        NettyShuffleEnvironmentOptions.NETWORK_REMOTE_STORAGE_BASE_HOME_PATH);
+                        NettyShuffleEnvironmentOptions
+                                .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH);
 
         boolean enableTieredStoreForHybridShuffle =
                 configuration.get(
-                        NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE);
+                        NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE);
 
         String tieredStoreTiers =
                 configuration.get(NettyShuffleEnvironmentOptions.TIERED_STORE_TIERS);
