@@ -96,8 +96,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                             subpartitionId, bufferSize, bufferCompressor, this);
             subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
         }
-        //        bufferPoolHelper.registerSubpartitionTieredManager(
-        //                TieredStoreMode.TieredType.IN_LOCAL, this);
+        bufferPoolHelper.registerSubpartitionTieredManager(
+                        TieredStoreMode.TieredType.IN_LOCAL, this);
     }
 
     // ------------------------------------
@@ -209,7 +209,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     @Override
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment =
-                bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_LOCAL);
+                bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_LOCAL, false);
         int numAvailable = bufferPoolHelper.numAvailableBuffers();
         int numTotal = bufferPoolHelper.numTotalBuffers();
         if ((numAvailable * 1.0 / numTotal) > NUM_TRIGGER_FLUSH_RATIO) {
@@ -322,7 +322,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     }
 
     private void recycleBuffer(MemorySegment buffer) {
-        bufferPoolHelper.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_LOCAL);
+        bufferPoolHelper.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_LOCAL, false);
     }
 
     private static class Decision {
