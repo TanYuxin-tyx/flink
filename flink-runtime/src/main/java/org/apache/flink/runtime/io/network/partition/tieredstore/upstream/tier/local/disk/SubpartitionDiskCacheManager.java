@@ -51,7 +51,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -84,7 +84,7 @@ public class SubpartitionDiskCacheManager {
     private final Set<Integer> lastBufferIndexOfSegments;
 
     /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
-    private final ReentrantReadWriteLock subpartitionLock = new ReentrantReadWriteLock();
+    private final ReentrantLock subpartitionLock = new ReentrantLock();
 
     @Nullable private final BufferCompressor bufferCompressor;
 
@@ -118,7 +118,8 @@ public class SubpartitionDiskCacheManager {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     public Deque<BufferIndexAndChannel> getBuffersSatisfyStatus(
-            DiskCacheManagerOperation.SpillStatus spillStatus, DiskCacheManagerOperation.ConsumeStatusWithId consumeStatusWithId) {
+            DiskCacheManagerOperation.SpillStatus spillStatus,
+            DiskCacheManagerOperation.ConsumeStatusWithId consumeStatusWithId) {
         return callWithLock(
                 () -> {
                     // TODO return iterator to avoid completely traversing the queue for each call.
@@ -377,7 +378,10 @@ public class SubpartitionDiskCacheManager {
     @GuardedBy("subpartitionLock")
     private void checkAndMarkBufferReadable(BufferContext bufferContext) {
         // only spill buffer needs to be marked as released.
-        if (isBufferSatisfyStatus(bufferContext, DiskCacheManagerOperation.SpillStatus.SPILL, DiskCacheManagerOperation.ConsumeStatusWithId.ALL_ANY)) {
+        if (isBufferSatisfyStatus(
+                bufferContext,
+                DiskCacheManagerOperation.SpillStatus.SPILL,
+                DiskCacheManagerOperation.ConsumeStatusWithId.ALL_ANY)) {
             bufferContext
                     .getSpilledFuture()
                     .orElseThrow(
@@ -431,19 +435,19 @@ public class SubpartitionDiskCacheManager {
 
     private <E extends Exception> void runWithLock(ThrowingRunnable<E> runnable) throws E {
         try {
-            subpartitionLock.writeLock().lock();
+            subpartitionLock.lock();
             runnable.run();
         } finally {
-            subpartitionLock.writeLock().unlock();
+            subpartitionLock.unlock();
         }
     }
 
     private <R, E extends Exception> R callWithLock(SupplierWithException<R, E> callable) throws E {
         try {
-            subpartitionLock.writeLock().lock();
+            subpartitionLock.lock();
             return callable.get();
         } finally {
-            subpartitionLock.writeLock().unlock();
+            subpartitionLock.unlock();
         }
     }
 }
