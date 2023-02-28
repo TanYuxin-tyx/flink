@@ -48,6 +48,8 @@ public class FileChannelManagerReserveSpaceImpl implements FileChannelManager {
     private static final Logger LOG =
             LoggerFactory.getLogger(FileChannelManagerReserveSpaceImpl.class);
 
+    private static final float DEFAULT_RESERVE_DISK_SPACE_RATIO = 0.01f;
+
     /** The temporary directories for files. */
     private final File[] paths;
 
@@ -60,7 +62,7 @@ public class FileChannelManagerReserveSpaceImpl implements FileChannelManager {
     /** Prefix of the temporary directories to create. */
     private final String prefix;
 
-    private final long minDiskReserveBytes;
+    private final long configuredMinDiskReserveBytes;
 
     /**
      * Flag to signal that the file channel manager has been shutdown already. The flag should
@@ -72,13 +74,13 @@ public class FileChannelManagerReserveSpaceImpl implements FileChannelManager {
     private final Thread shutdownHook;
 
     public FileChannelManagerReserveSpaceImpl(
-            String[] tempDirs, String prefix, long minDiskReserveBytes) {
+            String[] tempDirs, String prefix, long configuredMinDiskReserveBytes) {
         checkNotNull(tempDirs, "The temporary directories must not be null.");
         checkArgument(tempDirs.length > 0, "The temporary directories must not be empty.");
 
         this.random = new Random();
         this.prefix = prefix;
-        this.minDiskReserveBytes = minDiskReserveBytes;
+        this.configuredMinDiskReserveBytes = configuredMinDiskReserveBytes;
 
         shutdownHook =
                 ShutdownHookUtil.addShutdownHook(
@@ -135,11 +137,19 @@ public class FileChannelManagerReserveSpaceImpl implements FileChannelManager {
     @Override
     public boolean hasMoreUsableSpace() {
         for (File filePath : paths) {
-            if (filePath.getUsableSpace() > minDiskReserveBytes) {
+            if (filePath.getUsableSpace() > getEffectiveMinDiskReserveBytes(filePath)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private long getEffectiveMinDiskReserveBytes(File filePath) {
+        return configuredMinDiskReserveBytes > 0
+                ? Math.max(
+                        configuredMinDiskReserveBytes,
+                        (long) (filePath.getTotalSpace() * DEFAULT_RESERVE_DISK_SPACE_RATIO))
+                : 0;
     }
 
     /** Remove all the temp directories. */
