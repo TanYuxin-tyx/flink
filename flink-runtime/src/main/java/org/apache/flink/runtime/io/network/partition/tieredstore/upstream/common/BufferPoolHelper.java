@@ -28,13 +28,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.Tiered
  */
 public interface BufferPoolHelper {
 
-    // ------------------------------------
-    //          For Local Memory Tier
-    // ------------------------------------
-
     int numAvailableBuffers(TieredStoreMode.TieredType tieredType);
-
-    int numTotalBuffers(TieredStoreMode.TieredType tieredType);
 
     int numAvailableBuffers();
 
@@ -43,52 +37,6 @@ public interface BufferPoolHelper {
     MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TieredType tieredType);
 
     void recycleBuffer(MemorySegment buffer, TieredStoreMode.TieredType tieredType);
-
-    boolean canStoreNextSegmentForMemoryTier(int numSegmentSize);
-
-    /**
-     * When creating each tiered manager for all subpartitions, first register to this buffer pool
-     * helper. If all subpartition can share the same flush listener, call this registration method.
-     */
-    void registerSubpartitionTieredManager(
-            TieredStoreMode.TieredType tieredType, CacheBufferSpillTrigger cacheBufferSpillTrigger);
-
-    MemorySegment requestMemorySegmentBlocking(
-            TieredStoreMode.TieredType tieredType, boolean isInMemory);
-
-    void recycleBuffer(
-            MemorySegment buffer, TieredStoreMode.TieredType tieredType, boolean isInMemory);
-
-    int numCachedBuffers();
-
-    void checkNeedFlushCachedBuffers();
-
-    // ------------------------------------
-    //             For Dfs Tier
-    // ------------------------------------
-
-    /**
-     * When creating each tiered manager for each subpartition, first register to this buffer pool
-     * helper. If each subpartition uses each separate flush listener, call this registration
-     * method.
-     */
-    void registerSubpartitionTieredManager(
-            int subpartitionId,
-            TieredStoreMode.TieredType tieredType,
-            CacheBufferSpillTrigger cacheBufferSpillTrigger);
-
-    // ------------------------------------
-    //                Common
-    // ------------------------------------
-
-    MemorySegment requestMemorySegmentBlocking(
-            int subpartitionId, TieredStoreMode.TieredType tieredType, boolean isInMemory);
-
-    void recycleBuffer(
-            int subpartitionId,
-            MemorySegment buffer,
-            TieredStoreMode.TieredType tieredType,
-            boolean isInMemory);
 
     void close();
 }

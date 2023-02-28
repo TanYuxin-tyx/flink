@@ -362,8 +362,7 @@ public class SubpartitionRemoteCacheManager {
     }
 
     private void recycleBuffer(MemorySegment buffer) {
-        bufferPoolHelper.recycleBuffer(
-                targetChannel, buffer, TieredStoreMode.TieredType.IN_DFS, false);
+        bufferPoolHelper.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_DFS);
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
