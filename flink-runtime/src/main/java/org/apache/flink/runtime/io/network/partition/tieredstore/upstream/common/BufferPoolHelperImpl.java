@@ -364,7 +364,7 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
             }
         } else {
             incCachedBuffers(subpartitionId, tieredType);
-            checkNeedFlushCachedBuffers();
+            //checkNeedFlushCachedBuffers();
         }
         return checkNotNull(requestedBuffer);
     }
