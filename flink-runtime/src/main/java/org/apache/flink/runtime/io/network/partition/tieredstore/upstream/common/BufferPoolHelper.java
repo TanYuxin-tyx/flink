@@ -32,15 +32,19 @@ public interface BufferPoolHelper {
     //          For Local Memory Tier
     // ------------------------------------
 
+    int numAvailableBuffers(TieredStoreMode.TieredType tieredType);
+
+    int numTotalBuffers(TieredStoreMode.TieredType tieredType);
+
+    int numAvailableBuffers();
+
+    int numTotalBuffers();
+
+    MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TieredType tieredType);
+
+    void recycleBuffer(MemorySegment buffer, TieredStoreMode.TieredType tieredType);
+
     boolean canStoreNextSegmentForMemoryTier(int numSegmentSize);
-
-    void decreaseRedundantBufferNumberInSegment(int subpartitionId, int numSegmentSize);
-
-    // ------------------------------------
-    //          For Local Disk Tier
-    // ------------------------------------
-
-    int numPoolSize();
 
     /**
      * When creating each tiered manager for all subpartitions, first register to this buffer pool
