@@ -10,7 +10,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.comm
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClientFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,24 +20,17 @@ public class SingleChannelReaderImpl implements SingleChannelReader {
 
     private final SingleChannelTierClientFactory clientFactory;
 
-    private final List<SingleChannelTierClient> clientList = new ArrayList<>();
+    private List<SingleChannelTierClient> clientList;
 
     private long currentSegmentId = 0L;
 
     public SingleChannelReaderImpl(SingleChannelTierClientFactory clientFactory) {
         this.clientFactory = clientFactory;
-        setupClientList();
     }
 
-    private void setupClientList() {
-        SingleChannelTierClient localSingleChannelDataClient =
-                clientFactory.createLocalSingleChannelDataClient();
-        if (localSingleChannelDataClient != null) {
-            clientList.add(localSingleChannelDataClient);
-        }
-        if (clientFactory.hasRemoteClient()) {
-            clientList.add(clientFactory.createDfsSingleChannelDataClient());
-        }
+    @Override
+    public void setup() {
+        this.clientList = clientFactory.createClientList();
     }
 
     @Override
@@ -47,7 +39,7 @@ public class SingleChannelReaderImpl implements SingleChannelReader {
         Optional<BufferAndAvailability> bufferAndAvailability = Optional.empty();
         for (SingleChannelTierClient client : clientList) {
             bufferAndAvailability = client.getNextBuffer(inputChannel, currentSegmentId);
-            if(bufferAndAvailability.isPresent()){
+            if (bufferAndAvailability.isPresent()) {
                 break;
             }
         }
@@ -56,12 +48,7 @@ public class SingleChannelReaderImpl implements SingleChannelReader {
         }
         BufferAndAvailability bufferData = bufferAndAvailability.get();
         if (bufferData.buffer().getDataType() == Buffer.DataType.SEGMENT_EVENT) {
-            EndOfSegmentEvent endOfSegmentEvent =
-                    (EndOfSegmentEvent)
-                            EventSerializer.fromSerializedEvent(
-                                    bufferData.buffer().getNioBufferReadable(),
-                                    Thread.currentThread().getContextClassLoader());
-            checkState(endOfSegmentEvent.getSegmentId() == (currentSegmentId + 1L));
+            checkState(getSegmentId(bufferData) == (currentSegmentId + 1L));
             currentSegmentId++;
         }
         return Optional.of(bufferData);
@@ -72,5 +59,17 @@ public class SingleChannelReaderImpl implements SingleChannelReader {
         for (SingleChannelTierClient client : clientList) {
             client.close();
         }
+    }
+
+    // ------------------------------------
+    //           Internal Method
+    // ------------------------------------
+
+    private long getSegmentId(BufferAndAvailability bufferData) throws IOException {
+        return ((EndOfSegmentEvent)
+                        EventSerializer.fromSerializedEvent(
+                                bufferData.buffer().getNioBufferReadable(),
+                                Thread.currentThread().getContextClassLoader()))
+                .getSegmentId();
     }
 }

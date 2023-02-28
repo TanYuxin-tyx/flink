@@ -8,6 +8,9 @@ import java.util.Optional;
 
 /** The interface of {@link SingleChannelReader} in Tiered Store. */
 public interface SingleChannelReader {
+
+    void setup();
+
     Optional<BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException;
 
