@@ -49,12 +49,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.checkFlushCacheBuffers;
+
 /** This class is responsible for managing cached buffers data before flush to local files. */
 public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferSpillTrigger {
 
     private static final Logger LOG = LoggerFactory.getLogger(DiskCacheManager.class);
-
-    private static final float NUM_TRIGGER_FLUSH_RATIO = 0.8f;
 
     private final int numSubpartitions;
 
@@ -210,11 +210,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment =
                 bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_LOCAL);
-        int numAvailable = bufferPoolHelper.numAvailableBuffers();
-        int numTotal = bufferPoolHelper.numTotalBuffers();
-        if ((numAvailable * 1.0 / numTotal) > NUM_TRIGGER_FLUSH_RATIO) {
-            notifyFlushCachedBuffers();
-        }
+        checkFlushCacheBuffers(bufferPoolHelper, this);
         return new BufferBuilder(segment, this::recycleBuffer);
     }
 
