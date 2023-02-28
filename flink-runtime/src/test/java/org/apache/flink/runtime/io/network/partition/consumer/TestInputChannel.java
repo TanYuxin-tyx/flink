@@ -113,11 +113,13 @@ public class TestInputChannel extends InputChannel {
         return read(createBuffer(1), nextType);
     }
 
-    TestInputChannel readSegmentInfo(int segmentId) throws IOException, InterruptedException {
-        ByteBuffer byteBuffer = EventSerializer.toSerializedEvent(new EndOfSegmentEvent(0));
+    TestInputChannel readSegmentInfo(long segmentId) throws IOException, InterruptedException {
+        ByteBuffer byteBuffer = EventSerializer.toSerializedEvent(new EndOfSegmentEvent(segmentId));
         NetworkBuffer segmentInfoBuffer = new NetworkBuffer(
                 MemorySegmentFactory.wrap(byteBuffer.array()),
-                FreeingBufferRecycler.INSTANCE);
+                FreeingBufferRecycler.INSTANCE,
+                Buffer.DataType.SEGMENT_EVENT,
+                byteBuffer.array().length);
         return read(segmentInfoBuffer, Buffer.DataType.DATA_BUFFER);
     }
 
@@ -183,7 +185,8 @@ public class TestInputChannel extends InputChannel {
     public void requestSubpartition() throws IOException, InterruptedException {}
 
     @Override
-    public Optional<BufferAndAvailability> getNextBuffer() throws IOException, InterruptedException {
+    public Optional<BufferAndAvailability> getNextBuffer()
+            throws IOException, InterruptedException {
         checkState(!isReleased);
 
         BufferAndAvailabilityProvider provider = buffers.poll();

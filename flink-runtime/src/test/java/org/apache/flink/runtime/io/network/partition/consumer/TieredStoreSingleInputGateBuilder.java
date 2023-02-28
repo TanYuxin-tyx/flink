@@ -26,8 +26,8 @@ import org.apache.flink.runtime.executiongraph.IndexRange;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
+import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.buffer.NoOpBufferPool;
-import org.apache.flink.runtime.io.network.partition.InputChannelTestUtils;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
@@ -60,7 +60,7 @@ public class TieredStoreSingleInputGateBuilder {
 
     private final int bufferSize = 4096;
 
-    private ResultPartitionType partitionType = ResultPartitionType.PIPELINED;
+    private ResultPartitionType partitionType = ResultPartitionType.HYBRID_SELECTIVE;
 
     private IndexRange subpartitionIndexRange = new IndexRange(0, 0);
 
@@ -72,8 +72,7 @@ public class TieredStoreSingleInputGateBuilder {
 
     private BufferDecompressor bufferDecompressor = null;
 
-    private MemorySegmentProvider segmentProvider =
-            InputChannelTestUtils.StubMemorySegmentProvider.getInstance();
+    private MemorySegmentProvider segmentProvider = new NetworkBufferPool(0, 32 * 1024);
 
     private ChannelStateWriter channelStateWriter = ChannelStateWriter.NO_OP;
 
@@ -203,7 +202,7 @@ public class TieredStoreSingleInputGateBuilder {
                         maybeCreateBufferDebloater(gateIndex),
                         jobID,
                         resultPartitionIDs,
-                        "./");
+                        null);
         if (channelFactory != null) {
             gate.setInputChannels(
                     IntStream.range(0, numberOfChannels)
