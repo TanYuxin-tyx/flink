@@ -41,7 +41,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperNewImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier;
@@ -149,9 +149,13 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         if (isReleased()) {
             throw new IOException("Result partition has been released.");
         }
-
         bufferPoolHelper =
-                new BufferPoolHelperNewImpl(bufferPool, TIER_EXCLUSIVE_BUFFERS, numSubpartitions);
+                new BufferPoolHelperImpl(
+                        bufferPool,
+                        storeConfiguration.getTieredStoreBufferInMemoryRatio(),
+                        storeConfiguration.getTieredStoreFlushBufferRatio(),
+                        storeConfiguration.getTieredStoreTriggerFlushRatio(),
+                        numSubpartitions);
         setupTierDataGates();
         tieredStoreProducer =
                 new TieredStoreProducerImpl(tierDataGates, numSubpartitions, isBroadcast);
