@@ -128,7 +128,7 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
             poolSizeChecker.scheduleAtFixedRate(
                     () -> {
                         calculateNumBuffersLimit();
-                        checkNeedFlushCachedBuffers();
+                        //                        checkNeedFlushCachedBuffers();
                     },
                     poolSizeCheckInterval,
                     poolSizeCheckInterval,
@@ -364,7 +364,7 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
             }
         } else {
             incCachedBuffers(subpartitionId, tieredType);
-            checkNeedFlushCachedBuffers();
+            //            checkNeedFlushCachedBuffers();
         }
         return checkNotNull(requestedBuffer);
     }
