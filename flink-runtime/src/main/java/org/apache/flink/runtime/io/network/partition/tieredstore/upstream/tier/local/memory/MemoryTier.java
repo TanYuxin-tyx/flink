@@ -141,16 +141,8 @@ public class MemoryTier implements StorageTier {
         return memoryReaderView;
     }
 
-    int flag = 0;
-
     @Override
     public boolean canStoreNextSegment(int subpartitionId) {
-        //        flag++;
-        //        return flag % 2 == 1;
-        // return true;
-        // return bufferPoolHelper.canStoreNextSegmentForMemoryTier(bufferNumberInSegment)
-        //        && memoryWriter.isConsumerRegistered(subpartitionId);
-
         return bufferPoolHelper.canStoreNextSegmentForMemoryTier(bufferNumberInSegment);
     }
 
