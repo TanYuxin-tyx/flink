@@ -7,6 +7,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.SingleChannelRemoteTierClient;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.SingleChannelLocalTierClient;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /** The factory of {@link SingleChannelTierClient}. */
@@ -22,7 +23,7 @@ public class SingleChannelTierClientFactory {
 
     private final int subpartitionIndex;
 
-    private final boolean hasRemoteClient;
+    private final boolean enableRemoteTier;
 
     public SingleChannelTierClientFactory(
             JobID jobID,
@@ -34,23 +35,28 @@ public class SingleChannelTierClientFactory {
         this.resultPartitionIDs = resultPartitionIDs;
         this.subpartitionIndex = subpartitionIndex;
         this.baseDfsPath = baseDfsPath;
-        this.hasRemoteClient = baseDfsPath != null;
+        this.enableRemoteTier = baseDfsPath != null;
         this.networkBufferPool = (NetworkBufferPool) memorySegmentProvider;
     }
 
-    public SingleChannelTierClient createLocalSingleChannelDataClient() {
-        return new SingleChannelLocalTierClient();
-    }
-
-    public SingleChannelTierClient createDfsSingleChannelDataClient() {
-        if (!hasRemoteClient) {
-            return null;
+    public List<SingleChannelTierClient> createClientList() {
+        List<SingleChannelTierClient> clientList = new ArrayList<>();
+        if (enableRemoteTier) {
+            clientList.add(new SingleChannelLocalTierClient());
+            clientList.add(
+                    new SingleChannelRemoteTierClient(
+                            jobID,
+                            resultPartitionIDs,
+                            subpartitionIndex,
+                            networkBufferPool,
+                            baseDfsPath));
+        } else {
+            clientList.add(new SingleChannelLocalTierClient());
         }
-        return new SingleChannelRemoteTierClient(
-                jobID, resultPartitionIDs, subpartitionIndex, networkBufferPool, baseDfsPath);
+        return clientList;
     }
 
-    public boolean hasRemoteClient() {
-        return hasRemoteClient;
+    public boolean isEnableRemoteTier() {
+        return enableRemoteTier;
     }
 }
