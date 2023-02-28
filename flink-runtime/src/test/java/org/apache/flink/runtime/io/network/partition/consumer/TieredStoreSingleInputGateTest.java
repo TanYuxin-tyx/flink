@@ -22,7 +22,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.metrics.groups.UnregisteredMetricsGroup;
-import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
@@ -39,7 +38,6 @@ import org.apache.flink.runtime.io.network.NettyShuffleEnvironmentBuilder;
 import org.apache.flink.runtime.io.network.TaskEventDispatcher;
 import org.apache.flink.runtime.io.network.TaskEventPublisher;
 import org.apache.flink.runtime.io.network.TestingConnectionManager;
-import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.StopMode;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -47,9 +45,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
-import org.apache.flink.runtime.io.network.metrics.InputChannelMetrics;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.BufferWritingResultPartition;
 import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
@@ -93,73 +91,37 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Arrays.asList;
-import static org.apache.flink.runtime.checkpoint.CheckpointOptions.alignedNoTimeout;
-import static org.apache.flink.runtime.checkpoint.CheckpointType.CHECKPOINT;
 import static org.apache.flink.runtime.executiongraph.ExecutionGraphTestUtils.createExecutionAttemptId;
 import static org.apache.flink.runtime.io.network.partition.InputChannelTestUtils.createLocalInputChannel;
 import static org.apache.flink.runtime.io.network.partition.InputChannelTestUtils.createRemoteInputChannel;
 import static org.apache.flink.runtime.io.network.partition.InputChannelTestUtils.createResultSubpartitionView;
+import static org.apache.flink.runtime.io.network.partition.InputChannelTestUtils.newUnregisteredInputChannelMetrics;
 import static org.apache.flink.runtime.io.network.partition.InputGateFairnessTest.setupInputGate;
 import static org.apache.flink.runtime.io.network.util.TestBufferFactory.createBuffer;
-import static org.apache.flink.runtime.state.CheckpointStorageLocationReference.getDefault;
 import static org.apache.flink.runtime.util.NettyShuffleDescriptorBuilder.createRemoteWithIdAndLocation;
-import static org.apache.flink.util.Preconditions.checkState;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Tests for {@link TieredStoreSingleInputGate}. */
 public class TieredStoreSingleInputGateTest extends InputGateTestBase {
 
-    private JobID jobID = JobID.generate();
+    private static final int NUM_BUFFERS = 10;
 
-    private List<ResultPartitionID> resultPartitionIDS =
+    private static final int MEMORY_SEGMENT_SIZE = 32 * 1024;
+
+    private final JobID jobID = JobID.generate();
+
+    private final List<ResultPartitionID> resultPartitionIDS =
             new ArrayList<ResultPartitionID>() {
                 {
                     add(new ResultPartitionID());
                 }
             };
 
-    private int inputGateIndex = 0;
-
-    private int inputChannelIndex = 0;
-
-    @Test
-    void testCheckpointsDeclinedUnlessAllChannelsAreKnown() {
-        TieredStoreSingleInputGate gate =
-                createTieredStoreSingleInputGate(
-                        createTieredStoreNettyShuffleEnvironment(),
-                        1,
-                        ResultPartitionType.PIPELINED);
-        gate.setInputChannels(
-                new InputChannelBuilder().setChannelIndex(0).buildUnknownChannel(gate));
-        assertThatThrownBy(
-                        () ->
-                                gate.checkpointStarted(
-                                        new CheckpointBarrier(
-                                                1L,
-                                                1L,
-                                                alignedNoTimeout(CHECKPOINT, getDefault()))))
-                .isInstanceOf(CheckpointException.class);
-    }
-
-    @Test
-    void testCheckpointsDeclinedUnlessStateConsumed() {
-        TieredStoreSingleInputGate gate =
-                createTieredStoreSingleInputGate(createTieredStoreNettyShuffleEnvironment());
-        checkState(!gate.getStateConsumedFuture().isDone());
-        assertThatThrownBy(
-                        () ->
-                                gate.checkpointStarted(
-                                        new CheckpointBarrier(
-                                                1L,
-                                                1L,
-                                                alignedNoTimeout(CHECKPOINT, getDefault()))))
-                .isInstanceOf(CheckpointException.class);
-    }
-
     /**
-     * Tests {@link InputGate#setup()} should create the respective {@link BufferPool} and assign
-     * exclusive buffers for {@link RemoteInputChannel}s, but should not request partitions.
+     * Tests {@link TieredStoreSingleInputGate#setup()} should create the respective {@link
+     * BufferPool} and assign exclusive buffers for {@link RemoteInputChannel}s, but should not
+     * request partitions.
      */
     @Test
     void testSetupLogic() throws Exception {
@@ -219,6 +181,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     void testPartitionRequestLogic() throws Exception {
         final NettyShuffleEnvironment environment = new NettyShuffleEnvironmentBuilder().build();
         final TieredStoreSingleInputGate gate = createTieredStoreSingleInputGate(environment);
+        gate.setup();
 
         try (Closer closer = Closer.create()) {
             closer.register(environment::close);
@@ -250,82 +213,73 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
      * Tests basic correctness of buffer-or-event interleaving and correct <code>null</code> return
      * value after receiving all end-of-partition events.
      */
-    //    @Test
-    //    void testBasicGetNextLogic() throws Exception {
-    //        // Setup
-    //        final TieredStoreSingleInputGate inputGate =
-    //                createTieredStoreSingleInputGateWithBufferPool(2);
-    //        inputGate.setup();
-    //
-    //        final TestInputChannel[] inputChannels =
-    //                new TestInputChannel[] {
-    //                    new TestInputChannel(inputGate, 0), new TestInputChannel(inputGate, 1)
-    //                };
-    //
-    //        inputGate.setInputChannels(inputChannels);
-    //
-    //        int segmentId = 0;
-    //        int curSequenceNumber = 0;
-    //        String tempSegmentPath =
-    //                createBaseSubpartitionPath(
-    //                        jobID,
-    //                        resultPartitionIDS.get(inputChannelIndex),
-    //                        inputGateIndex,
-    //                        "./",
-    //                        false);
-    //        writeSegmentInfoToFile(new Path(tempSegmentPath, "/seg-" + segmentId));
-    //
-    //        inputChannels[0].readBuffer();
-    //        inputChannels[0].readBuffer();
-    //        inputChannels[0].readSegmentInfo(segmentId);
-    //        inputChannels[1].readBuffer();
-    //        inputChannels[1].readBuffer();
-    //        inputChannels[1].readEndOfData();
-    //        inputChannels[0].readEndOfData();
-    //        inputChannels[1].readEndOfPartitionEvent();
-    //        inputChannels[0].readEndOfPartitionEvent();
-    //
-    //        inputGate.notifyChannelNonEmpty(inputChannels[0]);
-    //        inputGate.notifyChannelNonEmpty(inputChannels[1]);
-    //
-    //        verifyBufferOrEvent(inputGate, true, 0, true);
-    //        verifyBufferOrEvent(inputGate, true, 1, true);
-    //        verifyBufferOrEvent(inputGate, true, 0, true);
-    //        verifyBufferOrEvent(inputGate, true, 1, true);
-    //
-    //        for (int i = 0; i < BUFFERS_IN_SEGMENT; ++i) {
-    //            verifyBufferOrEvent(inputGate, true, 0, true);
-    //        }
-    //
-    //        // The input gate does not receive any EndOfData.
-    //        assertThat(inputGate.hasReceivedEndOfData())
-    //                .isEqualTo(PullingAsyncDataInput.EndOfDataStatus.NOT_END_OF_DATA);
-    //        verifyBufferOrEvent(inputGate, false, 1, true);
-    //        assertThat(inputGate.hasReceivedEndOfData())
-    //                .isEqualTo(PullingAsyncDataInput.EndOfDataStatus.NOT_END_OF_DATA);
-    //        verifyBufferOrEvent(inputGate, false, 0, true);
-    //        // The input gate has received all EndOfData.
-    //        assertThat(inputGate.hasReceivedEndOfData())
-    //                .isEqualTo(PullingAsyncDataInput.EndOfDataStatus.DRAINED);
-    //        verifyBufferOrEvent(inputGate, false, 1, true);
-    //        verifyBufferOrEvent(inputGate, false, 0, false);
-    //        // Return null when the input gate has received all end-of-partition events
-    //        assertThat(inputGate.hasReceivedEndOfData())
-    //                .isEqualTo(PullingAsyncDataInput.EndOfDataStatus.DRAINED);
-    //        assertThat(inputGate.isFinished()).isTrue();
-    //
-    //        for (TestInputChannel ic : inputChannels) {
-    //            ic.assertReturnedEventsAreRecycled();
-    //        }
-    //
-    //        deleteTempSegmentFile(new Path(tempSegmentPath));
-    //    }
+    @Test
+    void testBasicGetNextLogic() throws Exception {
+        final TieredStoreSingleInputGate inputGate =
+                createTieredStoreSingleInputGateWithBufferPool();
+        inputGate.setup();
+
+        final TestInputChannel[] inputChannels =
+                new TestInputChannel[] {
+                    new TestInputChannel(inputGate, 0), new TestInputChannel(inputGate, 1)
+                };
+
+        inputGate.setInputChannels(inputChannels);
+
+        long segmentId = 1L;
+        int bufferInSegment = 2;
+
+        for (int i = 0; i < bufferInSegment; ++i) {
+            inputChannels[0].readBuffer();
+            inputChannels[1].readBuffer();
+        }
+        inputChannels[0].readSegmentInfo(segmentId);
+        inputChannels[1].readSegmentInfo(segmentId);
+        inputChannels[0].readEndOfData();
+        inputChannels[1].readEndOfData();
+        inputChannels[0].readEndOfPartitionEvent();
+        inputChannels[1].readEndOfPartitionEvent();
+
+        inputGate.notifyChannelNonEmpty(inputChannels[0]);
+        inputGate.notifyChannelNonEmpty(inputChannels[1]);
+
+        verifyBufferOrEvent(inputGate, true, 0, true);
+        verifyBufferOrEvent(inputGate, true, 1, true);
+        verifyBufferOrEvent(inputGate, true, 0, true);
+        verifyBufferOrEvent(inputGate, true, 1, true);
+
+        // The input gate does not receive any EndOfData.
+        assertThat(inputGate.hasReceivedEndOfData())
+                .isEqualTo(PullingAsyncDataInput.EndOfDataStatus.NOT_END_OF_DATA);
+        verifyBufferOrEvent(inputGate, false, 0, true);
+        assertThat(inputGate.hasReceivedEndOfData())
+                .isEqualTo(PullingAsyncDataInput.EndOfDataStatus.NOT_END_OF_DATA);
+        verifyBufferOrEvent(inputGate, false, 1, true);
+        // The input gate has received all EndOfData.
+        assertThat(inputGate.hasReceivedEndOfData())
+                .isEqualTo(PullingAsyncDataInput.EndOfDataStatus.DRAINED);
+        verifyBufferOrEvent(inputGate, false, 0, true);
+        verifyBufferOrEvent(inputGate, false, 1, false);
+        // Return null when the input gate has received all end-of-partition events
+        assertThat(inputGate.hasReceivedEndOfData())
+                .isEqualTo(PullingAsyncDataInput.EndOfDataStatus.DRAINED);
+        assertThat(inputGate.isFinished()).isTrue();
+
+        for (TestInputChannel ic : inputChannels) {
+            ic.assertReturnedEventsAreRecycled();
+        }
+    }
 
     @Test
     void testDrainFlagComputation() throws Exception {
         // Setup
-        final TieredStoreSingleInputGate inputGate1 = createTieredStoreSingleInputGate();
-        final TieredStoreSingleInputGate inputGate2 = createTieredStoreSingleInputGate();
+        final TieredStoreSingleInputGate inputGate1 =
+                createTieredStoreSingleInputGateWithBufferPool();
+        inputGate1.setup();
+
+        final TieredStoreSingleInputGate inputGate2 =
+                createTieredStoreSingleInputGateWithBufferPool();
+        inputGate2.setup();
 
         final TestInputChannel[] inputChannels1 =
                 new TestInputChannel[] {
@@ -384,6 +338,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
                 new TieredStoreSingleInputGateBuilder()
                         .setBufferDecompressor(decompressor)
                         .build()) {
+            inputGate.setup();
             TestInputChannel inputChannel = new TestInputChannel(inputGate, 0);
 
             MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(bufferSize);
@@ -417,6 +372,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     @Test
     void testNotifyAfterEndOfPartition() throws Exception {
         final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(2);
+        inputGate.setup();
         TestInputChannel inputChannel = new TestInputChannel(inputGate, 0);
         inputGate.setInputChannels(inputChannel, new TestInputChannel(inputGate, 1));
 
@@ -433,6 +389,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     @Test
     void testIsAvailable() throws Exception {
         final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(1);
+        inputGate.setup();
         TestInputChannel inputChannel = new TestInputChannel(inputGate, 0);
         inputGate.setInputChannels(inputChannel);
 
@@ -442,6 +399,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     @Test
     void testIsAvailableAfterFinished() throws Exception {
         final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(1);
+        inputGate.setup();
         TestInputChannel inputChannel = new TestInputChannel(inputGate, 0);
         inputGate.setInputChannels(inputChannel);
 
@@ -457,6 +415,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     void testIsMoreAvailableReadingFromSingleInputChannel() throws Exception {
         // Setup
         final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate();
+        inputGate.setup();
 
         final TestInputChannel[] inputChannels =
                 new TestInputChannel[] {
@@ -484,10 +443,9 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
                 new TestingResultPartitionManager(new NoOpResultSubpartitionView());
 
         // Setup reader with one local and one unknown input channel
-
         NettyShuffleEnvironment environment = createTieredStoreNettyShuffleEnvironment();
         final TieredStoreSingleInputGate inputGate =
-                createTieredStoreSingleInputGate(environment, 2, ResultPartitionType.PIPELINED);
+                createTieredStoreSingleInputGate(environment, 2);
         final InputChannel[] inputChannels = new InputChannel[2];
         try (Closer closer = Closer.create()) {
             closer.register(environment::close);
@@ -547,6 +505,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     @Test
     void testUpdateChannelBeforeRequest() throws Exception {
         TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(1);
+        inputGate.setup();
 
         TestingResultPartitionManager partitionManager =
                 new TestingResultPartitionManager(new NoOpResultSubpartitionView());
@@ -577,6 +536,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
 
         // Setup the input gate with a single channel that does nothing
         final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(1);
+        inputGate.setup();
 
         InputChannel inputChannel = InputChannelBuilder.newBuilder().buildUnknownChannel(inputGate);
         inputGate.setInputChannels(inputChannel);
@@ -642,9 +602,8 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
                         .setPartitionRequestMaxBackoff(maxBackoff)
                         .build();
 
-        TieredStoreSingleInputGate gate =
-                createTieredStoreSingleInputGate(
-                        partitionIds, ResultPartitionType.PIPELINED, netEnv);
+        TieredStoreSingleInputGate gate = createTieredStoreSingleInputGate(partitionIds, netEnv);
+        gate.setup();
         gate.setChannelStateWriter(ChannelStateWriter.NO_OP);
 
         gate.finishReadRecoveredState();
@@ -657,7 +616,8 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
             closer.register(netEnv::close);
             closer.register(gate::close);
 
-            assertThat(gate.getConsumedPartitionType()).isEqualTo(ResultPartitionType.PIPELINED);
+            assertThat(gate.getConsumedPartitionType())
+                    .isEqualTo(ResultPartitionType.HYBRID_SELECTIVE);
 
             Map<SubpartitionInfo, InputChannel> channelMap = gate.getInputChannels();
 
@@ -707,8 +667,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     @Test
     void testRequestBuffersWithRemoteInputChannel() throws Exception {
         final NettyShuffleEnvironment network = createTieredStoreNettyShuffleEnvironment();
-        final TieredStoreSingleInputGate inputGate =
-                createTieredStoreSingleInputGate(network, 1, ResultPartitionType.PIPELINED_BOUNDED);
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(network, 1);
         int buffersPerChannel = 2;
         int extraNetworkBuffersPerGate = 8;
 
@@ -727,9 +686,8 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
             NetworkBufferPool bufferPool = network.getNetworkBufferPool();
             // only the exclusive buffers should be assigned/available now
             assertThat(remote.getNumberOfAvailableBuffers()).isEqualTo(buffersPerChannel);
-
             assertThat(bufferPool.getNumberOfAvailableMemorySegments())
-                    .isEqualTo(bufferPool.getTotalNumberOfMemorySegments() - buffersPerChannel - 2);
+                    .isEqualTo(bufferPool.getTotalNumberOfMemorySegments() - buffersPerChannel - 1);
             // note: exclusive buffers are not handed out into LocalBufferPool and are thus not
             // counted
             assertThat(bufferPool.countBuffers()).isEqualTo(extraNetworkBuffersPerGate);
@@ -743,8 +701,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     @Test
     void testRequestBuffersWithUnknownInputChannel() throws Exception {
         final NettyShuffleEnvironment network = createTieredStoreNettyShuffleEnvironment();
-        final TieredStoreSingleInputGate inputGate =
-                createTieredStoreSingleInputGate(network, 1, ResultPartitionType.PIPELINED_BOUNDED);
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(network, 1);
         int buffersPerChannel = 2;
         int extraNetworkBuffersPerGate = 8;
 
@@ -761,7 +718,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
             NetworkBufferPool bufferPool = network.getNetworkBufferPool();
 
             assertThat(bufferPool.getNumberOfAvailableMemorySegments())
-                    .isEqualTo(bufferPool.getTotalNumberOfMemorySegments() - 2);
+                    .isEqualTo(bufferPool.getTotalNumberOfMemorySegments() - 1);
             // note: exclusive buffers are not handed out into LocalBufferPool and are thus not
             // counted
             assertThat(bufferPool.countBuffers()).isEqualTo(extraNetworkBuffersPerGate);
@@ -783,7 +740,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
             assertThat(remote.getNumberOfAvailableBuffers()).isEqualTo(buffersPerChannel);
 
             assertThat(bufferPool.getNumberOfAvailableMemorySegments())
-                    .isEqualTo(bufferPool.getTotalNumberOfMemorySegments() - buffersPerChannel - 2);
+                    .isEqualTo(bufferPool.getTotalNumberOfMemorySegments() - buffersPerChannel - 1);
             // note: exclusive buffers are not handed out into LocalBufferPool and are thus not
             // counted
             assertThat(bufferPool.countBuffers()).isEqualTo(extraNetworkBuffersPerGate);
@@ -813,8 +770,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
         localResultPartition.setup();
         remoteResultPartition.setup();
 
-        final TieredStoreSingleInputGate inputGate =
-                createTieredStoreSingleInputGate(network, 2, ResultPartitionType.PIPELINED);
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(network, 2);
         final InputChannel[] inputChannels = new InputChannel[2];
 
         try (Closer closer = Closer.create()) {
@@ -912,7 +868,6 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
         TieredStoreSingleInputGate gate =
                 createTieredStoreSingleInputGate(
                         partitionIds,
-                        ResultPartitionType.BLOCKING,
                         subpartitionIndexRange,
                         netEnv,
                         localLocation,
@@ -996,8 +951,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
                                 .setupBufferPoolFactoryFromNettyShuffleEnvironment(network)
                                 .build();
 
-        final TieredStoreSingleInputGate inputGate =
-                createTieredStoreSingleInputGate(network, 2, ResultPartitionType.PIPELINED);
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(network, 2);
 
         final ResultPartitionID localResultPartitionId = resultPartition.getPartitionId();
         final InputChannel[] inputChannels = new InputChannel[2];
@@ -1040,9 +994,10 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
      * the {@link SingleInputGate} would not swallow or transform the original exception.
      */
     @Test
-    void testPartitionNotFoundExceptionWhileGetNextBuffer() {
+    void testPartitionNotFoundExceptionWhileGetNextBuffer() throws IOException {
         final TieredStoreSingleInputGate inputGate =
                 InputChannelTestUtils.createTieredStoreSingleInputGate(1);
+        inputGate.setup();
         final LocalInputChannel localChannel =
                 createLocalInputChannel(inputGate, new ResultPartitionManager());
         final ResultPartitionID partitionId = localChannel.getPartitionId();
@@ -1061,6 +1016,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     void testAnnounceBufferSize() throws Exception {
         final TieredStoreSingleInputGate inputGate =
                 InputChannelTestUtils.createTieredStoreSingleInputGate(2);
+        inputGate.setup();
         final LocalInputChannel localChannel =
                 createLocalInputChannel(
                         inputGate,
@@ -1098,8 +1054,10 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
 
             int numberOfGates = 10;
             Map<InputGateID, SingleInputGate> createdInputGatesById =
-                    createInputGateWithLocalChannels(network, numberOfGates, 1);
-
+                    createInputGateWithLocalChannels(network, numberOfGates);
+            for (SingleInputGate singleInputGate : createdInputGatesById.values()) {
+                singleInputGate.setup();
+            }
             assertThat(createdInputGatesById.size()).isEqualTo(numberOfGates);
 
             for (InputGateID id : createdInputGatesById.keySet()) {
@@ -1139,6 +1097,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
                         .setSingleInputGateIndex(1)
                         .setNumberOfChannels(3)
                         .build();
+        inputGate.setup();
         final TestInputChannel[] inputChannels =
                 new TestInputChannel[] {
                     new TestInputChannel(inputGate, 0),
@@ -1179,7 +1138,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     void testBufferInUseCount() throws Exception {
         // Setup
         final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate();
-
+        inputGate.setup();
         final TestInputChannel[] inputChannels =
                 new TestInputChannel[] {
                     new TestInputChannel(inputGate, 0), new TestInputChannel(inputGate, 1)
@@ -1213,89 +1172,8 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
         return new SubpartitionInfo(partitionId, subpartitionIndex);
     }
 
-    static TieredStoreSingleInputGate createTieredStoreSingleInputGate(
-            IntermediateResultPartitionID[] partitionIds,
-            ResultPartitionType resultPartitionType,
-            NettyShuffleEnvironment netEnv)
-            throws IOException {
-        return createTieredStoreSingleInputGate(
-                partitionIds,
-                resultPartitionType,
-                new IndexRange(0, 0),
-                netEnv,
-                ResourceID.generate(),
-                null,
-                null);
-    }
-
-    static TieredStoreSingleInputGate createTieredStoreSingleInputGate(
-            IntermediateResultPartitionID[] partitionIds,
-            ResultPartitionType resultPartitionType,
-            IndexRange subpartitionIndexRange,
-            NettyShuffleEnvironment netEnv,
-            ResourceID localLocation,
-            ConnectionManager connectionManager,
-            ResultPartitionManager resultPartitionManager)
-            throws IOException {
-
-        TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex[] channelDescs =
-                new TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex[] {
-                    // Local
-                    new TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex(
-                            createRemoteWithIdAndLocation(partitionIds[0], localLocation), 0),
-                    // Remote
-                    new TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex(
-                            createRemoteWithIdAndLocation(partitionIds[1], ResourceID.generate()),
-                            1),
-                    // Unknown
-                    new TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex(
-                            new UnknownShuffleDescriptor(
-                                    new ResultPartitionID(
-                                            partitionIds[2], createExecutionAttemptId())),
-                            2)
-                };
-
-        InputGateDeploymentDescriptor gateDesc =
-                new InputGateDeploymentDescriptor(
-                        new IntermediateDataSetID(),
-                        resultPartitionType,
-                        subpartitionIndexRange,
-                        channelDescs.length,
-                        Collections.singletonList(
-                                new TaskDeploymentDescriptor.NonOffloaded<>(
-                                        CompressedSerializedValue.fromObject(channelDescs))));
-
-        final TaskMetricGroup taskMetricGroup =
-                UnregisteredMetricGroups.createUnregisteredTaskMetricGroup();
-        return new TieredStoreSingleInputGateFactory(
-                        localLocation,
-                        netEnv.getConfiguration(),
-                        connectionManager != null
-                                ? connectionManager
-                                : netEnv.getConnectionManager(),
-                        resultPartitionManager != null
-                                ? resultPartitionManager
-                                : netEnv.getResultPartitionManager(),
-                        new TaskEventDispatcher(),
-                        netEnv.getNetworkBufferPool(),
-                        "./")
-                .create(
-                        netEnv.createShuffleIOOwnerContext(
-                                new JobID(),
-                                "TestTask",
-                                taskMetricGroup.executionId(),
-                                taskMetricGroup),
-                        0,
-                        gateDesc,
-                        TieredStoreSingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
-                        new InputChannelMetrics());
-    }
-
     private static Map<InputGateID, SingleInputGate> createInputGateWithLocalChannels(
-            NettyShuffleEnvironment network,
-            int numberOfGates,
-            @SuppressWarnings("SameParameterValue") int numberOfLocalChannels)
-            throws IOException {
+            NettyShuffleEnvironment network, int numberOfGates) throws IOException {
         TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex[] channelDescs =
                 new TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex[] {
                     new TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex(
@@ -1309,7 +1187,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
             ids[i] = new IntermediateDataSetID();
             gateDescs[i] =
                     new InputGateDeploymentDescriptor(
-                            ids[i], ResultPartitionType.PIPELINED, 0, channelDescs);
+                            ids[i], ResultPartitionType.HYBRID_SELECTIVE, 0, channelDescs);
         }
 
         ExecutionAttemptID consumerID = createExecutionAttemptId();
@@ -1344,32 +1222,99 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
                 .buildUnknownChannel(inputGate);
     }
 
-    private NettyShuffleEnvironment createTieredStoreNettyShuffleEnvironment() {
-        return new NettyShuffleEnvironmentBuilder().setUsingTieredStore(true).build();
-    }
-
     static void verifyBufferOrEvent(
             InputGate inputGate,
             boolean expectedIsBuffer,
             int expectedChannelIndex,
             boolean expectedMoreAvailable)
             throws IOException, InterruptedException {
-
         final Optional<BufferOrEvent> bufferOrEvent = inputGate.getNext();
         assertThat(bufferOrEvent.isPresent()).isTrue();
-        assertThat(bufferOrEvent.get().isBuffer()).isEqualTo(expectedIsBuffer);
         assertThat(bufferOrEvent.get().getChannelInfo())
                 .isEqualTo(inputGate.getChannel(expectedChannelIndex).getChannelInfo());
+        assertThat(bufferOrEvent.get().isBuffer()).isEqualTo(expectedIsBuffer);
         assertThat(bufferOrEvent.get().moreAvailable()).isEqualTo(expectedMoreAvailable);
         if (!expectedMoreAvailable) {
             assertThat(inputGate.pollNext().isPresent()).isFalse();
         }
     }
 
+    private NettyShuffleEnvironment createTieredStoreNettyShuffleEnvironment() {
+        return new NettyShuffleEnvironmentBuilder().setUsingTieredStore(true).build();
+    }
+
+    static TieredStoreSingleInputGate createTieredStoreSingleInputGate(
+            IntermediateResultPartitionID[] partitionIds, NettyShuffleEnvironment netEnv)
+            throws IOException {
+        return createTieredStoreSingleInputGate(
+                partitionIds, new IndexRange(0, 0), netEnv, ResourceID.generate(), null, null);
+    }
+
+    static TieredStoreSingleInputGate createTieredStoreSingleInputGate(
+            IntermediateResultPartitionID[] partitionIds,
+            IndexRange subpartitionIndexRange,
+            NettyShuffleEnvironment netEnv,
+            ResourceID localLocation,
+            ConnectionManager connectionManager,
+            ResultPartitionManager resultPartitionManager)
+            throws IOException {
+
+        TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex[] channelDescs =
+                new TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex[] {
+                    // Local
+                    new TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex(
+                            createRemoteWithIdAndLocation(partitionIds[0], localLocation), 0),
+                    // Remote
+                    new TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex(
+                            createRemoteWithIdAndLocation(partitionIds[1], ResourceID.generate()),
+                            1),
+                    // Unknown
+                    new TaskDeploymentDescriptorFactory.ShuffleDescriptorAndIndex(
+                            new UnknownShuffleDescriptor(
+                                    new ResultPartitionID(
+                                            partitionIds[2], createExecutionAttemptId())),
+                            2)
+                };
+
+        InputGateDeploymentDescriptor gateDesc =
+                new InputGateDeploymentDescriptor(
+                        new IntermediateDataSetID(),
+                        ResultPartitionType.HYBRID_SELECTIVE,
+                        subpartitionIndexRange,
+                        channelDescs.length,
+                        Collections.singletonList(
+                                new TaskDeploymentDescriptor.NonOffloaded<>(
+                                        CompressedSerializedValue.fromObject(channelDescs))));
+
+        final TaskMetricGroup taskMetricGroup =
+                UnregisteredMetricGroups.createUnregisteredTaskMetricGroup();
+        return new TieredStoreSingleInputGateFactory(
+                        localLocation,
+                        netEnv.getConfiguration(),
+                        connectionManager != null
+                                ? connectionManager
+                                : netEnv.getConnectionManager(),
+                        resultPartitionManager != null
+                                ? resultPartitionManager
+                                : netEnv.getResultPartitionManager(),
+                        new TaskEventDispatcher(),
+                        netEnv.getNetworkBufferPool(),
+                        null)
+                .create(
+                        netEnv.createShuffleIOOwnerContext(
+                                new JobID(),
+                                "TestTask",
+                                taskMetricGroup.executionId(),
+                                taskMetricGroup),
+                        0,
+                        gateDesc,
+                        TieredStoreSingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
+                        newUnregisteredInputChannelMetrics());
+    }
+
     private TieredStoreSingleInputGate createTieredStoreSingleInputGate(
             NettyShuffleEnvironment environment) {
-        TieredStoreSingleInputGate inputGate =
-                createTieredStoreSingleInputGate(environment, 3, ResultPartitionType.PIPELINED);
+        TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(environment, 3);
         InputChannel remoteChannel =
                 new InputChannelBuilder().setChannelIndex(0).buildRemoteRecoveredChannel(inputGate);
         InputChannel localChannel =
@@ -1380,21 +1325,22 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
         return inputGate;
     }
 
-    //    protected TieredStoreSingleInputGate createTieredStoreSingleInputGateWithBufferPool(
-    //            int numberOfInputChannels) throws IOException {
-    //        NetworkBufferPool networkBufferPool =
-    //                new NetworkBufferPool(NUM_BUFFERS, MEMORY_SEGMENT_SIZE);
-    //        LocalBufferPool localBufferPool = new LocalBufferPool(networkBufferPool, NUM_BUFFERS);
-    //        TieredStoreSingleInputGateBuilder builder =
-    //                new TieredStoreSingleInputGateBuilder()
-    //                        .setNumberOfChannels(numberOfInputChannels)
-    //                        .setSingleInputGateIndex(gateIndex++)
-    //                        .setBufferPoolFactory(localBufferPool)
-    //                        .setJobID(jobID)
-    //                        .setResultPartitionID(resultPartitionIDS)
-    //                        .setSingleInputGateIndex(inputGateIndex);
-    //        return builder.build();
-    //    }
+    protected TieredStoreSingleInputGate createTieredStoreSingleInputGateWithBufferPool()
+            throws IOException {
+        NetworkBufferPool networkBufferPool =
+                new NetworkBufferPool(NUM_BUFFERS, MEMORY_SEGMENT_SIZE);
+        LocalBufferPool localBufferPool = new LocalBufferPool(networkBufferPool, NUM_BUFFERS);
+        int inputGateIndex = 0;
+        TieredStoreSingleInputGateBuilder builder =
+                new TieredStoreSingleInputGateBuilder()
+                        .setNumberOfChannels(2)
+                        .setSingleInputGateIndex(gateIndex++)
+                        .setBufferPoolFactory(localBufferPool)
+                        .setJobID(jobID)
+                        .setResultPartitionID(resultPartitionIDS)
+                        .setSingleInputGateIndex(inputGateIndex);
+        return builder.build();
+    }
 
     /**
      * A testing implementation of {@link ResultPartitionManager} which counts the number of {@link

@@ -116,26 +116,24 @@ public abstract class InputGateTestBase {
     protected TieredStoreSingleInputGate createTieredStoreSingleInputGate(
             int numberOfInputChannels) {
         return createTieredStoreSingleInputGate(
-                null, numberOfInputChannels, ResultPartitionType.PIPELINED);
+                null, numberOfInputChannels);
     }
 
     protected TieredStoreSingleInputGate createTieredStoreSingleInputGate(
             NettyShuffleEnvironment environment,
-            int numberOfInputChannels,
-            ResultPartitionType partitionType) {
+            int numberOfInputChannels) {
 
         TieredStoreSingleInputGateBuilder builder =
                 new TieredStoreSingleInputGateBuilder()
                         .setNumberOfChannels(numberOfInputChannels)
-                        .setSingleInputGateIndex(gateIndex++)
-                        .setResultPartitionType(partitionType);
+                        .setSingleInputGateIndex(gateIndex++);
 
         if (environment != null) {
             builder = builder.setupBufferPoolFactory(environment);
         }
 
         TieredStoreSingleInputGate inputGate = builder.build();
-        assertEquals(partitionType, inputGate.getConsumedPartitionType());
+        assertEquals(ResultPartitionType.HYBRID_SELECTIVE, inputGate.getConsumedPartitionType());
         return inputGate;
     }
 }
