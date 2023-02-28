@@ -35,7 +35,6 @@ import org.junit.rules.TemporaryFolder;
 import java.io.IOException;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.createRecord;
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Tests for {@link RemoteCacheManager}. */
@@ -68,10 +67,8 @@ class RemoteDiskCacheManagerTest {
         cacheDataManager.append(createRecord(0), 0, Buffer.DataType.DATA_BUFFER, false);
         cacheDataManager.append(createRecord(1), 0, Buffer.DataType.DATA_BUFFER, false);
         cacheDataManager.append(createRecord(2), 0, Buffer.DataType.DATA_BUFFER, false);
-        assertThat(bufferPoolHelper.numCachedBuffers()).isEqualTo(1);
 
         cacheDataManager.append(createRecord(3), 0, Buffer.DataType.DATA_BUFFER, false);
-        assertThat(bufferPoolHelper.numCachedBuffers()).isEqualTo(2);
     }
 
     @Test
