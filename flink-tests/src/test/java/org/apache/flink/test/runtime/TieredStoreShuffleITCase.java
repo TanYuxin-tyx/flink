@@ -59,7 +59,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 ExecutionOptions.BATCH_SHUFFLE_MODE,
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
@@ -74,7 +74,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 ExecutionOptions.BATCH_SHUFFLE_MODE,
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
         executeJob(jobGraph, configuration, numRecordsToSend, true);
@@ -88,7 +88,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 ExecutionOptions.BATCH_SHUFFLE_MODE,
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
@@ -106,7 +106,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 ExecutionOptions.BATCH_SHUFFLE_MODE,
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "LOCAL");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
@@ -120,7 +120,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 ExecutionOptions.BATCH_SHUFFLE_MODE,
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "LOCAL");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
         executeJob(jobGraph, configuration, numRecordsToSend, true);
@@ -134,7 +134,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 ExecutionOptions.BATCH_SHUFFLE_MODE,
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "LOCAL");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
@@ -152,7 +152,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 ExecutionOptions.BATCH_SHUFFLE_MODE,
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         setupDfsConfigurations(configuration);
         configuration.set(TIERED_STORE_TIERS, "DFS");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, false, configuration, 1);
@@ -167,7 +167,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 ExecutionOptions.BATCH_SHUFFLE_MODE,
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         setupDfsConfigurations(configuration);
         configuration.set(TIERED_STORE_TIERS, "DFS");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, false, configuration, 4, true);
@@ -182,7 +182,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 ExecutionOptions.BATCH_SHUFFLE_MODE,
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         setupDfsConfigurations(configuration);
         configuration.set(TIERED_STORE_TIERS, "DFS");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, false, configuration, 4);
@@ -198,9 +198,10 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         final int numRecordsToSend = 10000;
         Configuration configuration = getConfiguration();
         configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+                ExecutionOptions.BATCH_SHUFFLE_MODE,
+                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
@@ -211,9 +212,10 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+                ExecutionOptions.BATCH_SHUFFLE_MODE,
+                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
         executeJob(jobGraph, configuration, numRecordsToSend, true);
@@ -224,9 +226,10 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+                ExecutionOptions.BATCH_SHUFFLE_MODE,
+                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
@@ -239,7 +242,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         configuration.set(
                 ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
@@ -252,7 +255,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         configuration.set(
                 ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
         executeJob(jobGraph, configuration, numRecordsToSend, true);
@@ -265,7 +268,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         configuration.set(
                 ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
@@ -280,9 +283,10 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         final int numRecordsToSend = 10000;
         Configuration configuration = getConfiguration();
         configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+                ExecutionOptions.BATCH_SHUFFLE_MODE,
+                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY_DFS");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
@@ -294,9 +298,10 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+                ExecutionOptions.BATCH_SHUFFLE_MODE,
+                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY_DFS");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
@@ -308,9 +313,10 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+                ExecutionOptions.BATCH_SHUFFLE_MODE,
+                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY_DFS");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
@@ -326,9 +332,10 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         final int numRecordsToSend = 10000;
         Configuration configuration = getConfiguration();
         configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+                ExecutionOptions.BATCH_SHUFFLE_MODE,
+                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL_DFS");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
@@ -340,9 +347,10 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+                ExecutionOptions.BATCH_SHUFFLE_MODE,
+                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL_DFS");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
@@ -354,9 +362,10 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+                ExecutionOptions.BATCH_SHUFFLE_MODE,
+                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL_DFS");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
@@ -374,7 +383,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         configuration.set(
                 ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "LOCAL_DFS");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
@@ -388,7 +397,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         configuration.set(
                 ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "LOCAL_DFS");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
@@ -402,7 +411,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         configuration.set(
                 ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
         configuration.set(
-                NettyShuffleEnvironmentOptions.ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE, true);
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         configuration.set(TIERED_STORE_TIERS, "LOCAL_DFS");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
@@ -411,7 +420,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
 
     private void setupDfsConfigurations(Configuration configuration) {
         configuration.set(
-                NettyShuffleEnvironmentOptions.NETWORK_REMOTE_STORAGE_BASE_HOME_PATH,
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH,
                 tmp.getRoot().getAbsolutePath());
     }
 }

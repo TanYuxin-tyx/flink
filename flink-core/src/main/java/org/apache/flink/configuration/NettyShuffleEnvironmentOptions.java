@@ -381,36 +381,44 @@ public class NettyShuffleEnvironmentOptions {
                                     + "the tie by failing the request of exclusive buffers and ask users to increase the number of total buffers.");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
-    public static final ConfigOption<MemorySize> NETWORK_LOCAL_DISK_MIN_RESERVE_SPACE_BYTES =
-            key("taskmanager.network.hybrid-shuffle.local-disk.min-reserve-space-bytes")
-                    .memoryType()
-                    .defaultValue(MemorySize.parse("1g"))
-                    .withDescription(
-                            "The minimum reserved space in bytes per local disk when using Hybrid"
-                                    + " Shuffle. When using a local disk to store shuffle data, the"
-                                    + " local disk space may be exhausted if it is used without any"
-                                    + " limit, leading to job failures. This option controls the"
-                                    + " minimum reserved disk space which cannot be used to store"
-                                    + " the shuffle data. This option is enabled only when the"
-                                    + " remote storage is used. When the left available disk space"
-                                    + " reaches this limit, the new arriving data will be written to"
-                                    + " the remote storage.");
+    public static final ConfigOption<MemorySize>
+            NETWORK_HYBRID_SHUFFLE_LOCAL_DISK_MIN_RESERVE_SPACE_BYTES =
+                    key("taskmanager.network.hybrid-shuffle.local-disk.min-reserve-space-bytes")
+                            .memoryType()
+                            .defaultValue(MemorySize.parse("1g"))
+                            .withDescription(
+                                    "The minimum reserved space in bytes per local disk when using Hybrid"
+                                            + " Shuffle. When using a local disk to store shuffle data, the"
+                                            + " local disk space may be exhausted if it is used without any"
+                                            + " limit, leading to job failures. This option controls the"
+                                            + " minimum reserved disk space which cannot be used to store"
+                                            + " the shuffle data. When the left available disk space reaches"
+                                            + " this limit, the new arriving data will be written to the"
+                                            + " remote storage. Note that, for flexibility, the default"
+                                            + " reserved space limit is max(1g, 1% of the total disk space).");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
-    public static final ConfigOption<Boolean> ENABLE_TIERED_STORE_FOR_HYBRID_SHUFFLE =
-            ConfigOptions.key("execution.hybrid-shuffle.enable-tiered-store")
-                    .booleanType()
-                    .defaultValue(false);
-
-    @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
-    public static final ConfigOption<String> NETWORK_REMOTE_STORAGE_BASE_HOME_PATH =
+    public static final ConfigOption<String> NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH =
             key("taskmanager.network.hybrid-shuffle.remote.path")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "The base home path of remote storage to store shuffle data. If Hybrid"
-                                    + " Shuffle uses remote storage, this option must be specified,"
-                                    + " otherwise, an exception will be thrown.");
+                            "The base home path of remote storage to store shuffle data. If the"
+                                    + " option is configured, Hybrid Shuffle will use the remote"
+                                    + " storage path as a supplement to the local disks. If not"
+                                    + " configured, the remote storage will not be used.");
+
+    @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
+    @Experimental
+    public static final ConfigOption<Boolean> NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE =
+            ConfigOptions.key("taskmanager.network.hybrid-shuffle.enable-tiered-store")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "This is a temporary configuration to enable the tiered store for Hybrid"
+                                    + " Shuffle. In the future, when the tiered store reaches the"
+                                    + " releasable status to replace the old Hybrid Shuffle, this"
+                                    + " option will be removed.");
 
     @Internal
     public static final ConfigOption<String> TIERED_STORE_TIERS =
