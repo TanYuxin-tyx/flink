@@ -30,7 +30,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
@@ -83,8 +82,6 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
 
     private int numTotalBuffers;
 
-    private int numStopNotifyFlushBuffers;
-
     private int numTriggerFlushBuffers;
 
     private final AtomicInteger numTotalCacheBuffers = new AtomicInteger(0);
@@ -95,8 +92,6 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
 
     private final Map<SubpartitionTier, SubpartitionBuffersCounter> subpartitionCachedBuffersMap =
             new HashMap<>();
-
-    private final Queue<CompletableFuture<Void>> requestingBuffersQueue = new LinkedList<>();
 
     private Queue<SubpartitionBuffersCounter> subpartitionBuffersCounters =
             new PriorityBlockingQueue<>();
@@ -154,6 +149,34 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
     // ------------------------------------
 
     @Override
+    public int numAvailableBuffers(TieredStoreMode.TieredType tieredType) {
+        return 0;
+    }
+
+    @Override
+    public int numTotalBuffers(TieredStoreMode.TieredType tieredType) {
+        return 0;
+    }
+
+    @Override
+    public int numAvailableBuffers() {
+        return 0;
+    }
+
+    @Override
+    public int numTotalBuffers() {
+        return 0;
+    }
+
+    @Override
+    public MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TieredType tieredType) {
+        return null;
+    }
+
+    @Override
+    public void recycleBuffer(MemorySegment buffer, TieredStoreMode.TieredType tieredType) {}
+
+    @Override
     public boolean canStoreNextSegmentForMemoryTier(int bufferNumberInSegment) {
         calculateNumBuffersLimit();
         if (this.bufferNumberInSegment == -1) {
@@ -170,16 +193,6 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
         // return true;
     }
 
-    @Override
-    public void decreaseRedundantBufferNumberInSegment(
-            int subpartitionId, int bufferNumberInSegment) {
-        int actualRequiredBufferNum = memoryTierSubpartitionRequiredBuffers[subpartitionId];
-        if (actualRequiredBufferNum < bufferNumberInSegment) {
-            numInMemoryBuffers.getAndAdd(actualRequiredBufferNum - bufferNumberInSegment);
-        }
-        memoryTierSubpartitionRequiredBuffers[subpartitionId] = 0;
-    }
-
     void decInMemoryBuffer() {
         checkState(
                 numInMemoryBuffers.decrementAndGet() >= 0,
@@ -190,11 +203,6 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
     // ------------------------------------
     //          For Local Disk Tier
     // ------------------------------------
-
-    @Override
-    public int numPoolSize() {
-        return bufferPool.getNumBuffers();
-    }
 
     @Override
     public void registerSubpartitionTieredManager(
@@ -367,8 +375,6 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
             // the buffer in FIFO order.
             numTotalBuffers = bufferPool.getNumBuffers();
             numInMemoryMaxBuffers = Math.max(1, (int) (numTotalBuffers * bufferInMemoryRatio));
-            numStopNotifyFlushBuffers =
-                    (int) (numTotalBuffers * (triggerFlushRatio - flushBufferRatio));
             numTriggerFlushBuffers = Math.max(1, (int) (numTotalBuffers * triggerFlushRatio));
         }
     }
