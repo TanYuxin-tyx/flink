@@ -128,7 +128,7 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
             poolSizeChecker.scheduleAtFixedRate(
                     () -> {
                         calculateNumBuffersLimit();
-                        checkNeedFlushCachedBuffers();
+                        //checkNeedFlushCachedBuffers();
                     },
                     poolSizeCheckInterval,
                     poolSizeCheckInterval,
