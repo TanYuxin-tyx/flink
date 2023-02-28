@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperNewImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.createTestingOutputMetrics;
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.getTierExclusiveBuffers;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -68,7 +69,9 @@ class DiskCacheManagerTest {
         bufferSize = Integer.BYTES * 3;
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
-        BufferPoolHelper bufferPoolHelper = new BufferPoolHelperImpl(bufferPool, 0.4f, 0.2f, 0.8f);
+        BufferPoolHelper bufferPoolHelper =
+                new BufferPoolHelperNewImpl(
+                        bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
         DiskCacheManager diskCacheManager = createCacheDataManager(bufferPoolHelper);
 
         diskCacheManager.append(createRecord(0), 0, Buffer.DataType.DATA_BUFFER, false);
@@ -180,7 +183,8 @@ class DiskCacheManagerTest {
                 new DiskCacheManager(
                         NUM_SUBPARTITIONS,
                         bufferSize,
-                        new BufferPoolHelperImpl(bufferPool, 0.4f, 0.2f, 0.8f),
+                        new BufferPoolHelperNewImpl(
+                                bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS),
                         regionBufferIndexTracker,
                         dataFilePath,
                         null);

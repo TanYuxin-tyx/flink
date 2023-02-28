@@ -32,7 +32,9 @@ import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Test utils for tiered store. */
 public class TieredStoreTestUtils {
@@ -81,5 +83,13 @@ public class TieredStoreTestUtils {
         byteBuffer.putInt(value);
         byteBuffer.flip();
         return byteBuffer;
+    }
+
+    public static Map<TieredStoreMode.TieredType, Integer> getTierExclusiveBuffers() {
+        Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers = new HashMap<>();
+        tierExclusiveBuffers.put(TieredStoreMode.TieredType.IN_MEM, 0);
+        tierExclusiveBuffers.put(TieredStoreMode.TieredType.IN_LOCAL, 1);
+        tierExclusiveBuffers.put(TieredStoreMode.TieredType.IN_DFS, 1);
+        return tierExclusiveBuffers;
     }
 }

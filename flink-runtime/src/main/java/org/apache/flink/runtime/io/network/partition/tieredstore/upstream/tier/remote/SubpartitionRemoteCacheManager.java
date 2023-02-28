@@ -63,6 +63,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.checkFlushCacheBuffers;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -144,8 +145,6 @@ public class SubpartitionRemoteCacheManager {
         this.cacheBufferSpiller =
                 new RemoteCacheBufferSpiller(
                         jobID, resultPartitionID, targetChannel, baseDfsPath, ioExecutor);
-        bufferPoolHelper.registerSubpartitionTieredManager(
-                targetChannel, TieredStoreMode.TieredType.IN_DFS, this::flushCachedBuffers);
         this.isBroadcastOnly = isBroadcastOnly;
     }
 
@@ -358,6 +357,7 @@ public class SubpartitionRemoteCacheManager {
     public BufferBuilder requestBufferFromPool() {
         MemorySegment segment =
                 bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_DFS);
+        checkFlushCacheBuffers(bufferPoolHelper, this::flushCachedBuffers);
         return new BufferBuilder(segment, this::recycleBuffer);
     }
 

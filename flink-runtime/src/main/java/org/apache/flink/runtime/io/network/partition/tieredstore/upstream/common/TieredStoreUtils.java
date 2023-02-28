@@ -43,6 +43,8 @@ public class TieredStoreUtils {
 
     private static final String SEGMENT_FINISH_FILE_SUFFIX = ".FINISH";
 
+    private static final float NUM_TRIGGER_FLUSH_RATIO = 0.8f;
+
     public static ByteBuffer[] generateBufferWithHeaders(
             List<BufferWithIdentity> bufferWithIdentities) {
         ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * bufferWithIdentities.size()];
@@ -71,6 +73,15 @@ public class TieredStoreUtils {
             writeSize += writeChannel.write(bufferWithHeader);
         }
         checkState(writeSize == expectedBytes);
+    }
+
+    public static void checkFlushCacheBuffers(
+            BufferPoolHelper bufferPoolHelper, CacheBufferSpillTrigger cacheBufferSpillTrigger) {
+        int numAvailable = bufferPoolHelper.numAvailableBuffers();
+        int numTotal = bufferPoolHelper.numTotalBuffers();
+        if ((numAvailable * 1.0 / numTotal) > NUM_TRIGGER_FLUSH_RATIO) {
+            cacheBufferSpillTrigger.notifyFlushCachedBuffers();
+        }
     }
 
     public static String createBaseSubpartitionPath(
