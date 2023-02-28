@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperNewImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
@@ -70,8 +70,7 @@ class DiskCacheManagerTest {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
         BufferPoolHelper bufferPoolHelper =
-                new BufferPoolHelperNewImpl(
-                        bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+                new BufferPoolHelperImpl(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
         DiskCacheManager diskCacheManager = createCacheDataManager(bufferPoolHelper);
 
         diskCacheManager.append(createRecord(0), 0, Buffer.DataType.DATA_BUFFER, false);
@@ -183,7 +182,7 @@ class DiskCacheManagerTest {
                 new DiskCacheManager(
                         NUM_SUBPARTITIONS,
                         bufferSize,
-                        new BufferPoolHelperNewImpl(
+                        new BufferPoolHelperImpl(
                                 bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS),
                         regionBufferIndexTracker,
                         dataFilePath,

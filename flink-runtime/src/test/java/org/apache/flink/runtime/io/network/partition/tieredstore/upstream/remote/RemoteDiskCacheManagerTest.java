@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperNewImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteCacheManager;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -63,8 +63,7 @@ class RemoteDiskCacheManagerTest {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
         BufferPoolHelper bufferPoolHelper =
-                new BufferPoolHelperNewImpl(
-                        bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+                new BufferPoolHelperImpl(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
         RemoteCacheManager cacheDataManager = createDfsCacheDataManager(bufferPoolHelper);
 
         cacheDataManager.append(createRecord(0), 0, Buffer.DataType.DATA_BUFFER, false);
@@ -80,8 +79,7 @@ class RemoteDiskCacheManagerTest {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
         BufferPoolHelper bufferPoolHelper =
-                new BufferPoolHelperNewImpl(
-                        bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+                new BufferPoolHelperImpl(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
         RemoteCacheManager cacheDataManager = createDfsCacheDataManager(bufferPoolHelper);
 
         cacheDataManager.startSegment(0, 0);
@@ -94,8 +92,7 @@ class RemoteDiskCacheManagerTest {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
         BufferPoolHelper bufferPoolHelper =
-                new BufferPoolHelperNewImpl(
-                        bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+                new BufferPoolHelperImpl(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
         RemoteCacheManager cacheDataManager = createDfsCacheDataManager(bufferPoolHelper);
 
         cacheDataManager.startSegment(0, 0);

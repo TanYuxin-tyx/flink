@@ -30,7 +30,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView.Avai
 import org.apache.flink.runtime.io.network.partition.tieredstore.TestingTierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperNewImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
@@ -89,7 +89,7 @@ class LocalSubpartitionDiskReaderTest {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(10, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(10, 10);
         BufferPoolHelper bufferPoolHelper =
-                new BufferPoolHelperNewImpl(bufferPool, getTierExclusiveBuffers(), 1);
+                new BufferPoolHelperImpl(bufferPool, getTierExclusiveBuffers(), 1);
         SubpartitionDiskReaderView subpartitionView = createSubpartitionView();
 
         CompletableFuture<Void> acquireWriteLock = new CompletableFuture<>();
