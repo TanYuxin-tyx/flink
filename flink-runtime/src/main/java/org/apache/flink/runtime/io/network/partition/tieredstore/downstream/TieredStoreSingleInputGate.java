@@ -156,7 +156,7 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
         for (InputChannel inputChannel : inputChannels.values()) {
             if (inputChannel.getClass() == RemoteInputChannel.class) {
                 synchronized (inputChannelsWithData) {
-                    inputChannelsWithData.add(inputChannel);
+                    queueChannelUnsafe(inputChannel, false);
                 }
                 markAvailable();
             }
