@@ -80,8 +80,12 @@ public class TieredStoreUtils {
         int numAvailable = bufferPoolHelper.numAvailableBuffers();
         int numTotal = bufferPoolHelper.numTotalBuffers();
         int numRequested = bufferPoolHelper.numRequestedBuffers();
+        int networkAvailableBuffers = bufferPoolHelper.getNetworkBufferPoolAvailableBuffers();
+        int networkTotalBuffers = bufferPoolHelper.getNetworkBufferPoolTotalBuffers();
         if (numRequested >= numTotal
-                || ((numTotal - numAvailable) * 1.0 / numTotal) >= NUM_TRIGGER_FLUSH_RATIO) {
+                || ((numTotal - numAvailable) * 1.0 / numTotal) >= NUM_TRIGGER_FLUSH_RATIO
+                || (networkTotalBuffers - networkAvailableBuffers) * 1.0 / numTotal
+                        >= NUM_TRIGGER_FLUSH_RATIO) {
             cacheBufferSpillTrigger.notifyFlushCachedBuffers();
         }
     }
