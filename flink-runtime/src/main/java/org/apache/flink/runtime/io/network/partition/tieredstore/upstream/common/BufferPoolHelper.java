@@ -40,5 +40,9 @@ public interface BufferPoolHelper {
 
     void recycleBuffer(MemorySegment buffer, TieredStoreMode.TieredType tieredType);
 
+    int getNetworkBufferPoolAvailableBuffers();
+
+    int getNetworkBufferPoolTotalBuffers();
+
     void close();
 }

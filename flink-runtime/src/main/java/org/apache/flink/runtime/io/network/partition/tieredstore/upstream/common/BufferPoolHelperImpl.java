@@ -91,6 +91,16 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
     }
 
     @Override
+    public int getNetworkBufferPoolAvailableBuffers() {
+        return bufferPool.getNetworkBufferPoolAvailableBuffers();
+    }
+
+    @Override
+    public int getNetworkBufferPoolTotalBuffers() {
+        return bufferPool.getNetworkBufferPoolTotalBuffers();
+    }
+
+    @Override
     public void recycleBuffer(MemorySegment buffer, TieredStoreMode.TieredType tieredType) {
         bufferPool.recycle(buffer);
         decRequestedBufferCounter(tieredType);
