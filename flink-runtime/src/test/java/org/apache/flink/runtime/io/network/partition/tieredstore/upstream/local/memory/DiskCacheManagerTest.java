@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.Tiered
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
@@ -168,6 +169,7 @@ class DiskCacheManagerTest {
                         NUM_SUBPARTITIONS,
                         bufferSize,
                         bufferPoolHelper,
+                        new CacheFlushManager(),
                         new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
                         dataFilePath,
                         null);
@@ -184,6 +186,7 @@ class DiskCacheManagerTest {
                         bufferSize,
                         new BufferPoolHelperImpl(
                                 bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS),
+                        new CacheFlushManager(),
                         regionBufferIndexTracker,
                         dataFilePath,
                         null);

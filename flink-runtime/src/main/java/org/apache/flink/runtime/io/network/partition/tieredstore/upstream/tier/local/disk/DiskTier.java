@@ -29,6 +29,7 @@ import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
@@ -71,6 +72,8 @@ public class DiskTier implements TierWriter, StorageTier {
 
     private final BufferPoolHelper bufferPoolHelper;
 
+    private final CacheFlushManager cacheFlushManager;
+
     private final Path dataFilePath;
 
     private final long minDiskReserveBytes;
@@ -102,6 +105,7 @@ public class DiskTier implements TierWriter, StorageTier {
             int networkBufferSize,
             ResultPartitionID resultPartitionID,
             BufferPoolHelper bufferPoolHelper,
+            CacheFlushManager cacheFlushManager,
             String dataFileBasePath,
             long minDiskReserveBytes,
             boolean isBroadcastOnly,
@@ -116,6 +120,7 @@ public class DiskTier implements TierWriter, StorageTier {
         this.minDiskReserveBytes = minDiskReserveBytes;
         this.isBroadcastOnly = isBroadcastOnly;
         this.bufferPoolHelper = bufferPoolHelper;
+        this.cacheFlushManager = cacheFlushManager;
         this.bufferCompressor = bufferCompressor;
         this.regionBufferIndexTracker =
                 new RegionBufferIndexTrackerImpl(isBroadcastOnly ? 1 : numSubpartitions);
@@ -140,6 +145,7 @@ public class DiskTier implements TierWriter, StorageTier {
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
                         bufferPoolHelper,
+                        cacheFlushManager,
                         regionBufferIndexTracker,
                         dataFilePath,
                         bufferCompressor);
