@@ -105,7 +105,7 @@ public class TestInputChannel extends InputChannel {
         return this;
     }
 
-    TestInputChannel readBuffer() throws IOException, InterruptedException {
+    public TestInputChannel readBuffer() throws IOException, InterruptedException {
         return readBuffer(Buffer.DataType.DATA_BUFFER);
     }
 
@@ -113,7 +113,7 @@ public class TestInputChannel extends InputChannel {
         return read(createBuffer(1), nextType);
     }
 
-    TestInputChannel readSegmentInfo(long segmentId) throws IOException, InterruptedException {
+    public TestInputChannel readSegmentInfo(long segmentId) throws IOException, InterruptedException {
         ByteBuffer byteBuffer = EventSerializer.toSerializedEvent(new EndOfSegmentEvent(segmentId));
         NetworkBuffer segmentInfoBuffer = new NetworkBuffer(
                 MemorySegmentFactory.wrap(byteBuffer.array()),
@@ -123,11 +123,11 @@ public class TestInputChannel extends InputChannel {
         return read(segmentInfoBuffer, Buffer.DataType.DATA_BUFFER);
     }
 
-    TestInputChannel readEndOfData() throws IOException {
+    public TestInputChannel readEndOfData() throws IOException {
         return readEndOfData(StopMode.DRAIN);
     }
 
-    TestInputChannel readEndOfData(StopMode mode) throws IOException {
+    public TestInputChannel readEndOfData(StopMode mode) throws IOException {
         addBufferAndAvailability(
                 new BufferAndAvailability(
                         EventSerializer.toBuffer(new EndOfData(mode), false),
@@ -137,7 +137,7 @@ public class TestInputChannel extends InputChannel {
         return this;
     }
 
-    TestInputChannel readEndOfPartitionEvent() {
+    public TestInputChannel readEndOfPartitionEvent() {
         addBufferAndAvailability(
                 () -> {
                     setReleased();
@@ -248,7 +248,7 @@ public class TestInputChannel extends InputChannel {
     public void acknowledgeAllRecordsProcessed() throws IOException {}
 
     @Override
-    protected void notifyChannelNonEmpty() {
+    public void notifyChannelNonEmpty() {
         inputGate.notifyChannelNonEmpty(this);
     }
 
