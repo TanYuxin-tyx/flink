@@ -959,7 +959,7 @@ public class SingleInputGate extends IndexedInputGate {
     // Channel notifications
     // ------------------------------------------------------------------------
 
-    protected void notifyChannelNonEmpty(InputChannel channel) {
+    public void notifyChannelNonEmpty(InputChannel channel) {
         queueChannel(checkNotNull(channel), null, false);
     }
 
@@ -1101,11 +1101,11 @@ public class SingleInputGate extends IndexedInputGate {
         return inputChannels;
     }
 
-    static class SubpartitionInfo {
+    public static class SubpartitionInfo {
         private final IntermediateResultPartitionID partitionID;
         private final int subpartitionIndex;
 
-        SubpartitionInfo(IntermediateResultPartitionID partitionID, int subpartitionIndex) {
+        public SubpartitionInfo(IntermediateResultPartitionID partitionID, int subpartitionIndex) {
             this.partitionID = checkNotNull(partitionID);
             checkArgument(subpartitionIndex >= 0);
             this.subpartitionIndex = subpartitionIndex;
