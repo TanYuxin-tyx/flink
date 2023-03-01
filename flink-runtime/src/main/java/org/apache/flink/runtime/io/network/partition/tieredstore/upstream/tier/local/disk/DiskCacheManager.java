@@ -75,6 +75,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     private final List<Map<TierReaderViewId, SubpartitionDiskReaderViewOperations>>
             subpartitionViewOperationsMap;
 
+    private CompletableFuture<Void> hasFlushCompleted = FutureUtils.completedVoidFuture();
+
     public DiskCacheManager(
             int numSubpartitions,
             int bufferSize,
@@ -210,8 +212,15 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment =
                 bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_LOCAL);
-        checkFlushCacheBuffers(bufferPoolHelper, this);
+        tryCheckFlushCacheBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
+    }
+
+    private void tryCheckFlushCacheBuffers() {
+        if (hasFlushCompleted.isDone()) {
+            hasFlushCompleted = new CompletableFuture<>();
+            checkFlushCacheBuffers(bufferPoolHelper, this);
+        }
     }
 
     @Override
@@ -291,6 +300,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                                     spilledBuffers -> {
                                         regionBufferIndexTracker.addBuffers(spilledBuffers);
                                         spillingCompleteFuture.complete(null);
+                                        hasFlushCompleted.complete(null);
+                                        checkFlushCacheBuffers(bufferPoolHelper, this);
                                     }));
         }
     }
@@ -319,6 +330,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     private void recycleBuffer(MemorySegment buffer) {
         bufferPoolHelper.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_LOCAL);
+        tryCheckFlushCacheBuffers();
     }
 
     private static class Decision {
