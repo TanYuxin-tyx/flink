@@ -39,6 +39,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
+import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
@@ -120,6 +121,8 @@ public class SubpartitionRemoteCacheManager {
 
     private volatile boolean isReleased;
 
+    private CompletableFuture<Void> hasFlushCompleted = FutureUtils.completedVoidFuture();
+
     private final boolean isBroadcastOnly;
 
     public SubpartitionRemoteCacheManager(
@@ -178,6 +181,7 @@ public class SubpartitionRemoteCacheManager {
                             spillDoneFuture = flushCachedBuffers();
                     try {
                         spillDoneFuture.get();
+                        checkFlushCacheBuffers(bufferPoolHelper, this::flushCachedBuffers);
                     } catch (Exception e) {
                         throw new RuntimeException("Spiller finish segment failed!", e);
                     }
@@ -210,6 +214,7 @@ public class SubpartitionRemoteCacheManager {
             allBuffers.clear();
             bufferIndexToContexts.clear();
             isReleased = true;
+            hasFlushCompleted.complete(null);
         }
     }
 
@@ -357,8 +362,15 @@ public class SubpartitionRemoteCacheManager {
     public BufferBuilder requestBufferFromPool() {
         MemorySegment segment =
                 bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_DFS);
-        checkFlushCacheBuffers(bufferPoolHelper, this::flushCachedBuffers);
+        tryCheckFlushCacheBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
+    }
+
+    private void tryCheckFlushCacheBuffers() {
+        if (hasFlushCompleted.isDone()) {
+            hasFlushCompleted = new CompletableFuture<>();
+            checkFlushCacheBuffers(bufferPoolHelper, this::flushCachedBuffers);
+        }
     }
 
     private void recycleBuffer(MemorySegment buffer) {
@@ -420,7 +432,13 @@ public class SubpartitionRemoteCacheManager {
                         });
 
         List<BufferWithIdentity> toSpillBuffersWithId = getStSpillBuffersWithId(toSpillBuffers);
-        return cacheBufferSpiller.spillAsync(toSpillBuffersWithId);
+        return cacheBufferSpiller
+                .spillAsync(toSpillBuffersWithId)
+                .thenApply(
+                        spilledBuffers -> {
+                            hasFlushCompleted.complete(null);
+                            return spilledBuffers;
+                        });
     }
 
     private List<BufferWithIdentity> getStSpillBuffersWithId(
@@ -446,6 +464,7 @@ public class SubpartitionRemoteCacheManager {
 
     void close() {
         isClosed = true;
+        hasFlushCompleted.complete(null);
         try {
             flushCachedBuffers().get();
         } catch (Exception e) {
