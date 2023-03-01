@@ -58,27 +58,17 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.HYBRID_SELECTIVE;
+import static org.apache.flink.runtime.shuffle.NettyShuffleUtils.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** ResultPartition for TieredStore. */
 public class TieredStoreResultPartition extends ResultPartition implements ChannelStateHolder {
-
-    private static final Map<TieredStoreMode.TieredType, Integer> TIER_EXCLUSIVE_BUFFERS =
-            new HashMap<>();
-
-    static {
-        TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_MEM, 0);
-        TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_LOCAL, 1);
-        TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_DFS, 1);
-    }
 
     private final JobID jobID;
 
@@ -151,7 +141,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         }
 
         bufferPoolHelper =
-                new BufferPoolHelperImpl(bufferPool, TIER_EXCLUSIVE_BUFFERS, numSubpartitions);
+                new BufferPoolHelperImpl(
+                        bufferPool, HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS, numSubpartitions);
         setupTierDataGates();
         tieredStoreProducer =
                 new TieredStoreProducerImpl(tierDataGates, numSubpartitions, isBroadcast);
