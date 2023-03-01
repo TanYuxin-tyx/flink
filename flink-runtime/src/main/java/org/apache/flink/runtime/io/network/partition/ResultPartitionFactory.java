@@ -394,6 +394,7 @@ public class ResultPartitionFactory {
                             sortShuffleMinParallelism,
                             sortShuffleMinBuffers,
                             numberOfSubpartitions,
+                            enableTieredStoreForHybridShuffle,
                             type);
 
             return bufferPoolFactory.createBufferPool(

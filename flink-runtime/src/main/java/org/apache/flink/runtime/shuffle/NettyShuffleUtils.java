@@ -21,10 +21,12 @@ package org.apache.flink.runtime.shuffle;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.GateBuffersSpec;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -38,6 +40,15 @@ import static org.apache.flink.util.Preconditions.checkState;
  * shuffle environment and also guide network memory announcing in fine-grained resource management.
  */
 public class NettyShuffleUtils {
+
+    public static final Map<TieredStoreMode.TieredType, Integer>
+            HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS = new HashMap<>();
+
+    static {
+        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_MEM, 20);
+        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_LOCAL, 1);
+        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_DFS, 1);
+    }
 
     /**
      * Calculates and returns the number of required exclusive network buffers per input channel.
@@ -67,11 +78,26 @@ public class NettyShuffleUtils {
             final int sortShuffleMinParallelism,
             final int sortShuffleMinBuffers,
             final int numSubpartitions,
+            final boolean enableTieredStoreForHybridShuffle,
             final ResultPartitionType type) {
         boolean isSortShuffle =
                 type.isBlockingOrBlockingPersistentResultPartition()
                         && numSubpartitions >= sortShuffleMinParallelism;
-        int min = isSortShuffle ? sortShuffleMinBuffers : numSubpartitions + 1;
+        int min;
+        if (isSortShuffle) {
+            min = sortShuffleMinBuffers;
+        } else {
+            int numAddedBuffers;
+            if (type.isHybridResultPartition() && enableTieredStoreForHybridShuffle) {
+                numAddedBuffers =
+                        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.values().stream()
+                                .mapToInt(i -> i)
+                                .sum();
+            } else {
+                numAddedBuffers = 1;
+            }
+            min = numSubpartitions + numAddedBuffers;
+        }
         int max =
                 type.isBounded()
                         ? numSubpartitions * configuredNetworkBuffersPerChannel
@@ -93,6 +119,7 @@ public class NettyShuffleUtils {
             final Optional<Integer> maxRequiredBuffersPerGate,
             final int sortShuffleMinParallelism,
             final int sortShuffleMinBuffers,
+            final boolean enableTieredStoreForHybridShuffle,
             final Map<IntermediateDataSetID, Integer> inputChannelNums,
             final Map<IntermediateDataSetID, Integer> partitionReuseCount,
             final Map<IntermediateDataSetID, Integer> subpartitionNums,
@@ -129,6 +156,7 @@ public class NettyShuffleUtils {
                             numFloatingBuffersPerGate,
                             sortShuffleMinParallelism,
                             sortShuffleMinBuffers,
+                            enableTieredStoreForHybridShuffle,
                             numSubs);
         }
 
@@ -157,6 +185,7 @@ public class NettyShuffleUtils {
             int floatingBuffersPerGate,
             int sortShuffleMinParallelism,
             int sortShuffleMinBuffers,
+            boolean enableTieredStoreForHybridShuffle,
             int numSubpartitions) {
 
         Pair<Integer, Integer> minAndMax =
@@ -166,6 +195,7 @@ public class NettyShuffleUtils {
                         sortShuffleMinParallelism,
                         sortShuffleMinBuffers,
                         numSubpartitions,
+                        enableTieredStoreForHybridShuffle,
                         type);
 
         // In order to avoid network buffer request timeout (see FLINK-12852), we announce
