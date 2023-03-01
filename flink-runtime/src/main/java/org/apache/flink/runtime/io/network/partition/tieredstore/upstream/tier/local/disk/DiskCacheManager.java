@@ -308,7 +308,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                                         regionBufferIndexTracker.addBuffers(spilledBuffers);
                                         spillingCompleteFuture.complete(null);
                                         hasFlushCompleted.complete(null);
-                                        checkFlushCacheBuffers(bufferPoolHelper, this);
                                     }));
         }
     }
