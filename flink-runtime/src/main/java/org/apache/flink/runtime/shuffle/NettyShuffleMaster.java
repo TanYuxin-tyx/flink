@@ -58,6 +58,8 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
 
     private final String baseDfsPath;
 
+    private final boolean enableTieredStoreForHybridShuffle;
+
     public NettyShuffleMaster(Configuration conf) {
         checkNotNull(conf);
         buffersPerInputChannel =
@@ -77,6 +79,9 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                 conf.getString(
                         NettyShuffleEnvironmentOptions
                                 .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH);
+        enableTieredStoreForHybridShuffle =
+                conf.getBoolean(
+                        NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE);
 
         checkArgument(
                 !maxRequiredBuffersPerGate.isPresent() || maxRequiredBuffersPerGate.get() >= 1,
@@ -144,6 +149,7 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                         maxRequiredBuffersPerGate,
                         sortShuffleMinParallelism,
                         sortShuffleMinBuffers,
+                        enableTieredStoreForHybridShuffle,
                         desc.getInputChannelNums(),
                         desc.getPartitionReuseCount(),
                         desc.getSubpartitionNums(),

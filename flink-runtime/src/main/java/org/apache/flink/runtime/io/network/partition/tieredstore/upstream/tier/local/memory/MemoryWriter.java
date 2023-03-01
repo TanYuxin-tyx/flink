@@ -201,9 +201,7 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
 
     @Override
     public MemorySegment requestBufferFromPool(int subpartitionId) throws InterruptedException {
-        MemorySegment segment =
-                bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_MEM);
-        return segment;
+        return bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_MEM);
     }
 
     @Override
