@@ -1,4 +1,4 @@
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.remote;
+package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
 /** The test for {@link DfsFetcherDataQueue}. */
 public class DfsFetcherDataQueueTest {
