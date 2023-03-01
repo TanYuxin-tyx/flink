@@ -1,6 +1,5 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
-import org.apache.flink.runtime.execution.CancelTaskException;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
@@ -27,13 +26,8 @@ public class SingleChannelLocalTierClient implements SingleChannelTierClient {
             latestSegmentId = segmentId;
             inputChannel.notifyRequiredSegmentId(segmentId);
         }
-        Optional<InputChannel.BufferAndAvailability> buffer = Optional.empty();
-        // If the Remote Tier is enabled, we may query a channel when it's already released and then
-        // CancelTaskException is thrown. We should Ignore the Exception temporally.
-        try {
-            buffer = inputChannel.getNextBuffer();
-        } catch (CancelTaskException ignored) {
-        }
+        Optional<InputChannel.BufferAndAvailability> buffer;
+        buffer = inputChannel.getNextBuffer();
         if (!hasRegistered && buffer.isPresent()) {
             hasRegistered = true;
         }
