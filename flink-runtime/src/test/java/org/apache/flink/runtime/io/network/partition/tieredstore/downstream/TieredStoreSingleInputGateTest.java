@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.consumer;
+package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.memory.MemorySegment;
@@ -60,9 +60,22 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
+import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.InputChannelBuilder;
+import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
+import org.apache.flink.runtime.io.network.partition.consumer.InputGateID;
+import org.apache.flink.runtime.io.network.partition.consumer.InputGateTestBase;
+import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.RecoveredInputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate.SubpartitionInfo;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreSingleInputGate;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreSingleInputGateFactory;
+import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateBuilder;
+import org.apache.flink.runtime.io.network.partition.consumer.TestInputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.UnknownInputChannel;
 import org.apache.flink.runtime.io.network.util.TestTaskEvent;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -1334,7 +1347,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
         TieredStoreSingleInputGateBuilder builder =
                 new TieredStoreSingleInputGateBuilder()
                         .setNumberOfChannels(2)
-                        .setSingleInputGateIndex(gateIndex++)
+                        .setSingleInputGateIndex(0)
                         .setBufferPoolFactory(localBufferPool)
                         .setJobID(jobID)
                         .setResultPartitionID(resultPartitionIDS)

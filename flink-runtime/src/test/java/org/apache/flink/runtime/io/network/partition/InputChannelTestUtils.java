@@ -34,7 +34,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateBuilder;
-import org.apache.flink.runtime.io.network.partition.consumer.TieredStoreSingleInputGateBuilder;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreSingleInputGateBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreSingleInputGate;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 

@@ -54,7 +54,7 @@ public abstract class RecoveredInputChannel extends InputChannel implements Chan
 
     private final ArrayDeque<Buffer> receivedBuffers = new ArrayDeque<>();
     private final CompletableFuture<?> stateConsumedFuture = new CompletableFuture<>();
-    protected final BufferManager bufferManager;
+    public final BufferManager bufferManager;
 
     @GuardedBy("receivedBuffers")
     private boolean isReleased;

@@ -80,7 +80,7 @@ public class InputChannelBuilder {
         return this;
     }
 
-    InputChannelBuilder setTaskEventPublisher(TaskEventPublisher taskEventPublisher) {
+    public InputChannelBuilder setTaskEventPublisher(TaskEventPublisher taskEventPublisher) {
         this.taskEventPublisher = taskEventPublisher;
         return this;
     }
@@ -124,7 +124,7 @@ public class InputChannelBuilder {
         return this;
     }
 
-    UnknownInputChannel buildUnknownChannel(SingleInputGate inputGate) {
+    public UnknownInputChannel buildUnknownChannel(SingleInputGate inputGate) {
         UnknownInputChannel channel =
                 new UnknownInputChannel(
                         inputGate,

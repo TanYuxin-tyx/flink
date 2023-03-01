@@ -23,6 +23,8 @@ import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreSingleInputGate;
 
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreSingleInputGateBuilder;
+
 import org.junit.Before;
 
 import java.util.concurrent.CompletableFuture;

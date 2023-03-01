@@ -367,7 +367,7 @@ public class SingleInputGateFactory {
     }
 
     @VisibleForTesting
-    protected static SupplierWithException<BufferPool, IOException> createBufferPoolFactory(
+    public static SupplierWithException<BufferPool, IOException> createBufferPoolFactory(
             BufferPoolFactory bufferPoolFactory,
             int minFloatingBuffersPerGate,
             int maxFloatingBuffersPerGate) {

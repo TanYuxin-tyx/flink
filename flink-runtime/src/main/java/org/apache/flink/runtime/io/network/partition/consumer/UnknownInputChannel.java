@@ -43,7 +43,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * An input channel place holder to be replaced by either a {@link RemoteInputChannel} or {@link
  * LocalInputChannel} at runtime.
  */
-class UnknownInputChannel extends InputChannel implements ChannelStateHolder {
+public class UnknownInputChannel extends InputChannel implements ChannelStateHolder {
 
     private final ResultPartitionManager partitionManager;
 

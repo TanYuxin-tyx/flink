@@ -388,7 +388,7 @@ public class BufferManager implements BufferListener, BufferRecycler {
     }
 
     @VisibleForTesting
-    int getNumberOfAvailableBuffers() {
+    public int getNumberOfAvailableBuffers() {
         synchronized (bufferQueue) {
             return bufferQueue.getAvailableBufferSize();
         }

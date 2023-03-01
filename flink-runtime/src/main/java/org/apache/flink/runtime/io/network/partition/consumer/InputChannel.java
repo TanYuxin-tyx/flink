@@ -266,7 +266,7 @@ public abstract class InputChannel {
     // ------------------------------------------------------------------------
 
     /** Returns the current backoff in ms. */
-    protected int getCurrentBackoff() {
+    public int getCurrentBackoff() {
         return currentBackoff <= 0 ? 0 : currentBackoff;
     }
 
@@ -275,7 +275,7 @@ public abstract class InputChannel {
      *
      * @return <code>true</code>, iff the operation was successful. Otherwise, <code>false</code>.
      */
-    protected boolean increaseBackoff() {
+    public boolean increaseBackoff() {
         // Backoff is disabled
         if (currentBackoff < 0) {
             return false;

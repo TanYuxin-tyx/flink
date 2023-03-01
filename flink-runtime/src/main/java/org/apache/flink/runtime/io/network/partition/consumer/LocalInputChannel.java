@@ -337,7 +337,7 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
 
     /** Releases the partition reader. */
     @Override
-    void releaseAllResources() throws IOException {
+    public void releaseAllResources() throws IOException {
         if (!isReleased) {
             isReleased = true;
 
@@ -386,7 +386,7 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
     // ------------------------------------------------------------------------
 
     @VisibleForTesting
-    ResultSubpartitionView getSubpartitionView() {
+    public ResultSubpartitionView getSubpartitionView() {
         return subpartitionView;
     }
 
