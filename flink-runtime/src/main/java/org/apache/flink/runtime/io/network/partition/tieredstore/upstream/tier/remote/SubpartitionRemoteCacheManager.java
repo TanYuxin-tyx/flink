@@ -33,7 +33,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
@@ -103,7 +103,7 @@ public class SubpartitionRemoteCacheManager {
 
     private final CacheBufferSpiller cacheBufferSpiller;
 
-    private final BufferPoolHelper bufferPoolHelper;
+    private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
     /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
     private final Lock resultPartitionLock;
@@ -132,7 +132,7 @@ public class SubpartitionRemoteCacheManager {
             int targetChannel,
             int bufferSize,
             boolean isBroadcastOnly,
-            BufferPoolHelper bufferPoolHelper,
+            TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
             String baseDfsPath,
             Lock resultPartitionLock,
@@ -142,7 +142,7 @@ public class SubpartitionRemoteCacheManager {
             throws IOException {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
-        this.bufferPoolHelper = bufferPoolHelper;
+        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.resultPartitionLock = resultPartitionLock;
         this.cacheDataManagerOperation = cacheDataManagerOperation;
         this.bufferCompressor = bufferCompressor;
@@ -184,7 +184,7 @@ public class SubpartitionRemoteCacheManager {
                             spillDoneFuture = flushCachedBuffers();
                     try {
                         spillDoneFuture.get();
-                        checkFlushCacheBuffers(bufferPoolHelper, this::flushCachedBuffers);
+                        checkFlushCacheBuffers(tieredStoreMemoryManager, this::flushCachedBuffers);
                     } catch (Exception e) {
                         throw new RuntimeException("Spiller finish segment failed!", e);
                     }
@@ -364,7 +364,7 @@ public class SubpartitionRemoteCacheManager {
 
     public BufferBuilder requestBufferFromPool() {
         MemorySegment segment =
-                bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_DFS);
+                tieredStoreMemoryManager.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_DFS);
         tryCheckFlushCacheBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
     }
@@ -372,12 +372,12 @@ public class SubpartitionRemoteCacheManager {
     private void tryCheckFlushCacheBuffers() {
         if (hasFlushCompleted.isDone()) {
             hasFlushCompleted = new CompletableFuture<>();
-            checkFlushCacheBuffers(bufferPoolHelper, this::flushCachedBuffers);
+            checkFlushCacheBuffers(tieredStoreMemoryManager, this::flushCachedBuffers);
         }
     }
 
     private void recycleBuffer(MemorySegment buffer) {
-        bufferPoolHelper.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_DFS);
+        tieredStoreMemoryManager.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_DFS);
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")

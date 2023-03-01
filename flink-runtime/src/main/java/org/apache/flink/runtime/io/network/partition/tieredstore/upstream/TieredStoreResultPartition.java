@@ -40,8 +40,8 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
@@ -87,7 +87,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private final boolean isBroadcast;
 
-    private BufferPoolHelper bufferPoolHelper;
+    private TieredStoreMemoryManager tieredStoreMemoryManager;
 
     private CacheFlushManager cacheFlushManager;
 
@@ -143,8 +143,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
             throw new IOException("Result partition has been released.");
         }
 
-        bufferPoolHelper =
-                new BufferPoolHelperImpl(
+        tieredStoreMemoryManager =
+                new UpstreamTieredStoreMemoryManager(
                         bufferPool, HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS, numSubpartitions);
         cacheFlushManager = new CacheFlushManager();
         setupTierDataGates();
@@ -251,7 +251,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         return new MemoryTier(
                 numSubpartitions,
                 networkBufferSize,
-                bufferPoolHelper,
+                tieredStoreMemoryManager,
                 isBroadcast,
                 bufferCompressor);
     }
@@ -261,7 +261,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 numSubpartitions,
                 networkBufferSize,
                 getPartitionId(),
-                bufferPoolHelper,
+                tieredStoreMemoryManager,
                 cacheFlushManager,
                 dataFileBasePath,
                 minDiskReserveBytes,
@@ -287,7 +287,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 numSubpartitions,
                 networkBufferSize,
                 getPartitionId(),
-                bufferPoolHelper,
+                tieredStoreMemoryManager,
                 cacheFlushManager,
                 isBroadcast,
                 baseDfsPath,
@@ -400,8 +400,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         if (tieredStoreProducer != null) {
             tieredStoreProducer.close();
         }
-        if (bufferPoolHelper != null) {
-            bufferPoolHelper.close();
+        if (tieredStoreMemoryManager != null) {
+            tieredStoreMemoryManager.close();
         }
         if (cacheFlushManager != null) {
             cacheFlushManager.close();
@@ -424,7 +424,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         readIOExecutor = null;
         dataFileBasePath = null;
         storeConfiguration = null;
-        bufferPoolHelper = null;
+        tieredStoreMemoryManager = null;
         cacheFlushManager = null;
     }
 

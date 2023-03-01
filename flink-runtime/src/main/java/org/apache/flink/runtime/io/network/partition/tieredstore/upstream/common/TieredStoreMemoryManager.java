@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.Tiered
  * The helper allocating and recycling buffer from {@link LocalBufferPool} to different tiers,
  * including Local Memory, Local Disk, Dfs.
  */
-public interface BufferPoolHelper {
+public interface TieredStoreMemoryManager {
 
     int numAvailableBuffers(TieredStoreMode.TieredType tieredType);
 

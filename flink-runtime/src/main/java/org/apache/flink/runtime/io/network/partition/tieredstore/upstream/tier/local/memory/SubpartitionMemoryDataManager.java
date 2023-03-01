@@ -28,7 +28,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.util.function.SupplierWithException;
@@ -84,7 +84,7 @@ public class SubpartitionMemoryDataManager {
     /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
     private final ReentrantReadWriteLock subpartitionLock = new ReentrantReadWriteLock();
 
-    private final BufferPoolHelper bufferPoolHelper;
+    private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
     @GuardedBy("subpartitionLock")
     private final Map<TierReaderViewId, SubpartitionConsumerMemoryReader> consumerMap;
@@ -99,13 +99,13 @@ public class SubpartitionMemoryDataManager {
             int numTotalConsumers,
             @Nullable BufferCompressor bufferCompressor,
             MemoryDataWriterOperation memoryDataWriterOperation,
-            BufferPoolHelper bufferPoolHelper) {
+            TieredStoreMemoryManager tieredStoreMemoryManager) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
         this.numTotalConsumers = numTotalConsumers;
         this.memoryDataWriterOperation = memoryDataWriterOperation;
         this.bufferCompressor = bufferCompressor;
-        this.bufferPoolHelper = bufferPoolHelper;
+        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.consumerMap = new HashMap<>();
     }
 
@@ -314,7 +314,7 @@ public class SubpartitionMemoryDataManager {
     }
 
     private void recycle(MemorySegment memorySegment) {
-        bufferPoolHelper.recycleBuffer(memorySegment, IN_MEM);
+        tieredStoreMemoryManager.recycleBuffer(memorySegment, IN_MEM);
     }
 
     private void updateStatistics(Buffer buffer) {
