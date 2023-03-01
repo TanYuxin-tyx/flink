@@ -79,8 +79,6 @@ public class SubpartitionRemoteCacheManager {
 
     private final int bufferSize;
 
-    private final int numSubpartitions;
-
     private static final int NUM_BUFFERS_TO_FLUSH = 1;
 
     private final RemoteCacheManagerOperation cacheDataManagerOperation;
@@ -133,7 +131,6 @@ public class SubpartitionRemoteCacheManager {
             ResultPartitionID resultPartitionID,
             int targetChannel,
             int bufferSize,
-            int numSubpartitions,
             boolean isBroadcastOnly,
             BufferPoolHelper bufferPoolHelper,
             CacheFlushManager cacheFlushManager,
@@ -145,7 +142,6 @@ public class SubpartitionRemoteCacheManager {
             throws IOException {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
-        this.numSubpartitions = numSubpartitions;
         this.bufferPoolHelper = bufferPoolHelper;
         this.resultPartitionLock = resultPartitionLock;
         this.cacheDataManagerOperation = cacheDataManagerOperation;
@@ -188,8 +184,7 @@ public class SubpartitionRemoteCacheManager {
                             spillDoneFuture = flushCachedBuffers();
                     try {
                         spillDoneFuture.get();
-                        checkFlushCacheBuffers(
-                                bufferPoolHelper, this::flushCachedBuffers, numSubpartitions);
+                        checkFlushCacheBuffers(bufferPoolHelper, this::flushCachedBuffers);
                     } catch (Exception e) {
                         throw new RuntimeException("Spiller finish segment failed!", e);
                     }
@@ -377,7 +372,7 @@ public class SubpartitionRemoteCacheManager {
     private void tryCheckFlushCacheBuffers() {
         if (hasFlushCompleted.isDone()) {
             hasFlushCompleted = new CompletableFuture<>();
-            checkFlushCacheBuffers(bufferPoolHelper, this::flushCachedBuffers, numSubpartitions);
+            checkFlushCacheBuffers(bufferPoolHelper, this::flushCachedBuffers);
         }
     }
 
