@@ -32,6 +32,8 @@ public interface BufferPoolHelper {
 
     int numAvailableBuffers();
 
+    int numRequestedBuffers();
+
     int numTotalBuffers();
 
     MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TieredType tieredType);

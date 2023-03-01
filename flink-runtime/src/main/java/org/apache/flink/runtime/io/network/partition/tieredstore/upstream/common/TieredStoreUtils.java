@@ -79,7 +79,9 @@ public class TieredStoreUtils {
             BufferPoolHelper bufferPoolHelper, CacheBufferSpillTrigger cacheBufferSpillTrigger) {
         int numAvailable = bufferPoolHelper.numAvailableBuffers();
         int numTotal = bufferPoolHelper.numTotalBuffers();
-        if ((numAvailable * 1.0 / numTotal) > NUM_TRIGGER_FLUSH_RATIO) {
+        int numRequested = bufferPoolHelper.numRequestedBuffers();
+        if (numRequested >= numTotal
+                || ((numTotal - numAvailable) * 1.0 / numTotal) >= NUM_TRIGGER_FLUSH_RATIO) {
             cacheBufferSpillTrigger.notifyFlushCachedBuffers();
         }
     }

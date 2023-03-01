@@ -69,6 +69,10 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
         return bufferPool.getNumberOfAvailableMemorySegments();
     }
 
+    public int numRequestedBuffers() {
+        return tierRequestedBuffersCounter.values().stream().mapToInt(AtomicInteger::get).sum();
+    }
+
     @Override
     public int numTotalBuffers() {
         return bufferPool.getNumBuffers();
