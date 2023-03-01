@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpillTrigger;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.util.Preconditions;
@@ -81,6 +82,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
             int numSubpartitions,
             int bufferSize,
             BufferPoolHelper bufferPoolHelper,
+            CacheFlushManager cacheFlushManager,
             RegionBufferIndexTracker regionBufferIndexTracker,
             Path dataFilePath,
             BufferCompressor bufferCompressor)
@@ -100,6 +102,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
         }
         //        bufferPoolHelper.registerSubpartitionTieredManager(
         //                TieredStoreMode.TieredType.IN_LOCAL, this);
+        cacheFlushManager.registerCacheSpillTrigger(this::flushCacheBuffers);
     }
 
     // ------------------------------------
@@ -221,6 +224,10 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
             hasFlushCompleted = new CompletableFuture<>();
             checkFlushCacheBuffers(bufferPoolHelper, this);
         }
+    }
+
+    private void flushCacheBuffers() {
+        checkFlushCacheBuffers(bufferPoolHelper, this);
     }
 
     @Override

@@ -42,6 +42,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier;
@@ -87,6 +88,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     private final boolean isBroadcast;
 
     private BufferPoolHelper bufferPoolHelper;
+
+    private CacheFlushManager cacheFlushManager;
 
     private StorageTier[] tierDataGates;
 
@@ -143,6 +146,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         bufferPoolHelper =
                 new BufferPoolHelperImpl(
                         bufferPool, HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS, numSubpartitions);
+        cacheFlushManager = new CacheFlushManager();
         setupTierDataGates();
         tieredStoreProducer =
                 new TieredStoreProducerImpl(tierDataGates, numSubpartitions, isBroadcast);
@@ -258,6 +262,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 networkBufferSize,
                 getPartitionId(),
                 bufferPoolHelper,
+                cacheFlushManager,
                 dataFileBasePath,
                 minDiskReserveBytes,
                 isBroadcast,
@@ -283,6 +288,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 networkBufferSize,
                 getPartitionId(),
                 bufferPoolHelper,
+                cacheFlushManager,
                 isBroadcast,
                 baseDfsPath,
                 bufferCompressor);
@@ -393,6 +399,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         // first close the writer
         tieredStoreProducer.close();
         bufferPoolHelper.close();
+        cacheFlushManager.close();
     }
 
     @Override

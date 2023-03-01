@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteCacheManager;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -111,6 +112,7 @@ class RemoteDiskCacheManagerTest {
                         false,
                         tmpFolder.getRoot().getPath(),
                         bufferPoolHelper,
+                        new CacheFlushManager(),
                         null);
         cacheDataManager.setOutputMetrics(TieredStoreTestUtils.createTestingOutputMetrics());
         return cacheDataManager;
