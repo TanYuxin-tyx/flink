@@ -93,7 +93,8 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     @Override
     public CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spillAsync(
             List<BufferWithIdentity> bufferToSpill) {
-        CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spilledFuture = new CompletableFuture<>();
+        CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spilledFuture =
+                new CompletableFuture<>();
         ioExecutor.execute(() -> spill(bufferToSpill, spilledFuture));
         return spilledFuture;
     }
@@ -124,11 +125,13 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
      * Compute buffer's file offset and create spilled buffers.
      *
      * @param toWrite for create {@link RegionBufferIndexTracker.SpilledBuffer}.
-     * @param spilledBuffers receive the created {@link RegionBufferIndexTracker.SpilledBuffer} by this method.
+     * @param spilledBuffers receive the created {@link RegionBufferIndexTracker.SpilledBuffer} by
+     *     this method.
      * @return total bytes(header size + buffer size) of all buffers to write.
      */
     private long createSpilledBuffersAndGetTotalBytes(
-            List<BufferWithIdentity> toWrite, List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
+            List<BufferWithIdentity> toWrite,
+            List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
         for (BufferWithIdentity bufferWithIdentity : toWrite) {
             Buffer buffer = bufferWithIdentity.getBuffer();
@@ -171,9 +174,7 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
      * <p>This method only called by main task thread.
      */
     @Override
-    public void close() {
-        ioExecutor.shutdown();
-    }
+    public void close() {}
 
     /**
      * Release this {@link DiskCacheBufferSpiller} when resultPartition is released. It means
