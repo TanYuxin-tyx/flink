@@ -144,9 +144,9 @@ public class MemoryTier implements StorageTier {
 
     @Override
     public boolean canStoreNextSegment(int subpartitionId) {
-        //        return bufferPoolHelper.canStoreNextSegmentForMemoryTier(bufferNumberInSegment);
         return bufferPoolHelper.numAvailableBuffers(TieredStoreMode.TieredType.IN_MEM)
-                > bufferNumberInSegment;
+                        > bufferNumberInSegment
+                && memoryWriter.isConsumerRegistered(subpartitionId);
     }
 
     @Override
