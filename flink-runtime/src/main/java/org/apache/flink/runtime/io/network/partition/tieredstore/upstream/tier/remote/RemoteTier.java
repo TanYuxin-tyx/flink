@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
@@ -67,7 +67,7 @@ public class RemoteTier implements StorageTier {
             int numSubpartitions,
             int networkBufferSize,
             ResultPartitionID resultPartitionID,
-            BufferPoolHelper bufferPoolHelper,
+            TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
             boolean isBroadcastOnly,
             String baseDfsPath,
@@ -86,7 +86,7 @@ public class RemoteTier implements StorageTier {
                         networkBufferSize,
                         isBroadcastOnly,
                         baseDfsPath,
-                        bufferPoolHelper,
+                        tieredStoreMemoryManager,
                         cacheFlushManager,
                         bufferCompressor);
     }

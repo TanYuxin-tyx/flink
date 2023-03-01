@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpillTrigger;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
@@ -65,7 +65,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     private final RegionBufferIndexTracker regionBufferIndexTracker;
 
-    private final BufferPoolHelper bufferPoolHelper;
+    private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
     private final AtomicInteger numUnSpillBuffers = new AtomicInteger(0);
 
@@ -81,14 +81,14 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     public DiskCacheManager(
             int numSubpartitions,
             int bufferSize,
-            BufferPoolHelper bufferPoolHelper,
+            TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
             RegionBufferIndexTracker regionBufferIndexTracker,
             Path dataFilePath,
             BufferCompressor bufferCompressor)
             throws IOException {
         this.numSubpartitions = numSubpartitions;
-        this.bufferPoolHelper = bufferPoolHelper;
+        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.spiller = new DiskCacheBufferSpiller(dataFilePath);
         this.regionBufferIndexTracker = regionBufferIndexTracker;
         this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
@@ -214,7 +214,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     @Override
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment =
-                bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_LOCAL);
+                tieredStoreMemoryManager.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_LOCAL);
         tryCheckFlushCacheBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
     }
@@ -222,12 +222,12 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     private void tryCheckFlushCacheBuffers() {
         if (hasFlushCompleted.isDone()) {
             hasFlushCompleted = new CompletableFuture<>();
-            checkFlushCacheBuffers(bufferPoolHelper, this);
+            checkFlushCacheBuffers(tieredStoreMemoryManager, this);
         }
     }
 
     private void flushCacheBuffers() {
-        checkFlushCacheBuffers(bufferPoolHelper, this);
+        checkFlushCacheBuffers(tieredStoreMemoryManager, this);
     }
 
     @Override
@@ -335,7 +335,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     }
 
     private void recycleBuffer(MemorySegment buffer) {
-        bufferPoolHelper.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_LOCAL);
+        tieredStoreMemoryManager.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_LOCAL);
     }
 
     private static class Decision {

@@ -29,8 +29,8 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAn
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView.AvailabilityWithBacklog;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TestingTierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
@@ -89,8 +89,8 @@ class LocalSubpartitionDiskReaderTest {
         final int bufferSize = 16;
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(10, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(10, 10);
-        BufferPoolHelper bufferPoolHelper =
-                new BufferPoolHelperImpl(bufferPool, getTierExclusiveBuffers(), 1);
+        TieredStoreMemoryManager tieredStoreMemoryManager =
+                new UpstreamTieredStoreMemoryManager(bufferPool, getTierExclusiveBuffers(), 1);
         SubpartitionDiskReaderView subpartitionView = createSubpartitionView();
 
         CompletableFuture<Void> acquireWriteLock = new CompletableFuture<>();
@@ -109,7 +109,7 @@ class LocalSubpartitionDiskReaderTest {
                 new DiskCacheManager(
                         1,
                         bufferSize,
-                        bufferPoolHelper,
+                        tieredStoreMemoryManager,
                         new CacheFlushManager(),
                         new RegionBufferIndexTrackerImpl(1),
                         dataFilePath.resolve(".data"),

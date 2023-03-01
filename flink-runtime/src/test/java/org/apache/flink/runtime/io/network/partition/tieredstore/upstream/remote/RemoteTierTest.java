@@ -23,8 +23,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTier;
@@ -74,14 +74,14 @@ class RemoteTierTest {
         int poolSize = 10;
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
-        BufferPoolHelper bufferPoolHelper =
-                new BufferPoolHelperImpl(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+        TieredStoreMemoryManager tieredStoreMemoryManager =
+                new UpstreamTieredStoreMemoryManager(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
         return new RemoteTier(
                 JobID.generate(),
                 NUM_SUBPARTITIONS,
                 1024,
                 new ResultPartitionID(),
-                bufferPoolHelper,
+                tieredStoreMemoryManager,
                 new CacheFlushManager(),
                 false,
                 tmpFolder.getRoot().getPath(),

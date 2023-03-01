@@ -28,8 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-/** All buffers of Tiered Store are acquired from this {@link BufferPoolHelperImpl}. */
-public class BufferPoolHelperImpl implements BufferPoolHelper {
+/** Upstream tasks will get buffer from this {@link UpstreamTieredStoreMemoryManager}. */
+public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManager {
 
     private final BufferPool bufferPool;
 
@@ -39,7 +39,7 @@ public class BufferPoolHelperImpl implements BufferPoolHelper {
 
     private final int numSubpartitions;
 
-    public BufferPoolHelperImpl(
+    public UpstreamTieredStoreMemoryManager(
             BufferPool bufferPool,
             Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers,
             int numSubpartitions) {

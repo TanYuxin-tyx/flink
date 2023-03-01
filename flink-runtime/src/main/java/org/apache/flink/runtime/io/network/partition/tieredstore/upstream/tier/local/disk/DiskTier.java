@@ -28,7 +28,7 @@ import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartit
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
@@ -70,7 +70,7 @@ public class DiskTier implements TierWriter, StorageTier {
 
     private final ResultPartitionID resultPartitionID;
 
-    private final BufferPoolHelper bufferPoolHelper;
+    private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
     private final CacheFlushManager cacheFlushManager;
 
@@ -104,7 +104,7 @@ public class DiskTier implements TierWriter, StorageTier {
             int numSubpartitions,
             int networkBufferSize,
             ResultPartitionID resultPartitionID,
-            BufferPoolHelper bufferPoolHelper,
+            TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
             String dataFileBasePath,
             long minDiskReserveBytes,
@@ -119,7 +119,7 @@ public class DiskTier implements TierWriter, StorageTier {
         this.dataFilePath = new File(dataFileBasePath + DATA_FILE_SUFFIX).toPath();
         this.minDiskReserveBytes = minDiskReserveBytes;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.bufferPoolHelper = bufferPoolHelper;
+        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.cacheFlushManager = cacheFlushManager;
         this.bufferCompressor = bufferCompressor;
         this.regionBufferIndexTracker =
@@ -144,7 +144,7 @@ public class DiskTier implements TierWriter, StorageTier {
                 new DiskCacheManager(
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
-                        bufferPoolHelper,
+                        tieredStoreMemoryManager,
                         cacheFlushManager,
                         regionBufferIndexTracker,
                         dataFilePath,
