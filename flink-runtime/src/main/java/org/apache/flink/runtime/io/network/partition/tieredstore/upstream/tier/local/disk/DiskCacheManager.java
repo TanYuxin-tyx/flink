@@ -330,7 +330,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     private void recycleBuffer(MemorySegment buffer) {
         bufferPoolHelper.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_LOCAL);
-        tryCheckFlushCacheBuffers();
     }
 
     private static class Decision {
