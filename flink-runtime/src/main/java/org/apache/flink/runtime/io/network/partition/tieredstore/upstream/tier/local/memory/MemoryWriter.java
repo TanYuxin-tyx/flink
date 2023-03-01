@@ -22,7 +22,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
@@ -53,7 +53,7 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
 
     private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
 
-    private final BufferPoolHelper bufferPoolHelper;
+    private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
     /**
      * Each element of the list is all views of the subpartition corresponding to its index, which
@@ -71,14 +71,14 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
     public MemoryWriter(
             int numSubpartitions,
             int bufferSize,
-            BufferPoolHelper bufferPoolHelper,
+            TieredStoreMemoryManager tieredStoreMemoryManager,
             BufferCompressor bufferCompressor,
             SubpartitionSegmentIndexTracker subpartitionSegmentIndexTracker,
             boolean isBroadcastOnly,
             int numTotalConsumers) {
         this.numSubpartitions = numSubpartitions;
         this.numTotalConsumers = numTotalConsumers;
-        this.bufferPoolHelper = bufferPoolHelper;
+        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.subpartitionMemoryDataManagers = new SubpartitionMemoryDataManager[numSubpartitions];
         this.subpartitionSegmentIndexTracker = subpartitionSegmentIndexTracker;
         this.isBroadcastOnly = isBroadcastOnly;
@@ -92,7 +92,7 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
                             numTotalConsumers,
                             bufferCompressor,
                             this,
-                            bufferPoolHelper);
+                            tieredStoreMemoryManager);
             subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
         }
     }
@@ -201,7 +201,7 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
 
     @Override
     public MemorySegment requestBufferFromPool(int subpartitionId) throws InterruptedException {
-        return bufferPoolHelper.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_MEM);
+        return tieredStoreMemoryManager.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_MEM);
     }
 
     @Override

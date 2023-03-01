@@ -24,8 +24,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelperImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteCacheManager;
 
@@ -63,9 +63,9 @@ class RemoteDiskCacheManagerTest {
         bufferSize = Integer.BYTES * 3;
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
-        BufferPoolHelper bufferPoolHelper =
-                new BufferPoolHelperImpl(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
-        RemoteCacheManager cacheDataManager = createDfsCacheDataManager(bufferPoolHelper);
+        TieredStoreMemoryManager tieredStoreMemoryManager =
+                new UpstreamTieredStoreMemoryManager(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+        RemoteCacheManager cacheDataManager = createDfsCacheDataManager(tieredStoreMemoryManager);
 
         cacheDataManager.append(createRecord(0), 0, Buffer.DataType.DATA_BUFFER, false);
         cacheDataManager.append(createRecord(1), 0, Buffer.DataType.DATA_BUFFER, false);
@@ -79,9 +79,9 @@ class RemoteDiskCacheManagerTest {
         bufferSize = Integer.BYTES * 3;
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
-        BufferPoolHelper bufferPoolHelper =
-                new BufferPoolHelperImpl(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
-        RemoteCacheManager cacheDataManager = createDfsCacheDataManager(bufferPoolHelper);
+        TieredStoreMemoryManager tieredStoreMemoryManager =
+                new UpstreamTieredStoreMemoryManager(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+        RemoteCacheManager cacheDataManager = createDfsCacheDataManager(tieredStoreMemoryManager);
 
         cacheDataManager.startSegment(0, 0);
         assertThrows(IllegalStateException.class, () -> cacheDataManager.startSegment(0, 0));
@@ -92,16 +92,16 @@ class RemoteDiskCacheManagerTest {
         bufferSize = Integer.BYTES * 3;
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
-        BufferPoolHelper bufferPoolHelper =
-                new BufferPoolHelperImpl(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
-        RemoteCacheManager cacheDataManager = createDfsCacheDataManager(bufferPoolHelper);
+        TieredStoreMemoryManager tieredStoreMemoryManager =
+                new UpstreamTieredStoreMemoryManager(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+        RemoteCacheManager cacheDataManager = createDfsCacheDataManager(tieredStoreMemoryManager);
 
         cacheDataManager.startSegment(0, 0);
         cacheDataManager.finishSegment(0, 0);
         assertThrows(IllegalStateException.class, () -> cacheDataManager.finishSegment(0, 0));
     }
 
-    private RemoteCacheManager createDfsCacheDataManager(BufferPoolHelper bufferPoolHelper)
+    private RemoteCacheManager createDfsCacheDataManager(TieredStoreMemoryManager tieredStoreMemoryManager)
             throws Exception {
         RemoteCacheManager cacheDataManager =
                 new RemoteCacheManager(
@@ -111,7 +111,7 @@ class RemoteDiskCacheManagerTest {
                         bufferSize,
                         false,
                         tmpFolder.getRoot().getPath(),
-                        bufferPoolHelper,
+                        tieredStoreMemoryManager,
                         new CacheFlushManager(),
                         null);
         cacheDataManager.setOutputMetrics(TieredStoreTestUtils.createTestingOutputMetrics());

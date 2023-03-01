@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 
 /**
  * Notify specific subpartition's tiered manager to flush the cached buffers to release buffers. The
- * notification is sent from {@link BufferPoolHelperImpl}. Each tier of each subpartition
+ * notification is sent from {@link UpstreamTieredStoreMemoryManager}. Each tier of each subpartition
  * corresponds to a {@link CacheBufferSpillTrigger}.
  */
 public interface CacheBufferSpillTrigger {

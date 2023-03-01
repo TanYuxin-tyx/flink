@@ -76,12 +76,12 @@ public class TieredStoreUtils {
     }
 
     public static void checkFlushCacheBuffers(
-            BufferPoolHelper bufferPoolHelper, CacheBufferSpillTrigger cacheBufferSpillTrigger) {
-        int numAvailable = bufferPoolHelper.numAvailableBuffers();
-        int numTotal = bufferPoolHelper.numTotalBuffers();
-        int numRequested = bufferPoolHelper.numRequestedBuffers();
-        int networkAvailableBuffers = bufferPoolHelper.getNetworkBufferPoolAvailableBuffers();
-        int networkTotalBuffers = bufferPoolHelper.getNetworkBufferPoolTotalBuffers();
+            TieredStoreMemoryManager tieredStoreMemoryManager, CacheBufferSpillTrigger cacheBufferSpillTrigger) {
+        int numAvailable = tieredStoreMemoryManager.numAvailableBuffers();
+        int numTotal = tieredStoreMemoryManager.numTotalBuffers();
+        int numRequested = tieredStoreMemoryManager.numRequestedBuffers();
+        int networkAvailableBuffers = tieredStoreMemoryManager.getNetworkBufferPoolAvailableBuffers();
+        int networkTotalBuffers = tieredStoreMemoryManager.getNetworkBufferPoolTotalBuffers();
         if (numRequested >= numTotal
                 || ((numTotal - numAvailable) * 1.0 / numTotal) >= NUM_TRIGGER_FLUSH_RATIO
                 || (networkTotalBuffers - networkAvailableBuffers) * 1.0 / numTotal

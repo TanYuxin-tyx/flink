@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferPoolHelper;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
@@ -56,7 +56,7 @@ public class MemoryTier implements StorageTier {
 
     private final int networkBufferSize;
 
-    private final BufferPoolHelper bufferPoolHelper;
+    private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
     private final boolean isBroadcastOnly;
 
@@ -80,13 +80,13 @@ public class MemoryTier implements StorageTier {
     public MemoryTier(
             int numSubpartitions,
             int networkBufferSize,
-            BufferPoolHelper bufferPoolHelper,
+            TieredStoreMemoryManager tieredStoreMemoryManager,
             boolean isBroadcastOnly,
             @Nullable BufferCompressor bufferCompressor) {
         this.numSubpartitions = numSubpartitions;
         this.networkBufferSize = networkBufferSize;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.bufferPoolHelper = bufferPoolHelper;
+        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.bufferCompressor = bufferCompressor;
         checkNotNull(bufferCompressor);
         this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
@@ -100,7 +100,7 @@ public class MemoryTier implements StorageTier {
                 new MemoryWriter(
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
-                        bufferPoolHelper,
+                        tieredStoreMemoryManager,
                         bufferCompressor,
                         segmentIndexTracker,
                         isBroadcastOnly,
@@ -144,7 +144,7 @@ public class MemoryTier implements StorageTier {
 
     @Override
     public boolean canStoreNextSegment(int subpartitionId) {
-        return bufferPoolHelper.numAvailableBuffers(TieredStoreMode.TieredType.IN_MEM)
+        return tieredStoreMemoryManager.numAvailableBuffers(TieredStoreMode.TieredType.IN_MEM)
                         > bufferNumberInSegment
                 && memoryWriter.isConsumerRegistered(subpartitionId);
     }
