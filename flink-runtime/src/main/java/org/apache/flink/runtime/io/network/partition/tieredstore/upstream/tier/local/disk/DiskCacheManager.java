@@ -222,12 +222,12 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     private void tryCheckFlushCacheBuffers() {
         if (hasFlushCompleted.isDone()) {
             hasFlushCompleted = new CompletableFuture<>();
-            checkFlushCacheBuffers(bufferPoolHelper, this);
+            checkFlushCacheBuffers(bufferPoolHelper, this, numSubpartitions);
         }
     }
 
     private void flushCacheBuffers() {
-        checkFlushCacheBuffers(bufferPoolHelper, this);
+        checkFlushCacheBuffers(bufferPoolHelper, this, numSubpartitions);
     }
 
     @Override
