@@ -18,45 +18,12 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
-import org.apache.flink.util.concurrent.ExecutorThreadFactory;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
 /** A scheduled service to check whether the cached buffers need to be flushed. */
 public class CacheFlushManager {
 
-    private final ScheduledExecutorService poolSizeChecker =
-            Executors.newSingleThreadScheduledExecutor(
-                    new ExecutorThreadFactory("tiered-store-buffer-pool-checker"));
+    public CacheFlushManager() {}
 
-    private final List<CacheBufferSpillTrigger> bufferSpillTriggers = new ArrayList<>();
+    public void registerCacheSpillTrigger(CacheBufferSpillTrigger cacheBufferSpillTrigger) {}
 
-    // TODO, make this configurable
-    private int poolSizeCheckInterval = 500;
-
-    public CacheFlushManager() {
-        if (poolSizeCheckInterval > 0) {
-            poolSizeChecker.scheduleAtFixedRate(
-                    () -> {
-                        for (CacheBufferSpillTrigger spillTrigger : bufferSpillTriggers) {
-                            spillTrigger.notifyFlushCachedBuffers();
-                        }
-                    },
-                    poolSizeCheckInterval,
-                    poolSizeCheckInterval,
-                    TimeUnit.MILLISECONDS);
-        }
-    }
-
-    public void registerCacheSpillTrigger(CacheBufferSpillTrigger cacheBufferSpillTrigger) {
-        bufferSpillTriggers.add(cacheBufferSpillTrigger);
-    }
-
-    public void close() {
-        poolSizeChecker.shutdown();
-    }
+    public void close() {}
 }
