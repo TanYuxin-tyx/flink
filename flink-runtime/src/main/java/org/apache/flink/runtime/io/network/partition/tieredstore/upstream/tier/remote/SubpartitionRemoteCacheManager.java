@@ -33,11 +33,11 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.concurrent.FutureUtils;
@@ -364,15 +364,16 @@ public class SubpartitionRemoteCacheManager {
 
     public BufferBuilder requestBufferFromPool() {
         MemorySegment segment =
-                tieredStoreMemoryManager.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_DFS);
+                tieredStoreMemoryManager.requestMemorySegmentBlocking(
+                        TieredStoreMode.TieredType.IN_DFS);
         tryCheckFlushCacheBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
     }
 
     private void tryCheckFlushCacheBuffers() {
         if (hasFlushCompleted.isDone()) {
-            hasFlushCompleted = new CompletableFuture<>();
-            checkFlushCacheBuffers(tieredStoreMemoryManager, this::flushCachedBuffers);
+            checkFlushCacheBuffers(
+                    tieredStoreMemoryManager, this::flushCachedBuffersWithChangeFlushStatus);
         }
     }
 
@@ -421,7 +422,24 @@ public class SubpartitionRemoteCacheManager {
                 : Optional.empty();
     }
 
+    private CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>>
+            flushCachedBuffersWithChangeFlushStatus() {
+        List<BufferWithIdentity> toSpillBuffersWithId = generateToSpillBuffersWithId();
+        hasFlushCompleted = new CompletableFuture<>();
+        return cacheBufferSpiller
+                .spillAsync(toSpillBuffersWithId)
+                .thenApply(
+                        spilledBuffers -> {
+                            hasFlushCompleted.complete(null);
+                            return spilledBuffers;
+                        });
+    }
+
     private CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> flushCachedBuffers() {
+        return cacheBufferSpiller.spillAsync(generateToSpillBuffersWithId());
+    }
+
+    private List<BufferWithIdentity> generateToSpillBuffersWithId() {
         List<BufferIndexAndChannel> toSpillBuffers =
                 callWithLock(
                         () -> {
@@ -434,17 +452,10 @@ public class SubpartitionRemoteCacheManager {
                             return targetBuffers;
                         });
 
-        List<BufferWithIdentity> toSpillBuffersWithId = getStSpillBuffersWithId(toSpillBuffers);
-        return cacheBufferSpiller
-                .spillAsync(toSpillBuffersWithId)
-                .thenApply(
-                        spilledBuffers -> {
-                            hasFlushCompleted.complete(null);
-                            return spilledBuffers;
-                        });
+        return getSpillBuffersWithId(toSpillBuffers);
     }
 
-    private List<BufferWithIdentity> getStSpillBuffersWithId(
+    private List<BufferWithIdentity> getSpillBuffersWithId(
             List<BufferIndexAndChannel> toSpillBuffers) {
         List<BufferWithIdentity> toSpillBuffersWithId = new ArrayList<>();
         for (BufferIndexAndChannel spillBuffer : toSpillBuffers) {
