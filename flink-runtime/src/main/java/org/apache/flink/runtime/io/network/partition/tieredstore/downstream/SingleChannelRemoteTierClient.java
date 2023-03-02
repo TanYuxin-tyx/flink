@@ -12,21 +12,22 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClient;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.HEADER_LENGTH;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.parseBufferHeader;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.throwCorruptDataException;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.generateNewSegmentPath;
@@ -38,7 +39,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** The data client is used to fetch data from DFS tier. */
 public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
 
-    private final NetworkBufferPool networkBufferPool;
+    private final TieredStoreMemoryManager memoryManager;
 
     private final ByteBuffer headerBuffer;
 
@@ -64,14 +65,14 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             int subpartitionIndex,
-            NetworkBufferPool networkBufferPool,
+            TieredStoreMemoryManager memoryManager,
             String baseDfsPath) {
         this.resultPartitionIDs = resultPartitionIDs;
         this.jobID = jobID;
-        this.headerBuffer = ByteBuffer.wrap(new byte[8]);
+        this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
         headerBuffer.order(ByteOrder.nativeOrder());
         this.subpartitionIndex = subpartitionIndex;
-        this.networkBufferPool = networkBufferPool;
+        this.memoryManager = memoryManager;
         this.baseDfsPath = baseDfsPath;
         try {
             this.remoteFileSystem = new Path(baseDfsPath).getFileSystem();
@@ -135,7 +136,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
         }
         if (isPathExist(currentSegmentFinishPath)) {
             checkState(isPathExist(currentPath), "Empty Segment data file path.");
-            if(currentInputStream == null){
+            if (currentInputStream == null) {
                 currentInputStream = remoteFileSystem.open(currentPath);
             }
             return true;
@@ -155,14 +156,10 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
 
     private InputChannel.BufferAndAvailability getDfsBuffer(FSDataInputStream inputStream)
             throws IOException {
-        MemorySegment memorySegment = getSingleMemorySegment();
+        MemorySegment memorySegment =
+                memoryManager.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_DFS);
         Buffer buffer = checkNotNull(readFromInputStream(memorySegment, inputStream));
         return new InputChannel.BufferAndAvailability(buffer, Buffer.DataType.DATA_BUFFER, 0, 0);
-    }
-
-    private MemorySegment getSingleMemorySegment() throws IOException {
-        List<MemorySegment> memorySegments = networkBufferPool.requestUnpooledMemorySegments(1);
-        return memorySegments.get(0);
     }
 
     private Buffer readFromInputStream(MemorySegment memorySegment, FSDataInputStream inputStream)
@@ -202,6 +199,6 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
     }
 
     private void recycle(MemorySegment memorySegment) {
-        networkBufferPool.recycleUnpooledMemorySegments(Collections.singletonList(memorySegment));
+        memoryManager.recycleBuffer(memorySegment, TieredStoreMode.TieredType.IN_DFS);
     }
 }

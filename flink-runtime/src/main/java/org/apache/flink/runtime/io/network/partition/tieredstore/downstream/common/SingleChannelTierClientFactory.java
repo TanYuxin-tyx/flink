@@ -6,6 +6,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.SingleChannelRemoteTierClient;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.SingleChannelLocalTierClient;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,7 +20,7 @@ public class SingleChannelTierClientFactory {
 
     private final String baseDfsPath;
 
-    private final NetworkBufferPool networkBufferPool;
+    private final TieredStoreMemoryManager memoryManager;
 
     private final int subpartitionIndex;
 
@@ -36,7 +37,8 @@ public class SingleChannelTierClientFactory {
         this.subpartitionIndex = subpartitionIndex;
         this.baseDfsPath = baseDfsPath;
         this.enableRemoteTier = baseDfsPath != null;
-        this.networkBufferPool = (NetworkBufferPool) memorySegmentProvider;
+        this.memoryManager =
+                new DownstreamTieredStoreMemoryManager((NetworkBufferPool) memorySegmentProvider);
     }
 
     public List<SingleChannelTierClient> createClientList() {
@@ -48,7 +50,7 @@ public class SingleChannelTierClientFactory {
                             jobID,
                             resultPartitionIDs,
                             subpartitionIndex,
-                            networkBufferPool,
+                            memoryManager,
                             baseDfsPath));
         } else {
             clientList.add(new SingleChannelLocalTierClient());
