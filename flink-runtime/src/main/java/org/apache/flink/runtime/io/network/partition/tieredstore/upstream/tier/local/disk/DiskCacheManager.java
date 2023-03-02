@@ -24,13 +24,13 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpillTrigger;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.concurrent.FutureUtils;
 
@@ -131,7 +131,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
         }
         // force spill all buffers to disk.
         if (isLastRecordInSegment) {
-            notifyFlushCachedBuffers();
+            flushAndReleaseCacheBuffers();
         }
     }
 
@@ -156,7 +156,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
     public void close() {
-        notifyFlushCachedBuffers();
+        flushAndReleaseCacheBuffers();
         spiller.close();
     }
 
@@ -214,14 +214,14 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     @Override
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment =
-                tieredStoreMemoryManager.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_LOCAL);
+                tieredStoreMemoryManager.requestMemorySegmentBlocking(
+                        TieredStoreMode.TieredType.IN_LOCAL);
         tryCheckFlushCacheBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
     }
 
     private void tryCheckFlushCacheBuffers() {
         if (hasFlushCompleted.isDone()) {
-            hasFlushCompleted = new CompletableFuture<>();
             checkFlushCacheBuffers(tieredStoreMemoryManager, this);
         }
     }
@@ -263,6 +263,12 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     @Override
     public void notifyFlushCachedBuffers() {
+        Decision decision = generateFlushDecision();
+        spillBuffers(decision.getBufferToSpill(), true);
+        releaseBuffers(decision.getBufferToRelease());
+    }
+
+    private Decision generateFlushDecision() {
         Decision.Builder builder = Decision.builder();
         for (int subpartitionId = 0; subpartitionId < getNumSubpartitions(); subpartitionId++) {
             Deque<BufferIndexAndChannel> buffersInOrder =
@@ -271,8 +277,12 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
             builder.addBufferToSpill(subpartitionId, buffersInOrder)
                     .addBufferToRelease(subpartitionId, buffersInOrder);
         }
-        Decision decision = builder.build();
-        spillBuffers(decision.getBufferToSpill());
+        return builder.build();
+    }
+
+    private void flushAndReleaseCacheBuffers() {
+        Decision decision = generateFlushDecision();
+        spillBuffers(decision.getBufferToSpill(), false);
         releaseBuffers(decision.getBufferToRelease());
     }
 
@@ -284,7 +294,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
      *
      * @param toSpill All buffers that need to be spilled in a decision.
      */
-    private void spillBuffers(Map<Integer, List<BufferIndexAndChannel>> toSpill) {
+    private void spillBuffers(
+            Map<Integer, List<BufferIndexAndChannel>> toSpill, boolean changeFlushState) {
         if (toSpill.isEmpty()) {
             return;
         }
@@ -301,13 +312,19 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                     numUnSpillBuffers.getAndAdd(-bufferIndexAndChannels.size());
                 });
         if (!bufferWithIdentities.isEmpty()) {
+            if (changeFlushState) {
+                hasFlushCompleted = new CompletableFuture<>();
+            }
+
             FutureUtils.assertNoException(
                     spiller.spillAsync(bufferWithIdentities)
                             .thenAccept(
                                     spilledBuffers -> {
                                         regionBufferIndexTracker.addBuffers(spilledBuffers);
                                         spillingCompleteFuture.complete(null);
-                                        hasFlushCompleted.complete(null);
+                                        if (changeFlushState) {
+                                            hasFlushCompleted.complete(null);
+                                        }
                                     }));
         }
     }
