@@ -191,15 +191,12 @@ public class SubpartitionRemoteReaderView implements TierReaderView, RemoteReade
     }
 
     private BufferAndBacklog handleBacklog(BufferAndBacklog bufferToConsume) {
-        BufferAndBacklog bufferAndBacklog =
-                new BufferAndBacklog(
-                        bufferToConsume.buffer(),
-                        getSubpartitionBacklog(),
-                        bufferToConsume.getNextDataType(),
-                        bufferToConsume.getSequenceNumber(),
-                        bufferToConsume.isLastBufferInSegment());
-        bufferAndBacklog.setFromDfsTier(true);
-        return bufferAndBacklog;
+        return new BufferAndBacklog(
+                bufferToConsume.buffer(),
+                getSubpartitionBacklog(),
+                bufferToConsume.getNextDataType(),
+                bufferToConsume.getSequenceNumber(),
+                bufferToConsume.isLastBufferInSegment());
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
