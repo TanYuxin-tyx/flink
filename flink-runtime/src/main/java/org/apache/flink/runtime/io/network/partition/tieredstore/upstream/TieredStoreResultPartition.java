@@ -397,9 +397,15 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         // close is called when task is finished or failed.
         super.close();
         // first close the writer
-        tieredStoreProducer.close();
-        bufferPoolHelper.close();
-        cacheFlushManager.close();
+        if (tieredStoreProducer != null) {
+            tieredStoreProducer.close();
+        }
+        if (bufferPoolHelper != null) {
+            bufferPoolHelper.close();
+        }
+        if (cacheFlushManager != null) {
+            cacheFlushManager.close();
+        }
     }
 
     @Override
