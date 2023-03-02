@@ -61,6 +61,9 @@ public class TestingRegionBufferIndexTracker implements RegionBufferIndexTracker
         markBufferReadableConsumer.accept(subpartitionId, bufferIndex);
     }
 
+    @Override
+    public void clear() {}
+
     public static Builder builder() {
         return new Builder();
     }
