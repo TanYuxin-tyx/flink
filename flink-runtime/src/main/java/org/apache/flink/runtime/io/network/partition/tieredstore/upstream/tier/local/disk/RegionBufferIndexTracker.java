@@ -64,6 +64,8 @@ public interface RegionBufferIndexTracker {
      */
     void markBufferReleased(int subpartitionId, int bufferIndex);
 
+    void clear();
+
     /**
      * Represents a series of physically continuous buffers in the file, which are readable, from
      * the same subpartition, and has sequential buffer index.

@@ -86,6 +86,11 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
         }
     }
 
+    @Override
+    public void clear() {
+        subpartitionFirstBufferIndexInternalRegions.clear();
+    }
+
     @GuardedBy("lock")
     private Optional<InternalRegion> getInternalRegion(int subpartitionId, int bufferIndex) {
         return Optional.ofNullable(
