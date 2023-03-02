@@ -37,6 +37,8 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     private final Map<TieredStoreMode.TieredType, AtomicInteger> tierRequestedBuffersCounter;
 
+    private final AtomicInteger numRequestedBuffers = new AtomicInteger(0);
+
     private final int numSubpartitions;
 
     public UpstreamTieredStoreMemoryManager(
@@ -49,33 +51,33 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
         this.numSubpartitions = numSubpartitions;
     }
 
+    public BufferPool getBufferPool() {
+        return bufferPool;
+    }
+
     @Override
     public int numAvailableBuffers(TieredStoreMode.TieredType tieredType) {
-        int numAvailableBuffers = bufferPool.getNumberOfAvailableMemorySegments();
+        int numTotalBuffers = bufferPool.getNumBuffers();
         switch (tieredType) {
             case IN_MEM:
-                return getAvailableBuffersForMemory(numAvailableBuffers);
+                return getAvailableBuffersForMemory(numTotalBuffers);
             case IN_LOCAL:
-                return getAvailableBuffersForDisk(numAvailableBuffers);
+                return getAvailableBuffersForDisk(numTotalBuffers);
             case IN_DFS:
-                return getAvailableBuffersForRemote(numAvailableBuffers);
+                return getAvailableBuffersForRemote(numTotalBuffers);
             default:
                 throw new RuntimeException("Unsupported tiered type " + tieredType);
         }
     }
 
     @Override
-    public int numAvailableBuffers() {
-        return bufferPool.getNumberOfAvailableMemorySegments();
-    }
-
-    public int numRequestedBuffers() {
-        return tierRequestedBuffersCounter.values().stream().mapToInt(AtomicInteger::get).sum();
+    public int numTotalBuffers() {
+        return bufferPool.getNumBuffers();
     }
 
     @Override
-    public int numTotalBuffers() {
-        return bufferPool.getNumBuffers();
+    public int numRequestedBuffers() {
+        return numRequestedBuffers.get();
     }
 
     @Override
@@ -110,11 +112,13 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     public void close() {}
 
     private void incRequestedBufferCounter(TieredStoreMode.TieredType tieredType) {
+        numRequestedBuffers.getAndIncrement();
         tierRequestedBuffersCounter.putIfAbsent(tieredType, new AtomicInteger(0));
         tierRequestedBuffersCounter.get(tieredType).incrementAndGet();
     }
 
     private void decRequestedBufferCounter(TieredStoreMode.TieredType tieredType) {
+        numRequestedBuffers.decrementAndGet();
         AtomicInteger numRequestedBuffers = tierRequestedBuffersCounter.get(tieredType);
         checkNotNull(numRequestedBuffers).decrementAndGet();
     }

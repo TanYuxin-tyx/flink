@@ -34,11 +34,6 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
-    public int numAvailableBuffers() {
-        return localBufferPool.getNumberOfAvailableMemorySegments();
-    }
-
-    @Override
     public int numRequestedBuffers() {
         return numRequestedBuffers.get();
     }
