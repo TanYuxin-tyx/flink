@@ -30,8 +30,6 @@ public interface TieredStoreMemoryManager {
 
     int numAvailableBuffers(TieredStoreMode.TieredType tieredType);
 
-    int numAvailableBuffers();
-
     int numRequestedBuffers();
 
     int numTotalBuffers();
