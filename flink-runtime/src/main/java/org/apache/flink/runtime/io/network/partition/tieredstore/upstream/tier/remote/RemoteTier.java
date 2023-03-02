@@ -97,7 +97,7 @@ public class RemoteTier implements StorageTier {
     @Override
     public TierWriter createPartitionTierWriter() throws IOException {
         return new RemoteWriter(
-                numSubpartitions, isBroadcastOnly, segmentIndexTracker, remoteCacheManager);
+                numSubpartitions, isBroadcastOnly, segmentIndexTracker, remoteCacheManager, numBytesInASegment);
     }
 
     @Override

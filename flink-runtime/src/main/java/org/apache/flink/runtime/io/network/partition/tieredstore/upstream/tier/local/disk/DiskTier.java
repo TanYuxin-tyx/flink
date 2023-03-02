@@ -28,7 +28,6 @@ import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartit
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
@@ -37,6 +36,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.metrics.TimerGauge;
 
 import org.slf4j.Logger;
@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -89,6 +90,9 @@ public class DiskTier implements TierWriter, StorageTier {
 
     private final DiskReaderManager diskReaderManager;
 
+    // Record the byte number currently written to each sub partition.
+    private final int[] numSubpartitionEmitBytes;
+
     private DiskCacheManager diskCacheManager;
 
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
@@ -122,6 +126,8 @@ public class DiskTier implements TierWriter, StorageTier {
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.cacheFlushManager = cacheFlushManager;
         this.bufferCompressor = bufferCompressor;
+        this.numSubpartitionEmitBytes = new int[numSubpartitions];
+        Arrays.fill(numSubpartitionEmitBytes, 0);
         this.regionBufferIndexTracker =
                 new RegionBufferIndexTrackerImpl(isBroadcastOnly ? 1 : numSubpartitions);
         this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
@@ -156,15 +162,21 @@ public class DiskTier implements TierWriter, StorageTier {
     }
 
     @Override
-    public void emit(
+    public boolean emit(
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
             boolean isBroadcast,
-            boolean isLastRecordInSegment,
             boolean isEndOfPartition,
             long segmentIndex)
             throws IOException {
+        boolean isLastRecordInSegment = false;
+        numSubpartitionEmitBytes[targetSubpartition] += record.remaining();
+        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
+            isLastRecordInSegment = true;
+            numSubpartitionEmitBytes[targetSubpartition] = 0;
+        }
+
         segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentIndex);
         if (isLastRecordInSegment && !isEndOfPartition) {
             emit(record, targetSubpartition, dataType, false);
@@ -175,6 +187,7 @@ public class DiskTier implements TierWriter, StorageTier {
         } else {
             emit(record, targetSubpartition, dataType, isLastRecordInSegment);
         }
+        return isLastRecordInSegment;
     }
 
     private void emit(
