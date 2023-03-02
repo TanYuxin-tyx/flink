@@ -43,7 +43,9 @@ public class TieredStoreUtils {
 
     private static final String SEGMENT_FINISH_FILE_SUFFIX = ".FINISH";
 
-    private static final float NUM_TRIGGER_FLUSH_RATIO = 0.8f;
+    private static final float LOCAL_BUFFER_POOL_TRIGGER_FLUSH_RATIO = 0.9f;
+
+    private static final float NETWORK_BUFFER_POOL_TRIGGER_FLUSH_RATIO = 0.95f;
 
     public static ByteBuffer[] generateBufferWithHeaders(
             List<BufferWithIdentity> bufferWithIdentities) {
@@ -76,16 +78,19 @@ public class TieredStoreUtils {
     }
 
     public static void checkFlushCacheBuffers(
-            TieredStoreMemoryManager tieredStoreMemoryManager, CacheBufferSpillTrigger cacheBufferSpillTrigger) {
+            TieredStoreMemoryManager tieredStoreMemoryManager,
+            CacheBufferSpillTrigger cacheBufferSpillTrigger) {
         int numAvailable = tieredStoreMemoryManager.numAvailableBuffers();
         int numTotal = tieredStoreMemoryManager.numTotalBuffers();
         int numRequested = tieredStoreMemoryManager.numRequestedBuffers();
-        int networkAvailableBuffers = tieredStoreMemoryManager.getNetworkBufferPoolAvailableBuffers();
+        int networkAvailableBuffers =
+                tieredStoreMemoryManager.getNetworkBufferPoolAvailableBuffers();
         int networkTotalBuffers = tieredStoreMemoryManager.getNetworkBufferPoolTotalBuffers();
         if (numRequested >= numTotal
-                || ((numTotal - numAvailable) * 1.0 / numTotal) >= NUM_TRIGGER_FLUSH_RATIO
+                || ((numTotal - numAvailable) * 1.0 / numTotal)
+                        >= LOCAL_BUFFER_POOL_TRIGGER_FLUSH_RATIO
                 || (networkTotalBuffers - networkAvailableBuffers) * 1.0 / numTotal
-                        >= NUM_TRIGGER_FLUSH_RATIO) {
+                        >= NETWORK_BUFFER_POOL_TRIGGER_FLUSH_RATIO) {
             cacheBufferSpillTrigger.notifyFlushCachedBuffers();
         }
     }
