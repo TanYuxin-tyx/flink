@@ -101,8 +101,8 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     }
 
     @Override
-    public void recycleBuffer(MemorySegment buffer, TieredStoreMode.TieredType tieredType) {
-        bufferPool.recycle(buffer);
+    public void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TieredType tieredType) {
+        bufferPool.recycle(memorySegment);
         decRequestedBufferCounter(tieredType);
     }
 
