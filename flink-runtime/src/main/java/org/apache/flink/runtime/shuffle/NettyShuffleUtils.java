@@ -45,7 +45,7 @@ public class NettyShuffleUtils {
             HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS = new HashMap<>();
 
     static {
-        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_MEM, 20);
+        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_MEM, 100);
         HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_LOCAL, 1);
         HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_DFS, 1);
     }
