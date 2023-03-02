@@ -129,14 +129,17 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     @Override
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable) {
-        // first scan all result subpartition views
+
+        // update the needNotify status of all gates
         for (TierReaderView tierReaderView : tierReaderViews) {
             tierReaderView.getAvailabilityAndBacklog(numCreditsAvailable);
         }
+
         if (findTierContainsNextSegment()) {
             return tierReaderViews[viewIndexContainsCurrentSegment].getAvailabilityAndBacklog(
                     numCreditsAvailable);
         }
+
         return new ResultSubpartitionView.AvailabilityWithBacklog(false, 0);
     }
 
