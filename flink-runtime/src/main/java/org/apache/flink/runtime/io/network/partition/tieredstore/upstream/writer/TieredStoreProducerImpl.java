@@ -34,12 +34,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
-
-import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * This is a common entrypoint of the emitted records. These records will be transferred to the
@@ -56,9 +52,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     // Record the newest segment index belonged to each sub partition.
     private final long[] subpartitionSegmentIndexes;
 
-    // Record the byte number currently written to each sub partition.
-    private final int[] numSubpartitionEmitBytes;
-
     // Record the index of writer currently used by each sub partition.
     private final int[] subpartitionWriterIndex;
 
@@ -71,14 +64,12 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
             throws IOException {
         this.tierDataGates = tierDataGates;
         this.subpartitionSegmentIndexes = new long[numSubpartitions];
-        this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.subpartitionWriterIndex = new int[numSubpartitions];
         this.tierWriters = new TierWriter[tierDataGates.length];
         this.isBroadcastOnly = isBroadcastOnly;
         this.numSubpartitions = numSubpartitions;
 
         Arrays.fill(subpartitionSegmentIndexes, 0);
-        Arrays.fill(numSubpartitionEmitBytes, 0);
         Arrays.fill(subpartitionWriterIndex, -1);
         for (int i = 0; i < tierDataGates.length; i++) {
             tierWriters[i] = tierDataGates[i].createPartitionTierWriter();
@@ -101,89 +92,48 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
             boolean isBroadcast,
             boolean isEndOfPartition)
             throws IOException {
-        List<WriterAndSegmentIndex> writerAndSegmentIndexes =
-                selectTieredWriterAndGetRegionIndexes(
-                        record.remaining(), targetSubpartition, isBroadcast);
-        for (WriterAndSegmentIndex writerAndSegmentIndex : writerAndSegmentIndexes) {
-            long segmentIndex = writerAndSegmentIndex.getSegmentIndex();
-            boolean isLastRecord = writerAndSegmentIndex.isLastRecordInSegment();
-            int subpartitionId = writerAndSegmentIndex.getSubpartitionId();
-            int writerIndex = writerAndSegmentIndex.getWriterIndex();
-            tierWriters[writerIndex].emit(
-                    record.duplicate(),
-                    subpartitionId,
-                    dataType,
-                    isBroadcast,
-                    isLastRecord,
-                    isEndOfPartition,
-                    segmentIndex);
-        }
-    }
 
-    // Choose right tiered writers.
-    public List<WriterAndSegmentIndex> selectTieredWriterAndGetRegionIndexes(
-            int numRecordBytes, int targetSubpartition, boolean isBroadcast) throws IOException {
-        List<WriterAndSegmentIndex> writerAndSegmentIndexes = new ArrayList<>();
         if (isBroadcast && !isBroadcastOnly) {
             for (int i = 0; i < numSubpartitions; ++i) {
-                writerAndSegmentIndexes.add(getTieredWriterAndGetSegmentIndex(numRecordBytes, i));
+                emitInternal(record.duplicate(), i, dataType, isBroadcast, isEndOfPartition);
             }
         } else {
-            writerAndSegmentIndexes.add(
-                    getTieredWriterAndGetSegmentIndex(numRecordBytes, targetSubpartition));
+            emitInternal(record, targetSubpartition, dataType, isBroadcast, isEndOfPartition);
         }
-        return writerAndSegmentIndexes;
     }
 
-    private WriterAndSegmentIndex getTieredWriterAndGetSegmentIndex(
-            int numRecordBytes, int targetSubpartition) throws IOException {
+    private void emitInternal(
+            ByteBuffer record,
+            int targetSubpartition,
+            Buffer.DataType dataType,
+            boolean isBroadcast,
+            boolean isEndOfPartition)
+            throws IOException {
 
-        // Each record needs to get the following information
-        int writerIndex;
-        boolean isLastRecordInSegment;
-        long segmentIndex;
-
-        // For the record that haven't selected a gate to emit
-        if (subpartitionWriterIndex[targetSubpartition] == -1) {
-            writerIndex = chooseGate(targetSubpartition);
+        int writerIndex = subpartitionWriterIndex[targetSubpartition];
+        // For the first record
+        if (writerIndex == -1) {
+            writerIndex = chooseGateWriter(targetSubpartition);
             subpartitionWriterIndex[targetSubpartition] = writerIndex;
-            checkState(numSubpartitionEmitBytes[targetSubpartition] == 0);
-            numSubpartitionEmitBytes[targetSubpartition] += numRecordBytes;
-            if (numSubpartitionEmitBytes[targetSubpartition]
-                    >= tierDataGates[writerIndex].getNewSegmentSize()) {
-                isLastRecordInSegment = true;
-                segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
-                ++subpartitionSegmentIndexes[targetSubpartition];
-                clearInfoOfSelectGate(targetSubpartition);
-            } else {
-                isLastRecordInSegment = false;
-                segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
-            }
-        }
-        // For the record that already selected a gate to emit
-        else {
-            int currentWriterIndex = subpartitionWriterIndex[targetSubpartition];
-            checkState(currentWriterIndex != -1);
-            numSubpartitionEmitBytes[targetSubpartition] += numRecordBytes;
-            if (numSubpartitionEmitBytes[targetSubpartition]
-                    >= tierDataGates[currentWriterIndex].getNewSegmentSize()) {
-                writerIndex = currentWriterIndex;
-                isLastRecordInSegment = true;
-                segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
-                ++subpartitionSegmentIndexes[targetSubpartition];
-                clearInfoOfSelectGate(targetSubpartition);
-            } else {
-                writerIndex = currentWriterIndex;
-                isLastRecordInSegment = false;
-                segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
-            }
         }
 
-        return new WriterAndSegmentIndex(
-                writerIndex, isLastRecordInSegment, segmentIndex, targetSubpartition);
+        long segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
+        boolean isLastRecordInSegment =
+                tierWriters[writerIndex].emit(
+                        record,
+                        targetSubpartition,
+                        dataType,
+                        isBroadcast,
+                        isEndOfPartition,
+                        segmentIndex);
+        if (isLastRecordInSegment) {
+            writerIndex = chooseGateWriter(targetSubpartition);
+            subpartitionWriterIndex[targetSubpartition] = writerIndex;
+            subpartitionSegmentIndexes[targetSubpartition] = (segmentIndex + 1);
+        }
     }
 
-    private int chooseGate(int targetSubpartition) throws IOException {
+    private int chooseGateWriter(int targetSubpartition) throws IOException {
         if (tierDataGates.length == 1) {
             return 0;
         }
@@ -206,11 +156,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
             }
         }
         throw new IOException("All gates are full, cannot select the writer of gate");
-    }
-
-    private void clearInfoOfSelectGate(int targetSubpartition) {
-        numSubpartitionEmitBytes[targetSubpartition] = 0;
-        subpartitionWriterIndex[targetSubpartition] = -1;
     }
 
     public void release() {
