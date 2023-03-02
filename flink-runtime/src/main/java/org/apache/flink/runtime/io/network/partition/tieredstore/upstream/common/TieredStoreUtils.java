@@ -43,9 +43,9 @@ public class TieredStoreUtils {
 
     private static final String SEGMENT_FINISH_FILE_SUFFIX = ".FINISH";
 
-    private static final float LOCAL_BUFFER_POOL_TRIGGER_FLUSH_RATIO = 0.8f;
+    private static final float LOCAL_BUFFER_POOL_TRIGGER_FLUSH_RATIO = 0.9f;
 
-    private static final float NETWORK_BUFFER_POOL_TRIGGER_FLUSH_RATIO = 0.8f;
+    private static final float NETWORK_BUFFER_POOL_TRIGGER_FLUSH_RATIO = 0.9f;
 
     public static ByteBuffer[] generateBufferWithHeaders(
             List<BufferWithIdentity> bufferWithIdentities) {
