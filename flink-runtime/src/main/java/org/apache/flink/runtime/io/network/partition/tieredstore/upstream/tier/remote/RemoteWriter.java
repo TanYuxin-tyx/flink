@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 /**
  * Through the {@link RemoteWriter}, records from {@link RemoteTier} is writen to cached buffers.
@@ -36,34 +37,50 @@ public class RemoteWriter implements TierWriter {
 
     private final boolean isBroadcastOnly;
 
+    // Record the byte number currently written to each sub partition.
+    private final int[] numSubpartitionEmitBytes;
+
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
 
     private final RemoteCacheManager cacheDataManager;
+
+    private final int numBytesInASegment;
 
     public RemoteWriter(
             int numSubpartitions,
             boolean isBroadcastOnly,
             SubpartitionSegmentIndexTracker segmentIndexTracker,
-            RemoteCacheManager remoteCacheManager) {
+            RemoteCacheManager remoteCacheManager,
+            int numBytesInASegment) {
         this.numSubpartitions = numSubpartitions;
         this.isBroadcastOnly = isBroadcastOnly;
         this.segmentIndexTracker = segmentIndexTracker;
         this.cacheDataManager = remoteCacheManager;
+        this.numSubpartitionEmitBytes = new int[numSubpartitions];
+        Arrays.fill(numSubpartitionEmitBytes, 0);
+        this.numBytesInASegment = numBytesInASegment;
     }
 
     @Override
     public void setup() throws IOException {}
 
     @Override
-    public void emit(
+    public boolean emit(
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
             boolean isBroadcast,
-            boolean isLastRecordInSegment,
             boolean isEndOfPartition,
             long segmentIndex)
             throws IOException {
+
+        boolean isLastRecordInSegment = false;
+        numSubpartitionEmitBytes[targetSubpartition] += record.remaining();
+        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
+            isLastRecordInSegment = true;
+            numSubpartitionEmitBytes[targetSubpartition] = 0;
+        }
+
         if (!segmentIndexTracker.hasCurrentSegment(targetSubpartition, segmentIndex)) {
             cacheDataManager.startSegment(targetSubpartition, segmentIndex);
         }
@@ -72,6 +89,8 @@ public class RemoteWriter implements TierWriter {
             cacheDataManager.finishSegment(targetSubpartition, segmentIndex);
             segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentIndex);
         }
+
+        return isLastRecordInSegment;
     }
 
     private void emit(

@@ -30,12 +30,11 @@ import java.nio.ByteBuffer;
 public interface TierWriter {
     void setup() throws IOException;
 
-    void emit(
+    boolean emit(
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
             boolean isBroadcast,
-            boolean isLastRecordInSegment,
             boolean isEndOfPartition,
             long segmentIndex)
             throws IOException;

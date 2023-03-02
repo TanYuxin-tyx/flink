@@ -22,12 +22,12 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.util.Preconditions;
 
@@ -37,6 +37,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -62,11 +63,16 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
     private final List<Map<TierReaderViewId, SubpartitionConsumerInternalOperations>>
             subpartitionViewOperationsMap;
 
+    // Record the byte number currently written to each sub partition.
+    private final int[] numSubpartitionEmitBytes;
+
     private final SubpartitionSegmentIndexTracker subpartitionSegmentIndexTracker;
 
     private final boolean isBroadcastOnly;
 
     private final int numTotalConsumers;
+
+    private final int numBytesInASegment;
 
     public MemoryWriter(
             int numSubpartitions,
@@ -75,13 +81,17 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
             BufferCompressor bufferCompressor,
             SubpartitionSegmentIndexTracker subpartitionSegmentIndexTracker,
             boolean isBroadcastOnly,
-            int numTotalConsumers) {
+            int numTotalConsumers,
+            int numBytesInASegment) {
         this.numSubpartitions = numSubpartitions;
         this.numTotalConsumers = numTotalConsumers;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.subpartitionMemoryDataManagers = new SubpartitionMemoryDataManager[numSubpartitions];
         this.subpartitionSegmentIndexTracker = subpartitionSegmentIndexTracker;
         this.isBroadcastOnly = isBroadcastOnly;
+        this.numSubpartitionEmitBytes = new int[numSubpartitions];
+        Arrays.fill(numSubpartitionEmitBytes, 0);
+        this.numBytesInASegment = numBytesInASegment;
 
         this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
@@ -101,15 +111,20 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
     public void setup() throws IOException {}
 
     @Override
-    public void emit(
+    public boolean emit(
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
             boolean isBroadcast,
-            boolean isLastRecordInSegment,
             boolean isEndOfPartition,
             long segmentIndex)
             throws IOException {
+        boolean isLastRecordInSegment = false;
+        numSubpartitionEmitBytes[targetSubpartition] += record.remaining();
+        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
+            isLastRecordInSegment = true;
+            numSubpartitionEmitBytes[targetSubpartition] = 0;
+        }
         subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(
                 targetSubpartition, segmentIndex);
         if (isLastRecordInSegment && !isEndOfPartition) {
@@ -131,6 +146,7 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
                     isBroadcast && isBroadcastOnly,
                     isLastRecordInSegment);
         }
+        return isLastRecordInSegment;
     }
 
     private void append(
@@ -201,7 +217,8 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
 
     @Override
     public MemorySegment requestBufferFromPool(int subpartitionId) throws InterruptedException {
-        return tieredStoreMemoryManager.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_MEM);
+        return tieredStoreMemoryManager.requestMemorySegmentBlocking(
+                TieredStoreMode.TieredType.IN_MEM);
     }
 
     @Override
