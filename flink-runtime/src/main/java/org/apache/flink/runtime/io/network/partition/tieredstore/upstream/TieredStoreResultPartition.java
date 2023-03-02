@@ -71,17 +71,17 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** ResultPartition for TieredStore. */
 public class TieredStoreResultPartition extends ResultPartition implements ChannelStateHolder {
 
-    private final JobID jobID;
+    private JobID jobID;
 
-    private final BatchShuffleReadBufferPool readBufferPool;
+    private BatchShuffleReadBufferPool readBufferPool;
 
-    private final ScheduledExecutorService readIOExecutor;
+    private ScheduledExecutorService readIOExecutor;
 
     private final int networkBufferSize;
 
-    private final TieredStoreConfiguration storeConfiguration;
+    private TieredStoreConfiguration storeConfiguration;
 
-    private final String dataFileBasePath;
+    private String dataFileBasePath;
 
     private final long minDiskReserveBytes;
 
@@ -412,6 +412,14 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
         // first release the writer
         tieredStoreProducer.release();
+        tieredStoreProducer = null;
+        jobID = null;
+        readBufferPool = null;
+        readIOExecutor = null;
+        dataFileBasePath = null;
+        storeConfiguration = null;
+        bufferPoolHelper = null;
+        cacheFlushManager = null;
     }
 
     @Override
