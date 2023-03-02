@@ -40,14 +40,13 @@ class TieredStoreSubpartitionViewDelegate implements ResultSubpartitionView {
     TieredStoreSubpartitionViewDelegate(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            StorageTier[] tierDataGates,
-            String taskName)
+            StorageTier[] tierDataGates)
             throws IOException {
         checkArgument(tierDataGates.length > 0, "Empty tier transmitters.");
 
         this.storeConsumer =
                 new TieredStoreConsumerImpl(
-                        subpartitionId, availabilityListener, tierDataGates, taskName);
+                        subpartitionId, availabilityListener, tierDataGates);
         this.taskName = taskName;
     }
 

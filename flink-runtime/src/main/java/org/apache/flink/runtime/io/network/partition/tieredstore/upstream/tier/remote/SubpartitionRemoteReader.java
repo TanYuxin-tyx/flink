@@ -113,7 +113,6 @@ public class SubpartitionRemoteReader implements TierReader {
                     ResultSubpartition.BufferAndBacklog bufferAndBacklog =
                             new ResultSubpartition.BufferAndBacklog(
                                     null, getBacklog(), tuple.f1, toConsumeIndex, true);
-                    bufferAndBacklog.setFromDfsTier(true);
                     return bufferAndBacklog;
                 });
     }

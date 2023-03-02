@@ -342,7 +342,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
             throws IOException {
         checkState(!isReleased(), "ResultPartition already released.");
         return new TieredStoreSubpartitionViewDelegate(
-                subpartitionId, availabilityListener, tierDataGates, getOwningTaskName());
+                subpartitionId, availabilityListener, tierDataGates);
     }
 
     @Override
