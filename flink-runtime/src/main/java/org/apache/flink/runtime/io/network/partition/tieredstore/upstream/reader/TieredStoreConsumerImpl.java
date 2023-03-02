@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.reader;
 
-import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
@@ -61,13 +60,10 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     private int currentSequenceNumber = 0;
 
-    private String taskName;
-
     public TieredStoreConsumerImpl(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            StorageTier[] tierDataGates,
-            String taskName)
+            StorageTier[] tierDataGates)
             throws IOException {
         checkArgument(tierDataGates.length > 0, "Empty tier transmitters.");
 
@@ -76,7 +72,6 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
         this.tierDataGates = tierDataGates;
         this.tierReaderViews = new TierReaderView[tierDataGates.length];
         createSingleTierReaders();
-        this.taskName = taskName;
     }
 
     private void createSingleTierReaders() throws IOException {
@@ -111,26 +106,18 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     }
 
     public BufferAndBacklog getNextBufferInternal() throws IOException {
-        LOG.debug("%%% getNextBuffer1");
         if (!findTierContainsNextSegment()) {
             return null;
         }
-        LOG.debug("%%% getNextBuffer2");
         BufferAndBacklog bufferAndBacklog =
                 tierReaderViews[viewIndexContainsCurrentSegment].getNextBuffer();
 
         if (bufferAndBacklog != null) {
-            LOG.debug("%%% getNextBuffer3 ");
-            bufferAndBacklog.setNextDataType(Buffer.DataType.DATA_BUFFER);
             hasSegmentFinished = bufferAndBacklog.isLastBufferInSegment();
             if (hasSegmentFinished) {
-                Buffer buffer = bufferAndBacklog.buffer();
-                if (buffer != null && buffer.getDataType() == Buffer.DataType.DATA_BUFFER) {
-                    System.out.println();
-                }
                 currentSegmentIndex++;
             }
-            if (bufferAndBacklog.isFromDfsTier()) {
+            if (bufferAndBacklog.buffer() == null) {
                 return getNextBuffer();
             }
             bufferAndBacklog.setSequenceNumber(currentSequenceNumber);

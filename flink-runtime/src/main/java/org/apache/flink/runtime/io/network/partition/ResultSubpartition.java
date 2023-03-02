@@ -128,7 +128,6 @@ public abstract class ResultSubpartition {
         private Buffer.DataType nextDataType;
         private int sequenceNumber;
         private final boolean isLastBufferInSegment;
-        private boolean isFromDfsTier;
 
         public BufferAndBacklog(
                 Buffer buffer,
@@ -177,14 +176,6 @@ public abstract class ResultSubpartition {
 
         public boolean isLastBufferInSegment() {
             return isLastBufferInSegment;
-        }
-
-        public boolean isFromDfsTier() {
-            return isFromDfsTier;
-        }
-
-        public void setFromDfsTier(boolean fromDfsTier) {
-            isFromDfsTier = fromDfsTier;
         }
 
         public static BufferAndBacklog fromBufferAndLookahead(
