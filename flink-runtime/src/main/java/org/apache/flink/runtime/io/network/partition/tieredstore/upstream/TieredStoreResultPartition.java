@@ -40,11 +40,10 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.MemoryTier;
@@ -88,8 +87,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     private final boolean isBroadcast;
 
     private TieredStoreMemoryManager tieredStoreMemoryManager;
-
-    private CacheFlushManager cacheFlushManager;
 
     private StorageTier[] tierDataGates;
 
@@ -146,7 +143,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(
                         bufferPool, HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS, numSubpartitions);
-        cacheFlushManager = new CacheFlushManager();
         setupTierDataGates();
         tieredStoreProducer =
                 new TieredStoreProducerImpl(tierDataGates, numSubpartitions, isBroadcast);
@@ -262,7 +258,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 networkBufferSize,
                 getPartitionId(),
                 tieredStoreMemoryManager,
-                cacheFlushManager,
                 dataFileBasePath,
                 minDiskReserveBytes,
                 isBroadcast,
@@ -288,7 +283,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 networkBufferSize,
                 getPartitionId(),
                 tieredStoreMemoryManager,
-                cacheFlushManager,
                 isBroadcast,
                 baseDfsPath,
                 bufferCompressor);
@@ -403,9 +397,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         if (tieredStoreMemoryManager != null) {
             tieredStoreMemoryManager.close();
         }
-        if (cacheFlushManager != null) {
-            cacheFlushManager.close();
-        }
     }
 
     @Override
@@ -425,7 +416,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         dataFileBasePath = null;
         storeConfiguration = null;
         tieredStoreMemoryManager = null;
-        cacheFlushManager = null;
     }
 
     @Override

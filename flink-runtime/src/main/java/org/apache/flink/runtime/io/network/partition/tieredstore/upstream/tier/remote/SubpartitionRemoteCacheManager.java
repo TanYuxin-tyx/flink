@@ -35,7 +35,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
@@ -133,7 +132,6 @@ public class SubpartitionRemoteCacheManager {
             int bufferSize,
             boolean isBroadcastOnly,
             TieredStoreMemoryManager tieredStoreMemoryManager,
-            CacheFlushManager cacheFlushManager,
             String baseDfsPath,
             Lock resultPartitionLock,
             @Nullable BufferCompressor bufferCompressor,
@@ -151,7 +149,6 @@ public class SubpartitionRemoteCacheManager {
                 new RemoteCacheBufferSpiller(
                         jobID, resultPartitionID, targetChannel, baseDfsPath, ioExecutor);
         this.isBroadcastOnly = isBroadcastOnly;
-        cacheFlushManager.registerCacheSpillTrigger(this::flushCachedBuffers);
     }
 
     // ------------------------------------------------------------------------

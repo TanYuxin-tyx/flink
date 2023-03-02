@@ -23,10 +23,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
@@ -71,7 +70,8 @@ class DiskCacheManagerTest {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
         TieredStoreMemoryManager tieredStoreMemoryManager =
-                new UpstreamTieredStoreMemoryManager(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+                new UpstreamTieredStoreMemoryManager(
+                        bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
         DiskCacheManager diskCacheManager = createCacheDataManager(tieredStoreMemoryManager);
 
         diskCacheManager.append(createRecord(0), 0, Buffer.DataType.DATA_BUFFER, false);
@@ -162,14 +162,13 @@ class DiskCacheManagerTest {
                 bufferPool, new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS));
     }
 
-    private DiskCacheManager createCacheDataManager(TieredStoreMemoryManager tieredStoreMemoryManager)
-            throws Exception {
+    private DiskCacheManager createCacheDataManager(
+            TieredStoreMemoryManager tieredStoreMemoryManager) throws Exception {
         DiskCacheManager diskCacheManager =
                 new DiskCacheManager(
                         NUM_SUBPARTITIONS,
                         bufferSize,
                         tieredStoreMemoryManager,
-                        new CacheFlushManager(),
                         new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
                         dataFilePath,
                         null);
@@ -186,7 +185,6 @@ class DiskCacheManagerTest {
                         bufferSize,
                         new UpstreamTieredStoreMemoryManager(
                                 bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS),
-                        new CacheFlushManager(),
                         regionBufferIndexTracker,
                         dataFilePath,
                         null);

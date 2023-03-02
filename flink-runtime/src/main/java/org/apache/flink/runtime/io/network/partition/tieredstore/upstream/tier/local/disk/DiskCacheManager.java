@@ -27,7 +27,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpillTrigger;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
@@ -82,7 +81,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
             int numSubpartitions,
             int bufferSize,
             TieredStoreMemoryManager tieredStoreMemoryManager,
-            CacheFlushManager cacheFlushManager,
             RegionBufferIndexTracker regionBufferIndexTracker,
             Path dataFilePath,
             BufferCompressor bufferCompressor)
@@ -100,9 +98,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                             subpartitionId, bufferSize, bufferCompressor, this);
             subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
         }
-        //        bufferPoolHelper.registerSubpartitionTieredManager(
-        //                TieredStoreMode.TieredType.IN_LOCAL, this);
-        cacheFlushManager.registerCacheSpillTrigger(this::flushCacheBuffers);
     }
 
     // ------------------------------------
