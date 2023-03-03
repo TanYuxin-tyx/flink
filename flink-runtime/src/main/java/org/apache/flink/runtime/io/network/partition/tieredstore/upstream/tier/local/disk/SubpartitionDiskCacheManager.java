@@ -126,11 +126,9 @@ public class SubpartitionDiskCacheManager {
                     // traverse buffers in order.
                     allBuffers.forEach(
                             (bufferContext -> {
-                                if (isBufferSatisfyStatus(
-                                        bufferContext, spillStatus, consumeStatusWithId)) {
-                                    targetBuffers.add(bufferContext.getBufferIndexAndChannel());
-                                }
+                                targetBuffers.add(bufferContext.getBufferIndexAndChannel());
                             }));
+                    allBuffers.clear();
                     return targetBuffers;
                 });
     }
@@ -145,8 +143,7 @@ public class SubpartitionDiskCacheManager {
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    public List<BufferWithIdentity> spillSubpartitionBuffers(
-            List<BufferIndexAndChannel> toSpill) {
+    public List<BufferWithIdentity> spillSubpartitionBuffers(List<BufferIndexAndChannel> toSpill) {
         return callWithLock(
                 () ->
                         toSpill.stream()
@@ -233,17 +230,12 @@ public class SubpartitionDiskCacheManager {
                     checkNotNull(
                             unfinishedBuffers.peek(), "Expect enough capacity for the record.");
             currentWritingBuffer.append(record);
-            LOG.debug("%%% add a finished record1");
             if (currentWritingBuffer.isFull() && record.hasRemaining()) {
-                LOG.debug("%%% add a finished record2");
                 finishCurrentWritingBuffer(false);
             } else if (currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                LOG.debug("%%% add a finished record3");
                 finishCurrentWritingBuffer(isLastRecordInSegment);
             } else if (!currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                LOG.debug("%%% add a finished record4");
                 if (isLastRecordInSegment) {
-                    LOG.debug("%%% add a finished record5");
                     finishCurrentWritingBuffer(true);
                 }
             }
@@ -261,11 +253,9 @@ public class SubpartitionDiskCacheManager {
 
     private void finishCurrentWritingBuffer(boolean isLastBufferInSegment) {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
-        LOG.debug("%%% add a finished record6");
         if (currentWritingBuffer == null) {
             return;
         }
-        LOG.debug("%%% add a finished record7");
         currentWritingBuffer.finish();
         BufferConsumer bufferConsumer = currentWritingBuffer.createBufferConsumerFromBeginning();
         Buffer buffer = bufferConsumer.build();
@@ -301,7 +291,6 @@ public class SubpartitionDiskCacheManager {
     private void addFinishedBuffer(BufferContext bufferContext) {
         runWithLock(
                 () -> {
-                    LOG.debug("%%% add a finished Buffer");
                     finishedBufferIndex++;
                     allBuffers.add(bufferContext);
                     bufferIndexToContexts.put(
@@ -314,66 +303,14 @@ public class SubpartitionDiskCacheManager {
                 });
     }
 
-    /**
-     * Remove all released buffer from head of queue until buffer queue is empty or meet un-released
-     * buffer.
-     */
-    @GuardedBy("subpartitionLock")
-    private void trimHeadingReleasedBuffers(Deque<BufferContext> bufferQueue) {
-        while (!bufferQueue.isEmpty() && bufferQueue.peekFirst().isReleased()) {
-            LOG.debug("%%% I'm trying to remove Buffer.. ");
-            bufferQueue.removeFirst();
-        }
-    }
-
-    @GuardedBy("subpartitionLock")
-    private void releaseBuffer(int bufferIndex) {
-        BufferContext bufferContext = bufferIndexToContexts.remove(bufferIndex);
-        if (bufferContext == null) {
-            return;
-        }
-        bufferContext.release();
-        // remove released buffers from head lazy.
-        LOG.debug("%%% I'm trying to release Buffer.. ");
-        trimHeadingReleasedBuffers(allBuffers);
-    }
-
     @GuardedBy("subpartitionLock")
     private Optional<BufferContext> startSpillingBuffer(int bufferIndex) {
         BufferContext bufferContext = bufferIndexToContexts.get(bufferIndex);
         if (bufferContext == null) {
             return Optional.empty();
         }
+        bufferIndexToContexts.remove(bufferIndex);
         return bufferContext.startSpilling() ? Optional.of(bufferContext) : Optional.empty();
-    }
-
-    @GuardedBy("subpartitionLock")
-    private boolean isBufferSatisfyStatus(
-            BufferContext bufferContext,
-            DiskCacheManagerOperation.SpillStatus spillStatus,
-            DiskCacheManagerOperation.ConsumeStatusWithId consumeStatusWithId) {
-        // released buffer is not needed.
-        if (bufferContext.isReleased()) {
-            return false;
-        }
-        boolean match = true;
-        switch (spillStatus) {
-            case NOT_SPILL:
-                match = !bufferContext.isSpillStarted();
-                break;
-            case SPILL:
-                match = bufferContext.isSpillStarted();
-                break;
-        }
-        switch (consumeStatusWithId.status) {
-            case NOT_CONSUMED:
-                match &= !bufferContext.isConsumed(consumeStatusWithId.tierReaderViewId);
-                break;
-            case CONSUMED:
-                match &= bufferContext.isConsumed(consumeStatusWithId.tierReaderViewId);
-                break;
-        }
-        return match;
     }
 
     private void updateStatistics(Buffer buffer) {
