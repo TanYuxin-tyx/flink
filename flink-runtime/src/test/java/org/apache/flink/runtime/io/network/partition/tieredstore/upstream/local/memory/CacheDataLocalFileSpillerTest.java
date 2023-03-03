@@ -220,6 +220,6 @@ class CacheDataLocalFileSpillerTest {
 
     private static DiskCacheBufferSpiller createMemoryDataSpiller(Path dataFilePath)
             throws Exception {
-        return new DiskCacheBufferSpiller(dataFilePath);
+        return new DiskCacheBufferSpiller(dataFilePath, null);
     }
 }
