@@ -89,8 +89,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
             throws IOException {
         this.numSubpartitions = numSubpartitions;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
-        this.spiller = new DiskCacheBufferSpiller(dataFilePath);
         this.regionBufferIndexTracker = regionBufferIndexTracker;
+        this.spiller = new DiskCacheBufferSpiller(dataFilePath, regionBufferIndexTracker);
         this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
 
         this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
@@ -319,12 +319,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
             FutureUtils.assertNoException(
                     spiller.spillAsync(bufferWithIdentities)
                             .thenAccept(
-                                    spilledBuffers -> {
-                                        regionBufferIndexTracker.addBuffers(spilledBuffers);
+                                    result -> {
                                         spillingCompleteFuture.complete(null);
-                                        if (changeFlushState) {
-                                            hasFlushCompleted.complete(null);
-                                        }
                                     }));
         }
     }
