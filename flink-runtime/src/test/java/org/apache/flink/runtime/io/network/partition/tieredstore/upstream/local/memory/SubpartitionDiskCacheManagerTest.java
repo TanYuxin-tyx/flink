@@ -264,7 +264,7 @@ class SubpartitionDiskCacheManagerTest {
                 TieredStoreTestUtils.createBufferIndexAndChannelsList(0, 0, 1, 2);
         List<BufferWithIdentity> buffers =
                 subpartitionDiskCacheManager.spillSubpartitionBuffers(
-                        toStartSpilling, spilledDoneFuture);
+                        toStartSpilling);
         assertThat(toStartSpilling)
                 .zipSatisfy(
                         buffers,
@@ -310,8 +310,8 @@ class SubpartitionDiskCacheManagerTest {
                 TieredStoreTestUtils.createBufferIndexAndChannelsList(targetChannel, 0, 1, 2);
         CompletableFuture<Void> spilledFuture = new CompletableFuture<>();
         subpartitionDiskCacheManager.spillSubpartitionBuffers(
-                toRelease.subList(numBuffers - 1, numBuffers), spilledFuture);
-        subpartitionDiskCacheManager.releaseSubpartitionBuffers(toRelease);
+                toRelease.subList(numBuffers - 1, numBuffers));
+        //subpartitionDiskCacheManager.releaseSubpartitionBuffers(toRelease);
         assertThat(readableBufferIndex).isEmpty();
         // not start spilling buffers should be recycled after release.
         checkMemorySegmentValue(recycledBuffers, Arrays.asList(0, 1));
