@@ -50,7 +50,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
@@ -147,14 +146,14 @@ public class SubpartitionDiskCacheManager {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     public List<BufferWithIdentity> spillSubpartitionBuffers(
-            List<BufferIndexAndChannel> toSpill, CompletableFuture<Void> spillDoneFuture) {
+            List<BufferIndexAndChannel> toSpill) {
         return callWithLock(
                 () ->
                         toSpill.stream()
                                 .map(
                                         indexAndChannel -> {
                                             int bufferIndex = indexAndChannel.getBufferIndex();
-                                            return startSpillingBuffer(bufferIndex, spillDoneFuture)
+                                            return startSpillingBuffer(bufferIndex)
                                                     .map(
                                                             (context) ->
                                                                     new BufferWithIdentity(
@@ -165,30 +164,6 @@ public class SubpartitionDiskCacheManager {
                                 .filter(Optional::isPresent)
                                 .map(Optional::get)
                                 .collect(Collectors.toList()));
-    }
-
-    /**
-     * Release this subpartition's buffers in a decision.
-     *
-     * @param toRelease All buffers that need to be released belong to this subpartition in a
-     *     decision.
-     */
-    @SuppressWarnings("FieldAccessNotGuarded")
-    // Note that: runWithLock ensure that code block guarded by resultPartitionReadLock and
-    // subpartitionLock.
-    public void releaseSubpartitionBuffers(List<BufferIndexAndChannel> toRelease) {
-        runWithLock(
-                () ->
-                        toRelease.forEach(
-                                (indexAndChannel) -> {
-                                    int bufferIndex = indexAndChannel.getBufferIndex();
-                                    BufferContext bufferContext =
-                                            bufferIndexToContexts.get(bufferIndex);
-                                    if (bufferContext != null) {
-                                        checkAndMarkBufferReadable(bufferContext);
-                                        releaseBuffer(bufferIndex);
-                                    }
-                                }));
     }
 
     public void setOutputMetrics(OutputMetrics outputMetrics) {
@@ -364,39 +339,12 @@ public class SubpartitionDiskCacheManager {
     }
 
     @GuardedBy("subpartitionLock")
-    private Optional<BufferContext> startSpillingBuffer(
-            int bufferIndex, CompletableFuture<Void> spillFuture) {
+    private Optional<BufferContext> startSpillingBuffer(int bufferIndex) {
         BufferContext bufferContext = bufferIndexToContexts.get(bufferIndex);
         if (bufferContext == null) {
             return Optional.empty();
         }
-        return bufferContext.startSpilling(spillFuture)
-                ? Optional.of(bufferContext)
-                : Optional.empty();
-    }
-
-    @GuardedBy("subpartitionLock")
-    private void checkAndMarkBufferReadable(BufferContext bufferContext) {
-        // only spill buffer needs to be marked as released.
-        if (isBufferSatisfyStatus(
-                bufferContext,
-                DiskCacheManagerOperation.SpillStatus.SPILL,
-                DiskCacheManagerOperation.ConsumeStatusWithId.ALL_ANY)) {
-            bufferContext
-                    .getSpilledFuture()
-                    .orElseThrow(
-                            () ->
-                                    new IllegalStateException(
-                                            "Buffer in spill status should already set spilled future."))
-                    .thenRun(
-                            () -> {
-                                BufferIndexAndChannel bufferIndexAndChannel =
-                                        bufferContext.getBufferIndexAndChannel();
-                                diskCacheManagerOperation.markBufferReleasedFromFile(
-                                        bufferIndexAndChannel.getChannel(),
-                                        bufferIndexAndChannel.getBufferIndex());
-                            });
-        }
+        return bufferContext.startSpilling() ? Optional.of(bufferContext) : Optional.empty();
     }
 
     @GuardedBy("subpartitionLock")

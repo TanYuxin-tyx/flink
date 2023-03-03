@@ -192,7 +192,7 @@ public class SubpartitionRemoteCacheManager {
                     LOG.debug("%%% Dfs generate2");
                     BufferContext segmentInfoBufferContext =
                             new BufferContext(
-                                    null, finishedSegmentInfoIndex, targetChannel, true, true);
+                                    null, finishedSegmentInfoIndex, targetChannel, true);
                     allSegmentInfos.add(segmentInfoBufferContext);
                     ++finishedSegmentInfoIndex;
                     checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
@@ -417,7 +417,7 @@ public class SubpartitionRemoteCacheManager {
         if (bufferContext == null) {
             return Optional.empty();
         }
-        return bufferContext.startSpilling(spillFuture)
+        return bufferContext.startSpilling()
                 ? Optional.of(bufferContext)
                 : Optional.empty();
     }

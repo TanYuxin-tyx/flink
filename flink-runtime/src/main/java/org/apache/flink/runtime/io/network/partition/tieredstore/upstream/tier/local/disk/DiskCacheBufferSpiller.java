@@ -108,14 +108,12 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     @Override
     public void spillAsync(
             List<BufferWithIdentity> bufferToSpill,
-            CompletableFuture<Void> spillingCompleteFuture,
             AtomicInteger hasFlushCompleted,
             boolean changeFlushState) {
         ioExecutor.execute(
                 () ->
                         spill(
                                 bufferToSpill,
-                                spillingCompleteFuture,
                                 hasFlushCompleted,
                                 changeFlushState));
     }
@@ -146,7 +144,6 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void spill(
             List<BufferWithIdentity> toWrite,
-            CompletableFuture<Void> spillingCompleteFuture,
             AtomicInteger hasFlushCompleted,
             boolean changeFlushState) {
         try {
@@ -158,8 +155,13 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
             // note that the ownership of these buffers is transferred to the MemoryDataManager,
             // which controls data's life cycle.
             regionBufferIndexTracker.addBuffers(spilledBuffers);
-            spillingCompleteFuture.complete(null);
-            if(changeFlushState){
+            for (BufferWithIdentity bufferWithIdentity : toWrite) {
+                regionBufferIndexTracker.markBufferReleased(
+                        bufferWithIdentity.getChannelIndex(), bufferWithIdentity.getBufferIndex());
+                bufferWithIdentity.getBuffer().recycleBuffer();
+            }
+            //spillingCompleteFuture.complete(null);
+            if (changeFlushState) {
                 hasFlushCompleted.decrementAndGet();
             }
         } catch (IOException exception) {
