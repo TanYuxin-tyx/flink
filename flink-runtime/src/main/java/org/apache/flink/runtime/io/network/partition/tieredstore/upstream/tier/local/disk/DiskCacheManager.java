@@ -32,7 +32,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.util.Preconditions;
-import org.apache.flink.util.concurrent.FutureUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,7 +75,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     private final List<Map<TierReaderViewId, SubpartitionDiskReaderViewOperations>>
             subpartitionViewOperationsMap;
 
-    private CompletableFuture<Void> hasFlushCompleted = FutureUtils.completedVoidFuture();
+    private AtomicInteger hasFlushCompleted = new AtomicInteger(0);
 
     public DiskCacheManager(
             int numSubpartitions,
@@ -221,7 +220,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     }
 
     private void tryCheckFlushCacheBuffers() {
-        if (hasFlushCompleted.isDone()) {
+        if (hasFlushCompleted.get() == 0) {
             checkFlushCacheBuffers(tieredStoreMemoryManager, this);
         }
     }
@@ -313,15 +312,14 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                 });
         if (!bufferWithIdentities.isEmpty()) {
             if (changeFlushState) {
-                hasFlushCompleted = new CompletableFuture<>();
+                hasFlushCompleted.getAndIncrement();
             }
 
-            FutureUtils.assertNoException(
-                    spiller.spillAsync(bufferWithIdentities)
-                            .thenAccept(
-                                    result -> {
-                                        spillingCompleteFuture.complete(null);
-                                    }));
+            spiller.spillAsync(
+                    bufferWithIdentities,
+                    spillingCompleteFuture,
+                    hasFlushCompleted,
+                    changeFlushState);
         }
     }
 
