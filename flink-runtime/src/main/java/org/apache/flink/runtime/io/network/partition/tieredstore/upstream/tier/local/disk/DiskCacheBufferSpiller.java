@@ -43,6 +43,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.generateBufferWithHeaders;
 
@@ -105,6 +106,21 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     }
 
     @Override
+    public void spillAsync(
+            List<BufferWithIdentity> bufferToSpill,
+            CompletableFuture<Void> spillingCompleteFuture,
+            AtomicInteger hasFlushCompleted,
+            boolean changeFlushState) {
+        ioExecutor.execute(
+                () ->
+                        spill(
+                                bufferToSpill,
+                                spillingCompleteFuture,
+                                hasFlushCompleted,
+                                changeFlushState));
+    }
+
+    @Override
     public void finishSegment(long segmentIndex) {}
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
@@ -121,6 +137,31 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
             // which controls data's life cycle.
             regionBufferIndexTracker.addBuffers(spilledBuffers);
             spilledFuture.complete(null);
+        } catch (IOException exception) {
+            // if spilling is failed, throw exception directly to uncaughtExceptionHandler.
+            ExceptionUtils.rethrow(exception);
+        }
+    }
+
+    /** Called in single-threaded ioExecutor. Order is guaranteed. */
+    private void spill(
+            List<BufferWithIdentity> toWrite,
+            CompletableFuture<Void> spillingCompleteFuture,
+            AtomicInteger hasFlushCompleted,
+            boolean changeFlushState) {
+        try {
+            List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers = new ArrayList<>();
+            long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
+            // write all buffers to file
+            writeBuffers(toWrite, expectedBytes);
+            // complete spill future when buffers are written to disk successfully.
+            // note that the ownership of these buffers is transferred to the MemoryDataManager,
+            // which controls data's life cycle.
+            regionBufferIndexTracker.addBuffers(spilledBuffers);
+            spillingCompleteFuture.complete(null);
+            if(changeFlushState){
+                hasFlushCompleted.decrementAndGet();
+            }
         } catch (IOException exception) {
             // if spilling is failed, throw exception directly to uncaughtExceptionHandler.
             ExceptionUtils.rethrow(exception);

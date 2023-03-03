@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.l
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Spilling the caching data in a cached data manager. */
 public interface CacheBufferSpiller {
@@ -32,6 +33,12 @@ public interface CacheBufferSpiller {
 
     CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spillAsync(
             List<BufferWithIdentity> bufferToSpill);
+
+    default void spillAsync(
+            List<BufferWithIdentity> bufferToSpill,
+            CompletableFuture<Void> spillingCompleteFuture,
+            AtomicInteger hasFlushCompleted,
+            boolean changeFlushState) {}
 
     void finishSegment(long segmentIndex);
 
