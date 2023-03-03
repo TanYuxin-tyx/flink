@@ -36,7 +36,6 @@ public interface CacheBufferSpiller {
 
     default void spillAsync(
             List<BufferWithIdentity> bufferToSpill,
-            CompletableFuture<Void> spillingCompleteFuture,
             AtomicInteger hasFlushCompleted,
             boolean changeFlushState) {}
 

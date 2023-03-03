@@ -20,15 +20,9 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 
-import javax.annotation.Nullable;
-
 import java.util.Collections;
-import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-
-import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * This class maintains the buffer's reference count and its status for LOCAL tiered store.
@@ -62,8 +56,6 @@ public class BufferContext {
 
     private final boolean isLastBufferInSegment;
 
-    private boolean fromDfsTier;
-
     // --------------------------
     //      Buffer Status
     // --------------------------
@@ -74,25 +66,11 @@ public class BufferContext {
     private final Set<TierReaderViewId> consumed =
             Collections.newSetFromMap(new ConcurrentHashMap<>());
 
-    @Nullable private CompletableFuture<Void> spilledFuture;
-
     public BufferContext(
             Buffer buffer, int bufferIndex, int subpartitionId, boolean isLastBufferInSegment) {
         this.bufferIndexAndChannel = new BufferIndexAndChannel(bufferIndex, subpartitionId);
         this.buffer = buffer;
         this.isLastBufferInSegment = isLastBufferInSegment;
-    }
-
-    public BufferContext(
-            Buffer buffer,
-            int bufferIndex,
-            int subpartitionId,
-            boolean isLastBufferInSegment,
-            boolean fromDfsTier) {
-        this.bufferIndexAndChannel = new BufferIndexAndChannel(bufferIndex, subpartitionId);
-        this.buffer = buffer;
-        this.isLastBufferInSegment = isLastBufferInSegment;
-        this.fromDfsTier = fromDfsTier;
     }
 
     public Buffer getBuffer() {
@@ -107,10 +85,6 @@ public class BufferContext {
         return isLastBufferInSegment;
     }
 
-    public boolean isFromDfsTier() {
-        return fromDfsTier;
-    }
-
     public boolean isReleased() {
         return released;
     }
@@ -123,45 +97,19 @@ public class BufferContext {
         return consumed.contains(tierReaderViewId);
     }
 
-    public Optional<CompletableFuture<Void>> getSpilledFuture() {
-        return Optional.ofNullable(spilledFuture);
-    }
-
     /** Mark buffer status to release. */
     public void release() {
         if (isReleased()) {
             return;
         }
         released = true;
-        // decrease ref count when buffer is released from memory.
-        buffer.recycleBuffer();
     }
 
-    /**
-     * Mark buffer status to startSpilling.
-     *
-     * @param spilledFuture completable future of this buffer's spilling operation.
-     * @return false, if spilling of the buffer has been started before or the buffer has been
-     *     released already; true, otherwise.
-     */
-    public boolean startSpilling(CompletableFuture<Void> spilledFuture) {
+    public boolean startSpilling() {
         if (isReleased() || isSpillStarted()) {
             return false;
         }
         spillStarted = true;
-        this.spilledFuture = spilledFuture;
-        // increase ref count when buffer is decided to spill.
-        buffer.retainBuffer();
-        // decrease ref count when buffer spilling is finished.
-        spilledFuture.thenRun(buffer::recycleBuffer);
         return true;
-    }
-
-    public void consumed(TierReaderViewId tierReaderViewId) {
-        checkState(!released, "Buffer is already released.");
-        checkState(consumed.add(tierReaderViewId), "Consume buffer repeatedly is unexpected.");
-        // increase ref count when buffer is consumed, will be decreased when downstream finish
-        // consuming.
-        buffer.retainBuffer();
     }
 }

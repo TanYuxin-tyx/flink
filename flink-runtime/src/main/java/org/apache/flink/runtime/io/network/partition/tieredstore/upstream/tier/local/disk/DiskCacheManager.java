@@ -45,7 +45,6 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -264,7 +263,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     public void notifyFlushCachedBuffers() {
         Decision decision = generateFlushDecision();
         spillBuffers(decision.getBufferToSpill(), true);
-        releaseBuffers(decision.getBufferToRelease());
+        //releaseBuffers(decision.getBufferToRelease());
     }
 
     private Decision generateFlushDecision() {
@@ -282,7 +281,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     private void flushAndReleaseCacheBuffers() {
         Decision decision = generateFlushDecision();
         spillBuffers(decision.getBufferToSpill(), false);
-        releaseBuffers(decision.getBufferToRelease());
+        //releaseBuffers(decision.getBufferToRelease());
     }
 
     /**
@@ -298,7 +297,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
         if (toSpill.isEmpty()) {
             return;
         }
-        CompletableFuture<Void> spillingCompleteFuture = new CompletableFuture<>();
         List<BufferWithIdentity> bufferWithIdentities = new ArrayList<>();
         toSpill.forEach(
                 (subpartitionId, bufferIndexAndChannels) -> {
@@ -306,7 +304,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                             getSubpartitionMemoryDataManager(subpartitionId);
                     bufferWithIdentities.addAll(
                             subpartitionDataManager.spillSubpartitionBuffers(
-                                    bufferIndexAndChannels, spillingCompleteFuture));
+                                    bufferIndexAndChannels));
                     // decrease numUnSpillBuffers as this subpartition's buffer is spill.
                     numUnSpillBuffers.getAndAdd(-bufferIndexAndChannels.size());
                 });
@@ -317,28 +315,9 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
             spiller.spillAsync(
                     bufferWithIdentities,
-                    spillingCompleteFuture,
                     hasFlushCompleted,
                     changeFlushState);
         }
-    }
-
-    /**
-     * Release buffers for each subpartition in a decision.
-     *
-     * <p>Note that: The method should not be locked, it is the responsibility of each subpartition
-     * to maintain thread safety itself.
-     *
-     * @param toRelease All buffers that need to be released in a decision.
-     */
-    private void releaseBuffers(Map<Integer, List<BufferIndexAndChannel>> toRelease) {
-        if (toRelease.isEmpty()) {
-            return;
-        }
-        toRelease.forEach(
-                (subpartitionId, subpartitionBuffers) ->
-                        getSubpartitionMemoryDataManager(subpartitionId)
-                                .releaseSubpartitionBuffers(subpartitionBuffers));
     }
 
     private SubpartitionDiskCacheManager getSubpartitionMemoryDataManager(int targetChannel) {
