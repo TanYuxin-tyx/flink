@@ -73,11 +73,16 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     /** Records the current writing location. */
     private long totalBytesWritten;
 
-    public DiskCacheBufferSpiller(Path dataFilePath) throws IOException {
+    private final RegionBufferIndexTracker regionBufferIndexTracker;
+
+    public DiskCacheBufferSpiller(
+            Path dataFilePath, RegionBufferIndexTracker regionBufferIndexTracker)
+            throws IOException {
         LOG.info("Creating partition file " + dataFilePath);
         this.dataFileChannel =
                 FileChannel.open(
                         dataFilePath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+        this.regionBufferIndexTracker = regionBufferIndexTracker;
     }
 
     @Override
@@ -114,7 +119,8 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
             // complete spill future when buffers are written to disk successfully.
             // note that the ownership of these buffers is transferred to the MemoryDataManager,
             // which controls data's life cycle.
-            spilledFuture.complete(spilledBuffers);
+            regionBufferIndexTracker.addBuffers(spilledBuffers);
+            spilledFuture.complete(null);
         } catch (IOException exception) {
             // if spilling is failed, throw exception directly to uncaughtExceptionHandler.
             ExceptionUtils.rethrow(exception);
