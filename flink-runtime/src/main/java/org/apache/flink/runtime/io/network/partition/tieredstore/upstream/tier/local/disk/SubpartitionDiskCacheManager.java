@@ -140,7 +140,7 @@ public class SubpartitionDiskCacheManager {
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    public List<BufferWithIdentity> spillSubpartitionBuffers(List<BufferIndexAndChannel> toSpill) {
+    public List<BufferWithIdentity> spillSubpartitionBuffers(Deque<BufferIndexAndChannel> toSpill) {
         return callWithLock(
                 () ->
                         toSpill.stream()

@@ -43,6 +43,7 @@ import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Deque;
@@ -264,7 +265,7 @@ class SubpartitionDiskCacheManagerTest {
                 TieredStoreTestUtils.createBufferIndexAndChannelsList(0, 0, 1, 2);
         List<BufferWithIdentity> buffers =
                 subpartitionDiskCacheManager.spillSubpartitionBuffers(
-                        toStartSpilling);
+                        new ArrayDeque<>(toStartSpilling));
         assertThat(toStartSpilling)
                 .zipSatisfy(
                         buffers,
@@ -310,8 +311,8 @@ class SubpartitionDiskCacheManagerTest {
                 TieredStoreTestUtils.createBufferIndexAndChannelsList(targetChannel, 0, 1, 2);
         CompletableFuture<Void> spilledFuture = new CompletableFuture<>();
         subpartitionDiskCacheManager.spillSubpartitionBuffers(
-                toRelease.subList(numBuffers - 1, numBuffers));
-        //subpartitionDiskCacheManager.releaseSubpartitionBuffers(toRelease);
+                new ArrayDeque<>(toRelease.subList(numBuffers - 1, numBuffers)));
+        // subpartitionDiskCacheManager.releaseSubpartitionBuffers(toRelease);
         assertThat(readableBufferIndex).isEmpty();
         // not start spilling buffers should be recycled after release.
         checkMemorySegmentValue(recycledBuffers, Arrays.asList(0, 1));
