@@ -116,9 +116,7 @@ public class SubpartitionDiskCacheManager {
 
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    public Deque<BufferIndexAndChannel> getBuffersSatisfyStatus(
-            DiskCacheManagerOperation.SpillStatus spillStatus,
-            DiskCacheManagerOperation.ConsumeStatusWithId consumeStatusWithId) {
+    public Deque<BufferIndexAndChannel> getBuffersSatisfyStatus() {
         return callWithLock(
                 () -> {
                     // TODO return iterator to avoid completely traversing the queue for each call.
@@ -137,7 +135,6 @@ public class SubpartitionDiskCacheManager {
      * Spill this subpartition's buffers in a decision.
      *
      * @param toSpill All buffers that need to be spilled belong to this subpartition in a decision.
-     * @param spillDoneFuture completed when spill is finished.
      * @return {@link BufferWithIdentity}s about these spill buffers.
      */
     @SuppressWarnings("FieldAccessNotGuarded")

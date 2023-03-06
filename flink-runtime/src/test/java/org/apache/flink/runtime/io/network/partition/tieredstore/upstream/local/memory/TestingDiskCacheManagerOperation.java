@@ -58,8 +58,7 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
     }
 
     @Override
-    public Deque<BufferIndexAndChannel> getBuffersInOrder(
-            int subpartitionId, SpillStatus spillStatus, ConsumeStatusWithId consumeStatusWithId) {
+    public Deque<BufferIndexAndChannel> getBuffersInOrder(int subpartitionId) {
         return null;
     }
 
