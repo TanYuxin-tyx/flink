@@ -33,9 +33,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.util.Preconditions;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
@@ -52,8 +49,6 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
 public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferSpillTrigger {
-
-    private static final Logger LOG = LoggerFactory.getLogger(DiskCacheManager.class);
 
     private final int numSubpartitions;
 
@@ -261,27 +256,22 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     @Override
     public void notifyFlushCachedBuffers() {
-        Decision decision = generateFlushDecision();
-        spillBuffers(decision.getBufferToSpill(), true);
-        //releaseBuffers(decision.getBufferToRelease());
+        spillBuffers(generateToSpillBuffers(), true);
     }
 
-    private Decision generateFlushDecision() {
-        Decision.Builder builder = Decision.builder();
+    private void flushAndReleaseCacheBuffers() {
+        spillBuffers(generateToSpillBuffers(), false);
+    }
+
+    private Map<Integer, List<BufferIndexAndChannel>> generateToSpillBuffers() {
+        Map<Integer, List<BufferIndexAndChannel>> bufferToSpill = new HashMap<>();
         for (int subpartitionId = 0; subpartitionId < getNumSubpartitions(); subpartitionId++) {
             Deque<BufferIndexAndChannel> buffersInOrder =
                     getBuffersInOrder(
                             subpartitionId, SpillStatus.NOT_SPILL, ConsumeStatusWithId.ALL_ANY);
-            builder.addBufferToSpill(subpartitionId, buffersInOrder)
-                    .addBufferToRelease(subpartitionId, buffersInOrder);
+            bufferToSpill.computeIfAbsent(subpartitionId, ArrayList::new).addAll(buffersInOrder);
         }
-        return builder.build();
-    }
-
-    private void flushAndReleaseCacheBuffers() {
-        Decision decision = generateFlushDecision();
-        spillBuffers(decision.getBufferToSpill(), false);
-        //releaseBuffers(decision.getBufferToRelease());
+        return bufferToSpill;
     }
 
     /**
@@ -313,11 +303,9 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                 hasFlushCompleted.getAndIncrement();
             }
 
-            spiller.spillAsync(
-                    bufferWithIdentities,
-                    hasFlushCompleted,
-                    changeFlushState);
+            spiller.spillAsync(bufferWithIdentities, hasFlushCompleted, changeFlushState);
         }
+        toSpill.clear();
     }
 
     private SubpartitionDiskCacheManager getSubpartitionMemoryDataManager(int targetChannel) {
@@ -326,60 +314,5 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     private void recycleBuffer(MemorySegment buffer) {
         tieredStoreMemoryManager.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_LOCAL);
-    }
-
-    private static class Decision {
-        /** A collection of buffer that needs to be spilled to disk. */
-        private final Map<Integer, List<BufferIndexAndChannel>> bufferToSpill;
-
-        /** A collection of buffer that needs to be released. */
-        private final Map<Integer, List<BufferIndexAndChannel>> bufferToRelease;
-
-        private Decision(
-                Map<Integer, List<BufferIndexAndChannel>> bufferToSpill,
-                Map<Integer, List<BufferIndexAndChannel>> bufferToRelease) {
-            this.bufferToSpill = bufferToSpill;
-            this.bufferToRelease = bufferToRelease;
-        }
-
-        public Map<Integer, List<BufferIndexAndChannel>> getBufferToSpill() {
-            return bufferToSpill;
-        }
-
-        public Map<Integer, List<BufferIndexAndChannel>> getBufferToRelease() {
-            return bufferToRelease;
-        }
-
-        public static Decision.Builder builder() {
-            return new Decision.Builder();
-        }
-
-        /** Builder for {@link Decision}. */
-        public static class Builder {
-            /** A collection of buffer that needs to be spilled to disk. */
-            private final Map<Integer, List<BufferIndexAndChannel>> bufferToSpill = new HashMap<>();
-
-            /** A collection of buffer that needs to be released. */
-            private final Map<Integer, List<BufferIndexAndChannel>> bufferToRelease =
-                    new HashMap<>();
-
-            private Builder() {}
-
-            public Decision.Builder addBufferToSpill(
-                    int subpartitionId, Deque<BufferIndexAndChannel> buffers) {
-                bufferToSpill.computeIfAbsent(subpartitionId, ArrayList::new).addAll(buffers);
-                return this;
-            }
-
-            public Decision.Builder addBufferToRelease(
-                    int subpartitionId, Deque<BufferIndexAndChannel> buffers) {
-                bufferToRelease.computeIfAbsent(subpartitionId, ArrayList::new).addAll(buffers);
-                return this;
-            }
-
-            public Decision build() {
-                return new Decision(bufferToSpill, bufferToRelease);
-            }
-        }
     }
 }
