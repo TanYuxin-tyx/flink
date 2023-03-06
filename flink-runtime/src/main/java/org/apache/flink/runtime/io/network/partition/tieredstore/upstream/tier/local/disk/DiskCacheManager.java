@@ -38,7 +38,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -261,18 +260,13 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     }
 
     private void spillBuffers(boolean changeFlushState) {
-        Map<Integer, List<BufferIndexAndChannel>> bufferToSpill = new HashMap<>();
         List<BufferWithIdentity> bufferWithIdentities = new ArrayList<>();
         for (int subpartitionId = 0; subpartitionId < getNumSubpartitions(); subpartitionId++) {
             Deque<BufferIndexAndChannel> buffersInOrder = getBuffersInOrder(subpartitionId);
-            checkState(!bufferToSpill.containsKey(subpartitionId), "Duplicated sub partition");
-            bufferToSpill.computeIfAbsent(subpartitionId, ArrayList::new).addAll(buffersInOrder);
-
             SubpartitionDiskCacheManager subpartitionDataManager =
                     getSubpartitionMemoryDataManager(subpartitionId);
             bufferWithIdentities.addAll(
-                    subpartitionDataManager.spillSubpartitionBuffers(
-                            new ArrayList<>(buffersInOrder)));
+                    subpartitionDataManager.spillSubpartitionBuffers(buffersInOrder));
             // decrease numUnSpillBuffers as this subpartition's buffer is spill.
             numUnSpillBuffers.getAndAdd(-buffersInOrder.size());
         }
@@ -283,8 +277,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
             }
             spiller.spillAsync(bufferWithIdentities, hasFlushCompleted, changeFlushState);
         }
-
-        bufferToSpill.clear();
     }
 
     private SubpartitionDiskCacheManager getSubpartitionMemoryDataManager(int targetChannel) {
