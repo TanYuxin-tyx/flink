@@ -37,18 +37,8 @@ public interface DiskCacheManagerOperation {
      */
     int getNumSubpartitions();
 
-    /**
-     * Get all buffers with the expected status from the subpartition.
-     *
-     * @param subpartitionId target buffers belong to.
-     * @param spillStatus expected buffer spill status.
-     * @param consumeStatusWithId expected buffer consume status and consumer id.
-     * @return all buffers satisfy specific status of this subpartition, This queue must be sorted
-     *     according to bufferIndex from small to large, in other words, head is the buffer with the
-     *     minimum bufferIndex in the current subpartition.
-     */
-    Deque<BufferIndexAndChannel> getBuffersInOrder(
-            int subpartitionId, SpillStatus spillStatus, ConsumeStatusWithId consumeStatusWithId);
+    /** Get all buffers from the subpartition. */
+    Deque<BufferIndexAndChannel> getBuffersInOrder(int subpartitionId);
 
     int getNumTotalUnSpillBuffers();
 
