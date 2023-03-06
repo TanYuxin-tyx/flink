@@ -31,7 +31,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
-import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -46,6 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.checkFlushCacheBuffers;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
 public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferSpillTrigger {
@@ -141,8 +141,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
                         .put(tierReaderViewId, viewOperations);
-        Preconditions.checkState(
-                oldView == null, "Each subpartition view should have unique consumerId.");
+        checkState(oldView == null, "Each subpartition view should have unique consumerId.");
         // return getSubpartitionMemoryDataManager(subpartitionId).registerNewConsumer(consumerId);
         return null;
     }
@@ -187,12 +186,10 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     // Write lock should be acquired before invoke this method.
     @Override
-    public Deque<BufferIndexAndChannel> getBuffersInOrder(
-            int subpartitionId, SpillStatus spillStatus, ConsumeStatusWithId consumeStatusWithId) {
+    public Deque<BufferIndexAndChannel> getBuffersInOrder(int subpartitionId) {
         SubpartitionDiskCacheManager targetSubpartitionDataManager =
                 getSubpartitionMemoryDataManager(subpartitionId);
-        return targetSubpartitionDataManager.getBuffersSatisfyStatus(
-                spillStatus, consumeStatusWithId);
+        return targetSubpartitionDataManager.getBuffersSatisfyStatus();
     }
 
     // ------------------------------------
@@ -256,56 +253,38 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     @Override
     public void notifyFlushCachedBuffers() {
-        spillBuffers(generateToSpillBuffers(), true);
+        spillBuffers(true);
     }
 
     private void flushAndReleaseCacheBuffers() {
-        spillBuffers(generateToSpillBuffers(), false);
+        spillBuffers(false);
     }
 
-    private Map<Integer, List<BufferIndexAndChannel>> generateToSpillBuffers() {
+    private void spillBuffers(boolean changeFlushState) {
         Map<Integer, List<BufferIndexAndChannel>> bufferToSpill = new HashMap<>();
-        for (int subpartitionId = 0; subpartitionId < getNumSubpartitions(); subpartitionId++) {
-            Deque<BufferIndexAndChannel> buffersInOrder =
-                    getBuffersInOrder(
-                            subpartitionId, SpillStatus.NOT_SPILL, ConsumeStatusWithId.ALL_ANY);
-            bufferToSpill.computeIfAbsent(subpartitionId, ArrayList::new).addAll(buffersInOrder);
-        }
-        return bufferToSpill;
-    }
-
-    /**
-     * Spill buffers for each subpartition in a decision.
-     *
-     * <p>Note that: The method should not be locked, it is the responsibility of each subpartition
-     * to maintain thread safety itself.
-     *
-     * @param toSpill All buffers that need to be spilled in a decision.
-     */
-    private void spillBuffers(
-            Map<Integer, List<BufferIndexAndChannel>> toSpill, boolean changeFlushState) {
-        if (toSpill.isEmpty()) {
-            return;
-        }
         List<BufferWithIdentity> bufferWithIdentities = new ArrayList<>();
-        toSpill.forEach(
-                (subpartitionId, bufferIndexAndChannels) -> {
-                    SubpartitionDiskCacheManager subpartitionDataManager =
-                            getSubpartitionMemoryDataManager(subpartitionId);
-                    bufferWithIdentities.addAll(
-                            subpartitionDataManager.spillSubpartitionBuffers(
-                                    bufferIndexAndChannels));
-                    // decrease numUnSpillBuffers as this subpartition's buffer is spill.
-                    numUnSpillBuffers.getAndAdd(-bufferIndexAndChannels.size());
-                });
+        for (int subpartitionId = 0; subpartitionId < getNumSubpartitions(); subpartitionId++) {
+            Deque<BufferIndexAndChannel> buffersInOrder = getBuffersInOrder(subpartitionId);
+            checkState(!bufferToSpill.containsKey(subpartitionId), "Duplicated sub partition");
+            bufferToSpill.computeIfAbsent(subpartitionId, ArrayList::new).addAll(buffersInOrder);
+
+            SubpartitionDiskCacheManager subpartitionDataManager =
+                    getSubpartitionMemoryDataManager(subpartitionId);
+            bufferWithIdentities.addAll(
+                    subpartitionDataManager.spillSubpartitionBuffers(
+                            new ArrayList<>(buffersInOrder)));
+            // decrease numUnSpillBuffers as this subpartition's buffer is spill.
+            numUnSpillBuffers.getAndAdd(-buffersInOrder.size());
+        }
+
         if (!bufferWithIdentities.isEmpty()) {
             if (changeFlushState) {
                 hasFlushCompleted.getAndIncrement();
             }
-
             spiller.spillAsync(bufferWithIdentities, hasFlushCompleted, changeFlushState);
         }
-        toSpill.clear();
+
+        bufferToSpill.clear();
     }
 
     private SubpartitionDiskCacheManager getSubpartitionMemoryDataManager(int targetChannel) {
