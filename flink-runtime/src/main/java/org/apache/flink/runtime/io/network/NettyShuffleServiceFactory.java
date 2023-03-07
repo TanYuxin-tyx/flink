@@ -230,7 +230,7 @@ public class NettyShuffleServiceFactory
                         config.getMaxOverdraftBuffersPerGate(),
                         config.getHybridShuffleSpilledIndexSegmentSize(),
                         config.getHybridShuffleNumRetainedInMemoryRegionsMax(),
-                        config.getBaseDfsHomePath(),
+                        config.getBaseRemoteStoragePath(),
                         config.getMinDiskReserveBytes(),
                         config.enableTieredStoreForHybridShuffle(),
                         config.getTieredStoreTiers());
@@ -244,7 +244,7 @@ public class NettyShuffleServiceFactory
                                 resultPartitionManager,
                                 taskEventPublisher,
                                 networkBufferPool,
-                                config.getBaseDfsHomePath())
+                                config.getBaseRemoteStoragePath())
                         : new SingleInputGateFactory(
                                 taskExecutorResourceId,
                                 config,
