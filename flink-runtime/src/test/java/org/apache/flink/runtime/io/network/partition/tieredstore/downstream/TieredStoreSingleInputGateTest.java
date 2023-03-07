@@ -118,13 +118,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** Tests for {@link TieredStoreSingleInputGate}. */
 public class TieredStoreSingleInputGateTest extends InputGateTestBase {
 
-    private static final int NUM_BUFFERS = 10;
+    private static final int NETWORK_BUFFER_POOL_NUM_BUFFERS = 20;
+
+    private static final int LOCAL_BUFFER_POOL_NUM_BUFFERS = 10;
 
     private static final int MEMORY_SEGMENT_SIZE = 32 * 1024;
 
-    private final JobID jobID = JobID.generate();
+    private static final JobID jobID = JobID.generate();
 
-    private final List<ResultPartitionID> resultPartitionIDS =
+    private static final List<ResultPartitionID> resultPartitionIDS =
             new ArrayList<ResultPartitionID>() {
                 {
                     add(new ResultPartitionID());
@@ -350,6 +352,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
         try (TieredStoreSingleInputGate inputGate =
                 new TieredStoreSingleInputGateBuilder()
                         .setBufferDecompressor(decompressor)
+                        .setSegmentProvider(new NetworkBufferPool(1, 1))
                         .build()) {
             inputGate.setup();
             TestInputChannel inputChannel = new TestInputChannel(inputGate, 0);
@@ -427,7 +430,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     @Test
     void testIsMoreAvailableReadingFromSingleInputChannel() throws Exception {
         // Setup
-        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate();
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGateWithBufferPool();
         inputGate.setup();
 
         final TestInputChannel[] inputChannels =
@@ -1109,6 +1112,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
                 new TieredStoreSingleInputGateBuilder()
                         .setSingleInputGateIndex(1)
                         .setNumberOfChannels(3)
+                        .setSegmentProvider(new NetworkBufferPool(1, 1))
                         .build();
         inputGate.setup();
         final TestInputChannel[] inputChannels =
@@ -1150,7 +1154,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     @Test
     void testBufferInUseCount() throws Exception {
         // Setup
-        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate();
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGateWithBufferPool();
         inputGate.setup();
         final TestInputChannel[] inputChannels =
                 new TestInputChannel[] {
@@ -1338,17 +1342,18 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
         return inputGate;
     }
 
-    protected TieredStoreSingleInputGate createTieredStoreSingleInputGateWithBufferPool()
+    static public TieredStoreSingleInputGate createTieredStoreSingleInputGateWithBufferPool()
             throws IOException {
         NetworkBufferPool networkBufferPool =
-                new NetworkBufferPool(NUM_BUFFERS, MEMORY_SEGMENT_SIZE);
-        LocalBufferPool localBufferPool = new LocalBufferPool(networkBufferPool, NUM_BUFFERS);
+                new NetworkBufferPool(NETWORK_BUFFER_POOL_NUM_BUFFERS, MEMORY_SEGMENT_SIZE);
+        LocalBufferPool localBufferPool = new LocalBufferPool(networkBufferPool, LOCAL_BUFFER_POOL_NUM_BUFFERS);
         int inputGateIndex = 0;
         TieredStoreSingleInputGateBuilder builder =
                 new TieredStoreSingleInputGateBuilder()
                         .setNumberOfChannels(2)
                         .setSingleInputGateIndex(0)
                         .setBufferPoolFactory(localBufferPool)
+                        .setSegmentProvider(networkBufferPool)
                         .setJobID(jobID)
                         .setResultPartitionID(resultPartitionIDS)
                         .setSingleInputGateIndex(inputGateIndex);

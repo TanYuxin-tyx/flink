@@ -70,6 +70,8 @@ public class TestInputChannel extends InputChannel {
 
     private int currentBufferSize;
 
+    private long requiredSegmentId;
+
     public TestInputChannel(SingleInputGate inputGate, int channelIndex) {
         this(inputGate, channelIndex, true, false);
     }
@@ -113,16 +115,6 @@ public class TestInputChannel extends InputChannel {
         return read(createBuffer(1), nextType);
     }
 
-    public TestInputChannel readSegmentInfo(long segmentId) throws IOException, InterruptedException {
-        ByteBuffer byteBuffer = EventSerializer.toSerializedEvent(new EndOfSegmentEvent(segmentId));
-        NetworkBuffer segmentInfoBuffer = new NetworkBuffer(
-                MemorySegmentFactory.wrap(byteBuffer.array()),
-                FreeingBufferRecycler.INSTANCE,
-                Buffer.DataType.SEGMENT_EVENT,
-                byteBuffer.array().length);
-        return read(segmentInfoBuffer, Buffer.DataType.DATA_BUFFER);
-    }
-
     public TestInputChannel readEndOfData() throws IOException {
         return readEndOfData(StopMode.DRAIN);
     }
@@ -157,6 +149,34 @@ public class TestInputChannel extends InputChannel {
 
     void addBufferAndAvailability(BufferAndAvailabilityProvider bufferAndAvailability) {
         buffers.add(bufferAndAvailability);
+    }
+
+    // ------------------------------------------------------------------------
+    //  For Tiered Store
+    // ------------------------------------------------------------------------
+
+    public TestInputChannel readSegmentInfo(long segmentId)
+            throws IOException, InterruptedException {
+        ByteBuffer byteBuffer = EventSerializer.toSerializedEvent(new EndOfSegmentEvent(segmentId));
+        NetworkBuffer segmentInfoBuffer =
+                new NetworkBuffer(
+                        MemorySegmentFactory.wrap(byteBuffer.array()),
+                        FreeingBufferRecycler.INSTANCE,
+                        Buffer.DataType.SEGMENT_EVENT,
+                        byteBuffer.array().length);
+        return read(segmentInfoBuffer, Buffer.DataType.DATA_BUFFER);
+    }
+
+    public boolean isUpstreamBroadcastOnly() {
+        return false;
+    }
+
+    public void notifyRequiredSegmentId(long segmentId) {
+        requiredSegmentId = segmentId;
+    }
+
+    public long getRequiredSegmentId() {
+        return requiredSegmentId;
     }
 
     // ------------------------------------------------------------------------
