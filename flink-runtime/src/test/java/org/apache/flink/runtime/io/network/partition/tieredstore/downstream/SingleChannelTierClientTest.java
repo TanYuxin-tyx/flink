@@ -29,7 +29,7 @@ import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.DATA_BUFFER;
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
-import static org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreSingleInputGateTest.createTieredStoreSingleInputGateWithBufferPool;
+import static org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreSingleInputGateTest.createTieredStoreSingleInputGate;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.createBaseSubpartitionPath;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.writeSegmentFinishFile;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -67,7 +67,7 @@ public class SingleChannelTierClientTest {
     void testSingleChannelLocalTierClient() throws IOException, InterruptedException {
         SingleChannelLocalTierClient localTierClient = new SingleChannelLocalTierClient();
         final TieredStoreSingleInputGate inputGate =
-                createTieredStoreSingleInputGateWithBufferPool();
+                createTieredStoreSingleInputGate(2);
         InputChannel inputChannel1 =
                 new InputChannelBuilder().setChannelIndex(0).buildRemoteRecoveredChannel(inputGate);
         verifyLocalTierClientResult(localTierClient, inputChannel1, false, null, SEGMENT_ID, false);
@@ -88,7 +88,7 @@ public class SingleChannelTierClientTest {
     @Test
     void testSingleChannelRemoteTierClient() throws Exception {
         final TieredStoreSingleInputGate inputGate =
-                createTieredStoreSingleInputGateWithBufferPool();
+                createTieredStoreSingleInputGate(2);
         SingleChannelRemoteTierClient remoteTierClient =
                 new SingleChannelRemoteTierClient(
                         JOB_ID,
