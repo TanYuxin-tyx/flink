@@ -78,9 +78,4 @@ public class LocalRecoveredInputChannel extends RecoveredInputChannel {
                 channelStateWriter,
                 isUpstreamBroadcast);
     }
-
-    @Override
-    public boolean containSegment(long segmentId) {
-        return true;
-    }
 }

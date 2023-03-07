@@ -83,9 +83,4 @@ public class RemoteRecoveredInputChannel extends RecoveredInputChannel {
         remoteInputChannel.setup();
         return remoteInputChannel;
     }
-
-    @Override
-    public boolean containSegment(long segmentId) {
-        return true;
-    }
 }

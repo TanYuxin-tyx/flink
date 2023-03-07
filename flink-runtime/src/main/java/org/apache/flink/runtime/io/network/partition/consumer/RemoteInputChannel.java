@@ -823,13 +823,6 @@ public class RemoteInputChannel extends InputChannel {
     // ------------------------------------------------------------------------
 
     @Override
-    public boolean containSegment(long segmentId) {
-        synchronized (receivedBuffers) {
-            return receivedBuffers.size() > 0;
-        }
-    }
-
-    @Override
     public boolean isUpstreamBroadcastOnly() {
         return isUpstreamBroadcast;
     }
