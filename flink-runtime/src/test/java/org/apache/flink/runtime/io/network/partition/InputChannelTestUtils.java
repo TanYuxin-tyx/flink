@@ -34,8 +34,6 @@ import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateBuilder;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreSingleInputGateBuilder;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreSingleInputGate;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 
 import org.mockito.invocation.InvocationOnMock;
@@ -87,13 +85,6 @@ public class InputChannelTestUtils {
 
     public static SingleInputGate createSingleInputGate(int numberOfChannels) {
         return new SingleInputGateBuilder().setNumberOfChannels(numberOfChannels).build();
-    }
-
-    public static TieredStoreSingleInputGate createTieredStoreSingleInputGate(
-            int numberOfChannels) {
-        return new TieredStoreSingleInputGateBuilder()
-                .setNumberOfChannels(numberOfChannels)
-                .build();
     }
 
     public static SingleInputGate createSingleInputGate(BufferPool bufferPool) {

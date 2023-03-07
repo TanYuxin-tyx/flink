@@ -51,7 +51,6 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.BufferWritingResultPartition;
 import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
-import org.apache.flink.runtime.io.network.partition.InputChannelTestUtils;
 import org.apache.flink.runtime.io.network.partition.NoOpResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartition;
@@ -94,7 +93,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -124,14 +122,9 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
 
     private static final int MEMORY_SEGMENT_SIZE = 32 * 1024;
 
-    private static final JobID jobID = JobID.generate();
+    private static final JobID JOB_ID = JobID.generate();
 
-    private static final List<ResultPartitionID> resultPartitionIDS =
-            new ArrayList<ResultPartitionID>() {
-                {
-                    add(new ResultPartitionID());
-                }
-            };
+    private static final ResultPartitionID RESULT_PARTITION_ID = new ResultPartitionID();
 
     /**
      * Tests {@link TieredStoreSingleInputGate#setup()} should create the respective {@link
@@ -140,12 +133,9 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
      */
     @Test
     void testSetupLogic() throws Exception {
-        final NettyShuffleEnvironment environment = createTieredStoreNettyShuffleEnvironment();
-        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(environment);
+        TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGateWithChannels();
         try (Closer closer = Closer.create()) {
-            closer.register(environment::close);
             closer.register(inputGate::close);
-
             // before setup
             assertThat(inputGate.getBufferPool()).isNull();
             for (InputChannel inputChannel : inputGate.getInputChannels().values()) {
@@ -165,7 +155,8 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
 
             // after setup
             assertThat(inputGate.getBufferPool()).isNotNull();
-            assertThat(inputGate.getBufferPool().getNumberOfRequiredMemorySegments()).isEqualTo(1);
+            assertThat(inputGate.getBufferPool().getNumberOfRequiredMemorySegments())
+                    .isEqualTo(LOCAL_BUFFER_POOL_NUM_BUFFERS);
             for (InputChannel inputChannel : inputGate.getInputChannels().values()) {
                 if (inputChannel instanceof RemoteRecoveredInputChannel) {
                     assertThat(
@@ -182,7 +173,8 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
 
             inputGate.convertRecoveredInputChannels();
             assertThat(inputGate.getBufferPool()).isNotNull();
-            assertThat(inputGate.getBufferPool().getNumberOfRequiredMemorySegments()).isEqualTo(1);
+            assertThat(inputGate.getBufferPool().getNumberOfRequiredMemorySegments())
+                    .isEqualTo(LOCAL_BUFFER_POOL_NUM_BUFFERS);
             for (InputChannel inputChannel : inputGate.getInputChannels().values()) {
                 if (inputChannel instanceof RemoteInputChannel) {
                     assertThat(((RemoteInputChannel) inputChannel).getNumberOfAvailableBuffers())
@@ -194,12 +186,9 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
 
     @Test
     void testPartitionRequestLogic() throws Exception {
-        final NettyShuffleEnvironment environment = new NettyShuffleEnvironmentBuilder().build();
-        final TieredStoreSingleInputGate gate = createTieredStoreSingleInputGate(environment);
+        final TieredStoreSingleInputGate gate = createTieredStoreSingleInputGateWithChannels();
         gate.setup();
-
         try (Closer closer = Closer.create()) {
-            closer.register(environment::close);
             closer.register(gate::close);
 
             gate.finishReadRecoveredState();
@@ -230,8 +219,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
      */
     @Test
     void testBasicGetNextLogic() throws Exception {
-        final TieredStoreSingleInputGate inputGate =
-                createTieredStoreSingleInputGateWithBufferPool();
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(2);
         inputGate.setup();
 
         final TestInputChannel[] inputChannels =
@@ -288,12 +276,10 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     @Test
     void testDrainFlagComputation() throws Exception {
         // Setup
-        final TieredStoreSingleInputGate inputGate1 =
-                createTieredStoreSingleInputGateWithBufferPool();
+        final TieredStoreSingleInputGate inputGate1 = createTieredStoreSingleInputGate(2);
         inputGate1.setup();
 
-        final TieredStoreSingleInputGate inputGate2 =
-                createTieredStoreSingleInputGateWithBufferPool();
+        final TieredStoreSingleInputGate inputGate2 = createTieredStoreSingleInputGate(2);
         inputGate2.setup();
 
         final TestInputChannel[] inputChannels1 =
@@ -348,40 +334,38 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
         int bufferSize = 1024;
         BufferCompressor compressor = new BufferCompressor(bufferSize, compressionCodec);
         BufferDecompressor decompressor = new BufferDecompressor(bufferSize, compressionCodec);
-
-        try (TieredStoreSingleInputGate inputGate =
+        TieredStoreSingleInputGate inputGate =
                 new TieredStoreSingleInputGateBuilder()
                         .setBufferDecompressor(decompressor)
                         .setSegmentProvider(new NetworkBufferPool(1, 1))
-                        .build()) {
-            inputGate.setup();
-            TestInputChannel inputChannel = new TestInputChannel(inputGate, 0);
+                        .build();
+        inputGate.setup();
+        TestInputChannel inputChannel = new TestInputChannel(inputGate, 0);
 
-            MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(bufferSize);
-            for (int i = 0; i < bufferSize; i += 8) {
-                segment.putLongLittleEndian(i, i);
-            }
-            Buffer uncompressedBuffer = new NetworkBuffer(segment, FreeingBufferRecycler.INSTANCE);
-            uncompressedBuffer.setSize(bufferSize);
-            Buffer compressedBuffer = compressor.compressToOriginalBuffer(uncompressedBuffer);
-            assertThat(compressedBuffer.isCompressed()).isTrue();
+        MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(bufferSize);
+        for (int i = 0; i < bufferSize; i += 8) {
+            segment.putLongLittleEndian(i, i);
+        }
+        Buffer uncompressedBuffer = new NetworkBuffer(segment, FreeingBufferRecycler.INSTANCE);
+        uncompressedBuffer.setSize(bufferSize);
+        Buffer compressedBuffer = compressor.compressToOriginalBuffer(uncompressedBuffer);
+        assertThat(compressedBuffer.isCompressed()).isTrue();
 
-            inputChannel.read(compressedBuffer);
-            inputGate.setInputChannels(inputChannel);
-            inputGate.notifyChannelNonEmpty(inputChannel);
+        inputChannel.read(compressedBuffer);
+        inputGate.setInputChannels(inputChannel);
+        inputGate.notifyChannelNonEmpty(inputChannel);
 
-            Optional<BufferOrEvent> bufferOrEvent = inputGate.getNext();
-            assertThat(bufferOrEvent.isPresent()).isTrue();
-            assertThat(bufferOrEvent.get().isBuffer()).isTrue();
-            ByteBuffer buffer =
-                    bufferOrEvent
-                            .get()
-                            .getBuffer()
-                            .getNioBufferReadable()
-                            .order(ByteOrder.LITTLE_ENDIAN);
-            for (int i = 0; i < bufferSize; i += 8) {
-                assertThat(buffer.getLong()).isEqualTo(i);
-            }
+        Optional<BufferOrEvent> bufferOrEvent = inputGate.getNext();
+        assertThat(bufferOrEvent.isPresent()).isTrue();
+        assertThat(bufferOrEvent.get().isBuffer()).isTrue();
+        ByteBuffer buffer =
+                bufferOrEvent
+                        .get()
+                        .getBuffer()
+                        .getNioBufferReadable()
+                        .order(ByteOrder.LITTLE_ENDIAN);
+        for (int i = 0; i < bufferSize; i += 8) {
+            assertThat(buffer.getLong()).isEqualTo(i);
         }
     }
 
@@ -430,7 +414,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     @Test
     void testIsMoreAvailableReadingFromSingleInputChannel() throws Exception {
         // Setup
-        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGateWithBufferPool();
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(2);
         inputGate.setup();
 
         final TestInputChannel[] inputChannels =
@@ -459,12 +443,9 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
                 new TestingResultPartitionManager(new NoOpResultSubpartitionView());
 
         // Setup reader with one local and one unknown input channel
-        NettyShuffleEnvironment environment = createTieredStoreNettyShuffleEnvironment();
-        final TieredStoreSingleInputGate inputGate =
-                createTieredStoreSingleInputGate(environment, 2);
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(2);
         final InputChannel[] inputChannels = new InputChannel[2];
         try (Closer closer = Closer.create()) {
-            closer.register(environment::close);
             closer.register(inputGate::close);
 
             // Local
@@ -679,37 +660,6 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
         }
     }
 
-    /** Tests that input gate requests and assigns network buffers for remote input channel. */
-    @Test
-    void testRequestBuffersWithRemoteInputChannel() throws Exception {
-        final NettyShuffleEnvironment network = createTieredStoreNettyShuffleEnvironment();
-        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(network, 1);
-        int buffersPerChannel = 2;
-        int extraNetworkBuffersPerGate = 8;
-
-        try (Closer closer = Closer.create()) {
-            closer.register(network::close);
-            closer.register(inputGate::close);
-
-            RemoteInputChannel remote =
-                    InputChannelBuilder.newBuilder()
-                            .setupFromNettyShuffleEnvironment(network)
-                            .setConnectionManager(new TestingConnectionManager())
-                            .buildRemoteChannel(inputGate);
-            inputGate.setInputChannels(remote);
-            inputGate.setup();
-
-            NetworkBufferPool bufferPool = network.getNetworkBufferPool();
-            // only the exclusive buffers should be assigned/available now
-            assertThat(remote.getNumberOfAvailableBuffers()).isEqualTo(buffersPerChannel);
-            assertThat(bufferPool.getNumberOfAvailableMemorySegments())
-                    .isEqualTo(bufferPool.getTotalNumberOfMemorySegments() - buffersPerChannel - 1);
-            // note: exclusive buffers are not handed out into LocalBufferPool and are thus not
-            // counted
-            assertThat(bufferPool.countBuffers()).isEqualTo(extraNetworkBuffersPerGate);
-        }
-    }
-
     /**
      * Tests that input gate requests and assigns network buffers when unknown input channel updates
      * to remote input channel.
@@ -717,7 +667,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     @Test
     void testRequestBuffersWithUnknownInputChannel() throws Exception {
         final NettyShuffleEnvironment network = createTieredStoreNettyShuffleEnvironment();
-        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(network, 1);
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(1);
         int buffersPerChannel = 2;
         int extraNetworkBuffersPerGate = 8;
 
@@ -734,10 +684,10 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
             NetworkBufferPool bufferPool = network.getNetworkBufferPool();
 
             assertThat(bufferPool.getNumberOfAvailableMemorySegments())
-                    .isEqualTo(bufferPool.getTotalNumberOfMemorySegments() - 1);
+                    .isEqualTo(bufferPool.getTotalNumberOfMemorySegments());
             // note: exclusive buffers are not handed out into LocalBufferPool and are thus not
             // counted
-            assertThat(bufferPool.countBuffers()).isEqualTo(extraNetworkBuffersPerGate);
+            assertThat(bufferPool.countBuffers()).isEqualTo(0);
 
             // Trigger updates to remote input channel from unknown input channel
             inputGate.updateInputChannel(
@@ -756,10 +706,10 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
             assertThat(remote.getNumberOfAvailableBuffers()).isEqualTo(buffersPerChannel);
 
             assertThat(bufferPool.getNumberOfAvailableMemorySegments())
-                    .isEqualTo(bufferPool.getTotalNumberOfMemorySegments() - buffersPerChannel - 1);
+                    .isEqualTo(bufferPool.getTotalNumberOfMemorySegments());
             // note: exclusive buffers are not handed out into LocalBufferPool and are thus not
             // counted
-            assertThat(bufferPool.countBuffers()).isEqualTo(extraNetworkBuffersPerGate);
+            assertThat(bufferPool.countBuffers()).isEqualTo(0);
         }
     }
 
@@ -786,7 +736,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
         localResultPartition.setup();
         remoteResultPartition.setup();
 
-        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(network, 2);
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(2);
         final InputChannel[] inputChannels = new InputChannel[2];
 
         try (Closer closer = Closer.create()) {
@@ -967,7 +917,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
                                 .setupBufferPoolFactoryFromNettyShuffleEnvironment(network)
                                 .build();
 
-        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(network, 2);
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(2);
 
         final ResultPartitionID localResultPartitionId = resultPartition.getPartitionId();
         final InputChannel[] inputChannels = new InputChannel[2];
@@ -1011,8 +961,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
      */
     @Test
     void testPartitionNotFoundExceptionWhileGetNextBuffer() throws IOException {
-        final TieredStoreSingleInputGate inputGate =
-                InputChannelTestUtils.createTieredStoreSingleInputGate(1);
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(1);
         inputGate.setup();
         final LocalInputChannel localChannel =
                 createLocalInputChannel(inputGate, new ResultPartitionManager());
@@ -1030,8 +979,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
 
     @Test
     void testAnnounceBufferSize() throws Exception {
-        final TieredStoreSingleInputGate inputGate =
-                InputChannelTestUtils.createTieredStoreSingleInputGate(2);
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(2);
         inputGate.setup();
         final LocalInputChannel localChannel =
                 createLocalInputChannel(
@@ -1085,16 +1033,13 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     }
 
     @Test
-    void testTieredStoreSingleInputGateInfo() {
+    void testTieredStoreSingleInputGateInfo() throws IOException {
         final int numSingleInputGates = 2;
         final int numInputChannels = 3;
 
         for (int i = 0; i < numSingleInputGates; i++) {
             final TieredStoreSingleInputGate gate =
-                    new TieredStoreSingleInputGateBuilder()
-                            .setSingleInputGateIndex(i)
-                            .setNumberOfChannels(numInputChannels)
-                            .build();
+                    createTieredStoreSingleInputGate(numInputChannels);
 
             int channelCounter = 0;
             for (InputChannel inputChannel : gate.getInputChannels().values()) {
@@ -1154,7 +1099,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
     @Test
     void testBufferInUseCount() throws Exception {
         // Setup
-        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGateWithBufferPool();
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(2);
         inputGate.setup();
         final TestInputChannel[] inputChannels =
                 new TestInputChannel[] {
@@ -1260,14 +1205,46 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
         return new NettyShuffleEnvironmentBuilder().setUsingTieredStore(true).build();
     }
 
-    static TieredStoreSingleInputGate createTieredStoreSingleInputGate(
+    private static TieredStoreSingleInputGate createTieredStoreSingleInputGateWithChannels()
+            throws IOException {
+        TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(3);
+        InputChannel remoteChannel =
+                new InputChannelBuilder().setChannelIndex(0).buildRemoteRecoveredChannel(inputGate);
+        InputChannel localChannel =
+                new InputChannelBuilder().setChannelIndex(1).buildLocalRecoveredChannel(inputGate);
+        InputChannel unknownChannel =
+                new InputChannelBuilder().setChannelIndex(2).buildUnknownChannel(inputGate);
+        inputGate.setInputChannels(remoteChannel, localChannel, unknownChannel);
+        return inputGate;
+    }
+
+    public static TieredStoreSingleInputGate createTieredStoreSingleInputGate(int numChannel)
+            throws IOException {
+        NetworkBufferPool networkBufferPool =
+                new NetworkBufferPool(NETWORK_BUFFER_POOL_NUM_BUFFERS, MEMORY_SEGMENT_SIZE);
+        LocalBufferPool localBufferPool =
+                new LocalBufferPool(networkBufferPool, LOCAL_BUFFER_POOL_NUM_BUFFERS);
+        int inputGateIndex = 0;
+        TieredStoreSingleInputGateBuilder builder =
+                new TieredStoreSingleInputGateBuilder()
+                        .setNumberOfChannels(numChannel)
+                        .setSingleInputGateIndex(0)
+                        .setBufferPoolFactory(localBufferPool)
+                        .setSegmentProvider(networkBufferPool)
+                        .setJobID(JOB_ID)
+                        .setResultPartitionID(Collections.singletonList(RESULT_PARTITION_ID))
+                        .setSingleInputGateIndex(inputGateIndex);
+        return builder.build();
+    }
+
+    private TieredStoreSingleInputGate createTieredStoreSingleInputGate(
             IntermediateResultPartitionID[] partitionIds, NettyShuffleEnvironment netEnv)
             throws IOException {
         return createTieredStoreSingleInputGate(
                 partitionIds, new IndexRange(0, 0), netEnv, ResourceID.generate(), null, null);
     }
 
-    static TieredStoreSingleInputGate createTieredStoreSingleInputGate(
+    private TieredStoreSingleInputGate createTieredStoreSingleInputGate(
             IntermediateResultPartitionID[] partitionIds,
             IndexRange subpartitionIndexRange,
             NettyShuffleEnvironment netEnv,
@@ -1327,37 +1304,6 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
                         gateDesc,
                         TieredStoreSingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
                         newUnregisteredInputChannelMetrics());
-    }
-
-    private TieredStoreSingleInputGate createTieredStoreSingleInputGate(
-            NettyShuffleEnvironment environment) {
-        TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(environment, 3);
-        InputChannel remoteChannel =
-                new InputChannelBuilder().setChannelIndex(0).buildRemoteRecoveredChannel(inputGate);
-        InputChannel localChannel =
-                new InputChannelBuilder().setChannelIndex(1).buildLocalRecoveredChannel(inputGate);
-        InputChannel unknownChannel =
-                new InputChannelBuilder().setChannelIndex(2).buildUnknownChannel(inputGate);
-        inputGate.setInputChannels(remoteChannel, localChannel, unknownChannel);
-        return inputGate;
-    }
-
-    static public TieredStoreSingleInputGate createTieredStoreSingleInputGateWithBufferPool()
-            throws IOException {
-        NetworkBufferPool networkBufferPool =
-                new NetworkBufferPool(NETWORK_BUFFER_POOL_NUM_BUFFERS, MEMORY_SEGMENT_SIZE);
-        LocalBufferPool localBufferPool = new LocalBufferPool(networkBufferPool, LOCAL_BUFFER_POOL_NUM_BUFFERS);
-        int inputGateIndex = 0;
-        TieredStoreSingleInputGateBuilder builder =
-                new TieredStoreSingleInputGateBuilder()
-                        .setNumberOfChannels(2)
-                        .setSingleInputGateIndex(0)
-                        .setBufferPoolFactory(localBufferPool)
-                        .setSegmentProvider(networkBufferPool)
-                        .setJobID(jobID)
-                        .setResultPartitionID(resultPartitionIDS)
-                        .setSingleInputGateIndex(inputGateIndex);
-        return builder.build();
     }
 
     /**
