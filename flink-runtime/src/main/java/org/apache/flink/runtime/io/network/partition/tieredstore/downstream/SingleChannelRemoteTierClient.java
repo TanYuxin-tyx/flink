@@ -1,5 +1,6 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FSDataInputStream;
 import org.apache.flink.core.fs.FileSystem;
@@ -49,7 +50,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
 
     private final int subpartitionIndex;
 
-    private final String baseDfsPath;
+    private final String baseRemoteStoragePath;
 
     private final FileSystem remoteFileSystem;
 
@@ -59,23 +60,23 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
 
     private FSDataInputStream currentInputStream;
 
-    private long currentSegmentId = -1L;
+    private long lastestSegmentId = -1L;
 
     public SingleChannelRemoteTierClient(
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             int subpartitionIndex,
             TieredStoreMemoryManager memoryManager,
-            String baseDfsPath) {
+            String baseRemoteStoragePath) {
         this.resultPartitionIDs = resultPartitionIDs;
         this.jobID = jobID;
         this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
         headerBuffer.order(ByteOrder.nativeOrder());
         this.subpartitionIndex = subpartitionIndex;
         this.memoryManager = memoryManager;
-        this.baseDfsPath = baseDfsPath;
+        this.baseRemoteStoragePath = baseRemoteStoragePath;
         try {
-            this.remoteFileSystem = new Path(baseDfsPath).getFileSystem();
+            this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
             throw new RuntimeException("Failed to initialize the FileSystem", e);
         }
@@ -96,7 +97,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
         if (currentInputStream.available() == 0) {
             return Optional.of(
                     new InputChannel.BufferAndAvailability(
-                            buildEndOfSegmentBuffer(currentSegmentId + 1),
+                            buildEndOfSegmentBuffer(lastestSegmentId + 1),
                             Buffer.DataType.SEGMENT_EVENT,
                             0,
                             0));
@@ -117,15 +118,15 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
     // ------------------------------------
 
     private boolean hasSegmentId(InputChannel inputChannel, long segmentId) throws IOException {
-        if (segmentId != currentSegmentId) {
-            currentSegmentId = segmentId;
+        if (segmentId != lastestSegmentId) {
+            lastestSegmentId = segmentId;
             boolean isBroadcastOnly = inputChannel.isUpstreamBroadcastOnly();
             String baseSubpartitionPath =
                     getBaseSubpartitionPath(
                             jobID,
                             resultPartitionIDs.get(inputChannel.getChannelIndex()),
                             subpartitionIndex,
-                            baseDfsPath,
+                            baseRemoteStoragePath,
                             isBroadcastOnly);
             currentPath = generateNewSegmentPath(baseSubpartitionPath, segmentId);
             currentSegmentFinishPath = generateSegmentFinishPath(baseSubpartitionPath, segmentId);
@@ -200,5 +201,10 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
 
     private void recycle(MemorySegment memorySegment) {
         memoryManager.recycleBuffer(memorySegment, TieredStoreMode.TieredType.IN_DFS);
+    }
+
+    @VisibleForTesting
+    public long getLatestSegmentId() {
+        return lastestSegmentId;
     }
 }

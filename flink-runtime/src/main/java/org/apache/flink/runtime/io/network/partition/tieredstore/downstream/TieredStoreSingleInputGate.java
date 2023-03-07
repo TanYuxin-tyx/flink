@@ -69,7 +69,7 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
             @Nullable BufferDebloater bufferDebloater,
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
-            String baseDfsPath) {
+            String baseRemoteStoragePath) {
         super(
                 owningTaskName,
                 gateIndex,
@@ -91,7 +91,7 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
                         resultPartitionIDs,
                         getMemorySegmentProvider(),
                         subpartitionIndex,
-                        baseDfsPath);
+                        baseRemoteStoragePath);
 
         this.tieredStoreReader = new TieredStoreReaderImpl(numberOfInputChannels, clientFactory);
     }

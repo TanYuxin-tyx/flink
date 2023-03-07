@@ -40,7 +40,7 @@ import static org.apache.flink.runtime.io.network.partition.consumer.InputGateSp
 /** Factory for {@link TieredStoreSingleInputGate} to use in {@link NettyShuffleEnvironment}. */
 public class TieredStoreSingleInputGateFactory extends SingleInputGateFactory {
 
-    private final String baseDfsPath;
+    private final String baseRemoteStoragePath;
 
     public TieredStoreSingleInputGateFactory(
             @Nonnull ResourceID taskExecutorResourceId,
@@ -49,7 +49,7 @@ public class TieredStoreSingleInputGateFactory extends SingleInputGateFactory {
             @Nonnull ResultPartitionManager partitionManager,
             @Nonnull TaskEventPublisher taskEventPublisher,
             @Nonnull NetworkBufferPool networkBufferPool,
-            @Nullable String baseDfsPath) {
+            @Nullable String baseRemoteStoragePath) {
         super(
                 taskExecutorResourceId,
                 networkConfig,
@@ -57,7 +57,7 @@ public class TieredStoreSingleInputGateFactory extends SingleInputGateFactory {
                 partitionManager,
                 taskEventPublisher,
                 networkBufferPool);
-        this.baseDfsPath = baseDfsPath;
+        this.baseRemoteStoragePath = baseRemoteStoragePath;
     }
 
     private TieredStoreSingleInputGate createInputGate(
@@ -94,7 +94,7 @@ public class TieredStoreSingleInputGateFactory extends SingleInputGateFactory {
                 bufferDebloater,
                 jobID,
                 resultPartitionIDs,
-                baseDfsPath);
+                baseRemoteStoragePath);
     }
 
     @Override
