@@ -87,7 +87,7 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     }
 
     @Override
-    public void startSegment(long segmentIndex) {}
+    public void startSegment(int segmentIndex) {}
 
     /**
      * Spilling buffers to disk asynchronously.
@@ -119,7 +119,7 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     }
 
     @Override
-    public void finishSegment(long segmentIndex) {}
+    public void finishSegment(int segmentIndex) {}
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void spill(

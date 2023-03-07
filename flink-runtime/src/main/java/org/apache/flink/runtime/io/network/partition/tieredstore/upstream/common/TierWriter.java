@@ -36,7 +36,7 @@ public interface TierWriter {
             Buffer.DataType dataType,
             boolean isBroadcast,
             boolean isEndOfPartition,
-            long segmentIndex)
+            int segmentIndex)
             throws IOException;
 
     void release();

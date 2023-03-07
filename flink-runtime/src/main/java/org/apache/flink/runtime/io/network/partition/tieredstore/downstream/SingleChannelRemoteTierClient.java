@@ -60,7 +60,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
 
     private FSDataInputStream currentInputStream;
 
-    private long lastestSegmentId = -1L;
+    private int lastestSegmentId = -1;
 
     public SingleChannelRemoteTierClient(
             JobID jobID,
@@ -84,7 +84,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
 
     @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
-            InputChannel inputChannel, long segmentId) throws IOException {
+            InputChannel inputChannel, int segmentId) throws IOException {
         if (inputChannel.getClass() == RemoteRecoveredInputChannel.class
                 || inputChannel.getClass() == LocalRecoveredInputChannel.class) {
             return Optional.empty();
@@ -117,7 +117,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
     //           Internal Method
     // ------------------------------------
 
-    private boolean hasSegmentId(InputChannel inputChannel, long segmentId) throws IOException {
+    private boolean hasSegmentId(InputChannel inputChannel, int segmentId) throws IOException {
         if (segmentId != lastestSegmentId) {
             lastestSegmentId = segmentId;
             boolean isBroadcastOnly = inputChannel.isUpstreamBroadcastOnly();
@@ -190,7 +190,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
                 memorySegment, this::recycle, dataType, header.isCompressed(), header.getLength());
     }
 
-    private Buffer buildEndOfSegmentBuffer(long segmentId) throws IOException {
+    private Buffer buildEndOfSegmentBuffer(int segmentId) throws IOException {
         MemorySegment data =
                 MemorySegmentFactory.wrap(
                         EventSerializer.toSerializedEvent(new EndOfSegmentEvent(segmentId))
@@ -204,7 +204,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
     }
 
     @VisibleForTesting
-    public long getLatestSegmentId() {
+    public int getLatestSegmentId() {
         return lastestSegmentId;
     }
 }

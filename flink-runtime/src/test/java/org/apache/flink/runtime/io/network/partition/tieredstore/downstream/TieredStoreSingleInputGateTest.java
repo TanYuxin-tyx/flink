@@ -241,7 +241,7 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
 
         inputGate.setInputChannels(inputChannels);
 
-        long segmentId = 1L;
+        int segmentId = 1;
         int bufferInSegment = 2;
 
         for (int i = 0; i < bufferInSegment; ++i) {

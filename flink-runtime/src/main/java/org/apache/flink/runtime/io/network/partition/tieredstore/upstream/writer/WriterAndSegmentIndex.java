@@ -25,12 +25,12 @@ public class WriterAndSegmentIndex {
 
     private final boolean isLastRecordInSegment;
 
-    private final long segmentIndex;
+    private final int segmentIndex;
 
     private final int subpartitionId;
 
     public WriterAndSegmentIndex(
-            int writerIndex, boolean isLastRecordInSegment, long segmentIndex, int subpartitionId) {
+            int writerIndex, boolean isLastRecordInSegment, int segmentIndex, int subpartitionId) {
         this.writerIndex = writerIndex;
         this.isLastRecordInSegment = isLastRecordInSegment;
         this.segmentIndex = segmentIndex;

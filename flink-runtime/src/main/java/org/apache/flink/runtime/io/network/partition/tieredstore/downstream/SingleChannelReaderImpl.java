@@ -22,7 +22,7 @@ public class SingleChannelReaderImpl implements SingleChannelReader {
 
     private List<SingleChannelTierClient> clientList;
 
-    private long currentSegmentId = 0L;
+    private int currentSegmentId = 0;
 
     public SingleChannelReaderImpl(SingleChannelTierClientFactory clientFactory) {
         this.clientFactory = clientFactory;
@@ -48,7 +48,7 @@ public class SingleChannelReaderImpl implements SingleChannelReader {
         }
         BufferAndAvailability bufferData = bufferAndAvailability.get();
         if (bufferData.buffer().getDataType() == Buffer.DataType.SEGMENT_EVENT) {
-            checkState(getSegmentId(bufferData) == (currentSegmentId + 1L));
+            checkState(getSegmentId(bufferData) == (currentSegmentId + 1));
             currentSegmentId++;
         }
         return Optional.of(bufferData);
@@ -65,7 +65,7 @@ public class SingleChannelReaderImpl implements SingleChannelReader {
     //           Internal Method
     // ------------------------------------
 
-    private long getSegmentId(BufferAndAvailability bufferData) throws IOException {
+    private int getSegmentId(BufferAndAvailability bufferData) throws IOException {
         return ((EndOfSegmentEvent)
                         EventSerializer.fromSerializedEvent(
                                 bufferData.buffer().getNioBufferReadable(),

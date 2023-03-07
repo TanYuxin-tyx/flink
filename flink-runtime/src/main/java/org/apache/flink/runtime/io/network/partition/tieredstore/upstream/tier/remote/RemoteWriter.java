@@ -71,7 +71,7 @@ public class RemoteWriter implements TierWriter {
             Buffer.DataType dataType,
             boolean isBroadcast,
             boolean isEndOfPartition,
-            long segmentIndex)
+            int segmentIndex)
             throws IOException {
 
         boolean isLastRecordInSegment = false;

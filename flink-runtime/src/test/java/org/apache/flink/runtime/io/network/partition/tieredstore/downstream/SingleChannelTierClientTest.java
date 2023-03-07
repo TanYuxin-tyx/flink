@@ -37,7 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** The test for {@link SingleChannelLocalTierClient}. */
 public class SingleChannelTierClientTest {
 
-    private static final long SEGMENT_ID = 0L;
+    private static final int SEGMENT_ID = 0;
 
     private static final int NUM_BUFFERS = 2;
 
@@ -78,10 +78,10 @@ public class SingleChannelTierClientTest {
         verifyLocalTierClientResult(localTierClient, inputChannel3, false, null, SEGMENT_ID, false);
         inputChannel3.readBuffer();
         verifyLocalTierClientResult(localTierClient, inputChannel3, true, DATA_BUFFER, SEGMENT_ID, true);
-        inputChannel3.readSegmentInfo(1L);
+        inputChannel3.readSegmentInfo(1);
         verifyLocalTierClientResult(localTierClient, inputChannel3, true, SEGMENT_EVENT, SEGMENT_ID, true);
         inputChannel3.readBuffer();
-        verifyLocalTierClientResult(localTierClient, inputChannel3, true, DATA_BUFFER, 1L, true);
+        verifyLocalTierClientResult(localTierClient, inputChannel3, true, DATA_BUFFER, 1, true);
         assertThat(inputChannel3.getRequiredSegmentId()).isEqualTo(1L);
     }
 
@@ -118,7 +118,7 @@ public class SingleChannelTierClientTest {
             InputChannel inputChannel,
             boolean isPresent,
             Buffer.DataType expectedDataType,
-            long segmentId,
+            int segmentId,
             boolean hasRegistered)
             throws IOException, InterruptedException {
         Optional<InputChannel.BufferAndAvailability> buffer =
@@ -140,7 +140,7 @@ public class SingleChannelTierClientTest {
             InputChannel inputChannel,
             boolean isPresent,
             Buffer.DataType expectedDataType,
-            long segmentId)
+            int segmentId)
             throws IOException {
         Optional<InputChannel.BufferAndAvailability> buffer =
                 client.getNextBuffer(inputChannel, segmentId);

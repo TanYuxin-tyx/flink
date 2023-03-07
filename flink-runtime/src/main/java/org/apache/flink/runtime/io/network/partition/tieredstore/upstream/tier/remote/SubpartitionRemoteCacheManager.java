@@ -171,11 +171,11 @@ public class SubpartitionRemoteCacheManager {
         this.outputMetrics = checkNotNull(outputMetrics);
     }
 
-    public void startSegment(long segmentIndex) throws IOException {
+    public void startSegment(int segmentIndex) throws IOException {
         cacheBufferSpiller.startSegment(segmentIndex);
     }
 
-    public void finishSegment(long segmentIndex) {
+    public void finishSegment(int segmentIndex) {
         List<TierReaderViewId> needNotify = new ArrayList<>(consumerMap.size());
         runWithLock(
                 () -> {

@@ -139,7 +139,7 @@ public class RemoteTier implements StorageTier {
     }
 
     @Override
-    public boolean hasCurrentSegment(int subpartitionId, long segmentIndex) {
+    public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
         return segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentIndex);
     }
 

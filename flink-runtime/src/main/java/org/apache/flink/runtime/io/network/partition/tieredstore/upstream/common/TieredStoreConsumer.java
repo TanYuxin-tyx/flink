@@ -44,9 +44,9 @@ public interface TieredStoreConsumer {
 
     int getNumberOfQueuedBuffers();
 
-    boolean containSegment(long segmentId);
+    boolean containSegment(int segmentId);
 
     void forceNotifyAvailable();
 
-    void updateConsumedSegmentIndex(long segmentId);
+    void updateConsumedSegmentIndex(int segmentId);
 }

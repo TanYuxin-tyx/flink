@@ -94,7 +94,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     }
 
     @Override
-    public void updateConsumedSegmentIndex(long segmentId) {
+    public void updateConsumedSegmentIndex(int segmentId) {
         synchronized (this) {
             consumedSegmentIndex = segmentId;
         }
@@ -149,10 +149,10 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
             return;
         }
         isReleased = true;
-        for (int i = 0; i < tierReaderViews.length; i++) {
-            if (tierReaderViews[i] != null) {
+        for (TierReaderView tierReaderView : tierReaderViews) {
+            if (tierReaderView != null) {
                 try {
-                    tierReaderViews[i].releaseAllResources();
+                    tierReaderView.releaseAllResources();
                 } catch (IOException ioException) {
                     throw new RuntimeException(
                             "Failed to release partition view resources.", ioException);
@@ -191,7 +191,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     }
 
     @Override
-    public boolean containSegment(long segmentId) {
+    public boolean containSegment(int segmentId) {
         for (StorageTier tieredDataGate : tierDataGates) {
             if (tieredDataGate.getClass() == RemoteTier.class) {
                 continue;

@@ -117,7 +117,7 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
             Buffer.DataType dataType,
             boolean isBroadcast,
             boolean isEndOfPartition,
-            long segmentIndex)
+            int segmentIndex)
             throws IOException {
         boolean isLastRecordInSegment = false;
         numSubpartitionEmitBytes[targetSubpartition] += record.remaining();
@@ -131,7 +131,7 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
             append(record, targetSubpartition, dataType, isBroadcast && isBroadcastOnly, false);
             // Send the EndOfSegmentEvent
             ByteBuffer endOfSegment =
-                    EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentIndex + 1L);
+                    EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentIndex + 1);
             append(
                     endOfSegment,
                     targetSubpartition,
