@@ -187,7 +187,7 @@ public class DfsFetcherDataQueueTest {
     //        dfsFetcherDataQueue.setSegmentInfo(inputChannel, SEGMENT_ID);
     //    }
     //
-    //    private void createSegmentInfoFile(long segmentId, int channelIndex, int
+    //    private void createSegmentInfoFile(int segmentId, int channelIndex, int
     // subpartitionIndex)
     //            throws Exception {
     //        String baseSubpartitionPath =

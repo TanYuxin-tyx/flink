@@ -155,7 +155,7 @@ public class TestInputChannel extends InputChannel {
     //  For Tiered Store
     // ------------------------------------------------------------------------
 
-    public TestInputChannel readSegmentInfo(long segmentId)
+    public TestInputChannel readSegmentInfo(int segmentId)
             throws IOException, InterruptedException {
         ByteBuffer byteBuffer = EventSerializer.toSerializedEvent(new EndOfSegmentEvent(segmentId));
         NetworkBuffer segmentInfoBuffer =
@@ -171,7 +171,7 @@ public class TestInputChannel extends InputChannel {
         return false;
     }
 
-    public void notifyRequiredSegmentId(long segmentId) {
+    public void notifyRequiredSegmentId(int segmentId) {
         requiredSegmentId = segmentId;
     }
 

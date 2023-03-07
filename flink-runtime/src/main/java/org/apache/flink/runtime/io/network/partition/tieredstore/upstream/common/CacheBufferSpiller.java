@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** Spilling the caching data in a cached data manager. */
 public interface CacheBufferSpiller {
 
-    void startSegment(long segmentIndex) throws IOException;
+    void startSegment(int segmentIndex) throws IOException;
 
     CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spillAsync(
             List<BufferWithIdentity> bufferToSpill);
@@ -39,7 +39,7 @@ public interface CacheBufferSpiller {
             AtomicInteger hasFlushCompleted,
             boolean changeFlushState) {}
 
-    void finishSegment(long segmentIndex);
+    void finishSegment(int segmentIndex);
 
     void release();
 

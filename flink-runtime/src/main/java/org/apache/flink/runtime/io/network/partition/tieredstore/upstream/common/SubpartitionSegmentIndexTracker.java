@@ -36,7 +36,7 @@ public class SubpartitionSegmentIndexTracker {
     // amount of data exceeds the threshold, the segment is switched. Different subpartitions
     // may have duplicate segment indexes, so it is necessary to distinguish different
     // subpartitions when determining whether a tier contains the segment data.
-    private final HashMap<Integer, HashSet<Long>> subpartitionSegmentIndexes;
+    private final HashMap<Integer, HashSet<Integer>> subpartitionSegmentIndexes;
 
     private final Lock[] locks;
 
@@ -54,7 +54,7 @@ public class SubpartitionSegmentIndexTracker {
     }
 
     // Return true if this segment tracker did not already contain the specified segment index.
-    public boolean addSubpartitionSegmentIndex(int subpartitionId, long segmentIndex) {
+    public boolean addSubpartitionSegmentIndex(int subpartitionId, int segmentIndex) {
         if (isBroadCastOnly) {
             return callWithSubpartitionLock(
                     0, () -> subpartitionSegmentIndexes.get(0).add(segmentIndex));
@@ -65,12 +65,12 @@ public class SubpartitionSegmentIndexTracker {
         }
     }
 
-    public boolean hasCurrentSegment(int subpartitionId, long segmentIndex) {
+    public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
         if (isBroadCastOnly) {
             return callWithSubpartitionLock(
                     0,
                     () -> {
-                        Set<Long> segmentIndexes = subpartitionSegmentIndexes.get(0);
+                        Set<Integer> segmentIndexes = subpartitionSegmentIndexes.get(0);
                         if (segmentIndexes == null) {
                             return false;
                         }
@@ -80,8 +80,7 @@ public class SubpartitionSegmentIndexTracker {
             return callWithSubpartitionLock(
                     subpartitionId,
                     () -> {
-                        Set<Long> segmentIndexes;
-                        segmentIndexes = subpartitionSegmentIndexes.get(subpartitionId);
+                        Set<Integer> segmentIndexes = subpartitionSegmentIndexes.get(subpartitionId);
                         if (segmentIndexes == null) {
                             return false;
                         }

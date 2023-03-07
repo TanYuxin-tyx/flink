@@ -73,11 +73,11 @@ public interface ResultSubpartitionView {
 
     void notifyNewBufferSize(int newBufferSize);
 
-    default boolean containSegment(long segmentId) {
+    default boolean containSegment(int segmentId) {
         return false;
     }
 
-    default void notifyRequiredSegmentId(long segmentId) {}
+    default void notifyRequiredSegmentId(int segmentId) {}
 
     /**
      * Availability of the {@link ResultSubpartitionView} and the backlog in the corresponding

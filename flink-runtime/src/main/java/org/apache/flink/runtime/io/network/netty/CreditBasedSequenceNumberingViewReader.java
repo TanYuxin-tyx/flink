@@ -114,7 +114,7 @@ class CreditBasedSequenceNumberingViewReader
     }
 
     @Override
-    public void notifyRequiredSegmentId(long segmentId) {
+    public void notifyRequiredSegmentId(int segmentId) {
         subpartitionView.notifyRequiredSegmentId(segmentId);
     }
 

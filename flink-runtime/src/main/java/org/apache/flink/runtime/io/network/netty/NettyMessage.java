@@ -911,11 +911,11 @@ public abstract class NettyMessage {
 
         private static final byte ID = 11;
 
-        final long segmentId;
+        final int segmentId;
 
         final InputChannelID receiverId;
 
-        SegmentIdMessage(long segmentId, InputChannelID receiverId) {
+        SegmentIdMessage(int segmentId, InputChannelID receiverId) {
             checkArgument(segmentId > 0L, "The segmentId should be greater than 0");
             this.segmentId = segmentId;
             this.receiverId = receiverId;
@@ -929,8 +929,8 @@ public abstract class NettyMessage {
             try {
                 result =
                         allocateBuffer(
-                                allocator, ID, Long.BYTES + InputChannelID.getByteBufLength());
-                result.writeLong(segmentId);
+                                allocator, ID, Integer.BYTES + InputChannelID.getByteBufLength());
+                result.writeInt(segmentId);
                 receiverId.writeTo(result);
 
                 out.write(result, promise);
@@ -940,7 +940,7 @@ public abstract class NettyMessage {
         }
 
         static SegmentIdMessage readFrom(ByteBuf buffer) {
-            long segmentId = buffer.readLong();
+            int segmentId = buffer.readInt();
             InputChannelID receiverId = InputChannelID.fromByteBuf(buffer);
 
             return new SegmentIdMessage(segmentId, receiverId);

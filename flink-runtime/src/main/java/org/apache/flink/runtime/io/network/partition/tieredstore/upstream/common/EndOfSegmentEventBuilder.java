@@ -8,7 +8,7 @@ import java.nio.ByteBuffer;
 
 /** The builder generating the event of EndOfSegment. */
 public class EndOfSegmentEventBuilder {
-    public static ByteBuffer buildEndOfSegmentEvent(long segmentIndex) {
+    public static ByteBuffer buildEndOfSegmentEvent(int segmentIndex) {
         final ByteBuffer serializedEvent;
         try {
             serializedEvent =

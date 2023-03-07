@@ -12,13 +12,13 @@ import java.util.Optional;
 /** The data client is used to fetch data from Local tier. */
 public class SingleChannelLocalTierClient implements SingleChannelTierClient {
 
-    private long latestSegmentId = 0;
+    private int latestSegmentId = 0;
 
     private boolean hasRegistered = false;
 
     @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
-            InputChannel inputChannel, long segmentId) throws IOException, InterruptedException {
+            InputChannel inputChannel, int segmentId) throws IOException, InterruptedException {
         if (inputChannel.getClass() == RemoteRecoveredInputChannel.class
                 || inputChannel.getClass() == LocalRecoveredInputChannel.class) {
             return inputChannel.getNextBuffer();
@@ -41,7 +41,7 @@ public class SingleChannelLocalTierClient implements SingleChannelTierClient {
     }
 
     @VisibleForTesting
-    public long getLatestSegmentId() {
+    public int getLatestSegmentId() {
         return latestSegmentId;
     }
 

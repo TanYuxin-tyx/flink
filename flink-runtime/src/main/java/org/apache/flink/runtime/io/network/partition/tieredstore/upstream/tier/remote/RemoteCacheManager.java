@@ -140,11 +140,11 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
         }
     }
 
-    public void startSegment(int targetSubpartition, long segmentIndex) throws IOException {
+    public void startSegment(int targetSubpartition, int segmentIndex) throws IOException {
         getSubpartitionCacheDataManager(targetSubpartition).startSegment(segmentIndex);
     }
 
-    public void finishSegment(int targetSubpartition, long segmentIndex) {
+    public void finishSegment(int targetSubpartition, int segmentIndex) {
         getSubpartitionCacheDataManager(targetSubpartition).finishSegment(segmentIndex);
     }
 
