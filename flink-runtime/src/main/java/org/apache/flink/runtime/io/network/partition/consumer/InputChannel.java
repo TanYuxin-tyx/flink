@@ -315,10 +315,6 @@ public abstract class InputChannel {
     //  For Tiered Store
     // ------------------------------------------------------------------------
 
-    public boolean containSegment(long segmentId) {
-        return false;
-    }
-
     public boolean isUpstreamBroadcastOnly() {
         return false;
     }
