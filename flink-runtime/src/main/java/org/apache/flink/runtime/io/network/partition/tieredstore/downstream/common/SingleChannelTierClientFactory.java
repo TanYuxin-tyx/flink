@@ -18,7 +18,7 @@ public class SingleChannelTierClientFactory {
 
     private final List<ResultPartitionID> resultPartitionIDs;
 
-    private final String baseDfsPath;
+    private final String baseRemoteStoragePath;
 
     private final TieredStoreMemoryManager memoryManager;
 
@@ -31,12 +31,12 @@ public class SingleChannelTierClientFactory {
             List<ResultPartitionID> resultPartitionIDs,
             MemorySegmentProvider memorySegmentProvider,
             int subpartitionIndex,
-            String baseDfsPath) {
+            String baseRemoteStoragePath) {
         this.jobID = jobID;
         this.resultPartitionIDs = resultPartitionIDs;
         this.subpartitionIndex = subpartitionIndex;
-        this.baseDfsPath = baseDfsPath;
-        this.enableRemoteTier = baseDfsPath != null;
+        this.baseRemoteStoragePath = baseRemoteStoragePath;
+        this.enableRemoteTier = baseRemoteStoragePath != null;
         this.memoryManager =
                 new DownstreamTieredStoreMemoryManager((NetworkBufferPool) memorySegmentProvider);
     }
@@ -51,7 +51,7 @@ public class SingleChannelTierClientFactory {
                             resultPartitionIDs,
                             subpartitionIndex,
                             memoryManager,
-                            baseDfsPath));
+                            baseRemoteStoragePath));
         } else {
             clientList.add(new SingleChannelLocalTierClient());
         }

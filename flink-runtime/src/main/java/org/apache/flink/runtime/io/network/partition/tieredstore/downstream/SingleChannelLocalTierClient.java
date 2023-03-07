@@ -1,5 +1,6 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
@@ -37,5 +38,15 @@ public class SingleChannelLocalTierClient implements SingleChannelTierClient {
     @Override
     public void close() throws IOException {
         // nothing to do.
+    }
+
+    @VisibleForTesting
+    public long getLatestSegmentId() {
+        return latestSegmentId;
+    }
+
+    @VisibleForTesting
+    public boolean hasRegistered() {
+        return hasRegistered;
     }
 }

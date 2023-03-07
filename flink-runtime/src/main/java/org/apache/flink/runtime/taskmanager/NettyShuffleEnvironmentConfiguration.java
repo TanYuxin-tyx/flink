@@ -112,7 +112,7 @@ public class NettyShuffleEnvironmentConfiguration {
 
     private final boolean enableTieredStoreForHybridShuffle;
 
-    @Nullable private final String baseDfsHomePath;
+    @Nullable private final String baseRemoteStoragePath;
 
     private final String tieredStoreTiers;
 
@@ -141,7 +141,7 @@ public class NettyShuffleEnvironmentConfiguration {
             int maxOverdraftBuffersPerGate,
             int hybridShuffleSpilledIndexSegmentSize,
             long hybridShuffleNumRetainedInMemoryRegionsMax,
-            @Nullable String baseDfsHomePath,
+            @Nullable String baseRemoteStoragePath,
             long minDiskReserveBytes,
             boolean enableTieredStoreForHybridShuffle,
             String tieredStoreTiers) {
@@ -171,7 +171,7 @@ public class NettyShuffleEnvironmentConfiguration {
         this.hybridShuffleSpilledIndexSegmentSize = hybridShuffleSpilledIndexSegmentSize;
         this.hybridShuffleNumRetainedInMemoryRegionsMax =
                 hybridShuffleNumRetainedInMemoryRegionsMax;
-        this.baseDfsHomePath = baseDfsHomePath;
+        this.baseRemoteStoragePath = baseRemoteStoragePath;
         this.enableTieredStoreForHybridShuffle = enableTieredStoreForHybridShuffle;
         this.minDiskReserveBytes = minDiskReserveBytes;
         this.tieredStoreTiers = tieredStoreTiers;
@@ -279,8 +279,8 @@ public class NettyShuffleEnvironmentConfiguration {
         return hybridShuffleSpilledIndexSegmentSize;
     }
 
-    public String getBaseDfsHomePath() {
-        return baseDfsHomePath;
+    public String getBaseRemoteStoragePath() {
+        return baseRemoteStoragePath;
     }
 
     public long getMinDiskReserveBytes() {
