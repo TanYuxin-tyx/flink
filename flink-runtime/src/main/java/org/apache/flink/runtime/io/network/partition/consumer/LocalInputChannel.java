@@ -395,14 +395,6 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
     // ------------------------------------------------------------------------
 
     @Override
-    public boolean containSegment(long segmentId) {
-        if(subpartitionView == null){
-            return false;
-        }
-        return checkNotNull(subpartitionView).containSegment(segmentId);
-    }
-
-    @Override
     public boolean isUpstreamBroadcastOnly() {
         return isUpstreamBroadcast;
     }
