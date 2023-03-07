@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 
 import org.apache.flink.util.function.SupplierWithException;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
@@ -42,9 +43,13 @@ public class SubpartitionSegmentIndexTracker {
 
     private final Boolean isBroadCastOnly;
 
+    private int[] latestSegmentIndexes;
+
     public SubpartitionSegmentIndexTracker(int numSubpartitions, Boolean isBroadCastOnly) {
         int numSubpartitions1 = isBroadCastOnly ? 1 : numSubpartitions;
         this.locks = new Lock[numSubpartitions1];
+        this.latestSegmentIndexes = new int[numSubpartitions];
+        Arrays.fill(latestSegmentIndexes, -1);
         this.subpartitionSegmentIndexes = new HashMap<>();
         for (int i = 0; i < numSubpartitions1; i++) {
             locks[i] = new ReentrantLock();
@@ -54,12 +59,15 @@ public class SubpartitionSegmentIndexTracker {
     }
 
     // Return true if this segment tracker did not already contain the specified segment index.
-    public boolean addSubpartitionSegmentIndex(int subpartitionId, int segmentIndex) {
+    public void addSubpartitionSegmentIndex(int subpartitionId, int segmentIndex) {
+        if (latestSegmentIndexes[subpartitionId] == segmentIndex) {
+            return;
+        }
+        latestSegmentIndexes[subpartitionId] = segmentIndex;
         if (isBroadCastOnly) {
-            return callWithSubpartitionLock(
-                    0, () -> subpartitionSegmentIndexes.get(0).add(segmentIndex));
+            callWithSubpartitionLock(0, () -> subpartitionSegmentIndexes.get(0).add(segmentIndex));
         } else {
-            return callWithSubpartitionLock(
+            callWithSubpartitionLock(
                     subpartitionId,
                     () -> subpartitionSegmentIndexes.get(subpartitionId).add(segmentIndex));
         }
@@ -80,7 +88,8 @@ public class SubpartitionSegmentIndexTracker {
             return callWithSubpartitionLock(
                     subpartitionId,
                     () -> {
-                        Set<Integer> segmentIndexes = subpartitionSegmentIndexes.get(subpartitionId);
+                        Set<Integer> segmentIndexes =
+                                subpartitionSegmentIndexes.get(subpartitionId);
                         if (segmentIndexes == null) {
                             return false;
                         }
