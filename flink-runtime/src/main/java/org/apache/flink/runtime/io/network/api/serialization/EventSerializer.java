@@ -144,9 +144,9 @@ public class EventSerializer {
             return buf;
         } else if (eventClass == EndOfSegmentEvent.class) {
             EndOfSegmentEvent endOfSegmentEvent = (EndOfSegmentEvent) event;
-            ByteBuffer buf = ByteBuffer.allocate(12);
+            ByteBuffer buf = ByteBuffer.allocate(8);
             buf.putInt(END_OF_SEGMENT);
-            buf.putLong(endOfSegmentEvent.getSegmentId());
+            buf.putInt(endOfSegmentEvent.getSegmentId());
             return buf;
         } else {
             try {
@@ -341,7 +341,7 @@ public class EventSerializer {
     }
 
     private static EndOfSegmentEvent deserializeEndOfSegment(ByteBuffer buffer) {
-        final long segmentId = buffer.getLong();
+        final int segmentId = buffer.getInt();
         return new EndOfSegmentEvent(segmentId);
     }
 

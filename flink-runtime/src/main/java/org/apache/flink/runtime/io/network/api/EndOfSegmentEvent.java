@@ -27,13 +27,13 @@ import java.io.IOException;
 /** EndOfSegmentEvent is used to notify the downstream switch tiers in Tiered Store shuffle mode. */
 public class EndOfSegmentEvent extends RuntimeEvent {
 
-    private final long segmentId;
+    private final int segmentId;
 
-    public EndOfSegmentEvent(long segmentId) {
+    public EndOfSegmentEvent(int segmentId) {
         this.segmentId = segmentId;
     }
 
-    public long getSegmentId() {
+    public int getSegmentId() {
         return segmentId;
     }
 
@@ -51,7 +51,7 @@ public class EndOfSegmentEvent extends RuntimeEvent {
 
     @Override
     public int hashCode() {
-        return (int) (segmentId ^ (segmentId >>> 32));
+        return segmentId ^ (segmentId >>> 16);
     }
 
     @Override

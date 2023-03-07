@@ -50,7 +50,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     private final TierWriter[] tierWriters;
 
     // Record the newest segment index belonged to each sub partition.
-    private final long[] subpartitionSegmentIndexes;
+    private final int[] subpartitionSegmentIndexes;
 
     // Record the index of writer currently used by each sub partition.
     private final int[] subpartitionWriterIndex;
@@ -63,7 +63,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
             StorageTier[] tierDataGates, int numSubpartitions, boolean isBroadcastOnly)
             throws IOException {
         this.tierDataGates = tierDataGates;
-        this.subpartitionSegmentIndexes = new long[numSubpartitions];
+        this.subpartitionSegmentIndexes = new int[numSubpartitions];
         this.subpartitionWriterIndex = new int[numSubpartitions];
         this.tierWriters = new TierWriter[tierDataGates.length];
         this.isBroadcastOnly = isBroadcastOnly;
@@ -117,7 +117,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
             subpartitionWriterIndex[targetSubpartition] = writerIndex;
         }
 
-        long segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
+        int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
         boolean isLastRecordInSegment =
                 tierWriters[writerIndex].emit(
                         record,

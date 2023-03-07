@@ -95,7 +95,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
     }
 
     @Override
-    public void startSegment(long segmentIndex) throws IOException {
+    public void startSegment(int segmentIndex) throws IOException {
         if (segmentIndex <= currentSegmentIndex) {
             return;
         }
@@ -117,7 +117,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
     }
 
     @Override
-    public void finishSegment(long segmentIndex) {
+    public void finishSegment(int segmentIndex) {
         checkState(currentSegmentIndex == segmentIndex);
         checkState(isSegmentStarted);
 
