@@ -39,9 +39,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.metrics.TimerGauge;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nullable;
 
 import java.io.File;
@@ -59,8 +56,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /** The DataManager of LOCAL file. */
 public class DiskTier implements TierWriter, StorageTier {
 
-    private static final Logger LOG = LoggerFactory.getLogger(DiskTier.class);
-
     public static final int BROADCAST_CHANNEL = 0;
 
     public static final String DATA_FILE_SUFFIX = ".store.data";
@@ -77,7 +72,7 @@ public class DiskTier implements TierWriter, StorageTier {
 
     private final Path dataFilePath;
 
-    private final long minDiskReserveBytes;
+    private final float minReservedDiskSpaceFraction;
 
     private final boolean isBroadcastOnly;
 
@@ -111,7 +106,7 @@ public class DiskTier implements TierWriter, StorageTier {
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
             String dataFileBasePath,
-            long minDiskReserveBytes,
+            float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
             @Nullable BufferCompressor bufferCompressor,
             BatchShuffleReadBufferPool readBufferPool,
@@ -121,7 +116,7 @@ public class DiskTier implements TierWriter, StorageTier {
         this.networkBufferSize = networkBufferSize;
         this.resultPartitionID = resultPartitionID;
         this.dataFilePath = new File(dataFileBasePath + DATA_FILE_SUFFIX).toPath();
-        this.minDiskReserveBytes = minDiskReserveBytes;
+        this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.isBroadcastOnly = isBroadcastOnly;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.cacheFlushManager = cacheFlushManager;
@@ -238,7 +233,9 @@ public class DiskTier implements TierWriter, StorageTier {
 
     @Override
     public boolean canStoreNextSegment(int subpartitionId) {
-        return dataFilePath.toFile().getUsableSpace() > minDiskReserveBytes;
+        File filePath = dataFilePath.toFile();
+        return filePath.getUsableSpace()
+                > (long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction);
     }
 
     @Override
