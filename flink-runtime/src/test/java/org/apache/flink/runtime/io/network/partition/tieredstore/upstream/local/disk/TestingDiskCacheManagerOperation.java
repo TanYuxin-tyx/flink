@@ -27,7 +27,6 @@ import org.apache.flink.util.function.SupplierWithException;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 /** Mock {@link DiskCacheManagerOperation} for testing. */
 public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperation {
@@ -104,8 +103,6 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
 
         private BiConsumer<Integer, Integer> markBufferReadableConsumer = (ignore1, ignore2) -> {};
 
-        private Consumer<BufferIndexAndChannel> onBufferConsumedConsumer = (ignore1) -> {};
-
         private Runnable onBufferFinishedRunnable = () -> {};
 
         private Runnable onDataAvailableRunnable = () -> {};
@@ -123,12 +120,6 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
         public Builder setMarkBufferReadableConsumer(
                 BiConsumer<Integer, Integer> markBufferReadableConsumer) {
             this.markBufferReadableConsumer = markBufferReadableConsumer;
-            return this;
-        }
-
-        public Builder setOnBufferConsumedConsumer(
-                Consumer<BufferIndexAndChannel> onBufferConsumedConsumer) {
-            this.onBufferConsumedConsumer = onBufferConsumedConsumer;
             return this;
         }
 
