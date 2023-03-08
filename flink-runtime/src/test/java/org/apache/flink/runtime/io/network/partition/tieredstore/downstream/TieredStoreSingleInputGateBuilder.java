@@ -46,6 +46,7 @@ import org.apache.flink.util.function.SupplierWithException;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -191,7 +192,7 @@ public class TieredStoreSingleInputGateBuilder {
                 new TieredStoreSingleInputGate(
                         "Tiered Store Single Input Gate",
                         gateIndex,
-                        0,
+                        Collections.singletonList(0),
                         intermediateDataSetID,
                         partitionType,
                         subpartitionIndexRange,

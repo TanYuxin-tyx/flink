@@ -66,8 +66,7 @@ public class SingleChannelTierClientTest {
     @Test
     void testSingleChannelLocalTierClient() throws IOException, InterruptedException {
         SingleChannelLocalTierClient localTierClient = new SingleChannelLocalTierClient();
-        final TieredStoreSingleInputGate inputGate =
-                createTieredStoreSingleInputGate(2);
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(2);
         InputChannel inputChannel1 =
                 new InputChannelBuilder().setChannelIndex(0).buildRemoteRecoveredChannel(inputGate);
         verifyLocalTierClientResult(localTierClient, inputChannel1, false, null, SEGMENT_ID, false);
@@ -77,9 +76,11 @@ public class SingleChannelTierClientTest {
         TestInputChannel inputChannel3 = new TestInputChannel(inputGate, SUBPARTITION_INDEX);
         verifyLocalTierClientResult(localTierClient, inputChannel3, false, null, SEGMENT_ID, false);
         inputChannel3.readBuffer();
-        verifyLocalTierClientResult(localTierClient, inputChannel3, true, DATA_BUFFER, SEGMENT_ID, true);
+        verifyLocalTierClientResult(
+                localTierClient, inputChannel3, true, DATA_BUFFER, SEGMENT_ID, true);
         inputChannel3.readSegmentInfo(1);
-        verifyLocalTierClientResult(localTierClient, inputChannel3, true, SEGMENT_EVENT, SEGMENT_ID, true);
+        verifyLocalTierClientResult(
+                localTierClient, inputChannel3, true, SEGMENT_EVENT, SEGMENT_ID, true);
         inputChannel3.readBuffer();
         verifyLocalTierClientResult(localTierClient, inputChannel3, true, DATA_BUFFER, 1, true);
         assertThat(inputChannel3.getRequiredSegmentId()).isEqualTo(1L);
@@ -87,13 +88,12 @@ public class SingleChannelTierClientTest {
 
     @Test
     void testSingleChannelRemoteTierClient() throws Exception {
-        final TieredStoreSingleInputGate inputGate =
-                createTieredStoreSingleInputGate(2);
+        final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(2);
         SingleChannelRemoteTierClient remoteTierClient =
                 new SingleChannelRemoteTierClient(
                         JOB_ID,
                         Collections.singletonList(RESULT_PARTITION_ID),
-                        SUBPARTITION_INDEX,
+                        Collections.singletonList(SUBPARTITION_INDEX),
                         new DownstreamTieredStoreMemoryManager(
                                 (NetworkBufferPool) inputGate.getMemorySegmentProvider()),
                         baseRemoteStoragePath);
@@ -109,8 +109,10 @@ public class SingleChannelTierClientTest {
         verifyRemoteTierClientResult(remoteTierClient, inputChannel2, false, null, -1);
         createShuffleFileOnRemoteStorage();
         TestInputChannel inputChannel3 = new TestInputChannel(inputGate, SUBPARTITION_INDEX);
-        verifyRemoteTierClientResult(remoteTierClient, inputChannel3, true, DATA_BUFFER, SEGMENT_ID);
-        verifyRemoteTierClientResult(remoteTierClient, inputChannel3, true, DATA_BUFFER, SEGMENT_ID);
+        verifyRemoteTierClientResult(
+                remoteTierClient, inputChannel3, true, DATA_BUFFER, SEGMENT_ID);
+        verifyRemoteTierClientResult(
+                remoteTierClient, inputChannel3, true, DATA_BUFFER, SEGMENT_ID);
     }
 
     private void verifyLocalTierClientResult(

@@ -55,7 +55,7 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
     public TieredStoreSingleInputGate(
             String owningTaskName,
             int gateIndex,
-            int subpartitionIndex,
+            List<Integer> subpartitionIndexes,
             IntermediateDataSetID consumedResultId,
             ResultPartitionType consumedPartitionType,
             IndexRange subpartitionIndexRange,
@@ -90,7 +90,7 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
                         jobID,
                         resultPartitionIDs,
                         getMemorySegmentProvider(),
-                        subpartitionIndex,
+                        subpartitionIndexes,
                         baseRemoteStoragePath);
 
         this.tieredStoreReader = new TieredStoreReaderImpl(numberOfInputChannels, clientFactory);
