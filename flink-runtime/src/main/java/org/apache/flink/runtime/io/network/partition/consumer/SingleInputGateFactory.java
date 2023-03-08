@@ -83,6 +83,8 @@ public class SingleInputGateFactory {
 
     protected final Optional<Integer> maxRequiredBuffersPerGate;
 
+    protected final boolean enableTieredStoreForHybridShuffle;
+
     protected final int configuredNetworkBuffersPerChannel;
 
     protected final int floatingNetworkBuffersPerGate;
@@ -106,6 +108,7 @@ public class SingleInputGateFactory {
         this.partitionRequestInitialBackoff = networkConfig.partitionRequestInitialBackoff();
         this.partitionRequestMaxBackoff = networkConfig.partitionRequestMaxBackoff();
         this.maxRequiredBuffersPerGate = networkConfig.maxRequiredBuffersPerGate();
+        this.enableTieredStoreForHybridShuffle = networkConfig.enableTieredStoreForHybridShuffle();
         this.configuredNetworkBuffersPerChannel =
                 NettyShuffleUtils.getNetworkBuffersPerInputChannel(
                         networkConfig.networkBuffersPerChannel());
@@ -135,7 +138,8 @@ public class SingleInputGateFactory {
                         igdd.getConsumedPartitionType(),
                         calculateNumChannels(
                                 igdd.getShuffleDescriptors().length,
-                                igdd.getConsumedSubpartitionIndexRange()));
+                                igdd.getConsumedSubpartitionIndexRange()),
+                        enableTieredStoreForHybridShuffle);
         SupplierWithException<BufferPool, IOException> bufferPoolFactory =
                 createBufferPoolFactory(
                         networkBufferPool,
