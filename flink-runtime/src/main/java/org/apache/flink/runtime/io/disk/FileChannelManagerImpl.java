@@ -124,11 +124,6 @@ public class FileChannelManagerImpl implements FileChannelManager {
         return Arrays.copyOf(paths, paths.length);
     }
 
-    @Override
-    public boolean hasMoreUsableSpace() {
-        return true;
-    }
-
     /** Remove all the temp directories. */
     @Override
     public void close() throws Exception {
