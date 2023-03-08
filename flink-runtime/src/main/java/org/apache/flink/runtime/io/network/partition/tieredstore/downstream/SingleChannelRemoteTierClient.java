@@ -48,7 +48,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
 
     private final JobID jobID;
 
-    private final int subpartitionIndex;
+    private final List<Integer> subpartitionIndexes;
 
     private final String baseRemoteStoragePath;
 
@@ -65,14 +65,14 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
     public SingleChannelRemoteTierClient(
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
-            int subpartitionIndex,
+            List<Integer> subpartitionIndexes,
             TieredStoreMemoryManager memoryManager,
             String baseRemoteStoragePath) {
         this.resultPartitionIDs = resultPartitionIDs;
         this.jobID = jobID;
         this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
         headerBuffer.order(ByteOrder.nativeOrder());
-        this.subpartitionIndex = subpartitionIndex;
+        this.subpartitionIndexes = subpartitionIndexes;
         this.memoryManager = memoryManager;
         this.baseRemoteStoragePath = baseRemoteStoragePath;
         try {
@@ -125,7 +125,7 @@ public class SingleChannelRemoteTierClient implements SingleChannelTierClient {
                     getBaseSubpartitionPath(
                             jobID,
                             resultPartitionIDs.get(inputChannel.getChannelIndex()),
-                            subpartitionIndex,
+                            subpartitionIndexes.get(inputChannel.getChannelIndex()),
                             baseRemoteStoragePath,
                             isBroadcastOnly);
             currentPath = generateNewSegmentPath(baseSubpartitionPath, segmentId);

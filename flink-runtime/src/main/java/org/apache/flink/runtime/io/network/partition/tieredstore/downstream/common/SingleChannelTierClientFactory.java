@@ -22,7 +22,7 @@ public class SingleChannelTierClientFactory {
 
     private final TieredStoreMemoryManager memoryManager;
 
-    private final int subpartitionIndex;
+    private final List<Integer> subpartitionIndex;
 
     private final boolean enableRemoteTier;
 
@@ -30,11 +30,11 @@ public class SingleChannelTierClientFactory {
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             MemorySegmentProvider memorySegmentProvider,
-            int subpartitionIndex,
+            List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath) {
         this.jobID = jobID;
         this.resultPartitionIDs = resultPartitionIDs;
-        this.subpartitionIndex = subpartitionIndex;
+        this.subpartitionIndex = subpartitionIndexes;
         this.baseRemoteStoragePath = baseRemoteStoragePath;
         this.enableRemoteTier = baseRemoteStoragePath != null;
         this.memoryManager =
