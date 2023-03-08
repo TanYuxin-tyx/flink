@@ -62,7 +62,7 @@ public class FileChannelManagerReserveSpaceImpl implements FileChannelManager {
     /** Prefix of the temporary directories to create. */
     private final String prefix;
 
-    private final long configuredMinDiskReserveBytes;
+    private final float minReservedDiskSpaceFraction;
 
     /**
      * Flag to signal that the file channel manager has been shutdown already. The flag should
@@ -74,13 +74,13 @@ public class FileChannelManagerReserveSpaceImpl implements FileChannelManager {
     private final Thread shutdownHook;
 
     public FileChannelManagerReserveSpaceImpl(
-            String[] tempDirs, String prefix, long configuredMinDiskReserveBytes) {
+            String[] tempDirs, String prefix, float minReservedDiskSpaceFraction) {
         checkNotNull(tempDirs, "The temporary directories must not be null.");
         checkArgument(tempDirs.length > 0, "The temporary directories must not be empty.");
 
         this.random = new Random();
         this.prefix = prefix;
-        this.configuredMinDiskReserveBytes = configuredMinDiskReserveBytes;
+        this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
 
         shutdownHook =
                 ShutdownHookUtil.addShutdownHook(
@@ -137,18 +137,16 @@ public class FileChannelManagerReserveSpaceImpl implements FileChannelManager {
     @Override
     public boolean hasMoreUsableSpace() {
         for (File filePath : paths) {
-            if (filePath.getUsableSpace() > getEffectiveMinDiskReserveBytes(filePath)) {
+            if (filePath.getUsableSpace() > minDiskReserveBytes(filePath)) {
                 return true;
             }
         }
         return false;
     }
 
-    private long getEffectiveMinDiskReserveBytes(File filePath) {
-        return configuredMinDiskReserveBytes > 0
-                ? Math.max(
-                        configuredMinDiskReserveBytes,
-                        (long) (filePath.getTotalSpace() * DEFAULT_RESERVE_DISK_SPACE_RATIO))
+    private long minDiskReserveBytes(File filePath) {
+        return minReservedDiskSpaceFraction > 0
+                ? (long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction)
                 : 0;
     }
 

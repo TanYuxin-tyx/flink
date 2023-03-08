@@ -379,21 +379,23 @@ public class NettyShuffleEnvironmentOptions {
                                     + "the tie by failing the request of exclusive buffers and ask users to increase the number of total buffers.");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
-    public static final ConfigOption<MemorySize>
-            NETWORK_HYBRID_SHUFFLE_LOCAL_DISK_MIN_RESERVE_SPACE_BYTES =
-                    key("taskmanager.network.hybrid-shuffle.local-disk.min-reserve-space-bytes")
-                            .memoryType()
-                            .defaultValue(MemorySize.parse("1g"))
+    public static final ConfigOption<Float>
+            NETWORK_HYBRID_SHUFFLE_LOCAL_DISK_MIN_RESERVE_SPACE_FRACTION =
+                    key("taskmanager.network.hybrid-shuffle.local-disk.min-reserve-space-fraction")
+                            .floatType()
+                            .defaultValue(0.05f)
                             .withDescription(
-                                    "The minimum reserved space in bytes per local disk when using Hybrid"
-                                            + " Shuffle. When using a local disk to store shuffle data, the"
-                                            + " local disk space may be exhausted if it is used without any"
-                                            + " limit, leading to job failures. This option controls the"
-                                            + " minimum reserved disk space which cannot be used to store"
-                                            + " the shuffle data. When the left available disk space reaches"
-                                            + " this limit, the new arriving data will be written to the"
-                                            + " remote storage. Note that, for flexibility, the default"
-                                            + " reserved space limit is max(1g, 1% of the total disk space).");
+                                    "The minimum reserved space fraction per local disk when using"
+                                            + " Hybrid Shuffle. When using a local disk to store"
+                                            + " shuffle data, the local disk space may be exhausted"
+                                            + " if it is used without any limit, leading to job"
+                                            + " failures. This option controls the minimum reserved"
+                                            + " disk space fraction which cannot be used to store the"
+                                            + " shuffle data. When the left available disk space"
+                                            + " fraction reaches this limit, the new arriving data"
+                                            + " will be written to the remote storage, if the remote"
+                                            + " storage is not configured, an exception will be"
+                                            + " thrown.");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
     public static final ConfigOption<String> NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH =

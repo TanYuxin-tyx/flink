@@ -172,7 +172,7 @@ public class NettyShuffleServiceFactory
                         ? new FileChannelManagerReserveSpaceImpl(
                                 config.getTempDirs(),
                                 DIR_NAME_PREFIX,
-                                config.getMinDiskReserveBytes())
+                                config.minReservedDiskSpaceFraction())
                         : new FileChannelManagerImpl(config.getTempDirs(), DIR_NAME_PREFIX);
         if (LOG.isInfoEnabled()) {
             LOG.info(
@@ -231,7 +231,7 @@ public class NettyShuffleServiceFactory
                         config.getHybridShuffleSpilledIndexSegmentSize(),
                         config.getHybridShuffleNumRetainedInMemoryRegionsMax(),
                         config.getBaseRemoteStoragePath(),
-                        config.getMinDiskReserveBytes(),
+                        config.minReservedDiskSpaceFraction(),
                         config.enableTieredStoreForHybridShuffle(),
                         config.getTieredStoreTiers());
 

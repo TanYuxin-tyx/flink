@@ -88,7 +88,7 @@ public class ResultPartitionFactory {
 
     private final String baseDfsHomePath;
 
-    private final long minDiskReserveBytes;
+    private final float minReservedDiskSpaceFraction;
 
     private final boolean enableTieredStoreForHybridShuffle;
 
@@ -114,7 +114,7 @@ public class ResultPartitionFactory {
             int hybridShuffleSpilledIndexSegmentSize,
             long hybridShuffleNumRetainedInMemoryRegionsMax,
             String baseDfsHomePath,
-            long minDiskReserveBytes,
+            float minReservedDiskSpaceFraction,
             boolean enableTieredStoreForHybridShuffle,
             String tieredStoreTiers) {
 
@@ -138,7 +138,7 @@ public class ResultPartitionFactory {
         this.hybridShuffleNumRetainedInMemoryRegionsMax =
                 hybridShuffleNumRetainedInMemoryRegionsMax;
         this.baseDfsHomePath = baseDfsHomePath;
-        this.minDiskReserveBytes = minDiskReserveBytes;
+        this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.tieredStoreTiers = tieredStoreTiers;
         this.enableTieredStoreForHybridShuffle = enableTieredStoreForHybridShuffle;
     }
@@ -267,7 +267,7 @@ public class ResultPartitionFactory {
                                 partitionManager,
                                 networkBufferSize,
                                 channelManager.createChannel().getPath(),
-                                minDiskReserveBytes,
+                                minReservedDiskSpaceFraction,
                                 isBroadcast,
                                 storeConfiguration,
                                 bufferCompressor,
