@@ -112,7 +112,8 @@ public class TieredStoreSingleInputGateFactory extends SingleInputGateFactory {
                         igdd.getConsumedPartitionType(),
                         calculateNumChannels(
                                 igdd.getShuffleDescriptors().length,
-                                igdd.getConsumedSubpartitionIndexRange()));
+                                igdd.getConsumedSubpartitionIndexRange()),
+                        enableTieredStoreForHybridShuffle);
         SupplierWithException<BufferPool, IOException> bufferPoolFactory =
                 createBufferPoolFactory(
                         networkBufferPool,
