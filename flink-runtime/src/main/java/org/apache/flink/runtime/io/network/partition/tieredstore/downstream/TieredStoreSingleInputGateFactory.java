@@ -63,7 +63,7 @@ public class TieredStoreSingleInputGateFactory extends SingleInputGateFactory {
     private TieredStoreSingleInputGate createInputGate(
             String owningTaskName,
             int gateIndex,
-            int subpartitionIndex,
+            List<Integer> subpartitionIndexes,
             IntermediateDataSetID consumedResultId,
             ResultPartitionType consumedPartitionType,
             IndexRange subpartitionIndexRange,
@@ -80,7 +80,7 @@ public class TieredStoreSingleInputGateFactory extends SingleInputGateFactory {
         return new TieredStoreSingleInputGate(
                 owningTaskName,
                 gateIndex,
-                subpartitionIndex,
+                subpartitionIndexes,
                 consumedResultId,
                 consumedPartitionType,
                 subpartitionIndexRange,
@@ -129,15 +129,22 @@ public class TieredStoreSingleInputGateFactory extends SingleInputGateFactory {
         final MetricGroup networkInputGroup = owner.getInputGroup();
 
         IndexRange subpartitionIndexRange = igdd.getConsumedSubpartitionIndexRange();
+        ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
         List<ResultPartitionID> resultPartitionIDs = new ArrayList<>();
-        for (ShuffleDescriptor shuffleDescriptor : igdd.getShuffleDescriptors()) {
-            resultPartitionIDs.add(shuffleDescriptor.getResultPartitionID());
+        List<Integer> subpartitionIndexes = new ArrayList<>();
+        for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
+            for (int subpartitionIndex = subpartitionIndexRange.getStartIndex();
+                    subpartitionIndex <= subpartitionIndexRange.getEndIndex();
+                    ++subpartitionIndex) {
+                resultPartitionIDs.add(shuffleDescriptor.getResultPartitionID());
+                subpartitionIndexes.add(subpartitionIndex);
+            }
         }
         TieredStoreSingleInputGate inputGate =
                 createInputGate(
                         owningTaskName,
                         gateIndex,
-                        owner.getExecutionAttemptID().getSubtaskIndex(),
+                        subpartitionIndexes,
                         igdd.getConsumedResultId(),
                         igdd.getConsumedPartitionType(),
                         subpartitionIndexRange,
