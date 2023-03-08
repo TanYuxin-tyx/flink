@@ -43,10 +43,5 @@ public enum NoOpFileChannelManager implements FileChannelManager {
     }
 
     @Override
-    public boolean hasMoreUsableSpace() {
-        return true;
-    }
-
-    @Override
     public void close() {}
 }
