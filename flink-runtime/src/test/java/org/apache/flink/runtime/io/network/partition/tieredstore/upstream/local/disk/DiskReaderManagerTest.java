@@ -399,7 +399,7 @@ class DiskReaderManagerTest {
         factory.allReaders.add(subpartitionFileReader);
         TierReader diskDataView =
                 fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionView);
-        subpartitionView.setDiskReader(diskDataView);
+        subpartitionView.setDiskTierReader(diskDataView);
         TestingTierReader memoryDataView =
                 TestingTierReader.builder()
                         .setConsumeBufferFunction(

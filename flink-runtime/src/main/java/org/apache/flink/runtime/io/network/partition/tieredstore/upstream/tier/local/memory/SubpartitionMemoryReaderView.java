@@ -41,7 +41,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** The read view of {@link MemoryTier}, data will be read from memory. */
 public class SubpartitionMemoryReaderView
-        implements TierReaderView, SubpartitionConsumerInternalOperations {
+        implements TierReaderView, SubpartitionMemoryReaderViewOperations {
 
     private static final Logger LOG = LoggerFactory.getLogger(SubpartitionMemoryReaderView.class);
 
@@ -69,7 +69,7 @@ public class SubpartitionMemoryReaderView
     @Nullable
     @GuardedBy("lock")
     // memoryDataView can be null only before initialization.
-    private TierReader memoryDataView;
+    private TierReader memoryTierReader;
 
     public SubpartitionMemoryReaderView(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
@@ -81,10 +81,10 @@ public class SubpartitionMemoryReaderView
         Queue<Buffer> errorBuffers = new ArrayDeque<>();
         try {
             synchronized (lock) {
-                checkNotNull(memoryDataView, "memory data view must be not null.");
+                checkNotNull(memoryTierReader, "memory data view must be not null.");
 
                 Optional<BufferAndBacklog> bufferToConsume =
-                        memoryDataView.consumeBuffer(lastConsumedBufferIndex + 1, errorBuffers);
+                        memoryTierReader.consumeBuffer(lastConsumedBufferIndex + 1, errorBuffers);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.map(this::handleBacklog).orElse(null);
             }
@@ -167,11 +167,11 @@ public class SubpartitionMemoryReaderView
         }
     }
 
-    public void setMemoryDataView(TierReader memoryDataView) {
+    public void setMemoryTierReader(TierReader memoryTierReader) {
         synchronized (lock) {
             checkState(
-                    this.memoryDataView == null, "repeatedly set memory data view is not allowed.");
-            this.memoryDataView = memoryDataView;
+                    this.memoryTierReader == null, "repeatedly set memory data view is not allowed.");
+            this.memoryTierReader = memoryTierReader;
         }
     }
 
@@ -193,10 +193,10 @@ public class SubpartitionMemoryReaderView
 
     @SuppressWarnings("FieldAccessNotGuarded")
     private int getSubpartitionBacklog() {
-        if (memoryDataView == null) {
+        if (memoryTierReader == null) {
             return 0;
         }
-        return memoryDataView.getBacklog();
+        return memoryTierReader.getBacklog();
     }
 
     private BufferAndBacklog handleBacklog(BufferAndBacklog bufferToConsume) {
@@ -236,7 +236,7 @@ public class SubpartitionMemoryReaderView
             }
             isReleased = true;
             failureCause = throwable;
-            releaseMemoryView = memoryDataView != null;
+            releaseMemoryView = memoryTierReader != null;
         }
 
         if (throwable != null) {
@@ -245,7 +245,7 @@ public class SubpartitionMemoryReaderView
 
         if (releaseMemoryView) {
             //noinspection FieldAccessNotGuarded
-            memoryDataView.releaseDataView();
+            memoryTierReader.releaseDataView();
         }
     }
 }
