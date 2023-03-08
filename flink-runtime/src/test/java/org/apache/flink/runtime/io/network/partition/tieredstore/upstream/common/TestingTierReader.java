@@ -27,7 +27,7 @@ import java.util.Queue;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-/** Mock {@link TierReader} for testing. */
+/** The {@link TestingTierReader} is used to mock the implementation of {@link TierReader}. */
 public class TestingTierReader implements TierReader {
     public static final TestingTierReader NO_OP = TestingTierReader.builder().build();
 

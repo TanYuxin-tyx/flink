@@ -139,7 +139,7 @@ public class MemoryTier implements StorageTier {
                 checkNotNull(memoryWriter)
                         .registerNewConsumer(subpartitionId, tierReaderViewId, memoryReaderView);
 
-        memoryReaderView.setMemoryDataView(memoryReader);
+        memoryReaderView.setMemoryTierReader(memoryReader);
         return memoryReaderView;
     }
 

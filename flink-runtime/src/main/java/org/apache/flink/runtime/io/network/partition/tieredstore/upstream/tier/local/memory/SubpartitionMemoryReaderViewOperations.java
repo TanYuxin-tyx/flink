@@ -22,7 +22,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.
  * Operations provided by {@link SubpartitionMemoryReaderView} that are used by other internal
  * components of hybrid result partition.
  */
-public interface SubpartitionConsumerInternalOperations {
+public interface SubpartitionMemoryReaderViewOperations {
 
     /** Callback for new data become available. */
     void notifyDataAvailable();
