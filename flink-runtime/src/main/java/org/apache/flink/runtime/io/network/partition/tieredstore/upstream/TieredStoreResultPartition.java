@@ -85,7 +85,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private final String dataFileBasePath;
 
-    private final long minDiskReserveBytes;
+    private final float minReservedDiskSpaceFraction;
 
     private final boolean isBroadcast;
 
@@ -114,7 +114,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
             ResultPartitionManager partitionManager,
             int networkBufferSize,
             String dataFileBasePath,
-            long minDiskReserveBytes,
+            float minReservedDiskSpaceFraction,
             boolean isBroadcast,
             TieredStoreConfiguration storeConfiguration,
             @Nullable BufferCompressor bufferCompressor,
@@ -135,7 +135,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         this.readIOExecutor = readIOExecutor;
         this.networkBufferSize = networkBufferSize;
         this.dataFileBasePath = dataFileBasePath;
-        this.minDiskReserveBytes = minDiskReserveBytes;
+        this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.isBroadcast = isBroadcast;
         this.storeConfiguration = storeConfiguration;
         this.tierExclusiveBuffers = new HashMap<>();
@@ -296,7 +296,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 tieredStoreMemoryManager,
                 cacheFlushManager,
                 dataFileBasePath,
-                minDiskReserveBytes,
+                minReservedDiskSpaceFraction,
                 isBroadcast,
                 bufferCompressor,
                 readBufferPool,

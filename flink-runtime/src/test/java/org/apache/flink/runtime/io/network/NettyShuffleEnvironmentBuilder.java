@@ -97,7 +97,7 @@ public class NettyShuffleEnvironmentBuilder {
 
     private int hybridShuffleSpilledIndexSegmentSize = 256;
 
-    private long minDiskReserveBytes = 0L;
+    private float minReservedDiskSpaceFraction = 0L;
     private boolean isUsingTieredStore = false;
 
     public NettyShuffleEnvironmentBuilder setTaskManagerLocation(ResourceID taskManagerLocation) {
@@ -240,8 +240,9 @@ public class NettyShuffleEnvironmentBuilder {
         return this;
     }
 
-    public NettyShuffleEnvironmentBuilder setMinDiskReserveBytes(long minDiskReserveBytes) {
-        this.minDiskReserveBytes = minDiskReserveBytes;
+    public NettyShuffleEnvironmentBuilder setMinDiskReserveBytes(
+            float minReservedDiskSpaceFraction) {
+        this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         return this;
     }
 
@@ -278,7 +279,7 @@ public class NettyShuffleEnvironmentBuilder {
                         hybridShuffleSpilledIndexSegmentSize,
                         hybridShuffleNumRetainedInMemoryRegionsMax,
                         baseDfsHomePath,
-                        minDiskReserveBytes,
+                        minReservedDiskSpaceFraction,
                         isUsingTieredStore,
                         ""),
                 taskManagerLocation,

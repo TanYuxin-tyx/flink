@@ -603,7 +603,7 @@ class TieredStoreResultPartitionTest {
                         new ResultPartitionManager(),
                         bufferSize,
                         fileChannelManager.createChannel().getPath(),
-                        0L,
+                        0,
                         isBroadcastOnly,
                         tieredStoreConfiguration,
                         null,
