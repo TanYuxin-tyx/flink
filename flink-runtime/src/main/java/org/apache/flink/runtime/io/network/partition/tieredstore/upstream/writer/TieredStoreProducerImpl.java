@@ -159,14 +159,8 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     }
 
     public void release() {
-        for (int i = 0; i < tierWriters.length; i++) {
-            tierWriters[i].release();
-            tierWriters[i] = null;
-        }
-        for (int i = 0; i < tierDataGates.length; i++) {
-            tierDataGates[i].release();
-            tierDataGates[i] = null;
-        }
+        Arrays.stream(tierWriters).forEach(TierWriter::release);
+        Arrays.stream(tierDataGates).forEach(StorageTier::release);
     }
 
     public void close() {
