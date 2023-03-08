@@ -38,10 +38,13 @@ public class InputGateSpecUtils {
             int configuredNetworkBuffersPerChannel,
             int configuredFloatingNetworkBuffersPerGate,
             ResultPartitionType partitionType,
-            int numInputChannels) {
+            int numInputChannels,
+            boolean enableTieredStoreForHybridShuffle) {
         int maxRequiredBuffersThresholdPerGate =
                 getEffectiveMaxRequiredBuffersPerGate(
-                        partitionType, configuredMaxRequiredBuffersPerGate);
+                        partitionType,
+                        configuredMaxRequiredBuffersPerGate,
+                        enableTieredStoreForHybridShuffle);
         int targetRequiredBuffersPerGate =
                 getRequiredBuffersTargetPerGate(
                         numInputChannels, configuredNetworkBuffersPerChannel);
@@ -80,14 +83,16 @@ public class InputGateSpecUtils {
     @VisibleForTesting
     static int getEffectiveMaxRequiredBuffersPerGate(
             ResultPartitionType partitionType,
-            Optional<Integer> configuredMaxRequiredBuffersPerGate) {
+            Optional<Integer> configuredMaxRequiredBuffersPerGate,
+            boolean enableTieredStoreForHybridShuffle) {
         return configuredMaxRequiredBuffersPerGate.orElseGet(
                 () ->
                         partitionType.isPipelinedOrPipelinedBoundedResultPartition()
                                         // hybrid partition may calculate a backlog that is larger
                                         // than the accurate value. If all buffers are floating, it
                                         // will seriously affect the performance.
-                                        || partitionType.isHybridResultPartition()
+                                        || (partitionType.isHybridResultPartition()
+                                                && !enableTieredStoreForHybridShuffle)
                                 ? DEFAULT_MAX_REQUIRED_BUFFERS_PER_GATE_FOR_STREAM
                                 : DEFAULT_MAX_REQUIRED_BUFFERS_PER_GATE_FOR_BATCH);
     }

@@ -138,7 +138,8 @@ public class NettyShuffleUtils {
                             numBuffersPerChannel,
                             numFloatingBuffersPerGate,
                             maxRequiredBuffersPerGate,
-                            numChannels);
+                            numChannels,
+                            enableTieredStoreForHybridShuffle);
             checkState(partitionReuseCount.containsKey(dataSetId));
             requirementForInputs += numSingleGateBuffers * partitionReuseCount.get(dataSetId);
         }
@@ -168,14 +169,16 @@ public class NettyShuffleUtils {
             int configuredNetworkBuffersPerChannel,
             int floatingNetworkBuffersPerGate,
             Optional<Integer> maxRequiredBuffersPerGate,
-            int numInputChannels) {
+            int numInputChannels,
+            boolean enableTieredStoreForHybridShuffle) {
         GateBuffersSpec gateBuffersSpec =
                 createGateBuffersSpec(
                         maxRequiredBuffersPerGate,
                         configuredNetworkBuffersPerChannel,
                         floatingNetworkBuffersPerGate,
                         type,
-                        numInputChannels);
+                        numInputChannels,
+                        enableTieredStoreForHybridShuffle);
         return gateBuffersSpec.targetTotalBuffersPerGate();
     }
 
