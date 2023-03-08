@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local.memory;
+package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local.disk;
 
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.function.TriFunction;

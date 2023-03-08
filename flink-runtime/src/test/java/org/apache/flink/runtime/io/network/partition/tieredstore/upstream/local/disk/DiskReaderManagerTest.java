@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local.file;
+package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local.disk;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.testutils.CheckedThread;
@@ -27,11 +27,10 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local.memory.TestingTierReader;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TestingTierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local.memory.TestingSubpartitionDiskReaderViewOperation;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskReaderManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
