@@ -69,7 +69,7 @@ public class SubpartitionDiskReaderView
     @Nullable
     @GuardedBy("lock")
     // diskDataView can be null only before initialization.
-    private TierReader diskReader;
+    private TierReader diskTierReader;
 
     public SubpartitionDiskReaderView(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
@@ -81,7 +81,7 @@ public class SubpartitionDiskReaderView
         Queue<Buffer> errorBuffers = new ArrayDeque<>();
         try {
             synchronized (lock) {
-                checkNotNull(diskReader, "disk data view must be not null.");
+                checkNotNull(diskTierReader, "disk data view must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume = tryReadFromDisk(errorBuffers);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.map(this::handleBacklog).orElse(null);
@@ -176,10 +176,10 @@ public class SubpartitionDiskReaderView
      * Set {@link TierReader} for this subpartition, this method only called when {@link
      * SubpartitionDiskReader} is creating.
      */
-    public void setDiskReader(TierReader diskReader) {
+    public void setDiskTierReader(TierReader diskTierReader) {
         synchronized (lock) {
-            checkState(this.diskReader == null, "repeatedly set disk data view is not allowed.");
-            this.diskReader = diskReader;
+            checkState(this.diskTierReader == null, "repeatedly set disk data view is not allowed.");
+            this.diskTierReader = diskTierReader;
         }
     }
 
@@ -201,10 +201,10 @@ public class SubpartitionDiskReaderView
 
     @SuppressWarnings("FieldAccessNotGuarded")
     private int getSubpartitionBacklog() {
-        if (diskReader == null) {
+        if (diskTierReader == null) {
             return 0;
         }
-        return diskReader.getBacklog();
+        return diskTierReader.getBacklog();
     }
 
     private BufferAndBacklog handleBacklog(BufferAndBacklog bufferToConsume) {
@@ -222,7 +222,7 @@ public class SubpartitionDiskReaderView
     private Optional<BufferAndBacklog> tryReadFromDisk(Queue<Buffer> errorBuffers)
             throws Throwable {
         final int nextBufferIndexToConsume = lastConsumedBufferIndex + 1;
-        return checkNotNull(diskReader).consumeBuffer(nextBufferIndexToConsume, errorBuffers);
+        return checkNotNull(diskTierReader).consumeBuffer(nextBufferIndexToConsume, errorBuffers);
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -251,7 +251,7 @@ public class SubpartitionDiskReaderView
             }
             isReleased = true;
             failureCause = throwable;
-            releaseDiskView = diskReader != null;
+            releaseDiskView = diskTierReader != null;
         }
 
         if (throwable != null) {
@@ -260,7 +260,7 @@ public class SubpartitionDiskReaderView
         // release subpartition reader outside of lock to avoid deadlock.
         if (releaseDiskView) {
             //noinspection FieldAccessNotGuarded
-            diskReader.releaseDataView();
+            diskTierReader.releaseDataView();
         }
     }
 }

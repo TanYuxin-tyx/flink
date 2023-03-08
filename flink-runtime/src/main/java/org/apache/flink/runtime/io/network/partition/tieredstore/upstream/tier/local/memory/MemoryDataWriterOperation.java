@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import java.util.Collection;
 
 /**
- * This interface is used by {@link SubpartitionConsumerMemoryReader} to operate {@link
+ * This interface is used by {@link SubpartitionMemoryReader} to operate {@link
  * MemoryWriter}. Spilling decision may be made and handled inside these operations.
  */
 public interface MemoryDataWriterOperation {

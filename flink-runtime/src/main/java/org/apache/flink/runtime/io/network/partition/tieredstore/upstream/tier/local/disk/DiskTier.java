@@ -227,7 +227,7 @@ public class DiskTier implements TierWriter, StorageTier {
         TierReader diskReader =
                 diskReaderManager.registerNewConsumer(
                         subpartitionId, tierReaderViewId, subpartitionDiskReaderView);
-        subpartitionDiskReaderView.setDiskReader(diskReader);
+        subpartitionDiskReaderView.setDiskTierReader(diskReader);
         return subpartitionDiskReaderView;
     }
 

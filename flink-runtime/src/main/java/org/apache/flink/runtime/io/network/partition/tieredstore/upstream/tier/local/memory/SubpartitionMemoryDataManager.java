@@ -58,7 +58,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * This class is responsible for managing the data in a single subpartition. One {@link
- * MemoryWriter} will hold multiple {@link SubpartitionConsumerMemoryReader}.
+ * MemoryWriter} will hold multiple {@link SubpartitionMemoryReader}.
  */
 public class SubpartitionMemoryDataManager {
 
@@ -87,7 +87,7 @@ public class SubpartitionMemoryDataManager {
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
     @GuardedBy("subpartitionLock")
-    private final Map<TierReaderViewId, SubpartitionConsumerMemoryReader> consumerMap;
+    private final Map<TierReaderViewId, SubpartitionMemoryReader> consumerMap;
 
     @Nullable private final BufferCompressor bufferCompressor;
 
@@ -114,7 +114,7 @@ public class SubpartitionMemoryDataManager {
     // ------------------------------------------------------------------------
 
     /**
-     * Append record to {@link SubpartitionConsumerMemoryReader}.
+     * Append record to {@link SubpartitionMemoryReader}.
      *
      * @param record to be managed by this class.
      * @param dataType the type of this record. In other words, is it data or event.
@@ -138,19 +138,21 @@ public class SubpartitionMemoryDataManager {
     }
 
     public void release() {
-        for(BufferContext bufferContext : allBuffers){
-            bufferContext.getBuffer().recycleBuffer();
+        for (BufferContext bufferContext : allBuffers) {
+            if (!bufferContext.getBuffer().isRecycled()) {
+                bufferContext.getBuffer().recycleBuffer();
+            }
         }
         allBuffers.clear();
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
-    public SubpartitionConsumerMemoryReader registerNewConsumer(TierReaderViewId tierReaderViewId) {
+    public SubpartitionMemoryReader registerNewConsumer(TierReaderViewId tierReaderViewId) {
         return callWithLock(
                 () -> {
                     checkState(!consumerMap.containsKey(tierReaderViewId));
-                    SubpartitionConsumerMemoryReader newConsumer =
-                            new SubpartitionConsumerMemoryReader(
+                    SubpartitionMemoryReader newConsumer =
+                            new SubpartitionMemoryReader(
                                     subpartitionLock.readLock(),
                                     targetChannel,
                                     tierReaderViewId,
@@ -297,8 +299,8 @@ public class SubpartitionMemoryDataManager {
                         allBuffers.add(bufferContext);
                     }
                     retainBufferIfNeeded(isBroadcast, bufferContext);
-                    for (Map.Entry<TierReaderViewId, SubpartitionConsumerMemoryReader>
-                            consumerEntry : consumerMap.entrySet()) {
+                    for (Map.Entry<TierReaderViewId, SubpartitionMemoryReader> consumerEntry :
+                            consumerMap.entrySet()) {
                         if (consumerEntry.getValue().addBuffer(bufferContext)) {
                             needNotify.add(consumerEntry.getKey());
                         }

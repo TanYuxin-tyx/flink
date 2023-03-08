@@ -60,7 +60,7 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderViewId, SubpartitionConsumerInternalOperations>>
+    private final List<Map<TierReaderViewId, SubpartitionMemoryReaderViewOperations>>
             subpartitionViewOperationsMap;
 
     // Record the byte number currently written to each sub partition.
@@ -165,15 +165,15 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
     }
 
     /**
-     * Register {@link SubpartitionConsumerInternalOperations} to {@link
+     * Register {@link SubpartitionMemoryReaderViewOperations} to {@link
      * #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of the
      * subpartition.
      */
     public TierReader registerNewConsumer(
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
-            SubpartitionConsumerInternalOperations viewOperations) {
-        SubpartitionConsumerInternalOperations oldView =
+            SubpartitionMemoryReaderViewOperations viewOperations) {
+        SubpartitionMemoryReaderViewOperations oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
                         .put(tierReaderViewId, viewOperations);
@@ -224,11 +224,11 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
     @Override
     public void onDataAvailable(
             int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, SubpartitionConsumerInternalOperations> consumerViewMap =
+        Map<TierReaderViewId, SubpartitionMemoryReaderViewOperations> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
         tierReaderViewIds.forEach(
                 consumerId -> {
-                    SubpartitionConsumerInternalOperations consumerView =
+                    SubpartitionMemoryReaderViewOperations consumerView =
                             consumerViewMap.get(consumerId);
                     if (consumerView != null) {
                         consumerView.notifyDataAvailable();
