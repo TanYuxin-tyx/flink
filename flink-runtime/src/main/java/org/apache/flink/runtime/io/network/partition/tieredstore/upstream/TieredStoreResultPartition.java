@@ -296,7 +296,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     @Override
     public void emitRecord(ByteBuffer record, int targetSubpartition) throws IOException {
-        resultPartitionBytes.incAll(record.remaining());
+        resultPartitionBytes.inc(targetSubpartition, record.remaining());
         emit(record, targetSubpartition, Buffer.DataType.DATA_BUFFER, false, false);
     }
 
