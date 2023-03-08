@@ -138,6 +138,9 @@ public class SubpartitionMemoryDataManager {
     }
 
     public void release() {
+        for(BufferContext bufferContext : allBuffers){
+            bufferContext.getBuffer().recycleBuffer();
+        }
         allBuffers.clear();
     }
 

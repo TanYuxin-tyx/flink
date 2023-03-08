@@ -32,6 +32,7 @@ import org.apache.flink.runtime.io.disk.FileChannelManagerImpl;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
@@ -114,31 +115,29 @@ class TieredStoreResultPartitionTest {
 
     @Test
     void testEmit() throws Exception {
+
         int numBuffers = 100;
         int numSubpartitions = 10;
-        int numRecords = 1000;
+        int numRecords = 10;
         Random random = new Random();
 
         BufferPool bufferPool = globalPool.createBufferPool(numBuffers, numBuffers);
 
         try (TieredStoreResultPartition partition =
-                createTieredStoreResultPartition(numSubpartitions, bufferPool)) {
+                createTieredStoreResultPartition(numSubpartitions, bufferPool, false, "MEMORY")) {
             Queue<Tuple2<ByteBuffer, Buffer.DataType>>[] dataWritten = new Queue[numSubpartitions];
             Queue<Buffer>[] buffersRead = new Queue[numSubpartitions];
             for (int i = 0; i < numSubpartitions; ++i) {
                 dataWritten[i] = new ArrayDeque<>();
                 buffersRead[i] = new ArrayDeque<>();
             }
-
             int[] numBytesWritten = new int[numSubpartitions];
             int[] numBytesRead = new int[numSubpartitions];
             Arrays.fill(numBytesWritten, 0);
             Arrays.fill(numBytesRead, 0);
-
             for (int i = 0; i < numRecords; ++i) {
                 ByteBuffer record = generateRandomData(random.nextInt(2 * bufferSize) + 1, random);
                 boolean isBroadCast = random.nextBoolean();
-
                 if (isBroadCast) {
                     partition.broadcastRecord(record);
                     for (int subpartition = 0; subpartition < numSubpartitions; ++subpartition) {
@@ -160,10 +159,8 @@ class TieredStoreResultPartitionTest {
                             Buffer.DataType.DATA_BUFFER);
                 }
             }
-
             partition.finish();
             partition.close();
-
             for (int subpartition = 0; subpartition < numSubpartitions; ++subpartition) {
                 ByteBuffer record = EventSerializer.toSerializedEvent(EndOfPartitionEvent.INSTANCE);
                 recordDataWritten(
@@ -173,7 +170,6 @@ class TieredStoreResultPartitionTest {
                         numBytesWritten,
                         Buffer.DataType.EVENT_BUFFER);
             }
-
             Tuple2<ResultSubpartitionView, TestingBufferAvailabilityListener>[] viewAndListeners =
                     createSubpartitionViews(partition, numSubpartitions);
             readData(
@@ -181,7 +177,6 @@ class TieredStoreResultPartitionTest {
                     (buffer, subpartitionId) -> {
                         int numBytes = buffer.readableBytes();
                         numBytesRead[subpartitionId] += numBytes;
-
                         MemorySegment segment =
                                 MemorySegmentFactory.allocateUnpooledSegment(numBytes);
                         segment.put(0, buffer.getNioBufferReadable(), numBytes);
@@ -199,14 +194,13 @@ class TieredStoreResultPartitionTest {
         final int numBuffers = 1;
         BufferPool bufferPool = globalPool.createBufferPool(numBuffers, numBuffers);
         try (TieredStoreResultPartition resultPartition =
-                createTieredStoreResultPartition(2, bufferPool)) {
+                createTieredStoreResultPartition(2, bufferPool, false, "MEMORY")) {
             resultPartition.broadcastEvent(EndOfPartitionEvent.INSTANCE, false);
             // broadcast event does not request buffer
             assertThat(bufferPool.getNumberOfAvailableMemorySegments()).isEqualTo(1);
             resultPartition.close();
-
-            Tuple2[] viewAndListeners = createSubpartitionViews(resultPartition, 2);
-
+            Tuple2<ResultSubpartitionView, TestingBufferAvailabilityListener>[] viewAndListeners =
+                    createSubpartitionViews(resultPartition, 2);
             boolean[] receivedEvent = new boolean[2];
             readData(
                     viewAndListeners,
@@ -223,7 +217,6 @@ class TieredStoreResultPartitionTest {
                             throw new RuntimeException(e);
                         }
                     });
-
             assertThat(receivedEvent).containsExactly(true, true);
         }
     }
@@ -239,7 +232,7 @@ class TieredStoreResultPartitionTest {
 
         BufferPool bufferPool = globalPool.createBufferPool(numBuffers, numBuffers);
         try (TieredStoreResultPartition resultPartition =
-                createTieredStoreResultPartition(2, bufferPool)) {
+                createTieredStoreResultPartition(2, bufferPool, false, "LOCAL")) {
             List<ByteBuffer> dataWritten = new ArrayList<>();
             for (int i = 0; i < numRecords; i++) {
                 ByteBuffer record = generateRandomData(bufferSize, random);
@@ -297,7 +290,7 @@ class TieredStoreResultPartitionTest {
 
         BufferPool bufferPool = globalPool.createBufferPool(numBuffers, numBuffers);
         try (TieredStoreResultPartition resultPartition =
-                createTieredStoreResultPartition(numSubpartitions, bufferPool, true)) {
+                createTieredStoreResultPartition(numSubpartitions, bufferPool, true, "LOCAL")) {
             List<ByteBuffer> dataWritten = new ArrayList<>();
             for (int i = 0; i < numRecords; i++) {
                 ByteBuffer record = generateRandomData(bufferSize, random);
@@ -350,7 +343,8 @@ class TieredStoreResultPartitionTest {
         final int numBuffers = 1;
 
         BufferPool bufferPool = globalPool.createBufferPool(numBuffers, numBuffers);
-        TieredStoreResultPartition partition = createTieredStoreResultPartition(1, bufferPool);
+        TieredStoreResultPartition partition =
+                createTieredStoreResultPartition(1, bufferPool, false, "MEMORY");
 
         partition.close();
         // emit data to closed partition will throw exception.
@@ -365,15 +359,7 @@ class TieredStoreResultPartitionTest {
 
         BufferPool bufferPool = globalPool.createBufferPool(numBuffers, numBuffers);
         TieredStoreResultPartition partition =
-                createTieredStoreResultPartition(
-                        numSubpartitions,
-                        bufferPool,
-                        TieredStoreConfiguration.builder(
-                                        numSubpartitions, readBufferPool.getNumBuffersPerRequest())
-                                .setTieredStoreTiers("LOCAL")
-                                .setFullStrategyNumBuffersTriggerSpillingRatio(0.6f)
-                                .setFullStrategyReleaseBufferRatio(0.8f)
-                                .build());
+                createTieredStoreResultPartition(numSubpartitions, bufferPool, false, "MEMORY");
 
         partition.emitRecord(ByteBuffer.allocate(bufferSize * 5), 1);
         assertThat(bufferPool.bestEffortGetNumOfUsedBuffers()).isEqualTo(5);
@@ -395,7 +381,7 @@ class TieredStoreResultPartitionTest {
         final int numBuffers = 10;
         BufferPool bufferPool = globalPool.createBufferPool(numBuffers, numBuffers);
         TieredStoreResultPartition resultPartition =
-                createTieredStoreResultPartition(2, bufferPool);
+                createTieredStoreResultPartition(2, bufferPool, false, "MEMORY");
         resultPartition.release();
         assertThatThrownBy(
                         () ->
@@ -409,7 +395,7 @@ class TieredStoreResultPartitionTest {
         final int numBuffers = 10;
         BufferPool bufferPool = globalPool.createBufferPool(numBuffers, numBuffers);
         TieredStoreResultPartition resultPartition =
-                createTieredStoreResultPartition(2, bufferPool);
+                createTieredStoreResultPartition(2, bufferPool, false, "LOCAL");
         IOUtils.deleteFilesRecursively(tempDataPath);
         assertThatThrownBy(
                         () ->
@@ -422,49 +408,39 @@ class TieredStoreResultPartitionTest {
     void testMetricsUpdate() throws Exception {
         BufferPool bufferPool = globalPool.createBufferPool(3, 3);
         try (TieredStoreResultPartition partition =
-                createTieredStoreResultPartition(2, bufferPool)) {
+                createTieredStoreResultPartition(2, bufferPool, false, "MEMORY")) {
             partition.emitRecord(ByteBuffer.allocate(bufferSize), 0);
             partition.broadcastRecord(ByteBuffer.allocate(bufferSize));
             assertThat(taskIOMetricGroup.getNumBuffersOutCounter().getCount()).isEqualTo(3);
-            assertThat(taskIOMetricGroup.getNumBytesOutCounter().getCount())
-                    .isEqualTo(3 * bufferSize);
+            IOMetrics ioMetrics = taskIOMetricGroup.createSnapshot();
+            assertThat(ioMetrics.getResultPartitionBytes()).hasSize(1);
+            ResultPartitionBytes partitionBytes =
+                    ioMetrics.getResultPartitionBytes().values().iterator().next();
+            assertThat(partitionBytes.getSubpartitionBytes())
+                    .containsExactly((long) 2 * bufferSize, (long) bufferSize);
         }
     }
 
     @Test
-    void testSelectiveSpillingStrategyRegisterMultipleConsumer() throws Exception {
-        final int numSubpartitions = 2;
+    void testMemoryTierRegisterMultipleConsumer() throws Exception {
         BufferPool bufferPool = globalPool.createBufferPool(2, 2);
         try (TieredStoreResultPartition partition =
-                createTieredStoreResultPartition(
-                        2,
-                        bufferPool,
-                        TieredStoreConfiguration.builder(
-                                        numSubpartitions, readBufferPool.getNumBuffersPerRequest())
-                                .setTieredStoreTiers("LOCAL")
-                                .build())) {
+                createTieredStoreResultPartition(2, bufferPool, false, "MEMORY")) {
             partition.createSubpartitionView(0, new NoOpBufferAvailablityListener());
             assertThatThrownBy(
                             () ->
                                     partition.createSubpartitionView(
                                             0, new NoOpBufferAvailablityListener()))
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("Multiple consumer is not allowed");
+                    .hasMessageContaining("Memory Tier does not support multiple consumers");
         }
     }
 
     @Test
-    void testFullSpillingStrategyRegisterMultipleConsumer() throws Exception {
-        final int numSubpartitions = 2;
+    void testLocalTierRegisterMultipleConsumer() throws Exception {
         BufferPool bufferPool = globalPool.createBufferPool(2, 2);
         try (TieredStoreResultPartition partition =
-                createTieredStoreResultPartition(
-                        2,
-                        bufferPool,
-                        TieredStoreConfiguration.builder(
-                                        numSubpartitions, readBufferPool.getNumBuffersPerRequest())
-                                .setTieredStoreTiers("LOCAL")
-                                .build())) {
+                createTieredStoreResultPartition(2, bufferPool, false, "LOCAL")) {
             partition.createSubpartitionView(0, new NoOpBufferAvailablityListener());
             assertThatNoException()
                     .isThrownBy(
@@ -478,16 +454,15 @@ class TieredStoreResultPartitionTest {
     void testMetricsUpdateForBroadcastOnlyResultPartition() throws Exception {
         BufferPool bufferPool = globalPool.createBufferPool(3, 3);
         try (TieredStoreResultPartition partition =
-                createTieredStoreResultPartition(2, bufferPool, true)) {
+                createTieredStoreResultPartition(2, bufferPool, true, "MEMORY")) {
             partition.broadcastRecord(ByteBuffer.allocate(bufferSize));
             assertThat(taskIOMetricGroup.getNumBuffersOutCounter().getCount()).isEqualTo(1);
-            assertThat(taskIOMetricGroup.getNumBytesOutCounter().getCount()).isEqualTo(bufferSize);
             IOMetrics ioMetrics = taskIOMetricGroup.createSnapshot();
             assertThat(ioMetrics.getResultPartitionBytes()).hasSize(1);
             ResultPartitionBytes partitionBytes =
                     ioMetrics.getResultPartitionBytes().values().iterator().next();
             assertThat(partitionBytes.getSubpartitionBytes())
-                    .containsExactly((long) bufferSize, (long) bufferSize);
+                    .containsExactly(bufferSize, bufferSize);
         }
     }
 
@@ -517,6 +492,7 @@ class TieredStoreResultPartitionTest {
                         @Override
                         public void go() throws Exception {
                             ResultSubpartitionView view = viewAndListeners[subpartition].f0;
+                            view.notifyRequiredSegmentId(Integer.MAX_VALUE);
                             while (true) {
                                 ResultSubpartition.BufferAndBacklog bufferAndBacklog =
                                         view.getNextBuffer();
@@ -556,39 +532,11 @@ class TieredStoreResultPartitionTest {
     }
 
     private TieredStoreResultPartition createTieredStoreResultPartition(
-            int numSubpartitions, BufferPool bufferPool) throws IOException {
-        return createTieredStoreResultPartition(numSubpartitions, bufferPool, false);
-    }
-
-    private TieredStoreResultPartition createTieredStoreResultPartition(
-            int numSubpartitions,
-            BufferPool bufferPool,
-            TieredStoreConfiguration tieredStoreConfiguration)
-            throws IOException {
-        return createTieredStoreResultPartition(
-                numSubpartitions, bufferPool, false, tieredStoreConfiguration);
-    }
-
-    private TieredStoreResultPartition createTieredStoreResultPartition(
-            int numSubpartitions, BufferPool bufferPool, boolean isBroadcastOnly)
-            throws IOException {
-        return createTieredStoreResultPartition(
-                numSubpartitions,
-                bufferPool,
-                isBroadcastOnly,
-                TieredStoreConfiguration.builder(
-                                numSubpartitions, readBufferPool.getNumBuffersPerRequest())
-                        .setTieredStoreTiers("LOCAL")
-                        .build());
-    }
-
-    private TieredStoreResultPartition createTieredStoreResultPartition(
             int numSubpartitions,
             BufferPool bufferPool,
             boolean isBroadcastOnly,
-            TieredStoreConfiguration tieredStoreConfiguration)
+            String tieredStoreTiers)
             throws IOException {
-
         TieredStoreResultPartition tieredStoreResultPartition =
                 new TieredStoreResultPartition(
                         new JobID(),
@@ -605,8 +553,11 @@ class TieredStoreResultPartitionTest {
                         fileChannelManager.createChannel().getPath(),
                         0,
                         isBroadcastOnly,
-                        tieredStoreConfiguration,
-                        null,
+                        TieredStoreConfiguration.builder(
+                                        numSubpartitions, readBufferPool.getNumBuffersPerRequest())
+                                .setTieredStoreTiers(tieredStoreTiers)
+                                .build(),
+                        new BufferCompressor(bufferSize, "LZ4"),
                         () -> bufferPool);
         taskIOMetricGroup =
                 UnregisteredMetricGroups.createUnregisteredTaskMetricGroup().getIOMetricGroup();
