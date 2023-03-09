@@ -72,7 +72,7 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
 
     private final int numTotalConsumers;
 
-    private final int numBytesInASegment;
+    private int numBytesInASegment;
 
     public MemoryWriter(
             int numSubpartitions,
@@ -209,6 +209,16 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
             return numConsumers == numTotalConsumers;
         }
         return numConsumers > 0;
+    }
+
+    @Override
+    public int getNewSegmentSize() {
+        return numBytesInASegment;
+    }
+
+    @Override
+    public void setNumBytesInASegment(int numBytesInASegment) {
+        this.numBytesInASegment = numBytesInASegment;
     }
 
     // ------------------------------------

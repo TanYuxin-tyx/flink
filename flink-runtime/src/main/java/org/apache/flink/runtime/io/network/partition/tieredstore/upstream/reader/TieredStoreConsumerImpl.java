@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.reader;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
@@ -201,6 +202,11 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
             }
         }
         return false;
+    }
+
+    @VisibleForTesting
+    public int getCurrentSegmentIndex() {
+        return currentSegmentIndex;
     }
 
     // -------------------------------

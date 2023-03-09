@@ -27,7 +27,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TestingTierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
@@ -45,7 +44,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -296,52 +294,6 @@ class DiskReaderManagerTest {
 
     // ----------------------- test release ---------------------------------------
 
-    /** Test file data manager release when reader is reading buffers. */
-    @Test
-    @Timeout(10)
-    @Disabled("Ignore the test temporally")
-    void testReleasedWhenReading() throws Exception {
-        TestingSubpartitionDiskReader reader = new TestingSubpartitionDiskReader();
-
-        CompletableFuture<Throwable> cause = new CompletableFuture<>();
-        reader.setFailConsumer((cause::complete));
-        CompletableFuture<Void> readBufferStart = new CompletableFuture<>();
-        CompletableFuture<Void> releasedFinish = new CompletableFuture<>();
-        reader.setReadBuffersConsumer(
-                (requestedBuffers, readBuffers) -> {
-                    try {
-                        readBufferStart.complete(null);
-                        releasedFinish.get();
-                    } catch (Exception e) {
-                        // re-throw all exception to IOException caught by file data manager.
-                        throw new IOException(e);
-                    }
-                });
-        factory.allReaders.add(reader);
-
-        CheckedThread releaseThread =
-                new CheckedThread() {
-                    @Override
-                    public void go() throws Exception {
-                        readBufferStart.get();
-                        fileDataManager.release();
-                        releasedFinish.complete(null);
-                    }
-                };
-        releaseThread.start();
-
-        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
-
-        ioExecutor.trigger();
-
-        releaseThread.sync();
-
-        assertThat(cause).isCompleted();
-        assertThat(cause.get())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Result partition has been already released.");
-    }
-
     /** Test file data manager was released, but receive new subpartition reader registration. */
     @Test
     void testRegisterSubpartitionReaderAfterReleased() {
@@ -400,16 +352,6 @@ class DiskReaderManagerTest {
         TierReader diskDataView =
                 fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionView);
         subpartitionView.setDiskTierReader(diskDataView);
-        TestingTierReader memoryDataView =
-                TestingTierReader.builder()
-                        .setConsumeBufferFunction(
-                                (ignore) -> {
-                                    // throw an exception to trigger the release of file reader.
-                                    throw new RuntimeException("expected exception.");
-                                })
-                        .build();
-        // subpartitionView.setMemoryDataView(memoryDataView);
-
         CheckedThread consumerThread =
                 new CheckedThread() {
                     @Override

@@ -151,16 +151,6 @@ public class MemoryTier implements StorageTier {
     }
 
     @Override
-    public int getNewSegmentSize() {
-        return numBytesInASegment;
-    }
-
-    @Override
-    public void setNumBytesInASegment(int numBytesInASegment) {
-        this.numBytesInASegment = numBytesInASegment;
-    }
-
-    @Override
     public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
         return segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentIndex);
     }

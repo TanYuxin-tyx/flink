@@ -39,6 +39,10 @@ public interface TierWriter {
             int segmentIndex)
             throws IOException;
 
+    int getNewSegmentSize();
+
+    void setNumBytesInASegment(int numBytesInASegment);
+
     void release();
 
     void close();

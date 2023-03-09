@@ -44,10 +44,6 @@ public interface StorageTier extends ChannelStateHolder, CheckpointedResultParti
 
     boolean canStoreNextSegment(int subpartitionId);
 
-    int getNewSegmentSize();
-
-    void setNumBytesInASegment(int numBytesInASegment);
-
     boolean hasCurrentSegment(int subpartitionId, int segmentIndex);
 
     void setOutputMetrics(OutputMetrics tieredStoreOutputMetrics);
