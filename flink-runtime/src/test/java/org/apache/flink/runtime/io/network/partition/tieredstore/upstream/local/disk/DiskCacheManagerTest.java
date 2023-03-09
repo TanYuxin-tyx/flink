@@ -22,14 +22,13 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.SubpartitionDiskCacheManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,23 +36,19 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.createTestingOutputMetrics;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.getTierExclusiveBuffers;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Tests for {@link DiskCacheManager}. */
 class DiskCacheManagerTest {
+
     private static final int NUM_BUFFERS = 10;
 
     private static final int NUM_SUBPARTITIONS = 3;
 
-    private int poolSize = 10;
+    private static final int POOL_SIZE = 10;
 
     private int bufferSize = Integer.BYTES;
 
@@ -66,104 +61,34 @@ class DiskCacheManagerTest {
 
     @Test
     void testAppendMarkBufferFinished() throws Exception {
-        AtomicInteger finishedBuffers = new AtomicInteger(0);
+        int targetChannel = 0;
         bufferSize = Integer.BYTES * 3;
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
-        BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
+        BufferPool bufferPool = networkBufferPool.createBufferPool(POOL_SIZE, POOL_SIZE);
         TieredStoreMemoryManager tieredStoreMemoryManager =
-                new UpstreamTieredStoreMemoryManager(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+                new UpstreamTieredStoreMemoryManager(
+                        bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
         DiskCacheManager diskCacheManager = createCacheDataManager(tieredStoreMemoryManager);
-
-        diskCacheManager.append(createRecord(0), 0, Buffer.DataType.DATA_BUFFER, false);
-        diskCacheManager.append(createRecord(1), 0, Buffer.DataType.DATA_BUFFER, false);
-        diskCacheManager.append(createRecord(2), 0, Buffer.DataType.DATA_BUFFER, false);
-        assertThat(finishedBuffers).hasValue(1);
-
+        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
+                diskCacheManager.getSubpartitionDiskCacheManagers()[targetChannel];
+        diskCacheManager.append(createRecord(0), targetChannel, Buffer.DataType.DATA_BUFFER, false);
+        diskCacheManager.append(createRecord(1), targetChannel, Buffer.DataType.DATA_BUFFER, false);
+        diskCacheManager.append(createRecord(2), targetChannel, Buffer.DataType.DATA_BUFFER, false);
+        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(1);
         diskCacheManager.append(createRecord(3), 0, Buffer.DataType.DATA_BUFFER, false);
-        assertThat(finishedBuffers).hasValue(1);
+        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(1);
         diskCacheManager.append(createRecord(4), 0, Buffer.DataType.DATA_BUFFER, true);
-        assertThat(finishedBuffers).hasValue(2);
+        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(2);
         diskCacheManager.append(createRecord(5), 0, Buffer.DataType.EVENT_BUFFER, true);
-        assertThat(finishedBuffers).hasValue(3);
+        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(3);
         diskCacheManager.append(createRecord(6), 0, Buffer.DataType.EVENT_BUFFER, true);
-        assertThat(finishedBuffers).hasValue(4);
+        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(4);
         diskCacheManager.append(createRecord(7), 0, Buffer.DataType.DATA_BUFFER, true);
-        assertThat(finishedBuffers).hasValue(5);
-    }
-
-    @Test
-    void testHandleDecision() throws Exception {
-        final int targetSubpartition = 0;
-        final int numFinishedBufferToTriggerDecision = 4;
-        List<BufferIndexAndChannel> toSpill =
-                TieredStoreTestUtils.createBufferIndexAndChannelsList(targetSubpartition, 0, 1, 2);
-        List<BufferIndexAndChannel> toRelease =
-                TieredStoreTestUtils.createBufferIndexAndChannelsList(targetSubpartition, 2, 3);
-        CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spilledFuture =
-                new CompletableFuture<>();
-        CompletableFuture<Integer> readableFuture = new CompletableFuture<>();
-        TestingRegionBufferIndexTracker dataIndex =
-                TestingRegionBufferIndexTracker.builder()
-                        .setAddBuffersConsumer(spilledFuture::complete)
-                        .setMarkBufferReadableConsumer(
-                                (subpartitionId, bufferIndex) ->
-                                        readableFuture.complete(bufferIndex))
-                        .build();
-        DiskCacheManager diskCacheManager = createCacheDataManager(dataIndex);
-        for (int i = 0; i < 4; i++) {
-            diskCacheManager.append(
-                    createRecord(i), targetSubpartition, Buffer.DataType.DATA_BUFFER, false);
-        }
-
-        assertThat(spilledFuture).succeedsWithin(10, TimeUnit.SECONDS);
-        assertThat(readableFuture).succeedsWithin(10, TimeUnit.SECONDS);
-        assertThat(readableFuture).isCompletedWithValue(2);
-    }
-
-    @Test
-    void testResultPartitionClosed() throws Exception {
-        CompletableFuture<Void> resultPartitionReleaseFuture = new CompletableFuture<>();
-        DiskCacheManager diskCacheManager = createCacheDataManager();
-        diskCacheManager.close();
-        assertThat(resultPartitionReleaseFuture).isCompleted();
-    }
-
-    @Test
-    void testSubpartitionConsumerRelease() throws Exception {
-        DiskCacheManager diskCacheManager = createCacheDataManager();
-        diskCacheManager.registerNewConsumer(
-                0, TierReaderViewId.DEFAULT, new TestingSubpartitionDiskReaderViewOperation());
-        assertThatThrownBy(
-                        () ->
-                                diskCacheManager.registerNewConsumer(
-                                        0,
-                                        TierReaderViewId.DEFAULT,
-                                        new TestingSubpartitionDiskReaderViewOperation()))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Each subpartition view should have unique consumerId.");
-        diskCacheManager.onConsumerReleased(0, TierReaderViewId.DEFAULT);
-        diskCacheManager.registerNewConsumer(
-                0, TierReaderViewId.DEFAULT, new TestingSubpartitionDiskReaderViewOperation());
-    }
-
-    private DiskCacheManager createCacheDataManager() throws Exception {
-        return createCacheDataManager(new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS));
+        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(5);
     }
 
     private DiskCacheManager createCacheDataManager(
-            RegionBufferIndexTracker regionBufferIndexTracker) throws Exception {
-        NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
-        BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
-        return createCacheDataManager(bufferPool, regionBufferIndexTracker);
-    }
-
-    private DiskCacheManager createCacheDataManager(BufferPool bufferPool) throws Exception {
-        return createCacheDataManager(
-                bufferPool, new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS));
-    }
-
-    private DiskCacheManager createCacheDataManager(TieredStoreMemoryManager tieredStoreMemoryManager)
-            throws Exception {
+            TieredStoreMemoryManager tieredStoreMemoryManager) throws Exception {
         DiskCacheManager diskCacheManager =
                 new DiskCacheManager(
                         NUM_SUBPARTITIONS,

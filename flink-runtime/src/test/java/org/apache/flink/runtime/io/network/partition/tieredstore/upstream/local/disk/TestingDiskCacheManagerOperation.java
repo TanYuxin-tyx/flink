@@ -62,11 +62,6 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
     }
 
     @Override
-    public int getNumTotalUnSpillBuffers() {
-        return 0;
-    }
-
-    @Override
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         return requestBufferFromPoolSupplier.get();
     }
