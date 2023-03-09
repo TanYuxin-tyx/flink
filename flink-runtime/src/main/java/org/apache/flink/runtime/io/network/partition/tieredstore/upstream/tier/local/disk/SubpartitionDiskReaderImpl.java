@@ -144,7 +144,9 @@ public class SubpartitionDiskReaderImpl implements SubpartitionDiskReader {
         // 1) The target buffer has not been spilled into disk.
         // 2) The target buffer has not been released from memory.
         // So, just skip this round reading.
-        int numRemainingBuffer = cachedRegionManager.getRemainingBuffersInRegion(firstBufferToLoad);
+        int numRemainingBuffer =
+                cachedRegionManager.getRemainingBuffersInRegion(
+                        firstBufferToLoad, tierReaderViewId);
         if (numRemainingBuffer == 0) {
             return;
         }
@@ -418,12 +420,13 @@ public class SubpartitionDiskReaderImpl implements SubpartitionDiskReader {
 
         /** Return Long.MAX_VALUE if region does not exist to giving the lowest priority. */
         private long getFileOffset(int bufferIndex) {
-            updateCachedRegionIfNeeded(bufferIndex);
+            // updateCachedRegionIfNeeded(bufferIndex);
             return currentBufferIndex == -1 ? Long.MAX_VALUE : offset;
         }
 
-        private int getRemainingBuffersInRegion(int bufferIndex) {
-            updateCachedRegionIfNeeded(bufferIndex);
+        private int getRemainingBuffersInRegion(
+                int bufferIndex, TierReaderViewId tierReaderViewId) {
+            updateCachedRegionIfNeeded(bufferIndex, tierReaderViewId);
 
             return numReadable;
         }
@@ -440,7 +443,7 @@ public class SubpartitionDiskReaderImpl implements SubpartitionDiskReader {
          *     derived by starting from the {@code offset} and skipping {@code numSkip} buffers.
          */
         private Tuple2<Integer, Long> getNumSkipAndFileOffset(int bufferIndex) {
-            updateCachedRegionIfNeeded(bufferIndex);
+            // updateCachedRegionIfNeeded(bufferIndex);
 
             checkState(numSkip >= 0, "num skip must be greater than or equal to 0");
             // Assumption: buffer index is always requested / updated increasingly
@@ -461,7 +464,8 @@ public class SubpartitionDiskReaderImpl implements SubpartitionDiskReader {
         // ------------------------------------------------------------------------
 
         /** Points the cursors to the given buffer index, if possible. */
-        private void updateCachedRegionIfNeeded(int bufferIndex) {
+        private void updateCachedRegionIfNeeded(
+                int bufferIndex, TierReaderViewId tierReaderViewId) {
             if (isInCachedRegion(bufferIndex)) {
                 int numAdvance = bufferIndex - currentBufferIndex;
                 numSkip += numAdvance;
@@ -471,7 +475,8 @@ public class SubpartitionDiskReaderImpl implements SubpartitionDiskReader {
             }
 
             Optional<RegionBufferIndexTracker.ReadableRegion> lookupResultOpt =
-                    dataIndex.getReadableRegion(subpartitionId, bufferIndex, consumingOffset);
+                    dataIndex.getReadableRegion(
+                            subpartitionId, bufferIndex, consumingOffset, tierReaderViewId);
             if (!lookupResultOpt.isPresent()) {
                 currentBufferIndex = -1;
                 numReadable = 0;

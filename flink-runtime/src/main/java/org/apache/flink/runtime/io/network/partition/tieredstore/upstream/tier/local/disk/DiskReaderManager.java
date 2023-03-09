@@ -42,11 +42,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -223,7 +223,7 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
 
     /** @return number of buffers read. */
     private int tryRead() {
-        Queue<SubpartitionDiskReader> availableReaders = prepareAndGetAvailableReaders();
+        List<SubpartitionDiskReader> availableReaders = prepareAndGetAvailableReaders();
         if (availableReaders.isEmpty()) {
             return 0;
         }
@@ -324,23 +324,27 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
         }
     }
 
-    private Queue<SubpartitionDiskReader> prepareAndGetAvailableReaders() {
+    private List<SubpartitionDiskReader> prepareAndGetAvailableReaders() {
         synchronized (lock) {
             if (isReleased) {
-                return new ArrayDeque<>();
+                return new ArrayList<>();
             }
-
+            List<SubpartitionDiskReader> availableReaders = new ArrayList<>();
             for (SubpartitionDiskReader reader : allReaders) {
                 reader.prepareForScheduling();
+                availableReaders.add(reader);
             }
-            return new PriorityQueue<>(allReaders);
+            Collections.sort(availableReaders);
+            return availableReaders;
         }
     }
 
     private void readData(
-            Queue<SubpartitionDiskReader> availableReaders, Queue<MemorySegment> buffers) {
-        while (!availableReaders.isEmpty() && !buffers.isEmpty()) {
-            SubpartitionDiskReader subpartitionReader = availableReaders.poll();
+            List<SubpartitionDiskReader> availableReaders, Queue<MemorySegment> buffers) {
+        int startIndex = 0;
+        while (startIndex < availableReaders.size() && !buffers.isEmpty()) {
+            SubpartitionDiskReader subpartitionReader = availableReaders.get(startIndex);
+            startIndex++;
             try {
                 subpartitionReader.readBuffers(buffers, this);
             } catch (IOException throwable) {

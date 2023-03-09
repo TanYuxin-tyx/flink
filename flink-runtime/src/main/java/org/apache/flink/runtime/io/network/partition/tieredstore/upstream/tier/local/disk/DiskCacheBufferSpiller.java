@@ -38,7 +38,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -89,22 +88,6 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     @Override
     public void startSegment(int segmentIndex) {}
 
-    /**
-     * Spilling buffers to disk asynchronously.
-     *
-     * @param bufferToSpill buffers need to be spilled, must ensure that it is sorted by
-     *     (subpartitionId, bufferIndex).
-     * @return the completable future contains spilled buffers information.
-     */
-    @Override
-    public CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spillAsync(
-            List<BufferWithIdentity> bufferToSpill) {
-        CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spilledFuture =
-                new CompletableFuture<>();
-        ioExecutor.execute(() -> spill(bufferToSpill, spilledFuture));
-        return spilledFuture;
-    }
-
     @Override
     public void spillAsync(
             List<BufferWithIdentity> bufferToSpill,
@@ -124,26 +107,6 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void spill(
             List<BufferWithIdentity> toWrite,
-            CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spilledFuture) {
-        try {
-            List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers = new ArrayList<>();
-            long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
-            // write all buffers to file
-            writeBuffers(toWrite, expectedBytes);
-            // complete spill future when buffers are written to disk successfully.
-            // note that the ownership of these buffers is transferred to the MemoryDataManager,
-            // which controls data's life cycle.
-            regionBufferIndexTracker.addBuffers(spilledBuffers);
-            spilledFuture.complete(null);
-        } catch (IOException exception) {
-            // if spilling is failed, throw exception directly to uncaughtExceptionHandler.
-            ExceptionUtils.rethrow(exception);
-        }
-    }
-
-    /** Called in single-threaded ioExecutor. Order is guaranteed. */
-    private void spill(
-            List<BufferWithIdentity> toWrite,
             AtomicInteger hasFlushCompleted,
             boolean changeFlushState) {
         try {
@@ -156,8 +119,6 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
             // which controls data's life cycle.
             regionBufferIndexTracker.addBuffers(spilledBuffers);
             for (BufferWithIdentity bufferWithIdentity : toWrite) {
-                regionBufferIndexTracker.markBufferReleased(
-                        bufferWithIdentity.getChannelIndex(), bufferWithIdentity.getBufferIndex());
                 bufferWithIdentity.getBuffer().recycleBuffer();
             }
             //spillingCompleteFuture.complete(null);

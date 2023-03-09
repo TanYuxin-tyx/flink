@@ -49,15 +49,6 @@ public interface DiskCacheManagerOperation {
     BufferBuilder requestBufferFromPool() throws InterruptedException;
 
     /**
-     * This method is called when buffer should mark as released in {@link
-     * RegionBufferIndexTracker}.
-     *
-     * @param subpartitionId the subpartition that target buffer belong to.
-     * @param bufferIndex index of buffer to mark as released.
-     */
-    void markBufferReleasedFromFile(int subpartitionId, int bufferIndex);
-
-    /**
      * This method is called when subpartition data become available.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.

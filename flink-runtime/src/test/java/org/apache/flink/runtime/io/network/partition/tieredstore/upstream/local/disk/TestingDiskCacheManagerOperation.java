@@ -67,11 +67,6 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
     }
 
     @Override
-    public void markBufferReleasedFromFile(int subpartitionId, int bufferIndex) {
-        markBufferReadableConsumer.accept(subpartitionId, bufferIndex);
-    }
-
-    @Override
     public void onDataAvailable(
             int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
         onDataAvailableRunnable.run();
