@@ -98,8 +98,6 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
 
         private BiConsumer<Integer, Integer> markBufferReadableConsumer = (ignore1, ignore2) -> {};
 
-        private Runnable onBufferFinishedRunnable = () -> {};
-
         private Runnable onDataAvailableRunnable = () -> {};
 
         private BiConsumer<Integer, TierReaderViewId> onConsumerReleasedBiConsumer =
@@ -115,11 +113,6 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
         public Builder setMarkBufferReadableConsumer(
                 BiConsumer<Integer, Integer> markBufferReadableConsumer) {
             this.markBufferReadableConsumer = markBufferReadableConsumer;
-            return this;
-        }
-
-        public Builder setOnBufferFinishedRunnable(Runnable onBufferFinishedRunnable) {
-            this.onBufferFinishedRunnable = onBufferFinishedRunnable;
             return this;
         }
 
