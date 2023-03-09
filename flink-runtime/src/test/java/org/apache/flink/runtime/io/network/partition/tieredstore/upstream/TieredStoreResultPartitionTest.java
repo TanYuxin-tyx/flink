@@ -20,6 +20,8 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.core.fs.FSDataInputStream;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.core.testutils.CheckedThread;
@@ -33,6 +35,7 @@ import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
@@ -44,6 +47,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.reader.TieredStoreConsumerImpl;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.IOUtils;
@@ -55,8 +59,9 @@ import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
+import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -68,6 +73,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.parseBufferHeader;
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.throwCorruptDataException;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
@@ -94,7 +101,7 @@ class TieredStoreResultPartitionTest {
 
     private TaskIOMetricGroup taskIOMetricGroup;
 
-    @TempDir public Path tempDataPath;
+    @TempDir public java.nio.file.Path tempDataPath;
 
     @BeforeEach
     void before() {
@@ -114,13 +121,11 @@ class TieredStoreResultPartitionTest {
     }
 
     @Test
-    void testEmit() throws Exception {
-
+    void testMemoryEmit() throws Exception {
         int numBuffers = 100;
         int numSubpartitions = 10;
         int numRecords = 10;
         Random random = new Random();
-
         BufferPool bufferPool = globalPool.createBufferPool(numBuffers, numBuffers);
 
         try (TieredStoreResultPartition partition =
@@ -187,6 +192,77 @@ class TieredStoreResultPartitionTest {
             checkWriteReadResult(
                     numSubpartitions, numBytesWritten, numBytesRead, dataWritten, buffersRead);
         }
+    }
+
+    @Test
+    void testRemoteEmit() throws Exception {
+        int initBuffers = 100;
+        int numSubpartitions = 100;
+        int numRecordsOfSubpartition = 10;
+        int numBytesInASegment = bufferSize;
+        int numBytesInARecord = bufferSize;
+        Random random = new Random();
+        BufferPool bufferPool = globalPool.createBufferPool(initBuffers, 2000);
+        TieredStoreResultPartition tieredStoreResultPartition =
+                createTieredStoreResultPartition(100, bufferPool, false, "DFS");
+        tieredStoreResultPartition.setNumBytesInASegment(numBytesInASegment);
+        List<ByteBuffer> allByteBuffers = new ArrayList<>();
+        for (int i = 0; i < numSubpartitions; ++i) {
+            for (int j = 0; j < numRecordsOfSubpartition; ++j) {
+                ByteBuffer record = generateRandomData(numBytesInARecord, random);
+                tieredStoreResultPartition.emitRecord(record, i);
+                allByteBuffers.add(record);
+            }
+        }
+        // Check that the segment info is produced successfully.
+        Tuple2[] viewAndListeners =
+                createSubpartitionViews(tieredStoreResultPartition, numSubpartitions);
+        readFromRemoteTier(viewAndListeners, numRecordsOfSubpartition);
+        tieredStoreResultPartition.close();
+        // Check that the shuffle data is produced correctly.
+        int totalByteBufferIndex = 0;
+        for (int i = 0; i < numSubpartitions; ++i) {
+            for (int j = 0; j < numRecordsOfSubpartition; ++j) {
+                Path shuffleDataPath =
+                        tieredStoreResultPartition
+                                .getBaseSubpartitionPath(i)
+                                .get(0)
+                                .suffix("/seg-" + j);
+                List<ByteBuffer> dataToBuffers = readShuffleDataToBuffers(shuffleDataPath);
+                assertThat(dataToBuffers).hasSize(1);
+                assertThat(dataToBuffers.get(0).array())
+                        .isEqualTo(allByteBuffers.get(totalByteBufferIndex++).array());
+            }
+        }
+    }
+
+    @Test
+    void testRemoteEmitLessThanASegment() throws Exception {
+        int initBuffers = 100;
+        int numSubpartitions = 1;
+        int numBytesInASegment = 2 * bufferSize;
+        int numBytesInARecord = bufferSize;
+        Random random = new Random();
+        BufferPool bufferPool = globalPool.createBufferPool(initBuffers, 2000);
+        TieredStoreResultPartition tieredStoreResultPartition =
+                createTieredStoreResultPartition(100, bufferPool, false, "DFS");
+        tieredStoreResultPartition.setNumBytesInASegment(numBytesInASegment);
+        ByteBuffer record = generateRandomData(numBytesInARecord, random);
+        tieredStoreResultPartition.emitRecord(record, 0);
+        tieredStoreResultPartition.broadcastEvent(EndOfPartitionEvent.INSTANCE, false);
+        // Check that the segment info is produced successfully.
+        Tuple2[] viewAndListeners =
+                createSubpartitionViews(tieredStoreResultPartition, numSubpartitions);
+        readFromRemoteTier(viewAndListeners, 1);
+        tieredStoreResultPartition.close();
+        // Check that the shuffle data is produced correctly.
+        Path shuffleDataPath =
+                tieredStoreResultPartition.getBaseSubpartitionPath(0).get(0).suffix("/seg-" + 0);
+        List<ByteBuffer> dataToBuffers = readShuffleDataToBuffers(shuffleDataPath);
+        assertThat(dataToBuffers).hasSize(2);
+        assertThat(dataToBuffers.get(0).array()).isEqualTo(record.array());
+        Buffer buffer = EventSerializer.toBuffer(EndOfPartitionEvent.INSTANCE, false);
+        assertThat(dataToBuffers.get(1).array()).isEqualTo(buffer.getNioBufferReadable().array());
     }
 
     @Test
@@ -466,7 +542,7 @@ class TieredStoreResultPartitionTest {
         }
     }
 
-    private static void recordDataWritten(
+    private void recordDataWritten(
             ByteBuffer record,
             Queue<Tuple2<ByteBuffer, Buffer.DataType>>[] dataWritten,
             int subpartition,
@@ -475,6 +551,68 @@ class TieredStoreResultPartitionTest {
         record.rewind();
         dataWritten[subpartition].add(Tuple2.of(record, dataType));
         numBytesWritten[subpartition] += record.remaining();
+    }
+
+    private List<ByteBuffer> readShuffleDataToBuffers(Path shuffleDataPath) throws IOException {
+        FSDataInputStream inputStream = shuffleDataPath.getFileSystem().open(shuffleDataPath);
+        ByteBuffer headerBuffer;
+        ByteBuffer dataBuffer;
+        List<ByteBuffer> dataBufferList = new ArrayList<>();
+        while (true) {
+            headerBuffer = ByteBuffer.wrap(new byte[8]);
+            headerBuffer.order(ByteOrder.nativeOrder());
+            headerBuffer.clear();
+            int bufferHeaderResult = inputStream.read(headerBuffer.array());
+            if (bufferHeaderResult == -1) {
+                break;
+            }
+            final BufferHeader header;
+            try {
+                header = parseBufferHeader(headerBuffer);
+            } catch (BufferUnderflowException | IllegalArgumentException e) {
+                // buffer underflow if header buffer is undersized
+                // IllegalArgumentException if size is outside memory segment size
+                throwCorruptDataException();
+                break;
+            }
+            dataBuffer = ByteBuffer.wrap(new byte[header.getLength()]);
+            assertThat(header.getLength()).isGreaterThan(0);
+            int dataBufferResult = inputStream.read(dataBuffer.array(), 0, header.getLength());
+            assertThat(dataBufferResult).isNotEqualTo(-1);
+            dataBufferList.add(dataBuffer);
+        }
+        return dataBufferList;
+    }
+
+    private void readFromRemoteTier(
+            Tuple2<ResultSubpartitionView, TestingBufferAvailabilityListener>[] viewAndListeners,
+            int expectSegmentIndex)
+            throws Exception {
+        CheckedThread[] subpartitionViewThreads = new CheckedThread[viewAndListeners.length];
+        for (int i = 0; i < viewAndListeners.length; i++) {
+            // start thread for each view.
+            final int subpartition = i;
+            CheckedThread subpartitionViewThread =
+                    new CheckedThread() {
+                        @Override
+                        public void go() throws Exception {
+                            TieredStoreSubpartitionViewDelegate view = (TieredStoreSubpartitionViewDelegate) viewAndListeners[subpartition].f0;
+                            view.notifyRequiredSegmentId(Integer.MAX_VALUE);
+                            while (true) {
+                                view.getNextBuffer();
+                                if (((TieredStoreConsumerImpl) view.getStoreConsumer()).getCurrentSegmentIndex()
+                                        == expectSegmentIndex) {
+                                    break;
+                                }
+                            }
+                        }
+                    };
+            subpartitionViewThreads[subpartition] = subpartitionViewThread;
+            subpartitionViewThread.start();
+        }
+        for (CheckedThread thread : subpartitionViewThreads) {
+            thread.sync();
+        }
     }
 
     private long readData(
@@ -556,6 +694,7 @@ class TieredStoreResultPartitionTest {
                         TieredStoreConfiguration.builder(
                                         numSubpartitions, readBufferPool.getNumBuffersPerRequest())
                                 .setTieredStoreTiers(tieredStoreTiers)
+                                .setBaseDfsHomePath(tempDataPath.toString())
                                 .build(),
                         new BufferCompressor(bufferSize, "LZ4"),
                         () -> bufferPool);

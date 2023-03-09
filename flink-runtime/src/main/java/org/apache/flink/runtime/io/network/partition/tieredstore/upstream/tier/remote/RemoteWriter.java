@@ -33,10 +33,6 @@ public class RemoteWriter implements TierWriter {
 
     public static final int BROADCAST_CHANNEL = 0;
 
-    private final int numSubpartitions;
-
-    private final boolean isBroadcastOnly;
-
     // Record the byte number currently written to each sub partition.
     private final int[] numSubpartitionEmitBytes;
 
@@ -44,16 +40,13 @@ public class RemoteWriter implements TierWriter {
 
     private final RemoteCacheManager cacheDataManager;
 
-    private final int numBytesInASegment;
+    private int numBytesInASegment;
 
     public RemoteWriter(
             int numSubpartitions,
-            boolean isBroadcastOnly,
             SubpartitionSegmentIndexTracker segmentIndexTracker,
             RemoteCacheManager remoteCacheManager,
             int numBytesInASegment) {
-        this.numSubpartitions = numSubpartitions;
-        this.isBroadcastOnly = isBroadcastOnly;
         this.segmentIndexTracker = segmentIndexTracker;
         this.cacheDataManager = remoteCacheManager;
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
@@ -82,12 +75,12 @@ public class RemoteWriter implements TierWriter {
         }
 
         if (!segmentIndexTracker.hasCurrentSegment(targetSubpartition, segmentIndex)) {
+            segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentIndex);
             cacheDataManager.startSegment(targetSubpartition, segmentIndex);
         }
         emit(record, targetSubpartition, dataType, isLastRecordInSegment);
         if (isLastRecordInSegment || isEndOfPartition) {
             cacheDataManager.finishSegment(targetSubpartition, segmentIndex);
-            segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentIndex);
         }
 
         return isLastRecordInSegment;
@@ -110,5 +103,15 @@ public class RemoteWriter implements TierWriter {
     @Override
     public void close() {
         cacheDataManager.close();
+    }
+
+    @Override
+    public int getNewSegmentSize() {
+        return numBytesInASegment;
+    }
+
+    @Override
+    public void setNumBytesInASegment(int numBytesInASegment) {
+        this.numBytesInASegment = numBytesInASegment;
     }
 }

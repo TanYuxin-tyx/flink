@@ -79,8 +79,8 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     @VisibleForTesting
     @Override
     public void setNumBytesInASegment(int numBytesInASegment) {
-        for (int i = 0; i < tierDataGates.length; i++) {
-            tierDataGates[i].setNumBytesInASegment(numBytesInASegment);
+        for (int i = 0; i < tierWriters.length; i++) {
+            tierWriters[i].setNumBytesInASegment(numBytesInASegment);
         }
     }
 

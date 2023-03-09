@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
@@ -123,5 +124,10 @@ class TieredStoreSubpartitionViewDelegate implements ResultSubpartitionView {
     public void notifyRequiredSegmentId(int segmentId) {
         storeConsumer.updateConsumedSegmentIndex(segmentId);
         storeConsumer.forceNotifyAvailable();
+    }
+
+    @VisibleForTesting
+    public TieredStoreConsumer getStoreConsumer() {
+        return storeConsumer;
     }
 }

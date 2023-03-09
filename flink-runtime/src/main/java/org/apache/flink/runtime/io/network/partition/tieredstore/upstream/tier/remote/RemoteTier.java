@@ -96,8 +96,7 @@ public class RemoteTier implements StorageTier {
 
     @Override
     public TierWriter createPartitionTierWriter() throws IOException {
-        return new RemoteWriter(
-                numSubpartitions, isBroadcastOnly, segmentIndexTracker, remoteCacheManager, numBytesInASegment);
+        return new RemoteWriter(numSubpartitions, segmentIndexTracker, remoteCacheManager, numBytesInASegment);
     }
 
     @Override
@@ -126,16 +125,6 @@ public class RemoteTier implements StorageTier {
     @Override
     public boolean canStoreNextSegment(int subpartitionId) {
         return true;
-    }
-
-    @Override
-    public int getNewSegmentSize() {
-        return numBytesInASegment;
-    }
-
-    @Override
-    public void setNumBytesInASegment(int numBytesInASegment) {
-        this.numBytesInASegment = numBytesInASegment;
     }
 
     @Override
