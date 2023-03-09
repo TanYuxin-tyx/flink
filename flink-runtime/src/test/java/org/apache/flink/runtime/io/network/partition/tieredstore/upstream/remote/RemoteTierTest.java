@@ -57,22 +57,14 @@ class RemoteTierTest {
         assertThat(dataManager.canStoreNextSegment(0)).isTrue();
     }
 
-    @Test
-    void testDataManagerHasSegment() throws Exception {
-        //RemoteTier dataManager = createDfsDataManager();
-        //TierWriter writer = dataManager.createPartitionTierWriter();
-        //assertThat(dataManager.hasCurrentSegment(0, 0)).isFalse();
-        //writer.emit(createRecord(0), 0, Buffer.DataType.DATA_BUFFER, false, false, false, 0);
-        //assertThat(dataManager.hasCurrentSegment(0, 0)).isTrue();
-    }
-
     private RemoteTier createDfsDataManager() throws IOException {
         int bufferSize = Integer.BYTES * 3;
         int poolSize = 10;
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
         TieredStoreMemoryManager tieredStoreMemoryManager =
-                new UpstreamTieredStoreMemoryManager(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+                new UpstreamTieredStoreMemoryManager(
+                        bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
         return new RemoteTier(
                 JobID.generate(),
                 NUM_SUBPARTITIONS,
