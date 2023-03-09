@@ -168,11 +168,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     // ------------------------------------
 
     @Override
-    public void markBufferReleasedFromFile(int subpartitionId, int bufferIndex) {
-        regionBufferIndexTracker.markBufferReleased(subpartitionId, bufferIndex);
-    }
-
-    @Override
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment =
                 tieredStoreMemoryManager.requestMemorySegmentBlocking(

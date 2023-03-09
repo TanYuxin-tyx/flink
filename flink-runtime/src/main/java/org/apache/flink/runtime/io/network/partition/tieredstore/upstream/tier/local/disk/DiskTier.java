@@ -273,6 +273,7 @@ public class DiskTier implements TierWriter, StorageTier {
             diskReaderManager.release();
             checkNotNull(diskCacheManager).release();
             segmentIndexTracker.release();
+            regionBufferIndexTracker.release();
             isReleased = true;
         }
     }
