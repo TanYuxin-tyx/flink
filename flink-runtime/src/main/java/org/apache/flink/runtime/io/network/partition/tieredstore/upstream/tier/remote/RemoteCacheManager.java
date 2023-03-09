@@ -110,7 +110,6 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
                             resultPartitionID,
                             subpartitionId,
                             bufferSize,
-                            isBroadcastOnly,
                             tieredStoreMemoryManager,
                             cacheFlushManager,
                             baseDfsPath,

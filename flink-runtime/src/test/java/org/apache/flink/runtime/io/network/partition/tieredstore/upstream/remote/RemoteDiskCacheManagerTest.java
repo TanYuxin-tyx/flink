@@ -75,20 +75,19 @@ class RemoteDiskCacheManagerTest {
     }
 
     @Test
-    void testStartSegment() throws Exception {
+    void testStartSegmentInMultiTimes() throws Exception {
         bufferSize = Integer.BYTES * 3;
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
         TieredStoreMemoryManager tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
         RemoteCacheManager cacheDataManager = createDfsCacheDataManager(tieredStoreMemoryManager);
-
         cacheDataManager.startSegment(0, 0);
         assertThrows(IllegalStateException.class, () -> cacheDataManager.startSegment(0, 0));
     }
 
     @Test
-    void testFinishSegment() throws Exception {
+    void testFinishSegmentInMultiTimes() throws Exception {
         bufferSize = Integer.BYTES * 3;
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
