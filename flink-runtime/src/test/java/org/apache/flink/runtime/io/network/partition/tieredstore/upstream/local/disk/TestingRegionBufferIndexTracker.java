@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local.disk;
 
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.function.TriFunction;
 
@@ -47,7 +48,10 @@ public class TestingRegionBufferIndexTracker implements RegionBufferIndexTracker
 
     @Override
     public Optional<ReadableRegion> getReadableRegion(
-            int subpartitionId, int bufferIndex, int consumingOffset) {
+            int subpartitionId,
+            int bufferIndex,
+            int consumingOffset,
+            TierReaderViewId tierReaderViewId) {
         return getReadableRegionFunction.apply(subpartitionId, bufferIndex, consumingOffset);
     }
 
@@ -57,12 +61,7 @@ public class TestingRegionBufferIndexTracker implements RegionBufferIndexTracker
     }
 
     @Override
-    public void markBufferReleased(int subpartitionId, int bufferIndex) {
-        markBufferReadableConsumer.accept(subpartitionId, bufferIndex);
-    }
-
-    @Override
-    public void clear() {}
+    public void release() {}
 
     public static Builder builder() {
         return new Builder();

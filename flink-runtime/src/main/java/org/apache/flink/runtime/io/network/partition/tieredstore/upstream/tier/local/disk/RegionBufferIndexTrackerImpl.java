@@ -18,43 +18,47 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk;
 
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+
 import javax.annotation.concurrent.GuardedBy;
-import javax.annotation.concurrent.ThreadSafe;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TreeMap;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** Default implementation of {@link RegionBufferIndexTracker}. */
-@ThreadSafe
 public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
 
     @GuardedBy("lock")
-    private final List<TreeMap<Integer, InternalRegion>>
-            subpartitionFirstBufferIndexInternalRegions;
+    private final List<List<InternalRegion>> subpartitionFirstBufferIndexInternalRegions;
+
+    private final List<Map<TierReaderViewId, Integer>> lastestIndexOfReader;
 
     private final Object lock = new Object();
 
     public RegionBufferIndexTrackerImpl(int numSubpartitions) {
-        this.subpartitionFirstBufferIndexInternalRegions = new ArrayList<>(numSubpartitions);
+        this.subpartitionFirstBufferIndexInternalRegions = new ArrayList<>();
+        this.lastestIndexOfReader = new ArrayList<>();
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
-            subpartitionFirstBufferIndexInternalRegions.add(new TreeMap<>());
+            subpartitionFirstBufferIndexInternalRegions.add(new ArrayList<>());
+            lastestIndexOfReader.add(new HashMap<>());
         }
     }
 
     @Override
     public Optional<ReadableRegion> getReadableRegion(
-            int subpartitionId, int bufferIndex, int consumingOffset) {
+            int subpartitionId,
+            int bufferIndex,
+            int consumingOffset,
+            TierReaderViewId tierReaderViewId) {
         synchronized (lock) {
-            return getInternalRegion(subpartitionId, bufferIndex)
+            return getInternalRegion(subpartitionId, bufferIndex, tierReaderViewId)
                     .map(
                             internalRegion ->
                                     internalRegion.toReadableRegion(bufferIndex, consumingOffset))
@@ -69,36 +73,37 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
         synchronized (lock) {
             subpartitionInternalRegions.forEach(
                     (subpartition, internalRegions) -> {
-                        TreeMap<Integer, InternalRegion> treeMap =
+                        List<InternalRegion> regionList =
                                 subpartitionFirstBufferIndexInternalRegions.get(subpartition);
-                        for (InternalRegion internalRegion : internalRegions) {
-                            treeMap.put(internalRegion.firstBufferIndex, internalRegion);
-                        }
+                        regionList.addAll(internalRegions);
                     });
         }
     }
 
     @Override
-    public void markBufferReleased(int subpartitionId, int bufferIndex) {
-        synchronized (lock) {
-            getInternalRegion(subpartitionId, bufferIndex)
-                    .ifPresent(internalRegion -> internalRegion.markBufferReleased(bufferIndex));
-        }
-    }
-
-    @Override
-    public void clear() {
+    public void release() {
         subpartitionFirstBufferIndexInternalRegions.clear();
+        lastestIndexOfReader.clear();
     }
 
     @GuardedBy("lock")
-    private Optional<InternalRegion> getInternalRegion(int subpartitionId, int bufferIndex) {
-        return Optional.ofNullable(
-                        subpartitionFirstBufferIndexInternalRegions
-                                .get(subpartitionId)
-                                .floorEntry(bufferIndex))
-                .map(Map.Entry::getValue)
-                .filter(internalRegion -> internalRegion.containBuffer(bufferIndex));
+    private Optional<InternalRegion> getInternalRegion(
+            int subpartitionId, int bufferIndex, TierReaderViewId tierReaderViewId) {
+        // return the latest region
+        int currentRegionIndex = lastestIndexOfReader
+                .get(subpartitionId)
+                .getOrDefault(tierReaderViewId, 0);
+        List<InternalRegion> currentRegions =
+                subpartitionFirstBufferIndexInternalRegions.get(subpartitionId);
+        while (currentRegionIndex < currentRegions.size()) {
+            InternalRegion internalRegion = currentRegions.get(currentRegionIndex);
+            if (internalRegion.containBuffer(bufferIndex)) {
+                return Optional.of(internalRegion);
+            }
+            ++currentRegionIndex;
+            lastestIndexOfReader.get(subpartitionId).put(tierReaderViewId, currentRegionIndex);
+        }
+        return Optional.empty();
     }
 
     private static Map<Integer, List<InternalRegion>> convertToInternalRegions(
@@ -178,14 +183,11 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
         private final int firstBufferIndex;
         private final long firstBufferOffset;
         private final int numBuffers;
-        private final boolean[] released;
 
         private InternalRegion(int firstBufferIndex, long firstBufferOffset, int numBuffers) {
             this.firstBufferIndex = firstBufferIndex;
             this.firstBufferOffset = firstBufferOffset;
             this.numBuffers = numBuffers;
-            this.released = new boolean[numBuffers];
-            Arrays.fill(released, false);
         }
 
         private boolean containBuffer(int bufferIndex) {
@@ -196,16 +198,12 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
             int nSkip = bufferIndex - firstBufferIndex;
             int nReadable = 0;
             while (nSkip + nReadable < numBuffers) {
-                if (!released[nSkip + nReadable] || (bufferIndex + nReadable) <= consumingOffset) {
+                if (bufferIndex + nReadable <= consumingOffset) {
                     break;
                 }
                 ++nReadable;
             }
             return new ReadableRegion(nSkip, nReadable, firstBufferOffset);
-        }
-
-        private void markBufferReleased(int bufferIndex) {
-            released[bufferIndex - firstBufferIndex] = true;
         }
     }
 }

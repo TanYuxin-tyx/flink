@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk;
 
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -44,7 +46,7 @@ public interface RegionBufferIndexTracker {
      *     index, if exist; otherwise, {@link Optional#empty()}.
      */
     Optional<ReadableRegion> getReadableRegion(
-            int subpartitionId, int bufferIndex, int consumingOffset);
+            int subpartitionId, int bufferIndex, int consumingOffset, TierReaderViewId tierReaderViewId);
 
     /**
      * Add buffers to the index.
@@ -56,15 +58,7 @@ public interface RegionBufferIndexTracker {
      */
     void addBuffers(List<SpilledBuffer> spilledBuffers);
 
-    /**
-     * Mark a buffer as RELEASED.
-     *
-     * @param subpartitionId that the buffer belongs to
-     * @param bufferIndex of the buffer within the subpartition
-     */
-    void markBufferReleased(int subpartitionId, int bufferIndex);
-
-    void clear();
+    void release();
 
     /**
      * Represents a series of physically continuous buffers in the file, which are readable, from
