@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -331,5 +332,10 @@ public class SubpartitionDiskCacheManager {
         } finally {
             subpartitionLock.unlock();
         }
+    }
+
+    @VisibleForTesting
+    public int getFinishedBufferIndex() {
+        return finishedBufferIndex;
     }
 }

@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
@@ -28,7 +29,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpillTrigger;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
@@ -44,7 +44,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.checkFlushCacheBuffers;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
 public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferSpillTrigger {
@@ -59,8 +58,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
-    private final AtomicInteger numUnSpillBuffers = new AtomicInteger(0);
-
     /**
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
@@ -68,7 +65,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     private final List<Map<TierReaderViewId, SubpartitionDiskReaderViewOperations>>
             subpartitionViewOperationsMap;
 
-    private AtomicInteger hasFlushCompleted = new AtomicInteger(0);
+    private final AtomicInteger hasFlushCompleted = new AtomicInteger(0);
 
     public DiskCacheManager(
             int numSubpartitions,
@@ -92,8 +89,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                             subpartitionId, bufferSize, bufferCompressor, this);
             subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
         }
-        //        bufferPoolHelper.registerSubpartitionTieredManager(
-        //                TieredStoreMode.TieredType.IN_LOCAL, this);
         cacheFlushManager.registerCacheSpillTrigger(this::flushCacheBuffers);
     }
 
@@ -127,24 +122,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
         }
     }
 
-    /**
-     * Register {@link SubpartitionDiskReaderViewOperations} to {@link
-     * #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of the
-     * subpartition.
-     */
-    public TierReader registerNewConsumer(
-            int subpartitionId,
-            TierReaderViewId tierReaderViewId,
-            SubpartitionDiskReaderViewOperations viewOperations) {
-        SubpartitionDiskReaderViewOperations oldView =
-                subpartitionViewOperationsMap
-                        .get(subpartitionId)
-                        .put(tierReaderViewId, viewOperations);
-        checkState(oldView == null, "Each subpartition view should have unique consumerId.");
-        // return getSubpartitionMemoryDataManager(subpartitionId).registerNewConsumer(consumerId);
-        return null;
-    }
-
     /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
     public void close() {
         flushAndReleaseCacheBuffers();
@@ -176,11 +153,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     @Override
     public int getNumSubpartitions() {
         return numSubpartitions;
-    }
-
-    @Override
-    public int getNumTotalUnSpillBuffers() {
-        return numUnSpillBuffers.get();
     }
 
     // Write lock should be acquired before invoke this method.
@@ -267,8 +239,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                     getSubpartitionMemoryDataManager(subpartitionId);
             bufferWithIdentities.addAll(
                     subpartitionDataManager.spillSubpartitionBuffers(buffersInOrder));
-            // decrease numUnSpillBuffers as this subpartition's buffer is spill.
-            numUnSpillBuffers.getAndAdd(-buffersInOrder.size());
         }
 
         if (!bufferWithIdentities.isEmpty()) {
@@ -285,5 +255,10 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     private void recycleBuffer(MemorySegment buffer) {
         tieredStoreMemoryManager.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_LOCAL);
+    }
+
+    @VisibleForTesting
+    public SubpartitionDiskCacheManager[] getSubpartitionDiskCacheManagers() {
+        return subpartitionDiskCacheManagers;
     }
 }
