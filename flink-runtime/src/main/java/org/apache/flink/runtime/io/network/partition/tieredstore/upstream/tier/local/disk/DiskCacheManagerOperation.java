@@ -26,8 +26,7 @@ import java.util.Collection;
 import java.util.Deque;
 
 /**
- * This interface is used by {@link SubpartitionConsumerCacheDataManager} to operate {@link
- * DiskCacheManager}. Spilling decision may be made and handled inside these operations.
+ * This interface is used by operate. Spilling decision may be made and handled inside these operations.
  */
 public interface DiskCacheManagerOperation {
     /**
@@ -39,8 +38,6 @@ public interface DiskCacheManagerOperation {
 
     /** Get all buffers from the subpartition. */
     Deque<BufferIndexAndChannel> getBuffersInOrder(int subpartitionId);
-
-    int getNumTotalUnSpillBuffers();
 
     /**
      * Get the current size of buffer pool. *
