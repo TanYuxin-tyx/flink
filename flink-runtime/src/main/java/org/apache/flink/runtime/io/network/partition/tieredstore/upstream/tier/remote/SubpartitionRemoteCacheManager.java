@@ -118,28 +118,26 @@ public class SubpartitionRemoteCacheManager {
 
     @Nullable private OutputMetrics outputMetrics;
 
+    private boolean isSegmentStarted = false;
+
     private volatile boolean isClosed;
 
     private volatile boolean isReleased;
 
     private CompletableFuture<Void> hasFlushCompleted = FutureUtils.completedVoidFuture();
 
-    private final boolean isBroadcastOnly;
-
     public SubpartitionRemoteCacheManager(
             JobID jobID,
             ResultPartitionID resultPartitionID,
             int targetChannel,
             int bufferSize,
-            boolean isBroadcastOnly,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
             String baseDfsPath,
             Lock resultPartitionLock,
             @Nullable BufferCompressor bufferCompressor,
             RemoteCacheManagerOperation cacheDataManagerOperation,
-            ExecutorService ioExecutor)
-            throws IOException {
+            ExecutorService ioExecutor) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
@@ -150,7 +148,6 @@ public class SubpartitionRemoteCacheManager {
         this.cacheBufferSpiller =
                 new RemoteCacheBufferSpiller(
                         jobID, resultPartitionID, targetChannel, baseDfsPath, ioExecutor);
-        this.isBroadcastOnly = isBroadcastOnly;
         cacheFlushManager.registerCacheSpillTrigger(this::flushCachedBuffers);
     }
 
@@ -172,10 +169,14 @@ public class SubpartitionRemoteCacheManager {
     }
 
     public void startSegment(int segmentIndex) throws IOException {
+        checkState(!isSegmentStarted);
+        isSegmentStarted = true;
         cacheBufferSpiller.startSegment(segmentIndex);
     }
 
     public void finishSegment(int segmentIndex) {
+        checkState(isSegmentStarted);
+        isSegmentStarted = false;
         List<TierReaderViewId> needNotify = new ArrayList<>(consumerMap.size());
         runWithLock(
                 () -> {
@@ -191,8 +192,7 @@ public class SubpartitionRemoteCacheManager {
                     cacheBufferSpiller.finishSegment(segmentIndex);
                     LOG.debug("%%% Dfs generate2");
                     BufferContext segmentInfoBufferContext =
-                            new BufferContext(
-                                    null, finishedSegmentInfoIndex, targetChannel, true);
+                            new BufferContext(null, finishedSegmentInfoIndex, targetChannel, true);
                     allSegmentInfos.add(segmentInfoBufferContext);
                     ++finishedSegmentInfoIndex;
                     checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
@@ -417,9 +417,7 @@ public class SubpartitionRemoteCacheManager {
         if (bufferContext == null) {
             return Optional.empty();
         }
-        return bufferContext.startSpilling()
-                ? Optional.of(bufferContext)
-                : Optional.empty();
+        return bufferContext.startSpilling() ? Optional.of(bufferContext) : Optional.empty();
     }
 
     private CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>>
