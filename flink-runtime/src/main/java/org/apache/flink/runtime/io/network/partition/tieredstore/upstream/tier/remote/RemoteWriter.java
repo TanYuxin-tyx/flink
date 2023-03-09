@@ -98,6 +98,7 @@ public class RemoteWriter implements TierWriter {
     @Override
     public void release() {
         cacheDataManager.release();
+        segmentIndexTracker.release();
     }
 
     @Override
