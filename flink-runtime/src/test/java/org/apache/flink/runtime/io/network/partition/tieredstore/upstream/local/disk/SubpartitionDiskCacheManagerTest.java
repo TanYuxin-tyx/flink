@@ -18,21 +18,14 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local.disk;
 
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.core.memory.MemorySegment;
-import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
-import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManagerOperation;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.SubpartitionDiskCacheManager;
@@ -44,14 +37,9 @@ import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.createBufferBuilder;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.createTestingOutputMetrics;
@@ -59,6 +47,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /** Tests for {@link SubpartitionDiskCacheManager}. */
 class SubpartitionDiskCacheManagerTest {
+
     private static final int SUBPARTITION_ID = 0;
 
     private static final int RECORD_SIZE = Long.BYTES;
@@ -102,154 +91,21 @@ class SubpartitionDiskCacheManagerTest {
     @Test
     void testAppendEventFinishCurrentBuffer() throws Exception {
         bufferSize = RECORD_SIZE * 3;
-        AtomicInteger finishedBuffers = new AtomicInteger(0);
         DiskCacheManagerOperation diskCacheManagerOperation =
                 TestingDiskCacheManagerOperation.builder()
                         .setRequestBufferFromPoolSupplier(() -> createBufferBuilder(bufferSize))
-                        .setOnBufferFinishedRunnable(finishedBuffers::incrementAndGet)
                         .build();
         SubpartitionDiskCacheManager subpartitionDiskCacheManager =
                 createSubpartitionMemoryDataManager(diskCacheManagerOperation);
         subpartitionDiskCacheManager.append(createRecord(0), DataType.DATA_BUFFER, false);
         subpartitionDiskCacheManager.append(createRecord(1), DataType.DATA_BUFFER, false);
-        assertThat(finishedBuffers).hasValue(0);
+        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(0);
         subpartitionDiskCacheManager.append(createRecord(2), DataType.EVENT_BUFFER, false);
-        assertThat(finishedBuffers).hasValue(2);
+        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(2);
     }
-
-    // @ParameterizedTest
-    // @ValueSource(strings = {"LZ4", "LZO", "ZSTD", "NULL"})
-    // @Ignore
-    // void testCompressBufferAndConsume(String compressionFactoryName) throws Exception {
-    //    final int numDataBuffers = 10;
-    //    final int numRecordsPerBuffer = 10;
-    //    // write numRecordsPerBuffer long record to one buffer, as a single long is
-    //    // incompressible.
-    //    bufferSize = RECORD_SIZE * numRecordsPerBuffer;
-    //    BufferCompressor bufferCompressor =
-    //            compressionFactoryName.equals("NULL")
-    //                    ? null
-    //                    : new BufferCompressor(bufferSize, compressionFactoryName);
-    //    BufferDecompressor bufferDecompressor =
-    //            compressionFactoryName.equals("NULL")
-    //                    ? null
-    //                    : new BufferDecompressor(bufferSize, compressionFactoryName);
-    //
-    //    List<BufferIndexAndChannel> consumedBufferIndexAndChannel = new ArrayList<>();
-    //    TestingCacheDataManagerOperation memoryDataManagerOperation =
-    //            TestingCacheDataManagerOperation.builder()
-    //                    .setRequestBufferFromPoolSupplier(() -> createBufferBuilder(bufferSize))
-    //                    .setOnBufferConsumedConsumer(consumedBufferIndexAndChannel::add)
-    //                    .build();
-    //    SubpartitionCacheDataManager subpartitionCacheDataManager =
-    //            createSubpartitionMemoryDataManager(memoryDataManagerOperation, bufferCompressor);
-    //    List<Tuple2<Long, DataType>> expectedRecords = new ArrayList<>();
-    //
-    //    long recordValue = 0L;
-    //    for (int i = 0; i < numDataBuffers; i++) {
-    //        for (int j = 0; j < numRecordsPerBuffer; j++) {
-    //            subpartitionCacheDataManager.append(
-    //                    createRecord(recordValue), DataType.DATA_BUFFER, false);
-    //            expectedRecords.add(Tuple2.of(recordValue++, DataType.DATA_BUFFER));
-    //        }
-    //    }
-    //    subpartitionCacheDataManager.append(
-    //            createRecord(recordValue), DataType.EVENT_BUFFER, false);
-    //    expectedRecords.add(Tuple2.of(recordValue, DataType.EVENT_BUFFER));
-    //
-    //    SubpartitionConsumerCacheDataManager consumer = null;
-    //    ArrayList<Optional<BufferAndBacklog>> bufferAndBacklogOpts = new ArrayList<>();
-    //    for (int i = 0; i < numDataBuffers + 1; i++) {
-    //        bufferAndBacklogOpts.add(consumer.consumeBuffer(i, new ArrayDeque<>()));
-    //    }
-    //    checkConsumedBufferAndNextDataType(
-    //            numRecordsPerBuffer, bufferDecompressor, expectedRecords, bufferAndBacklogOpts);
-    //
-    //    List<BufferIndexAndChannel> expectedBufferIndexAndChannel =
-    //            TieredStoreTestUtils.createBufferIndexAndChannelsList(
-    //                    0, IntStream.range(0, numDataBuffers + 1).toArray());
-    //    assertThat(consumedBufferIndexAndChannel)
-    //            .zipSatisfy(
-    //                    expectedBufferIndexAndChannel,
-    //                    (consumed, expected) -> {
-    //                        assertThat(consumed.getChannel()).isEqualTo(expected.getChannel());
-    //                        assertThat(consumed.getBufferIndex())
-    //                                .isEqualTo(expected.getBufferIndex());
-    //                    });
-    // }
-
-    // @Test
-    // void testGetBuffersSatisfyStatus() throws Exception {
-    //    TestingCacheDataManagerOperation memoryDataManagerOperation =
-    //            TestingCacheDataManagerOperation.builder()
-    //                    .setRequestBufferFromPoolSupplier(() -> createBufferBuilder(RECORD_SIZE))
-    //                    .build();
-    //    SubpartitionCacheDataManager subpartitionCacheDataManager =
-    //            createSubpartitionMemoryDataManager(memoryDataManagerOperation);
-    //    // SubpartitionConsumerCacheDataManager consumer =
-    //    //        subpartitionCacheDataManager.registerNewConsumer(ConsumerId.DEFAULT);
-    //    SubpartitionConsumerCacheDataManager consumer = null;
-    //    final int numBuffers = 4;
-    //    for (int i = 0; i < numBuffers; i++) {
-    //        subpartitionCacheDataManager.append(createRecord(i), DataType.DATA_BUFFER, false);
-    //    }
-    //
-    //    // spill buffer 1 and 2
-    //    List<BufferIndexAndChannel> toStartSpilling =
-    //            TieredStoreTestUtils.createBufferIndexAndChannelsList(0, 1, 2);
-    //    CompletableFuture<Void> spilledDoneFuture = new CompletableFuture<>();
-    //    subpartitionCacheDataManager.spillSubpartitionBuffers(toStartSpilling, spilledDoneFuture);
-    //
-    //    // consume buffer 0, 1
-    //    consumer.consumeBuffer(0, new ArrayDeque<>());
-    //    consumer.consumeBuffer(1, new ArrayDeque<>());
-    //
-    //    checkBufferIndex(
-    //            subpartitionCacheDataManager.getBuffersSatisfyStatus(
-    //                    BufferSpillingInfoProvider.SpillStatus.ALL, ALL_ANY),
-    //            Arrays.asList(0, 1, 2, 3));
-    //    checkBufferIndex(
-    //            subpartitionCacheDataManager.getBuffersSatisfyStatus(
-    //                    SpillStatus.ALL,
-    //                    fromStatusAndConsumerId(ConsumeStatus.CONSUMED, ConsumerId.DEFAULT)),
-    //            Arrays.asList(0, 1));
-    //    checkBufferIndex(
-    //            subpartitionCacheDataManager.getBuffersSatisfyStatus(
-    //                    SpillStatus.ALL,
-    //                    fromStatusAndConsumerId(ConsumeStatus.NOT_CONSUMED, ConsumerId.DEFAULT)),
-    //            Arrays.asList(2, 3));
-    //    checkBufferIndex(
-    //            subpartitionCacheDataManager.getBuffersSatisfyStatus(SpillStatus.SPILL, ALL_ANY),
-    //            Arrays.asList(1, 2));
-    //    checkBufferIndex(
-    //            subpartitionCacheDataManager.getBuffersSatisfyStatus(
-    //                    SpillStatus.NOT_SPILL, ALL_ANY),
-    //            Arrays.asList(0, 3));
-    //    checkBufferIndex(
-    //            subpartitionCacheDataManager.getBuffersSatisfyStatus(
-    //                    SpillStatus.SPILL,
-    //                    fromStatusAndConsumerId(ConsumeStatus.NOT_CONSUMED, ConsumerId.DEFAULT)),
-    //            Collections.singletonList(2));
-    //    checkBufferIndex(
-    //            subpartitionCacheDataManager.getBuffersSatisfyStatus(
-    //                    SpillStatus.SPILL,
-    //                    fromStatusAndConsumerId(ConsumeStatus.CONSUMED, ConsumerId.DEFAULT)),
-    //            Collections.singletonList(1));
-    //    checkBufferIndex(
-    //            subpartitionCacheDataManager.getBuffersSatisfyStatus(
-    //                    SpillStatus.NOT_SPILL,
-    //                    fromStatusAndConsumerId(ConsumeStatus.CONSUMED, ConsumerId.DEFAULT)),
-    //            Collections.singletonList(0));
-    //    checkBufferIndex(
-    //            subpartitionCacheDataManager.getBuffersSatisfyStatus(
-    //                    SpillStatus.NOT_SPILL,
-    //                    fromStatusAndConsumerId(ConsumeStatus.NOT_CONSUMED, ConsumerId.DEFAULT)),
-    //            Collections.singletonList(3));
-    // }
 
     @Test
     void testSpillSubpartitionBuffers() throws Exception {
-        CompletableFuture<Void> spilledDoneFuture = new CompletableFuture<>();
         TestingDiskCacheManagerOperation memoryDataManagerOperation =
                 TestingDiskCacheManagerOperation.builder()
                         .setRequestBufferFromPoolSupplier(() -> createBufferBuilder(RECORD_SIZE))
@@ -275,52 +131,7 @@ class SubpartitionDiskCacheManagerTest {
                             assertThat(expected.getChannel()).isEqualTo(spilled.getChannelIndex());
                         });
         List<Integer> expectedValues = Arrays.asList(0, 1, 2);
-        checkBuffersRefCountAndValue(buffers, Arrays.asList(2, 2, 2), expectedValues);
-        spilledDoneFuture.complete(null);
         checkBuffersRefCountAndValue(buffers, Arrays.asList(1, 1, 1), expectedValues);
-    }
-
-    @Test
-    void testReleaseAndMarkReadableSubpartitionBuffers() throws Exception {
-        int targetChannel = 0;
-        List<Integer> readableBufferIndex = new ArrayList<>();
-        List<MemorySegment> recycledBuffers = new ArrayList<>();
-        TestingDiskCacheManagerOperation memoryDataManagerOperation =
-                TestingDiskCacheManagerOperation.builder()
-                        .setRequestBufferFromPoolSupplier(
-                                () ->
-                                        new BufferBuilder(
-                                                MemorySegmentFactory.allocateUnpooledSegment(
-                                                        bufferSize),
-                                                recycledBuffers::add))
-                        .setMarkBufferReadableConsumer(
-                                (channel, bufferIndex) -> {
-                                    assertThat(channel).isEqualTo(targetChannel);
-                                    readableBufferIndex.add(bufferIndex);
-                                })
-                        .build();
-        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
-                createSubpartitionMemoryDataManager(memoryDataManagerOperation);
-        // append data
-        final int numBuffers = 3;
-        for (int i = 0; i < numBuffers; i++) {
-            subpartitionDiskCacheManager.append(createRecord(i), DataType.DATA_BUFFER, false);
-        }
-        // spill the last buffer and release all buffers.
-        List<BufferIndexAndChannel> toRelease =
-                TieredStoreTestUtils.createBufferIndexAndChannelsList(targetChannel, 0, 1, 2);
-        CompletableFuture<Void> spilledFuture = new CompletableFuture<>();
-        subpartitionDiskCacheManager.spillSubpartitionBuffers(
-                new ArrayDeque<>(toRelease.subList(numBuffers - 1, numBuffers)));
-        // subpartitionDiskCacheManager.releaseSubpartitionBuffers(toRelease);
-        assertThat(readableBufferIndex).isEmpty();
-        // not start spilling buffers should be recycled after release.
-        checkMemorySegmentValue(recycledBuffers, Arrays.asList(0, 1));
-
-        // after spill finished, need mark readable buffers should trigger notify.
-        spilledFuture.complete(null);
-        assertThat(readableBufferIndex).containsExactly(2);
-        checkMemorySegmentValue(recycledBuffers, Arrays.asList(0, 1, 2));
     }
 
     @Test
@@ -346,92 +157,6 @@ class SubpartitionDiskCacheManagerTest {
                 false);
         assertThat(metrics.getNumBuffersOut().getCount()).isEqualTo(2);
         assertThat(metrics.getNumBytesOut().getCount()).isEqualTo(recordSize + eventSize);
-    }
-
-    @Test
-    void testConsumerRegisterRepeatedly() {
-        TestingDiskCacheManagerOperation memoryDataManagerOperation =
-                TestingDiskCacheManagerOperation.builder().build();
-        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
-                createSubpartitionMemoryDataManager(memoryDataManagerOperation);
-
-        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(null);
-        // subpartitionCacheDataManager.registerNewConsumer(consumerId);
-        // assertThatThrownBy(() -> subpartitionCacheDataManager.registerNewConsumer(consumerId))
-        //        .isInstanceOf(IllegalStateException.class);
-    }
-
-    @Test
-    void testRegisterAndReleaseConsumer() {
-        TestingDiskCacheManagerOperation memoryDataManagerOperation =
-                TestingDiskCacheManagerOperation.builder().build();
-        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
-                createSubpartitionMemoryDataManager(memoryDataManagerOperation);
-
-        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(null);
-        // subpartitionCacheDataManager.registerNewConsumer(consumerId);
-        // subpartitionCacheDataManager.releaseConsumer(consumerId);
-        // assertThatNoException()
-        //        .isThrownBy(() -> subpartitionCacheDataManager.registerNewConsumer(consumerId));
-    }
-
-    private static void checkBufferIndex(
-            Deque<BufferIndexAndChannel> bufferWithIdentities, List<Integer> expectedIndexes) {
-        List<Integer> bufferIndexes =
-                bufferWithIdentities.stream()
-                        .map(BufferIndexAndChannel::getBufferIndex)
-                        .collect(Collectors.toList());
-        assertThat(bufferIndexes).isEqualTo(expectedIndexes);
-    }
-
-    private static void checkMemorySegmentValue(
-            List<MemorySegment> memorySegments, List<Integer> expectedValues) {
-        for (int i = 0; i < memorySegments.size(); i++) {
-            assertThat(memorySegments.get(i).getInt(0)).isEqualTo(expectedValues.get(i));
-        }
-    }
-
-    private static void checkConsumedBufferAndNextDataType(
-            int numRecordsPerBuffer,
-            BufferDecompressor bufferDecompressor,
-            List<Tuple2<Long, DataType>> expectedRecords,
-            List<Optional<BufferAndBacklog>> bufferAndBacklogOpt) {
-        for (int i = 0; i < bufferAndBacklogOpt.size(); i++) {
-            final int bufferIndex = i;
-            assertThat(bufferAndBacklogOpt.get(bufferIndex))
-                    .hasValueSatisfying(
-                            (bufferAndBacklog -> {
-                                Buffer buffer = bufferAndBacklog.buffer();
-                                if (buffer.isCompressed()) {
-                                    assertThat(bufferDecompressor).isNotNull();
-                                    buffer =
-                                            bufferDecompressor.decompressToIntermediateBuffer(
-                                                    buffer);
-                                }
-                                ByteBuffer byteBuffer =
-                                        buffer.getNioBufferReadable()
-                                                .order(ByteOrder.LITTLE_ENDIAN);
-                                int recordIndex = bufferIndex * numRecordsPerBuffer;
-                                while (byteBuffer.hasRemaining()) {
-                                    long value = byteBuffer.getLong();
-                                    DataType dataType = buffer.getDataType();
-                                    assertThat(value)
-                                            .isEqualTo(expectedRecords.get(recordIndex).f0);
-                                    assertThat(dataType)
-                                            .isEqualTo(expectedRecords.get(recordIndex).f1);
-                                    recordIndex++;
-                                }
-
-                                if (bufferIndex != bufferAndBacklogOpt.size() - 1) {
-                                    assertThat(bufferAndBacklog.getNextDataType())
-                                            .isEqualTo(expectedRecords.get(recordIndex).f1);
-                                } else {
-                                    assertThat(bufferAndBacklog.getNextDataType())
-                                            .isEqualTo(DataType.NONE);
-                                }
-                                buffer.recycleBuffer();
-                            }));
-        }
     }
 
     private static void checkBuffersRefCountAndValue(
