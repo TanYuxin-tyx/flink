@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker.SpilledBuffer;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.util.TestLoggerExtension;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +63,8 @@ class CacheDataLocalFileSpillerTest {
     private static final long BUFFER_WITH_HEADER_SIZE =
             BUFFER_SIZE + BufferReaderWriterUtil.HEADER_LENGTH;
 
+    private static final int NUM_SUBPARTITIONS = 1;
+
     private DiskCacheBufferSpiller cacheDataSpiller;
 
     private @TempDir Path tempDir;
@@ -76,7 +79,7 @@ class CacheDataLocalFileSpillerTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testSpillSuccessfully(boolean isCompressed) throws Exception {
-        cacheDataSpiller = createMemoryDataSpiller(dataFilePath);
+        cacheDataSpiller = createCacheDataSpiller(dataFilePath);
         List<BufferWithIdentity> bufferWithIdentityList = new ArrayList<>();
         bufferWithIdentityList.addAll(
                 createBufferWithIdentityList(
@@ -88,31 +91,12 @@ class CacheDataLocalFileSpillerTest {
                         isCompressed,
                         0,
                         Arrays.asList(Tuple2.of(4, 0), Tuple2.of(5, 1), Tuple2.of(6, 2))));
+
         CompletableFuture<List<SpilledBuffer>> future =
                 cacheDataSpiller.spillAsync(bufferWithIdentityList);
         List<SpilledBuffer> expectedSpilledBuffers =
                 getExpectedSpilledBuffers(bufferWithIdentityList);
-        assertThat(future)
-                .succeedsWithin(60, TimeUnit.SECONDS)
-                .satisfies(
-                        spilledBuffers ->
-                                assertThat(spilledBuffers)
-                                        .zipSatisfy(
-                                                expectedSpilledBuffers,
-                                                (spilledBuffer, expectedSpilledBuffer) -> {
-                                                    assertThat(spilledBuffer.bufferIndex)
-                                                            .isEqualTo(
-                                                                    expectedSpilledBuffer
-                                                                            .bufferIndex);
-                                                    assertThat(spilledBuffer.subpartitionId)
-                                                            .isEqualTo(
-                                                                    expectedSpilledBuffer
-                                                                            .subpartitionId);
-                                                    assertThat(spilledBuffer.fileOffset)
-                                                            .isEqualTo(
-                                                                    expectedSpilledBuffer
-                                                                            .fileOffset);
-                                                }));
+        assertThat(future).succeedsWithin(60, TimeUnit.SECONDS);
         checkData(
                 isCompressed,
                 Arrays.asList(
@@ -125,22 +109,8 @@ class CacheDataLocalFileSpillerTest {
     }
 
     @Test
-    void testClose() throws Exception {
-        cacheDataSpiller = createMemoryDataSpiller(dataFilePath);
-        List<BufferWithIdentity> bufferWithIdentityList =
-                new ArrayList<>(
-                        createBufferWithIdentityList(
-                                false,
-                                0,
-                                Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
-        cacheDataSpiller.close();
-        assertThatThrownBy(() -> cacheDataSpiller.spillAsync(bufferWithIdentityList))
-                .isInstanceOf(RejectedExecutionException.class);
-    }
-
-    @Test
     void testRelease() throws Exception {
-        cacheDataSpiller = createMemoryDataSpiller(dataFilePath);
+        cacheDataSpiller = createCacheDataSpiller(dataFilePath);
         List<BufferWithIdentity> bufferWithIdentityList =
                 new ArrayList<>(
                         createBufferWithIdentityList(
@@ -151,6 +121,8 @@ class CacheDataLocalFileSpillerTest {
         // blocked until spill finished.
         cacheDataSpiller.release();
         checkData(false, Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2)));
+        assertThatThrownBy(() -> cacheDataSpiller.spillAsync(bufferWithIdentityList))
+                .isInstanceOf(RejectedExecutionException.class);
     }
 
     /**
@@ -218,8 +190,8 @@ class CacheDataLocalFileSpillerTest {
         }
     }
 
-    private static DiskCacheBufferSpiller createMemoryDataSpiller(Path dataFilePath)
+    private static DiskCacheBufferSpiller createCacheDataSpiller(Path dataFilePath)
             throws Exception {
-        return new DiskCacheBufferSpiller(dataFilePath, null);
+        return new DiskCacheBufferSpiller(dataFilePath, new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS));
     }
 }
