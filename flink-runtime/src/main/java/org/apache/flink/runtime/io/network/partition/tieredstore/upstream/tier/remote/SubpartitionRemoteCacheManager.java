@@ -113,7 +113,7 @@ public class SubpartitionRemoteCacheManager {
     private final ReentrantReadWriteLock subpartitionLock = new ReentrantReadWriteLock();
 
     @GuardedBy("subpartitionLock")
-    private final Map<TierReaderViewId, SubpartitionRemoteReader> consumerMap;
+    private final Map<TierReaderViewId, RemoteTierReader> consumerMap;
 
     @Nullable private final BufferCompressor bufferCompressor;
 
@@ -199,7 +199,7 @@ public class SubpartitionRemoteCacheManager {
                     checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
                     LOG.debug("%%% Dfs generate3 {}", consumerMap.entrySet().size());
                     // notify downstream
-                    for (Map.Entry<TierReaderViewId, SubpartitionRemoteReader> consumerEntry :
+                    for (Map.Entry<TierReaderViewId, RemoteTierReader> consumerEntry :
                             consumerMap.entrySet()) {
                         if (consumerEntry.getValue().addBuffer(segmentInfoBufferContext)) {
                             needNotify.add(consumerEntry.getKey());
@@ -227,12 +227,12 @@ public class SubpartitionRemoteCacheManager {
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
-    public SubpartitionRemoteReader registerNewConsumer(TierReaderViewId tierReaderViewId) {
+    public RemoteTierReader registerNewConsumer(TierReaderViewId tierReaderViewId) {
         return callWithLock(
                 () -> {
                     checkState(!consumerMap.containsKey(tierReaderViewId));
-                    SubpartitionRemoteReader newConsumer =
-                            new SubpartitionRemoteReader(
+                    RemoteTierReader newConsumer =
+                            new RemoteTierReader(
                                     resultPartitionLock,
                                     subpartitionLock.readLock(),
                                     targetChannel,
