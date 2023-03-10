@@ -118,7 +118,7 @@ public class RemoteTier implements StorageTier {
                 remoteCacheManager.registerNewConsumer(
                         subpartitionId, tierReaderViewId, remoteTIerReaderView);
 
-        remoteTIerReaderView.setDfsDataView(remoteReader);
+        remoteTIerReaderView.setRemoteTierReader(remoteReader);
         return remoteTIerReaderView;
     }
 
