@@ -18,31 +18,13 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory;
 
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
-import org.apache.flink.util.function.SupplierWithException;
 
-import javax.annotation.concurrent.GuardedBy;
-
-import java.util.Deque;
-import java.util.LinkedList;
-import java.util.Optional;
-import java.util.Queue;
 import java.util.concurrent.locks.Lock;
 
-import static org.apache.flink.util.Preconditions.checkNotNull;
-
 /** The {@link MemoryTierReader} is used to consume data from Memory Tier. */
-public class MemoryTierReader implements TierReader {
-
-    @GuardedBy("consumerLock")
-    private final Deque<BufferContext> unConsumedBuffers = new LinkedList<>();
-
-    private final Lock consumerLock;
+public class MemoryTierReader extends TierReaderImpl {
 
     private final TierReaderViewId tierReaderViewId;
 
@@ -55,95 +37,14 @@ public class MemoryTierReader implements TierReader {
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
             MemoryDataWriterOperation memoryDataWriterOperation) {
-        this.consumerLock = consumerLock;
+        super(consumerLock);
         this.subpartitionId = subpartitionId;
         this.tierReaderViewId = tierReaderViewId;
         this.memoryDataWriterOperation = memoryDataWriterOperation;
     }
 
-    @GuardedBy("consumerLock")
-    public void addInitialBuffers(Deque<BufferContext> buffers) {
-        unConsumedBuffers.addAll(buffers);
-    }
-
-    @GuardedBy("consumerLock")
-    public boolean addBuffer(BufferContext bufferContext) {
-        unConsumedBuffers.add(bufferContext);
-        trimHeadingReleasedBuffers();
-        return unConsumedBuffers.size() <= 1;
-    }
-
-    @SuppressWarnings("FieldAccessNotGuarded")
-    @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(
-            int toConsumeIndex, Queue<Buffer> errorBuffers) {
-        Optional<Tuple2<BufferContext, Buffer.DataType>> bufferAndNextDataType =
-                callWithLock(
-                        () -> {
-                            if (!checkFirstUnConsumedBufferIndex(toConsumeIndex)) {
-                                return Optional.empty();
-                            }
-                            BufferContext bufferContext =
-                                    checkNotNull(unConsumedBuffers.pollFirst());
-                            Buffer.DataType nextDataType =
-                                    peekNextToConsumeDataTypeInternal(toConsumeIndex + 1);
-                            return Optional.of(Tuple2.of(bufferContext, nextDataType));
-                        });
-        return bufferAndNextDataType.map(
-                tuple ->
-                        new ResultSubpartition.BufferAndBacklog(
-                                tuple.f0.getBuffer().readOnlySlice(),
-                                getBacklog(),
-                                tuple.f1,
-                                toConsumeIndex,
-                                tuple.f0.isLastBufferInSegment()));
-    }
-
-    @SuppressWarnings("FieldAccessNotGuarded")
-    @Override
-    public Buffer.DataType peekNextToConsumeDataType(
-            int nextToConsumeIndex, Queue<Buffer> errorBuffers) {
-        return callWithLock(() -> peekNextToConsumeDataTypeInternal(nextToConsumeIndex));
-    }
-
-    @GuardedBy("consumerLock")
-    private Buffer.DataType peekNextToConsumeDataTypeInternal(int nextToConsumeIndex) {
-        return checkFirstUnConsumedBufferIndex(nextToConsumeIndex)
-                ? checkNotNull(unConsumedBuffers.peekFirst()).getBuffer().getDataType()
-                : Buffer.DataType.NONE;
-    }
-
-    @GuardedBy("consumerLock")
-    private boolean checkFirstUnConsumedBufferIndex(int expectedBufferIndex) {
-        trimHeadingReleasedBuffers();
-        return !unConsumedBuffers.isEmpty()
-                && unConsumedBuffers.peekFirst().getBufferIndexAndChannel().getBufferIndex()
-                        == expectedBufferIndex;
-    }
-
-    @Override
-    public int getBacklog() {
-        return unConsumedBuffers.size();
-    }
-
     @Override
     public void releaseDataView() {
         memoryDataWriterOperation.onConsumerReleased(subpartitionId, tierReaderViewId);
-    }
-
-    @GuardedBy("consumerLock")
-    private void trimHeadingReleasedBuffers() {
-        while (!unConsumedBuffers.isEmpty() && unConsumedBuffers.peekFirst().isReleased()) {
-            unConsumedBuffers.removeFirst();
-        }
-    }
-
-    private <R, E extends Exception> R callWithLock(SupplierWithException<R, E> callable) throws E {
-        try {
-            consumerLock.lock();
-            return callable.get();
-        } finally {
-            consumerLock.unlock();
-        }
     }
 }
