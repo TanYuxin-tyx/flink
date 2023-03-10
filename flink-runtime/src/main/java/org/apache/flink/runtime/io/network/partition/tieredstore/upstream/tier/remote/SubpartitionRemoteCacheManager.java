@@ -62,6 +62,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -479,6 +480,8 @@ public class SubpartitionRemoteCacheManager {
         hasFlushCompleted.complete(null);
         try {
             flushCachedBuffers().get();
+        } catch (RejectedExecutionException je) {
+            LOG.debug("Failed to flush cached data because the spiller has been closed.", je);
         } catch (Exception e) {
             throw new RuntimeException(
                     "Flush data to dfs failed when DfsFileWriter is trying to close.", e);

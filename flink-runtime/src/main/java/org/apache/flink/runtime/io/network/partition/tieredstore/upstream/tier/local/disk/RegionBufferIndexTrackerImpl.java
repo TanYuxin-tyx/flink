@@ -89,10 +89,12 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
     @GuardedBy("lock")
     private Optional<InternalRegion> getInternalRegion(
             int subpartitionId, int bufferIndex, TierReaderViewId tierReaderViewId) {
+        if (subpartitionId >= lastestIndexOfReader.size()) {
+            return Optional.empty();
+        }
         // return the latest region
-        int currentRegionIndex = lastestIndexOfReader
-                .get(subpartitionId)
-                .getOrDefault(tierReaderViewId, 0);
+        int currentRegionIndex =
+                lastestIndexOfReader.get(subpartitionId).getOrDefault(tierReaderViewId, 0);
         List<InternalRegion> currentRegions =
                 subpartitionFirstBufferIndexInternalRegions.get(subpartitionId);
         while (currentRegionIndex < currentRegions.size()) {
