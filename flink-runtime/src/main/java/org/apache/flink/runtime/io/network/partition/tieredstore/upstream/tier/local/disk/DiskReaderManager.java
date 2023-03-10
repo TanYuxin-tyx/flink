@@ -264,25 +264,23 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
         } while (System.nanoTime() < timeoutTime
                 || System.nanoTime() < (timeoutTime = getBufferRequestTimeoutTime()));
 
-        if (numRequestedBuffers <= 0) {
-            // This is a safe net against potential deadlocks.
-            //
-            // A deadlock can happen when the downstream task needs to consume multiple result
-            // partitions (e.g., A and B) in specific order (cannot consume B before finishing
-            // consuming A). Since the reading buffer pool is shared across the TM, if B happens to
-            // take all the buffers, A cannot be consumed due to lack of buffers, which also blocks
-            // B from being consumed and releasing the buffers.
-            //
-            // The imperfect solution here is to fail all the subpartitionReaders (A), which
-            // consequently fail all the downstream tasks, unregister their other
-            // subpartitionReaders (B) and release the read buffers.
-            throw new TimeoutException(
-                    String.format(
-                            "Buffer request timeout, this means there is a fierce contention of"
-                                    + " the batch shuffle read memory, please increase '%s'.",
-                            TaskManagerOptions.NETWORK_BATCH_SHUFFLE_READ_MEMORY.key()));
-        }
-        return new ArrayDeque<>();
+        LOG.warn(
+                "1: "
+                        + (System.nanoTime() < timeoutTime)
+                        + "2:"
+                        + (System.nanoTime() < (timeoutTime = getBufferRequestTimeoutTime()))
+                        + ",current:"
+                        + System.nanoTime()
+                        + ", timeouttime fun: "
+                        + getBufferRequestTimeoutTime()
+                        + ", timeouttime val:"
+                        + timeoutTime);
+
+        throw new TimeoutException(
+                String.format(
+                        "Buffer request timeout, this means there is a fierce contention of"
+                                + " the batch shuffle read memory, please increase '%s'.",
+                        TaskManagerOptions.NETWORK_BATCH_SHUFFLE_READ_MEMORY.key()));
     }
 
     private void mayTriggerReading() {
