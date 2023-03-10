@@ -42,6 +42,8 @@ public interface TierReaderView {
 
     Throwable getFailureCause();
 
+    void setTierReader(TierReader tierReader);
+
     int unsynchronizedGetNumberOfQueuedBuffers();
 
     int getNumberOfQueuedBuffers();

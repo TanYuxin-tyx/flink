@@ -154,6 +154,7 @@ public class TierReaderViewImpl implements TierReaderView {
         }
     }
 
+    @Override
     public void setTierReader(TierReader tierReader) {
         synchronized (lock) {
             checkState(this.tierReader == null, "repeatedly set disk data view is not allowed.");

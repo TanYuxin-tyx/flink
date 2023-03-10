@@ -47,9 +47,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -92,11 +92,11 @@ class CacheDataLocalFileSpillerTest {
                         0,
                         Arrays.asList(Tuple2.of(4, 0), Tuple2.of(5, 1), Tuple2.of(6, 2))));
 
-        CompletableFuture<List<SpilledBuffer>> future =
-                cacheDataSpiller.spillAsync(bufferWithIdentityList);
-        List<SpilledBuffer> expectedSpilledBuffers =
-                getExpectedSpilledBuffers(bufferWithIdentityList);
-        assertThat(future).succeedsWithin(60, TimeUnit.SECONDS);
+        AtomicInteger flag = new AtomicInteger(1);
+        cacheDataSpiller.spillAsync(bufferWithIdentityList, flag, true);
+        while (flag.get() == 1) {
+            TimeUnit.MILLISECONDS.sleep(50);
+        }
         checkData(
                 isCompressed,
                 Arrays.asList(
@@ -117,11 +117,15 @@ class CacheDataLocalFileSpillerTest {
                                 false,
                                 0,
                                 Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
-        cacheDataSpiller.spillAsync(bufferWithIdentityList);
+        AtomicInteger flag = new AtomicInteger(1);
+        cacheDataSpiller.spillAsync(bufferWithIdentityList, flag, true);
+        while (flag.get() == 1) {
+            TimeUnit.MILLISECONDS.sleep(50);
+        }
         // blocked until spill finished.
         cacheDataSpiller.release();
         checkData(false, Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2)));
-        assertThatThrownBy(() -> cacheDataSpiller.spillAsync(bufferWithIdentityList))
+        assertThatThrownBy(() -> cacheDataSpiller.spillAsync(bufferWithIdentityList, flag, true))
                 .isInstanceOf(RejectedExecutionException.class);
     }
 
@@ -192,6 +196,7 @@ class CacheDataLocalFileSpillerTest {
 
     private static DiskCacheBufferSpiller createCacheDataSpiller(Path dataFilePath)
             throws Exception {
-        return new DiskCacheBufferSpiller(dataFilePath, new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS));
+        return new DiskCacheBufferSpiller(
+                dataFilePath, new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS));
     }
 }
