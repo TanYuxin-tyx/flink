@@ -46,8 +46,7 @@ class TieredStoreSubpartitionViewDelegate implements ResultSubpartitionView {
         checkArgument(tierDataGates.length > 0, "Empty tier transmitters.");
 
         this.storeConsumer =
-                new TieredStoreConsumerImpl(
-                        subpartitionId, availabilityListener, tierDataGates);
+                new TieredStoreConsumerImpl(subpartitionId, availabilityListener, tierDataGates);
         this.taskName = taskName;
     }
 
@@ -108,11 +107,6 @@ class TieredStoreSubpartitionViewDelegate implements ResultSubpartitionView {
     public void notifyNewBufferSize(int newBufferSize) {
         throw new UnsupportedOperationException(
                 "Method notifyNewBufferSize should never be called.");
-    }
-
-    @Override
-    public String getTaskName() {
-        return taskName;
     }
 
     @Override
