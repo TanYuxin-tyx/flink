@@ -25,9 +25,6 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -40,13 +37,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The read view of {@link MemoryTier}, data will be read from memory. */
-public class MemoryTierReaderView
-        implements TierReaderView, SubpartitionMemoryReaderViewOperations {
+public class MemoryTierReaderView implements TierReaderView {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MemoryTierReaderView.class);
+    private final Object lock = new Object();
 
     private final BufferAvailabilityListener availabilityListener;
-    private final Object lock = new Object();
 
     /** Index of last consumed buffer. */
     @GuardedBy("lock")
@@ -149,17 +144,6 @@ public class MemoryTierReaderView
         }
     }
 
-    @SuppressWarnings("FieldAccessNotGuarded")
-    @Override
-    public int getConsumingOffset(boolean withLock) {
-        if (!withLock) {
-            return lastConsumedBufferIndex;
-        }
-        synchronized (lock) {
-            return lastConsumedBufferIndex;
-        }
-    }
-
     @Override
     public Throwable getFailureCause() {
         synchronized (lock) {
@@ -170,7 +154,8 @@ public class MemoryTierReaderView
     public void setMemoryTierReader(TierReader memoryTierReader) {
         synchronized (lock) {
             checkState(
-                    this.memoryTierReader == null, "repeatedly set memory data view is not allowed.");
+                    this.memoryTierReader == null,
+                    "repeatedly set memory data view is not allowed.");
             this.memoryTierReader = memoryTierReader;
         }
     }
@@ -237,10 +222,6 @@ public class MemoryTierReaderView
             isReleased = true;
             failureCause = throwable;
             releaseMemoryView = memoryTierReader != null;
-        }
-
-        if (throwable != null) {
-            LOG.debug("Release the subpartition consumer. ", throwable);
         }
 
         if (releaseMemoryView) {
