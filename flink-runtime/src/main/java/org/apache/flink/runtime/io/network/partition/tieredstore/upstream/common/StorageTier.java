@@ -39,7 +39,7 @@ public interface StorageTier extends ChannelStateHolder, CheckpointedResultParti
 
     TierWriter createPartitionTierWriter() throws IOException;
 
-    TierReaderView createSubpartitionTierReaderView(
+    TierReaderView createTierReaderView(
             int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
 
     boolean canStoreNextSegment(int subpartitionId);

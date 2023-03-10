@@ -25,10 +25,6 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreConsumer;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTier;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -39,21 +35,19 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 /** The reader of Tiered Store. */
 public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
-    private static final Logger LOG = LoggerFactory.getLogger(TieredStoreConsumerImpl.class);
-
     private final int subpartitionId;
 
     private final BufferAvailabilityListener availabilityListener;
 
-    private final StorageTier[] tierDataGates;
+    private final StorageTier[] tiers;
 
     private final TierReaderView[] tierReaderViews;
 
     private boolean isReleased = false;
 
-    private int currentSegmentIndex = 0;
+    private int currentSegmentId = 0;
 
-    private long consumedSegmentIndex = 0L;
+    private int consumedSegmentId = 0;
 
     private boolean hasSegmentFinished = true;
 
@@ -64,22 +58,20 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     public TieredStoreConsumerImpl(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            StorageTier[] tierDataGates)
+            StorageTier[] tiers)
             throws IOException {
-        checkArgument(tierDataGates.length > 0, "Empty tier transmitters.");
-
+        checkArgument(tiers.length > 0, "The number of StorageTier must be larger than 0.");
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
-        this.tierDataGates = tierDataGates;
-        this.tierReaderViews = new TierReaderView[tierDataGates.length];
-        createSingleTierReaders();
+        this.tiers = tiers;
+        this.tierReaderViews = new TierReaderView[tiers.length];
+        createTierReaderViews();
     }
 
-    private void createSingleTierReaders() throws IOException {
-        for (int i = 0; i < tierDataGates.length; i++) {
+    private void createTierReaderViews() throws IOException {
+        for (int i = 0; i < tiers.length; i++) {
             tierReaderViews[i] =
-                    tierDataGates[i].createSubpartitionTierReaderView(
-                            subpartitionId, availabilityListener);
+                    tiers[i].createTierReaderView(subpartitionId, availabilityListener);
         }
     }
 
@@ -87,7 +79,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     @Override
     public BufferAndBacklog getNextBuffer() throws IOException {
         synchronized (this) {
-            if (currentSegmentIndex <= consumedSegmentIndex) {
+            if (currentSegmentId <= consumedSegmentId) {
                 return getNextBufferInternal();
             }
         }
@@ -95,9 +87,9 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     }
 
     @Override
-    public void updateConsumedSegmentIndex(int segmentId) {
+    public void updateConsumedSegmentId(int segmentId) {
         synchronized (this) {
-            consumedSegmentIndex = segmentId;
+            consumedSegmentId = segmentId;
         }
     }
 
@@ -116,7 +108,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
         if (bufferAndBacklog != null) {
             hasSegmentFinished = bufferAndBacklog.isLastBufferInSegment();
             if (hasSegmentFinished) {
-                currentSegmentIndex++;
+                currentSegmentId++;
             }
             if (bufferAndBacklog.buffer() == null) {
                 return getNextBuffer();
@@ -130,17 +122,10 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     @Override
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable) {
-
-        // update the needNotify status of all gates
-        for (TierReaderView tierReaderView : tierReaderViews) {
-            tierReaderView.getAvailabilityAndBacklog(numCreditsAvailable);
-        }
-
         if (findTierContainsNextSegment()) {
             return tierReaderViews[viewIndexContainsCurrentSegment].getAvailabilityAndBacklog(
                     numCreditsAvailable);
         }
-
         return new ResultSubpartitionView.AvailabilityWithBacklog(false, 0);
     }
 
@@ -191,22 +176,9 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
         return tierReaderViews[viewIndexContainsCurrentSegment].getNumberOfQueuedBuffers();
     }
 
-    @Override
-    public boolean containSegment(int segmentId) {
-        for (StorageTier tieredDataGate : tierDataGates) {
-            if (tieredDataGate.getClass() == RemoteTier.class) {
-                continue;
-            }
-            if (tieredDataGate.hasCurrentSegment(subpartitionId, segmentId)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     @VisibleForTesting
-    public int getCurrentSegmentIndex() {
-        return currentSegmentIndex;
+    public int getCurrentSegmentId() {
+        return currentSegmentId;
     }
 
     // -------------------------------
@@ -223,9 +195,9 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
             return true;
         }
 
-        for (int i = 0; i < tierDataGates.length; i++) {
-            StorageTier tieredDataGate = tierDataGates[i];
-            if (tieredDataGate.hasCurrentSegment(subpartitionId, currentSegmentIndex)) {
+        for (int i = 0; i < tiers.length; i++) {
+            StorageTier tieredDataGate = tiers[i];
+            if (tieredDataGate.hasCurrentSegment(subpartitionId, currentSegmentId)) {
                 viewIndexContainsCurrentSegment = i;
                 return true;
             }

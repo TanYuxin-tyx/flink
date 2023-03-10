@@ -600,7 +600,7 @@ class TieredStoreResultPartitionTest {
                             view.notifyRequiredSegmentId(Integer.MAX_VALUE);
                             while (true) {
                                 view.getNextBuffer();
-                                if (((TieredStoreConsumerImpl) view.getStoreConsumer()).getCurrentSegmentIndex()
+                                if (((TieredStoreConsumerImpl) view.getStoreConsumer()).getCurrentSegmentId()
                                         == expectSegmentIndex) {
                                     break;
                                 }
