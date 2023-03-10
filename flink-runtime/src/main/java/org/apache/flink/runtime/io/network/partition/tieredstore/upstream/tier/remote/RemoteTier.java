@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
@@ -107,8 +108,8 @@ public class RemoteTier implements StorageTier {
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        RemoteTierReaderView remoteTIerReaderView =
-                new RemoteTierReaderView(availabilityListener);
+        TierReaderViewImpl remoteTIerReaderView =
+                new TierReaderViewImpl(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
@@ -118,7 +119,7 @@ public class RemoteTier implements StorageTier {
                 remoteCacheManager.registerNewConsumer(
                         subpartitionId, tierReaderViewId, remoteTIerReaderView);
 
-        remoteTIerReaderView.setRemoteTierReader(remoteReader);
+        remoteTIerReaderView.setTierReader(remoteReader);
         return remoteTIerReaderView;
     }
 
