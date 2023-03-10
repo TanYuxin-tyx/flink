@@ -21,8 +21,8 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -59,7 +59,7 @@ public interface DiskTierReader extends Comparable<DiskTierReader>, TierReader {
                 int subpartitionId,
                 TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
-                TierReaderViewImpl operation,
+                TierReaderView operation,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
                 Consumer<DiskTierReader> fileReaderReleaser,
