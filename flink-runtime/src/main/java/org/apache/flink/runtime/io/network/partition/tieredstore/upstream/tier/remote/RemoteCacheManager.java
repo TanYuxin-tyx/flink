@@ -26,8 +26,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
@@ -71,7 +71,7 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderViewId, TierReaderViewImpl>> subpartitionViewOperationsMap;
+    private final List<Map<TierReaderViewId, TierReaderView>> subpartitionViewOperationsMap;
 
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadScheduledExecutor(
@@ -150,12 +150,12 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
     public TierReader registerNewConsumer(
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
-            TierReaderViewImpl viewOperations) {
+            TierReaderView viewOperations) {
         LOG.debug(
                 "### registered, subpartition {}, consumerId {},",
                 subpartitionId,
                 tierReaderViewId);
-        TierReaderViewImpl oldView =
+        TierReaderView oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
                         .put(tierReaderViewId, viewOperations);
@@ -206,11 +206,11 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
     @Override
     public void onDataAvailable(
             int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, TierReaderViewImpl> consumerViewMap =
+        Map<TierReaderViewId, TierReaderView> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
         tierReaderViewIds.forEach(
                 consumerId -> {
-                    TierReaderViewImpl consumerView = consumerViewMap.get(consumerId);
+                    TierReaderView consumerView = consumerViewMap.get(consumerId);
                     if (consumerView != null) {
                         consumerView.notifyDataAvailable();
                     }
