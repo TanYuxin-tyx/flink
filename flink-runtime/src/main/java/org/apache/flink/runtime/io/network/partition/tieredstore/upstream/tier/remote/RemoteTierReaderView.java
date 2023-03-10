@@ -25,9 +25,6 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -38,12 +35,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The read view of {@link RemoteTier}, data can be read from dfs. */
-public class SubpartitionRemoteReaderView implements TierReaderView, RemoteReaderOperations {
+public class RemoteTierReaderView implements TierReaderView {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionRemoteReaderView.class);
+    private final Object lock = new Object();
 
     private final BufferAvailabilityListener availabilityListener;
-    private final Object lock = new Object();
 
     /** Index of last consumed buffer. */
     @GuardedBy("lock")
@@ -68,7 +64,7 @@ public class SubpartitionRemoteReaderView implements TierReaderView, RemoteReade
     // dfsDataView can be null only before initialization.
     private TierReader dfsDataView;
 
-    public SubpartitionRemoteReaderView(BufferAvailabilityListener availabilityListener) {
+    public RemoteTierReaderView(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 
@@ -80,11 +76,6 @@ public class SubpartitionRemoteReaderView implements TierReaderView, RemoteReade
                 checkNotNull(dfsDataView, "disk data view must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume =
                         dfsDataView.consumeBuffer(lastConsumedBufferIndex + 1, null);
-
-                if (bufferToConsume.isPresent()) {
-                    LOG.debug("### DfsFileReader has successfully consumed one buffer!");
-                }
-
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.map(this::handleBacklog).orElse(null);
             }
@@ -97,22 +88,18 @@ public class SubpartitionRemoteReaderView implements TierReaderView, RemoteReade
 
     @Override
     public void notifyDataAvailable() {
-        LOG.debug("%%% Dfs is trying to notify..");
         boolean notifyDownStream = false;
         synchronized (lock) {
             if (isReleased) {
-                LOG.debug("%%% Dfs notify failed1");
                 return;
             }
             if (needNotify) {
-                LOG.debug("%%% Dfs notify failed2");
                 notifyDownStream = true;
                 needNotify = false;
             }
         }
         // notify outside of lock to avoid deadlock
         if (notifyDownStream) {
-            LOG.debug("%%% Dfs notify success1");
             availabilityListener.notifyDataAvailable();
         }
     }
@@ -157,7 +144,7 @@ public class SubpartitionRemoteReaderView implements TierReaderView, RemoteReade
 
     /**
      * Set {@link TierReader} for this subpartition, this method only called when {@link
-     * SubpartitionRemoteReaderView} is creating.
+     * RemoteTierReaderView} is creating.
      */
     public void setDfsDataView(TierReader dfsDataView) {
         synchronized (lock) {
@@ -227,13 +214,7 @@ public class SubpartitionRemoteReaderView implements TierReaderView, RemoteReade
             failureCause = throwable;
             releaseDfsView = dfsDataView != null;
         }
-
-        if (throwable != null) {
-            LOG.debug("Release the dfs subpartition consumer. ", throwable);
-        }
-
         if (releaseDfsView) {
-            //noinspection FieldAccessNotGuarded
             dfsDataView.releaseDataView();
         }
     }

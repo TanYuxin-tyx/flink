@@ -70,7 +70,7 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderViewId, RemoteReaderOperations>> subpartitionViewOperationsMap;
+    private final List<Map<TierReaderViewId, RemoteTierReaderView>> subpartitionViewOperationsMap;
 
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadScheduledExecutor(
@@ -149,12 +149,12 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
     public TierReader registerNewConsumer(
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
-            RemoteReaderOperations viewOperations) {
+            RemoteTierReaderView viewOperations) {
         LOG.debug(
                 "### registered, subpartition {}, consumerId {},",
                 subpartitionId,
                 tierReaderViewId);
-        RemoteReaderOperations oldView =
+        RemoteTierReaderView oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
                         .put(tierReaderViewId, viewOperations);
@@ -205,11 +205,11 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
     @Override
     public void onDataAvailable(
             int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, RemoteReaderOperations> consumerViewMap =
+        Map<TierReaderViewId, RemoteTierReaderView> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
         tierReaderViewIds.forEach(
                 consumerId -> {
-                    RemoteReaderOperations consumerView = consumerViewMap.get(consumerId);
+                    RemoteTierReaderView consumerView = consumerViewMap.get(consumerId);
                     if (consumerView != null) {
                         consumerView.notifyDataAvailable();
                     }

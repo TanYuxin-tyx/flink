@@ -107,8 +107,8 @@ public class RemoteTier implements StorageTier {
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        SubpartitionRemoteReaderView remoteReaderView =
-                new SubpartitionRemoteReaderView(availabilityListener);
+        RemoteTierReaderView remoteTIerReaderView =
+                new RemoteTierReaderView(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
@@ -116,10 +116,10 @@ public class RemoteTier implements StorageTier {
         lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
         TierReader remoteReader =
                 remoteCacheManager.registerNewConsumer(
-                        subpartitionId, tierReaderViewId, remoteReaderView);
+                        subpartitionId, tierReaderViewId, remoteTIerReaderView);
 
-        remoteReaderView.setDfsDataView(remoteReader);
-        return remoteReaderView;
+        remoteTIerReaderView.setDfsDataView(remoteReader);
+        return remoteTIerReaderView;
     }
 
     @Override
