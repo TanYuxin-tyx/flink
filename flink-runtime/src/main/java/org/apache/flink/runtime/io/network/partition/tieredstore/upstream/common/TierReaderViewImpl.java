@@ -215,16 +215,16 @@ public class TierReaderViewImpl implements TierReaderView {
     }
 
     private void releaseInternal(@Nullable Throwable throwable) {
-        boolean releaseDiskView;
+        boolean releaseTierReaderView;
         synchronized (lock) {
             if (isReleased) {
                 return;
             }
             isReleased = true;
             failureCause = throwable;
-            releaseDiskView = tierReader != null;
+            releaseTierReaderView = tierReader != null;
         }
-        if (releaseDiskView) {
+        if (releaseTierReaderView) {
             tierReader.releaseDataView();
         }
     }
