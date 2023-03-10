@@ -36,6 +36,10 @@ public interface TierReaderView {
 
     void notifyDataAvailable();
 
+    default int getConsumingOffset(boolean withLock) {
+        return -1;
+    }
+
     Throwable getFailureCause();
 
     int unsynchronizedGetNumberOfQueuedBuffers();

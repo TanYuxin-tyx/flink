@@ -34,7 +34,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TestingTierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.SubpartitionDiskReaderView;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTierReaderView;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -51,20 +51,20 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Tests for {@link SubpartitionDiskReaderView}. */
+/** Tests for {@link DiskTierReaderView}. */
 class SubpartitionDiskReaderViewTest {
 
     @Test
     void testGetNextBufferFromDisk() throws IOException {
-        SubpartitionDiskReaderView subpartitionDiskReaderView = createSubpartitionDiskReaderView();
+        DiskTierReaderView diskTierReaderView = createSubpartitionDiskReaderView();
         BufferAndBacklog bufferAndBacklog = createBufferAndBacklog(1, DataType.DATA_BUFFER, 0);
         TestingTierReader diskTierReader =
                 TestingTierReader.builder()
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(bufferAndBacklog))
                         .build();
-        subpartitionDiskReaderView.setDiskTierReader(diskTierReader);
-        BufferAndBacklog nextBuffer = subpartitionDiskReaderView.getNextBuffer();
+        diskTierReaderView.setDiskTierReader(diskTierReader);
+        BufferAndBacklog nextBuffer = diskTierReaderView.getNextBuffer();
         assertThat(nextBuffer).isSameAs(bufferAndBacklog);
     }
 
@@ -75,7 +75,7 @@ class SubpartitionDiskReaderViewTest {
         BufferPool bufferPool = networkBufferPool.createBufferPool(10, 10);
         TieredStoreMemoryManager tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(bufferPool, getTierExclusiveBuffers(), 1);
-        SubpartitionDiskReaderView subpartitionDiskReaderView = createSubpartitionDiskReaderView();
+        DiskTierReaderView diskTierReaderView = createSubpartitionDiskReaderView();
         CompletableFuture<Void> acquireWriteLock = new CompletableFuture<>();
         CheckedThread consumerThread =
                 new CheckedThread() {
@@ -83,7 +83,7 @@ class SubpartitionDiskReaderViewTest {
                     public void go() throws Exception {
                         // blocking until other thread acquire write lock.
                         acquireWriteLock.get();
-                        subpartitionDiskReaderView.getNextBuffer();
+                        diskTierReaderView.getNextBuffer();
                     }
                 };
         DiskCacheManager diskCacheManager =
@@ -96,7 +96,7 @@ class SubpartitionDiskReaderViewTest {
                         dataFilePath.resolve(".data"),
                         null);
         diskCacheManager.setOutputMetrics(createTestingOutputMetrics());
-        subpartitionDiskReaderView.setDiskTierReader(TestingTierReader.NO_OP);
+        diskTierReaderView.setDiskTierReader(TestingTierReader.NO_OP);
         consumerThread.start();
         // trigger request buffer.
         diskCacheManager.append(ByteBuffer.allocate(bufferSize), 0, DataType.DATA_BUFFER, false);
@@ -104,7 +104,7 @@ class SubpartitionDiskReaderViewTest {
 
     @Test
     void testGetNextBufferFromDiskNextDataTypeIsNone() throws IOException {
-        SubpartitionDiskReaderView subpartitionDiskReaderView = createSubpartitionDiskReaderView();
+        DiskTierReaderView diskTierReaderView = createSubpartitionDiskReaderView();
         BufferAndBacklog bufferAndBacklog = createBufferAndBacklog(0, DataType.NONE, 0);
 
         TestingTierReader diskTierReader =
@@ -112,8 +112,8 @@ class SubpartitionDiskReaderViewTest {
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(bufferAndBacklog))
                         .build();
-        subpartitionDiskReaderView.setDiskTierReader(diskTierReader);
-        BufferAndBacklog nextBuffer = subpartitionDiskReaderView.getNextBuffer();
+        diskTierReaderView.setDiskTierReader(diskTierReader);
+        BufferAndBacklog nextBuffer = diskTierReaderView.getNextBuffer();
         assertThat(nextBuffer).isNotNull();
         assertThat(nextBuffer.buffer()).isSameAs(bufferAndBacklog.buffer());
         assertThat(nextBuffer.buffersInBacklog()).isEqualTo(bufferAndBacklog.buffersInBacklog());
@@ -123,7 +123,7 @@ class SubpartitionDiskReaderViewTest {
 
     @Test
     void testGetNextBufferThrowException() {
-        SubpartitionDiskReaderView subpartitionDiskReaderView = createSubpartitionDiskReaderView();
+        DiskTierReaderView diskTierReaderView = createSubpartitionDiskReaderView();
         TestingTierReader diskTierReader =
                 TestingTierReader.builder()
                         .setConsumeBufferFunction(
@@ -131,14 +131,14 @@ class SubpartitionDiskReaderViewTest {
                                     throw new RuntimeException("expected exception.");
                                 })
                         .build();
-        subpartitionDiskReaderView.setDiskTierReader(diskTierReader);
-        assertThatThrownBy(subpartitionDiskReaderView::getNextBuffer)
+        diskTierReaderView.setDiskTierReader(diskTierReader);
+        assertThatThrownBy(diskTierReaderView::getNextBuffer)
                 .hasStackTraceContaining("expected exception.");
     }
 
     @Test
     void testGetNextBufferZeroBacklog() throws IOException {
-        SubpartitionDiskReaderView subpartitionDiskReaderView = createSubpartitionDiskReaderView();
+        DiskTierReaderView diskTierReaderView = createSubpartitionDiskReaderView();
         final int diskBacklog = 0;
         BufferAndBacklog targetBufferAndBacklog =
                 createBufferAndBacklog(diskBacklog, DataType.DATA_BUFFER, 0);
@@ -148,8 +148,8 @@ class SubpartitionDiskReaderViewTest {
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(targetBufferAndBacklog))
                         .build();
-        subpartitionDiskReaderView.setDiskTierReader(diskTierReader);
-        assertThat(subpartitionDiskReaderView.getNextBuffer())
+        diskTierReaderView.setDiskTierReader(diskTierReader);
+        assertThat(diskTierReaderView.getNextBuffer())
                 .satisfies(
                         (bufferAndBacklog -> {
                             // backlog is reset to maximum backlog of memory and disk.
@@ -167,48 +167,48 @@ class SubpartitionDiskReaderViewTest {
     @Test
     void testNotifyDataAvailableNeedNotify() throws IOException {
         CompletableFuture<Void> notifyAvailableFuture = new CompletableFuture<>();
-        SubpartitionDiskReaderView subpartitionDiskReaderView =
+        DiskTierReaderView diskTierReaderView =
                 createSubpartitionDiskReaderView(() -> notifyAvailableFuture.complete(null));
-        subpartitionDiskReaderView.setDiskTierReader(TestingTierReader.NO_OP);
-        subpartitionDiskReaderView.getNextBuffer();
-        subpartitionDiskReaderView.notifyDataAvailable();
+        diskTierReaderView.setDiskTierReader(TestingTierReader.NO_OP);
+        diskTierReaderView.getNextBuffer();
+        diskTierReaderView.notifyDataAvailable();
         assertThat(notifyAvailableFuture).isCompleted();
     }
 
     @Test
     void testNotifyDataAvailableNotNeedNotify() throws IOException {
         CompletableFuture<Void> notifyAvailableFuture = new CompletableFuture<>();
-        SubpartitionDiskReaderView subpartitionDiskReaderView =
+        DiskTierReaderView diskTierReaderView =
                 createSubpartitionDiskReaderView(() -> notifyAvailableFuture.complete(null));
-        subpartitionDiskReaderView.setDiskTierReader(TestingTierReader.NO_OP);
-        subpartitionDiskReaderView.getNextBuffer();
-        subpartitionDiskReaderView.notifyDataAvailable();
+        diskTierReaderView.setDiskTierReader(TestingTierReader.NO_OP);
+        diskTierReaderView.getNextBuffer();
+        diskTierReaderView.notifyDataAvailable();
         assertThat(notifyAvailableFuture).isCompleted();
     }
 
     @Test
     void testGetZeroBacklogNeedNotify() {
         CompletableFuture<Void> notifyAvailableFuture = new CompletableFuture<>();
-        SubpartitionDiskReaderView subpartitionDiskReaderView =
+        DiskTierReaderView diskTierReaderView =
                 createSubpartitionDiskReaderView(() -> notifyAvailableFuture.complete(null));
-        subpartitionDiskReaderView.setDiskTierReader(
+        diskTierReaderView.setDiskTierReader(
                 TestingTierReader.builder().setGetBacklogSupplier(() -> 0).build());
         AvailabilityWithBacklog availabilityAndBacklog =
-                subpartitionDiskReaderView.getAvailabilityAndBacklog(0);
+                diskTierReaderView.getAvailabilityAndBacklog(0);
         assertThat(availabilityAndBacklog.getBacklog()).isZero();
         assertThat(notifyAvailableFuture).isNotCompleted();
-        subpartitionDiskReaderView.notifyDataAvailable();
+        diskTierReaderView.notifyDataAvailable();
         assertThat(notifyAvailableFuture).isCompleted();
     }
 
     @Test
     void testGetAvailabilityAndBacklogPositiveCredit() {
-        SubpartitionDiskReaderView subpartitionDiskReaderView = createSubpartitionDiskReaderView();
+        DiskTierReaderView diskTierReaderView = createSubpartitionDiskReaderView();
         final int backlog = 2;
-        subpartitionDiskReaderView.setDiskTierReader(
+        diskTierReaderView.setDiskTierReader(
                 TestingTierReader.builder().setGetBacklogSupplier(() -> backlog).build());
         AvailabilityWithBacklog availabilityAndBacklog =
-                subpartitionDiskReaderView.getAvailabilityAndBacklog(1);
+                diskTierReaderView.getAvailabilityAndBacklog(1);
         assertThat(availabilityAndBacklog.getBacklog()).isEqualTo(backlog);
         // positive credit always available.
         assertThat(availabilityAndBacklog.isAvailable()).isTrue();
@@ -217,12 +217,12 @@ class SubpartitionDiskReaderViewTest {
     @Test
     void testGetAvailabilityAndBacklogNonPositiveCreditNextIsData() throws IOException {
         final int backlog = 2;
-        SubpartitionDiskReaderView subpartitionDiskReaderView = createSubpartitionDiskReaderView();
-        subpartitionDiskReaderView.setDiskTierReader(
+        DiskTierReaderView diskTierReaderView = createSubpartitionDiskReaderView();
+        diskTierReaderView.setDiskTierReader(
                 TestingTierReader.builder().setGetBacklogSupplier(() -> backlog).build());
-        subpartitionDiskReaderView.getNextBuffer();
+        diskTierReaderView.getNextBuffer();
         AvailabilityWithBacklog availabilityAndBacklog =
-                subpartitionDiskReaderView.getAvailabilityAndBacklog(0);
+                diskTierReaderView.getAvailabilityAndBacklog(0);
         assertThat(availabilityAndBacklog.getBacklog()).isEqualTo(backlog);
         // if credit is non-positive, only event can be available.
         assertThat(availabilityAndBacklog.isAvailable()).isFalse();
@@ -231,34 +231,34 @@ class SubpartitionDiskReaderViewTest {
     @Test
     void testGetAvailabilityAndBacklogNonPositiveCreditNextIsEvent() throws IOException {
         final int backlog = 2;
-        SubpartitionDiskReaderView subpartitionDiskReaderView = createSubpartitionDiskReaderView();
-        subpartitionDiskReaderView.setDiskTierReader(
+        DiskTierReaderView diskTierReaderView = createSubpartitionDiskReaderView();
+        diskTierReaderView.setDiskTierReader(
                 TestingTierReader.builder().setGetBacklogSupplier(() -> backlog).build());
-        subpartitionDiskReaderView.getNextBuffer();
+        diskTierReaderView.getNextBuffer();
         AvailabilityWithBacklog availabilityAndBacklog =
-                subpartitionDiskReaderView.getAvailabilityAndBacklog(0);
+                diskTierReaderView.getAvailabilityAndBacklog(0);
         assertThat(availabilityAndBacklog.getBacklog()).isEqualTo(backlog);
         assertThat(availabilityAndBacklog.isAvailable()).isFalse();
     }
 
     @Test
     void testRelease() throws Exception {
-        SubpartitionDiskReaderView subpartitionDiskReaderView = createSubpartitionDiskReaderView();
+        DiskTierReaderView diskTierReaderView = createSubpartitionDiskReaderView();
         CompletableFuture<Void> releaseDiskViewFuture = new CompletableFuture<>();
         TestingTierReader diskTierReader =
                 TestingTierReader.builder()
                         .setReleaseDataViewRunnable(() -> releaseDiskViewFuture.complete(null))
                         .build();
-        subpartitionDiskReaderView.setDiskTierReader(diskTierReader);
-        subpartitionDiskReaderView.releaseAllResources();
-        assertThat(subpartitionDiskReaderView.isReleased()).isTrue();
+        diskTierReaderView.setDiskTierReader(diskTierReader);
+        diskTierReaderView.releaseAllResources();
+        assertThat(diskTierReaderView.isReleased()).isTrue();
         assertThat(releaseDiskViewFuture).isCompleted();
     }
 
     @Test
     void testGetConsumingOffset() throws IOException {
         AtomicInteger nextBufferIndex = new AtomicInteger(0);
-        SubpartitionDiskReaderView subpartitionDiskReaderView = createSubpartitionDiskReaderView();
+        DiskTierReaderView diskTierReaderView = createSubpartitionDiskReaderView();
         TestingTierReader diskTierReader =
                 TestingTierReader.builder()
                         .setConsumeBufferFunction(
@@ -269,30 +269,30 @@ class SubpartitionDiskReaderViewTest {
                                                         DataType.DATA_BUFFER,
                                                         nextBufferIndex.getAndIncrement())))
                         .build();
-        subpartitionDiskReaderView.setDiskTierReader(diskTierReader);
-        assertThat(subpartitionDiskReaderView.getConsumingOffset(true)).isEqualTo(-1);
-        subpartitionDiskReaderView.getNextBuffer();
-        assertThat(subpartitionDiskReaderView.getConsumingOffset(true)).isEqualTo(0);
-        subpartitionDiskReaderView.getNextBuffer();
-        assertThat(subpartitionDiskReaderView.getConsumingOffset(true)).isEqualTo(1);
+        diskTierReaderView.setDiskTierReader(diskTierReader);
+        assertThat(diskTierReaderView.getConsumingOffset(true)).isEqualTo(-1);
+        diskTierReaderView.getNextBuffer();
+        assertThat(diskTierReaderView.getConsumingOffset(true)).isEqualTo(0);
+        diskTierReaderView.getNextBuffer();
+        assertThat(diskTierReaderView.getConsumingOffset(true)).isEqualTo(1);
     }
 
     @Test
     void testSetDataViewRepeatedly() {
-        SubpartitionDiskReaderView subpartitionDiskReaderView = createSubpartitionDiskReaderView();
-        subpartitionDiskReaderView.setDiskTierReader(TestingTierReader.NO_OP);
-        assertThatThrownBy(() -> subpartitionDiskReaderView.setDiskTierReader(TestingTierReader.NO_OP))
+        DiskTierReaderView diskTierReaderView = createSubpartitionDiskReaderView();
+        diskTierReaderView.setDiskTierReader(TestingTierReader.NO_OP);
+        assertThatThrownBy(() -> diskTierReaderView.setDiskTierReader(TestingTierReader.NO_OP))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("repeatedly set disk data view is not allowed.");
     }
 
-    private static SubpartitionDiskReaderView createSubpartitionDiskReaderView() {
-        return new SubpartitionDiskReaderView(new NoOpBufferAvailablityListener());
+    private static DiskTierReaderView createSubpartitionDiskReaderView() {
+        return new DiskTierReaderView(new NoOpBufferAvailablityListener());
     }
 
-    private static SubpartitionDiskReaderView createSubpartitionDiskReaderView(
+    private static DiskTierReaderView createSubpartitionDiskReaderView(
             BufferAvailabilityListener bufferAvailabilityListener) {
-        return new SubpartitionDiskReaderView(bufferAvailabilityListener);
+        return new DiskTierReaderView(bufferAvailabilityListener);
     }
 
     private static BufferAndBacklog createBufferAndBacklog(

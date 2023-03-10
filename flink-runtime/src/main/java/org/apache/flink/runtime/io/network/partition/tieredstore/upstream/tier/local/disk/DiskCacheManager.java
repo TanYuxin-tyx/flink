@@ -62,7 +62,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderViewId, SubpartitionDiskReaderViewOperations>>
+    private final List<Map<TierReaderViewId, DiskTierReaderView>>
             subpartitionViewOperationsMap;
 
     private final AtomicInteger hasFlushCompleted = new AtomicInteger(0);
@@ -189,11 +189,11 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     @Override
     public void onDataAvailable(
             int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, SubpartitionDiskReaderViewOperations> consumerViewMap =
+        Map<TierReaderViewId, DiskTierReaderView> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
         tierReaderViewIds.forEach(
                 consumerId -> {
-                    SubpartitionDiskReaderViewOperations consumerView =
+                    DiskTierReaderView consumerView =
                             consumerViewMap.get(consumerId);
                     if (consumerView != null) {
                         consumerView.notifyDataAvailable();
