@@ -256,7 +256,6 @@ public abstract class ResultPartition implements ResultPartitionWriter {
 
             // Set the error cause
             if (cause != null) {
-                LOG.debug("PATITION RELEASE2", cause);
                 this.cause = cause;
             }
 
