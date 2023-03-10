@@ -160,7 +160,7 @@ public class DiskTierReaderView implements TierReaderView {
 
     /**
      * Set {@link TierReader} for this subpartition, this method only called when {@link
-     * SubpartitionDiskReader} is creating.
+     * DiskTierReader} is creating.
      */
     public void setDiskTierReader(TierReader diskTierReader) {
         synchronized (lock) {
