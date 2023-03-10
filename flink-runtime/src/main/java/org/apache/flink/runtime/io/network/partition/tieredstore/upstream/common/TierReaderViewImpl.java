@@ -16,14 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk;
+package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -36,8 +34,8 @@ import java.util.Queue;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The read view of {@link DiskTierReader}. */
-public class DiskTierReaderView implements TierReaderView {
+/** The implementation of {@link TierReaderView}. */
+public class TierReaderViewImpl implements TierReaderView {
 
     private final Object lock = new Object();
 
@@ -62,10 +60,9 @@ public class DiskTierReaderView implements TierReaderView {
 
     @Nullable
     @GuardedBy("lock")
-    // diskDataView can be null only before initialization.
-    private TierReader diskTierReader;
+    private TierReader tierReader;
 
-    public DiskTierReaderView(BufferAvailabilityListener availabilityListener) {
+    public TierReaderViewImpl(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 
@@ -75,17 +72,16 @@ public class DiskTierReaderView implements TierReaderView {
         Queue<Buffer> errorBuffers = new ArrayDeque<>();
         try {
             synchronized (lock) {
-                checkNotNull(diskTierReader, "disk data view must be not null.");
-                Optional<BufferAndBacklog> bufferToConsume = tryReadFromDisk(errorBuffers);
+                checkNotNull(tierReader, "TierReader must be not null.");
+                Optional<BufferAndBacklog> bufferToConsume =
+                        tierReader.consumeBuffer(lastConsumedBufferIndex + 1, errorBuffers);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.map(this::handleBacklog).orElse(null);
             }
         } catch (Throwable cause) {
-            // release subpartition reader outside of lock to avoid deadlock.
             releaseInternal(cause);
-            throw new IOException("Failed to get next buffer.", cause);
+            throw new IOException("Failed to get next buffer from TierReader.", cause);
         } finally {
-            // release the buffer loaded by error
             while (!errorBuffers.isEmpty()) {
                 errorBuffers.poll().recycleBuffer();
             }
@@ -158,15 +154,10 @@ public class DiskTierReaderView implements TierReaderView {
         }
     }
 
-    /**
-     * Set {@link TierReader} for this subpartition, this method only called when {@link
-     * DiskTierReader} is creating.
-     */
-    public void setDiskTierReader(TierReader diskTierReader) {
+    public void setTierReader(TierReader tierReader) {
         synchronized (lock) {
-            checkState(
-                    this.diskTierReader == null, "repeatedly set disk data view is not allowed.");
-            this.diskTierReader = diskTierReader;
+            checkState(this.tierReader == null, "repeatedly set disk data view is not allowed.");
+            this.tierReader = tierReader;
         }
     }
 
@@ -188,10 +179,10 @@ public class DiskTierReaderView implements TierReaderView {
 
     @SuppressWarnings("FieldAccessNotGuarded")
     private int getSubpartitionBacklog() {
-        if (diskTierReader == null) {
+        if (tierReader == null) {
             return 0;
         }
-        return diskTierReader.getBacklog();
+        return tierReader.getBacklog();
     }
 
     private BufferAndBacklog handleBacklog(BufferAndBacklog bufferToConsume) {
@@ -203,13 +194,6 @@ public class DiskTierReaderView implements TierReaderView {
                         bufferToConsume.getSequenceNumber(),
                         bufferToConsume.isLastBufferInSegment())
                 : bufferToConsume;
-    }
-
-    @GuardedBy("lock")
-    private Optional<BufferAndBacklog> tryReadFromDisk(Queue<Buffer> errorBuffers)
-            throws Throwable {
-        final int nextBufferIndexToConsume = lastConsumedBufferIndex + 1;
-        return checkNotNull(diskTierReader).consumeBuffer(nextBufferIndexToConsume, errorBuffers);
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -238,10 +222,10 @@ public class DiskTierReaderView implements TierReaderView {
             }
             isReleased = true;
             failureCause = throwable;
-            releaseDiskView = diskTierReader != null;
+            releaseDiskView = tierReader != null;
         }
         if (releaseDiskView) {
-            diskTierReader.releaseDataView();
+            tierReader.releaseDataView();
         }
     }
 }

@@ -35,6 +35,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.metrics.TimerGauge;
@@ -216,8 +217,8 @@ public class DiskTier implements TierWriter, StorageTier {
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        DiskTierReaderView diskTierReaderView =
-                new DiskTierReaderView(availabilityListener);
+        TierReaderViewImpl diskTierReaderView =
+                new TierReaderViewImpl(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
@@ -226,7 +227,7 @@ public class DiskTier implements TierWriter, StorageTier {
         TierReader diskReader =
                 diskReaderManager.registerNewConsumer(
                         subpartitionId, tierReaderViewId, diskTierReaderView);
-        diskTierReaderView.setDiskTierReader(diskReader);
+        diskTierReaderView.setTierReader(diskReader);
         return diskTierReaderView;
     }
 
