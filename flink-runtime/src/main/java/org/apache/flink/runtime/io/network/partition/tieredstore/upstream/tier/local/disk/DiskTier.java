@@ -204,7 +204,7 @@ public class DiskTier implements TierWriter, StorageTier {
     }
 
     @Override
-    public TierReaderView createSubpartitionTierReaderView(
+    public TierReaderView createTierReaderView(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         // If data file is not readable, throw PartitionNotFoundException to mark this result

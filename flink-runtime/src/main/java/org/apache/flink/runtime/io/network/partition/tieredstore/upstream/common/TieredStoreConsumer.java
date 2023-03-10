@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-/** The consumer interface of Tiered Store, data can be read from different store tiers. */
+/** The consumer interface of Tiered Store, data will be read from different store tiers. */
 public interface TieredStoreConsumer {
 
     @Nullable
@@ -34,19 +34,17 @@ public interface TieredStoreConsumer {
     ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable);
 
-    void releaseAllResources() throws IOException;
-
-    boolean isReleased();
-
-    Throwable getFailureCause();
-
     int unsynchronizedGetNumberOfQueuedBuffers();
 
     int getNumberOfQueuedBuffers();
 
-    boolean containSegment(int segmentId);
-
     void forceNotifyAvailable();
 
-    void updateConsumedSegmentIndex(int segmentId);
+    void updateConsumedSegmentId(int segmentId);
+
+    boolean isReleased();
+
+    void releaseAllResources() throws IOException;
+
+    Throwable getFailureCause();
 }

@@ -100,22 +100,18 @@ public class SubpartitionDiskReaderView
 
     @Override
     public void notifyDataAvailable() {
-        LOG.debug("%%% Local is trying to nofify");
         boolean notifyDownStream = false;
         synchronized (lock) {
             if (isReleased) {
-                LOG.debug("%%% Local notify failed 1");
                 return;
             }
             if (needNotify) {
                 notifyDownStream = true;
                 needNotify = false;
-                LOG.debug("%%% Local notify failed 2");
             }
         }
         // notify outside of lock to avoid deadlock
         if (notifyDownStream) {
-            LOG.debug("%%% Local notify success 1");
             availabilityListener.notifyDataAvailable();
         }
     }
@@ -125,19 +121,15 @@ public class SubpartitionDiskReaderView
             int numCreditsAvailable) {
         synchronized (lock) {
             boolean availability = numCreditsAvailable > 0;
-            LOG.debug("%%% availablility1 is {}", availability);
             if (numCreditsAvailable <= 0
                     && cachedNextDataType != null
                     && cachedNextDataType == Buffer.DataType.EVENT_BUFFER) {
                 availability = true;
             }
-
             int backlog = getSubpartitionBacklog();
-            LOG.debug("%%% backlog is {}", backlog);
             if (backlog == 0) {
                 needNotify = true;
             }
-            LOG.debug("%%% availablility2 is {}", availability);
             return new ResultSubpartitionView.AvailabilityWithBacklog(availability, backlog);
         }
     }
