@@ -29,6 +29,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
@@ -126,8 +127,8 @@ public class MemoryTier implements StorageTier {
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        MemoryTierReaderView memoryReaderView =
-                new MemoryTierReaderView(availabilityListener);
+        TierReaderViewImpl memoryReaderView =
+                new TierReaderViewImpl(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
         checkMultipleConsumerIsAllowed(lastTierReaderViewId);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
@@ -139,7 +140,7 @@ public class MemoryTier implements StorageTier {
                 checkNotNull(memoryWriter)
                         .registerNewConsumer(subpartitionId, tierReaderViewId, memoryReaderView);
 
-        memoryReaderView.setMemoryTierReader(memoryReader);
+        memoryReaderView.setTierReader(memoryReader);
         return memoryReaderView;
     }
 
