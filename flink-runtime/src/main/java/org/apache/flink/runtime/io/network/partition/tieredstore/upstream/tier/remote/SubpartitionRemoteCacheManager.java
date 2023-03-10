@@ -44,9 +44,6 @@ import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -62,8 +59,6 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.checkFlushCacheBuffers;
@@ -73,8 +68,6 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** This class is responsible for managing the data in a single subpartition. */
 public class SubpartitionRemoteCacheManager {
-
-    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionRemoteCacheManager.class);
 
     private final int targetChannel;
 
@@ -106,10 +99,6 @@ public class SubpartitionRemoteCacheManager {
 
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
-    /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
-    private final Lock resultPartitionLock;
-
-    /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
     private final ReentrantReadWriteLock subpartitionLock = new ReentrantReadWriteLock();
 
     @GuardedBy("subpartitionLock")
@@ -135,14 +124,12 @@ public class SubpartitionRemoteCacheManager {
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
             String baseDfsPath,
-            Lock resultPartitionLock,
             @Nullable BufferCompressor bufferCompressor,
             RemoteCacheManagerOperation cacheDataManagerOperation,
             ExecutorService ioExecutor) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
-        this.resultPartitionLock = resultPartitionLock;
         this.cacheDataManagerOperation = cacheDataManagerOperation;
         this.bufferCompressor = bufferCompressor;
         this.consumerMap = new HashMap<>();
@@ -181,7 +168,6 @@ public class SubpartitionRemoteCacheManager {
         List<TierReaderViewId> needNotify = new ArrayList<>(consumerMap.size());
         runWithLock(
                 () -> {
-                    LOG.debug("%%% Dfs generate1");
                     CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>>
                             spillDoneFuture = flushCachedBuffers();
                     try {
@@ -191,13 +177,11 @@ public class SubpartitionRemoteCacheManager {
                         throw new RuntimeException("Spiller finish segment failed!", e);
                     }
                     cacheBufferSpiller.finishSegment(segmentIndex);
-                    LOG.debug("%%% Dfs generate2");
                     BufferContext segmentInfoBufferContext =
                             new BufferContext(null, finishedSegmentInfoIndex, targetChannel, true);
                     allSegmentInfos.add(segmentInfoBufferContext);
                     ++finishedSegmentInfoIndex;
                     checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
-                    LOG.debug("%%% Dfs generate3 {}", consumerMap.entrySet().size());
                     // notify downstream
                     for (Map.Entry<TierReaderViewId, RemoteTierReader> consumerEntry :
                             consumerMap.entrySet()) {
@@ -295,22 +279,16 @@ public class SubpartitionRemoteCacheManager {
 
     private void writeRecord(ByteBuffer record, boolean isLastRecordInSegment) {
         while (record.hasRemaining()) {
-            LOG.debug("%%% Dfs write record1");
             BufferBuilder currentWritingBuffer =
                     checkNotNull(
                             unfinishedBuffers.peek(), "Expect enough capacity for the record.");
             currentWritingBuffer.append(record);
-            LOG.debug("%%% Dfs write record2");
             if (currentWritingBuffer.isFull() && record.hasRemaining()) {
-                LOG.debug("%%% Dfs write record3");
                 finishCurrentWritingBuffer(false);
             } else if (currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                LOG.debug("%%% Dfs write record4");
                 finishCurrentWritingBuffer(isLastRecordInSegment);
             } else if (!currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                LOG.debug("%%% Dfs write record4.1");
                 if (isLastRecordInSegment) {
-                    LOG.debug("%%% Dfs write record5");
                     finishCurrentWritingBuffer(true);
                 }
             }
@@ -399,20 +377,8 @@ public class SubpartitionRemoteCacheManager {
                 });
     }
 
-    /**
-     * Remove all released buffer from head of queue until buffer queue is empty or meet un-released
-     * buffer.
-     */
     @GuardedBy("subpartitionLock")
-    private void trimHeadingReleasedBuffers(Deque<BufferContext> bufferQueue) {
-        while (!bufferQueue.isEmpty() && bufferQueue.peekFirst().isReleased()) {
-            bufferQueue.removeFirst();
-        }
-    }
-
-    @GuardedBy("subpartitionLock")
-    private Optional<BufferContext> startSpillingBuffer(
-            int bufferIndex, CompletableFuture<Void> spillFuture) {
+    private Optional<BufferContext> startSpillingBuffer(int bufferIndex) {
         BufferContext bufferContext = bufferIndexToContexts.get(bufferIndex);
         if (bufferContext == null) {
             return Optional.empty();
@@ -420,11 +386,10 @@ public class SubpartitionRemoteCacheManager {
         return bufferContext.startSpilling() ? Optional.of(bufferContext) : Optional.empty();
     }
 
-    private CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>>
-            flushCachedBuffersWithChangeFlushStatus() {
+    private void flushCachedBuffersWithChangeFlushStatus() {
         List<BufferWithIdentity> toSpillBuffersWithId = generateToSpillBuffersWithId();
         hasFlushCompleted = new CompletableFuture<>();
-        return cacheBufferSpiller
+        cacheBufferSpiller
                 .spillAsync(toSpillBuffersWithId)
                 .thenApply(
                         spilledBuffers -> {
@@ -458,8 +423,7 @@ public class SubpartitionRemoteCacheManager {
         List<BufferWithIdentity> toSpillBuffersWithId = new ArrayList<>();
         for (BufferIndexAndChannel spillBuffer : toSpillBuffers) {
             int bufferIndex = spillBuffer.getBufferIndex();
-            Optional<BufferContext> bufferContext =
-                    startSpillingBuffer(bufferIndex, CompletableFuture.completedFuture(null));
+            Optional<BufferContext> bufferContext = startSpillingBuffer(bufferIndex);
             checkState(bufferContext.isPresent());
             BufferWithIdentity bufferWithIdentity =
                     new BufferWithIdentity(
@@ -477,14 +441,7 @@ public class SubpartitionRemoteCacheManager {
     void close() {
         isClosed = true;
         hasFlushCompleted.complete(null);
-        try {
-            flushCachedBuffers().get();
-        } catch (RejectedExecutionException je) {
-            LOG.debug("Failed to flush cached data because the spiller has been closed.", je);
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Flush data to dfs failed when DfsFileWriter is trying to close.", e);
-        }
+        flushCachedBuffers();
         while (!unfinishedBuffers.isEmpty()) {
             unfinishedBuffers.poll().close();
         }
@@ -492,23 +449,19 @@ public class SubpartitionRemoteCacheManager {
 
     private <E extends Exception> void runWithLock(ThrowingRunnable<E> runnable) throws E {
         try {
-            resultPartitionLock.lock();
             subpartitionLock.writeLock().lock();
             runnable.run();
         } finally {
             subpartitionLock.writeLock().unlock();
-            resultPartitionLock.unlock();
         }
     }
 
     private <R, E extends Exception> R callWithLock(SupplierWithException<R, E> callable) throws E {
         try {
-            resultPartitionLock.lock();
             subpartitionLock.writeLock().lock();
             return callable.get();
         } finally {
             subpartitionLock.writeLock().unlock();
-            resultPartitionLock.unlock();
         }
     }
 
