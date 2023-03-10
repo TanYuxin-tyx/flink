@@ -30,9 +30,6 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.Buffe
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -47,9 +44,6 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  */
 class CreditBasedSequenceNumberingViewReader
         implements BufferAvailabilityListener, NetworkSequenceViewReader {
-
-    private static final Logger LOG = LoggerFactory.getLogger(
-            CreditBasedSequenceNumberingViewReader.class);
 
     private final Object requestLock = new Object();
 
@@ -103,14 +97,13 @@ class CreditBasedSequenceNumberingViewReader
                 throw new IllegalStateException("Subpartition already requested");
             }
         }
-        LOG.debug("%%% notify available when thd reader is created..");
+
         notifyDataAvailable();
     }
 
     @Override
     public void addCredit(int creditDeltas) {
         numCreditsAvailable += creditDeltas;
-        LOG.debug("%%% {} is adding Credit! add {}, result is {}", subpartitionView.getTaskName(), creditDeltas, numCreditsAvailable);
     }
 
     @Override
@@ -153,10 +146,7 @@ class CreditBasedSequenceNumberingViewReader
      */
     @Override
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog() {
-        ResultSubpartitionView.AvailabilityWithBacklog availabilityAndBacklog = subpartitionView.getAvailabilityAndBacklog(
-                numCreditsAvailable);
-        LOG.debug("%%% {} it's PRQ is trying to get the backlog, backlog is {}, numCreditsAvailable is {}, isAvailable? {}", subpartitionView.getTaskName(), availabilityAndBacklog.getBacklog(), numCreditsAvailable, availabilityAndBacklog.isAvailable());
-        return availabilityAndBacklog;
+        return subpartitionView.getAvailabilityAndBacklog(numCreditsAvailable);
     }
 
     /**
@@ -176,7 +166,6 @@ class CreditBasedSequenceNumberingViewReader
      */
     private Buffer.DataType getNextDataType(BufferAndBacklog bufferAndBacklog) {
         final Buffer.DataType nextDataType = bufferAndBacklog.getNextDataType();
-        LOG.debug("%%% {} it's CreditBasedSequenceNumberingViewReader get the datatype {}, numCreditsAvailable {} ", subpartitionView.getTaskName(), nextDataType, numCreditsAvailable);
         if (numCreditsAvailable > 0 || nextDataType.isEvent()) {
             return nextDataType;
         }
@@ -211,12 +200,11 @@ class CreditBasedSequenceNumberingViewReader
             if (next.buffer().isBuffer() && --numCreditsAvailable < 0) {
                 throw new IllegalStateException("no credit available");
             }
-            LOG.debug("{} is trying get NextDataType", this.subpartitionView.getTaskName());
+
             final Buffer.DataType nextDataType = getNextDataType(next);
             return new BufferAndAvailability(
                     next.buffer(), nextDataType, next.buffersInBacklog(), next.getSequenceNumber());
         } else {
-            LOG.debug("None");
             return null;
         }
     }
@@ -248,7 +236,6 @@ class CreditBasedSequenceNumberingViewReader
 
     @Override
     public void notifyPriorityEvent(int prioritySequenceNumber) {
-        LOG.debug("%%% notify available when notifyPriorityEvent");
         notifyDataAvailable();
     }
 
@@ -264,10 +251,5 @@ class CreditBasedSequenceNumberingViewReader
                 + ", isRegisteredAsAvailable="
                 + isRegisteredAsAvailable
                 + '}';
-    }
-
-    @Override
-    public String getTaskName() {
-        return subpartitionView.getTaskName();
     }
 }
