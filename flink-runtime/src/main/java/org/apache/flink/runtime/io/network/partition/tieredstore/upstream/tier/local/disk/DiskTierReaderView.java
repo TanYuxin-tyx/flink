@@ -25,9 +25,6 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -39,14 +36,12 @@ import java.util.Queue;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The read view of {@link DiskTier}, data can be read from memory or disk. */
-public class SubpartitionDiskReaderView
-        implements TierReaderView, SubpartitionDiskReaderViewOperations {
+/** The read view of {@link DiskTier}, data can be read from disk. */
+public class DiskTierReaderView implements TierReaderView {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionDiskReaderView.class);
+    private final Object lock = new Object();
 
     private final BufferAvailabilityListener availabilityListener;
-    private final Object lock = new Object();
 
     /** Index of last consumed buffer. */
     @GuardedBy("lock")
@@ -71,7 +66,7 @@ public class SubpartitionDiskReaderView
     // diskDataView can be null only before initialization.
     private TierReader diskTierReader;
 
-    public SubpartitionDiskReaderView(BufferAvailabilityListener availabilityListener) {
+    public DiskTierReaderView(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 
@@ -170,7 +165,8 @@ public class SubpartitionDiskReaderView
      */
     public void setDiskTierReader(TierReader diskTierReader) {
         synchronized (lock) {
-            checkState(this.diskTierReader == null, "repeatedly set disk data view is not allowed.");
+            checkState(
+                    this.diskTierReader == null, "repeatedly set disk data view is not allowed.");
             this.diskTierReader = diskTierReader;
         }
     }
@@ -244,10 +240,6 @@ public class SubpartitionDiskReaderView
             isReleased = true;
             failureCause = throwable;
             releaseDiskView = diskTierReader != null;
-        }
-
-        if (throwable != null) {
-            LOG.debug("Release the subpartition consumer. ", throwable);
         }
         // release subpartition reader outside of lock to avoid deadlock.
         if (releaseDiskView) {

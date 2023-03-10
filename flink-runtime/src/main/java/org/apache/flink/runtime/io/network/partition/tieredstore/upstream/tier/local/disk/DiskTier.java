@@ -217,8 +217,8 @@ public class DiskTier implements TierWriter, StorageTier {
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        SubpartitionDiskReaderView subpartitionDiskReaderView =
-                new SubpartitionDiskReaderView(availabilityListener);
+        DiskTierReaderView diskTierReaderView =
+                new DiskTierReaderView(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
@@ -226,9 +226,9 @@ public class DiskTier implements TierWriter, StorageTier {
         lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
         TierReader diskReader =
                 diskReaderManager.registerNewConsumer(
-                        subpartitionId, tierReaderViewId, subpartitionDiskReaderView);
-        subpartitionDiskReaderView.setDiskTierReader(diskReader);
-        return subpartitionDiskReaderView;
+                        subpartitionId, tierReaderViewId, diskTierReaderView);
+        diskTierReaderView.setDiskTierReader(diskReader);
+        return diskTierReaderView;
     }
 
     @Override

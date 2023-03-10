@@ -24,13 +24,12 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.SubpartitionDiskReaderViewOperations;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.Preconditions;
@@ -147,11 +146,6 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
         getSubpartitionCacheDataManager(targetSubpartition).finishSegment(segmentIndex);
     }
 
-    /**
-     * Register {@link SubpartitionDiskReaderViewOperations} to {@link
-     * #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of the
-     * subpartition.
-     */
     public TierReader registerNewConsumer(
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
