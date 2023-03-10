@@ -42,6 +42,8 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
 
     private final Object lock = new Object();
 
+    private boolean isReleased;
+
     public RegionBufferIndexTrackerImpl(int numSubpartitions) {
         this.subpartitionFirstBufferIndexInternalRegions = new ArrayList<>();
         this.lastestIndexOfReader = new ArrayList<>();
@@ -82,14 +84,17 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
 
     @Override
     public void release() {
-        subpartitionFirstBufferIndexInternalRegions.clear();
-        lastestIndexOfReader.clear();
+        synchronized (lock) {
+            subpartitionFirstBufferIndexInternalRegions.clear();
+            lastestIndexOfReader.clear();
+            isReleased = true;
+        }
     }
 
     @GuardedBy("lock")
     private Optional<InternalRegion> getInternalRegion(
             int subpartitionId, int bufferIndex, TierReaderViewId tierReaderViewId) {
-        if (subpartitionId >= lastestIndexOfReader.size()) {
+        if (isReleased) {
             return Optional.empty();
         }
         // return the latest region
