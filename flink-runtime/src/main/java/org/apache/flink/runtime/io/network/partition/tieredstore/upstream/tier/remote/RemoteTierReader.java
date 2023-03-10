@@ -36,12 +36,8 @@ import java.util.concurrent.locks.Lock;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-/**
- * This class is responsible for managing the data of a single consumer. {@link
- * SubpartitionRemoteCacheManager} will create a new {@link SubpartitionRemoteReader} when a
- * consumer is registered.
- */
-public class SubpartitionRemoteReader implements TierReader {
+/** The {@link RemoteTierReader} is used to consume data from Remote Tier. */
+public class RemoteTierReader implements TierReader {
 
     @GuardedBy("consumerLock")
     private final Deque<BufferContext> unConsumedBuffers = new LinkedList<>();
@@ -56,7 +52,7 @@ public class SubpartitionRemoteReader implements TierReader {
 
     private final RemoteCacheManagerOperation cacheDataManagerOperation;
 
-    public SubpartitionRemoteReader(
+    public RemoteTierReader(
             Lock resultPartitionLock,
             Lock consumerLock,
             int subpartitionId,
@@ -109,12 +105,8 @@ public class SubpartitionRemoteReader implements TierReader {
                             return Optional.of(Tuple2.of(bufferContext, nextDataType));
                         });
         return bufferAndNextDataType.map(
-                tuple -> {
-                    ResultSubpartition.BufferAndBacklog bufferAndBacklog =
-                            new ResultSubpartition.BufferAndBacklog(
-                                    null, getBacklog(), tuple.f1, toConsumeIndex, true);
-                    return bufferAndBacklog;
-                });
+                tuple -> new ResultSubpartition.BufferAndBacklog(
+                        null, getBacklog(), tuple.f1, toConsumeIndex, true));
     }
 
     /**
