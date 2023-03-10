@@ -19,7 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory;
 
 /**
- * Operations provided by {@link SubpartitionMemoryReaderView} that are used by other internal
+ * Operations provided by {@link MemoryTierReaderView} that are used by other internal
  * components of hybrid result partition.
  */
 public interface SubpartitionMemoryReaderViewOperations {
