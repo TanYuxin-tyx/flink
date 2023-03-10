@@ -44,6 +44,9 @@ import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -68,6 +71,8 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** This class is responsible for managing the data in a single subpartition. */
 public class SubpartitionRemoteCacheManager {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionRemoteCacheManager.class);
 
     private final int targetChannel;
 
@@ -174,7 +179,7 @@ public class SubpartitionRemoteCacheManager {
                         spillDoneFuture.get();
                         checkFlushCacheBuffers(tieredStoreMemoryManager, this::flushCachedBuffers);
                     } catch (Exception e) {
-                        throw new RuntimeException("Spiller finish segment failed!", e);
+                        LOG.debug("Failed to finishSegment", e);
                     }
                     cacheBufferSpiller.finishSegment(segmentIndex);
                     BufferContext segmentInfoBufferContext =
