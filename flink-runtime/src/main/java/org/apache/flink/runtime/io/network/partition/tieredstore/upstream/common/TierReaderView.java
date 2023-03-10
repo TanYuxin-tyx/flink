@@ -34,6 +34,8 @@ public interface TierReaderView {
     ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable);
 
+    void notifyDataAvailable();
+
     Throwable getFailureCause();
 
     int unsynchronizedGetNumberOfQueuedBuffers();
