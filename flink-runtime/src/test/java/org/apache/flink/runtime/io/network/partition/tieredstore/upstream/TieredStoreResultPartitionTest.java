@@ -51,6 +51,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.reader
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.IOUtils;
+import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,8 +69,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Queue;
 import java.util.Random;
-import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 
@@ -109,7 +111,17 @@ class TieredStoreResultPartitionTest {
                 new FileChannelManagerImpl(new String[] {tempDataPath.toString()}, "testing");
         globalPool = new NetworkBufferPool(totalBuffers, bufferSize);
         readBufferPool = new BatchShuffleReadBufferPool(totalBytes, bufferSize);
-        readIOExecutor = Executors.newScheduledThreadPool(numThreads);
+        readIOExecutor =
+                new ScheduledThreadPoolExecutor(
+                        numThreads,
+                        new ExecutorThreadFactory("test-io-scheduler-thread"),
+                        (ignored, executor) -> {
+                            if (executor.isShutdown()) {
+                                // ignore rejected as shutdown.
+                            } else {
+                                throw new RejectedExecutionException();
+                            }
+                        });
     }
 
     @AfterEach
@@ -596,11 +608,14 @@ class TieredStoreResultPartitionTest {
                     new CheckedThread() {
                         @Override
                         public void go() throws Exception {
-                            TieredStoreSubpartitionViewDelegate view = (TieredStoreSubpartitionViewDelegate) viewAndListeners[subpartition].f0;
+                            TieredStoreSubpartitionViewDelegate view =
+                                    (TieredStoreSubpartitionViewDelegate)
+                                            viewAndListeners[subpartition].f0;
                             view.notifyRequiredSegmentId(Integer.MAX_VALUE);
                             while (true) {
                                 view.getNextBuffer();
-                                if (((TieredStoreConsumerImpl) view.getStoreConsumer()).getCurrentSegmentId()
+                                if (((TieredStoreConsumerImpl) view.getStoreConsumer())
+                                                .getCurrentSegmentId()
                                         == expectSegmentIndex) {
                                     break;
                                 }
