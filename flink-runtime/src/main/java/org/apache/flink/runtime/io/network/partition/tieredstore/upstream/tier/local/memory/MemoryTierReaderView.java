@@ -29,9 +29,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.Optional;
-import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -43,7 +41,6 @@ public class MemoryTierReaderView implements TierReaderView {
 
     private final BufferAvailabilityListener availabilityListener;
 
-    /** Index of last consumed buffer. */
     @GuardedBy("lock")
     private int lastConsumedBufferIndex = -1;
 
@@ -63,7 +60,6 @@ public class MemoryTierReaderView implements TierReaderView {
 
     @Nullable
     @GuardedBy("lock")
-    // memoryDataView can be null only before initialization.
     private TierReader memoryTierReader;
 
     public MemoryTierReaderView(BufferAvailabilityListener availabilityListener) {
@@ -73,25 +69,17 @@ public class MemoryTierReaderView implements TierReaderView {
     @Nullable
     @Override
     public BufferAndBacklog getNextBuffer() throws IOException {
-        Queue<Buffer> errorBuffers = new ArrayDeque<>();
         try {
             synchronized (lock) {
                 checkNotNull(memoryTierReader, "memory data view must be not null.");
-
                 Optional<BufferAndBacklog> bufferToConsume =
-                        memoryTierReader.consumeBuffer(lastConsumedBufferIndex + 1, errorBuffers);
+                        memoryTierReader.consumeBuffer(lastConsumedBufferIndex + 1, null);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.map(this::handleBacklog).orElse(null);
             }
         } catch (Throwable cause) {
-            // release subpartition reader outside of lock to avoid deadlock.
             releaseInternal(cause);
             throw new IOException("Failed to get next buffer.", cause);
-        } finally {
-            // release the buffer loaded by error
-            while (!errorBuffers.isEmpty()) {
-                errorBuffers.poll().recycleBuffer();
-            }
         }
     }
 
@@ -123,7 +111,6 @@ public class MemoryTierReaderView implements TierReaderView {
                     && cachedNextDataType == Buffer.DataType.EVENT_BUFFER) {
                 availability = true;
             }
-
             int backlog = getSubpartitionBacklog();
             if (backlog == 0) {
                 needNotify = true;
@@ -204,7 +191,6 @@ public class MemoryTierReaderView implements TierReaderView {
             ++lastConsumedBufferIndex;
             checkState(bufferAndBacklog.get().getSequenceNumber() == lastConsumedBufferIndex);
         }
-
         // update need-notify
         boolean dataAvailable =
                 bufferAndBacklog.map(BufferAndBacklog::isDataAvailable).orElse(false);
@@ -225,7 +211,6 @@ public class MemoryTierReaderView implements TierReaderView {
         }
 
         if (releaseMemoryView) {
-            //noinspection FieldAccessNotGuarded
             memoryTierReader.releaseDataView();
         }
     }
