@@ -116,13 +116,8 @@ class TieredStoreSubpartitionViewDelegate implements ResultSubpartitionView {
     }
 
     @Override
-    public boolean containSegment(int segmentId) {
-        return storeConsumer.containSegment(segmentId);
-    }
-
-    @Override
     public void notifyRequiredSegmentId(int segmentId) {
-        storeConsumer.updateConsumedSegmentIndex(segmentId);
+        storeConsumer.updateConsumedSegmentId(segmentId);
         storeConsumer.forceNotifyAvailable();
     }
 

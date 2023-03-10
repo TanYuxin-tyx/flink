@@ -100,7 +100,7 @@ public class RemoteTier implements StorageTier {
     }
 
     @Override
-    public TierReaderView createSubpartitionTierReaderView(
+    public TierReaderView createTierReaderView(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
