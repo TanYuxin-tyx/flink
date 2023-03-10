@@ -218,16 +218,17 @@ class SortMergeResultPartitionReadScheduler implements Runnable, BufferRecycler 
                 return new ArrayDeque<>(buffers);
             }
             checkState(!isReleased, "Result partition has been already released.");
-        } while (System.nanoTime() < timeoutTime
-                || System.nanoTime() < (timeoutTime = getBufferRequestTimeoutTime()));
+        } while (System.currentTimeMillis() < timeoutTime
+                || System.currentTimeMillis() < (timeoutTime = getBufferRequestTimeoutTime()));
 
         LOG.warn(
                 "1: "
-                        + (System.nanoTime() < timeoutTime)
+                        + (System.currentTimeMillis() < timeoutTime)
                         + "2:"
-                        + (System.nanoTime() < (timeoutTime = getBufferRequestTimeoutTime()))
+                        + (System.currentTimeMillis()
+                                < (timeoutTime = getBufferRequestTimeoutTime()))
                         + ",current:"
-                        + System.nanoTime()
+                        + System.currentTimeMillis()
                         + ", timeouttime fun: "
                         + getBufferRequestTimeoutTime()
                         + ", timeouttime val:"
@@ -241,7 +242,7 @@ class SortMergeResultPartitionReadScheduler implements Runnable, BufferRecycler 
     }
 
     private long getBufferRequestTimeoutTime() {
-        return bufferPool.getLastBufferOperationTimestamp() + bufferRequestTimeout.toNanos();
+        return bufferPool.getLastBufferOperationTimestamp() + bufferRequestTimeout.toMillis();
     }
 
     private void releaseBuffers(Queue<MemorySegment> buffers) {
