@@ -30,6 +30,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
 import java.io.IOException;
@@ -62,7 +63,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderViewId, DiskTierReaderView>>
+    private final List<Map<TierReaderViewId, TierReaderViewImpl>>
             subpartitionViewOperationsMap;
 
     private final AtomicInteger hasFlushCompleted = new AtomicInteger(0);
@@ -189,11 +190,11 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     @Override
     public void onDataAvailable(
             int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, DiskTierReaderView> consumerViewMap =
+        Map<TierReaderViewId, TierReaderViewImpl> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
         tierReaderViewIds.forEach(
                 consumerId -> {
-                    DiskTierReaderView consumerView =
+                    TierReaderViewImpl consumerView =
                             consumerViewMap.get(consumerId);
                     if (consumerView != null) {
                         consumerView.notifyDataAvailable();
