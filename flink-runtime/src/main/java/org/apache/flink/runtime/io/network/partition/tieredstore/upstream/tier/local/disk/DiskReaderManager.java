@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
 
@@ -156,7 +157,7 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
     public TierReader registerNewConsumer(
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
-            DiskTierReaderView operation)
+            TierReaderViewImpl operation)
             throws IOException {
         synchronized (lock) {
             checkState(!isReleased, "HsFileDataManager is already released.");

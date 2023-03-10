@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexOrError;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -64,7 +65,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
 
     private final FileChannel dataFileChannel;
 
-    private final DiskTierReaderView operations;
+    private final TierReaderViewImpl operations;
 
     private final CachedRegionManager cachedRegionManager;
 
@@ -80,7 +81,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
             FileChannel dataFileChannel,
-            DiskTierReaderView operations,
+            TierReaderViewImpl operations,
             RegionBufferIndexTracker dataIndex,
             int maxBufferReadAhead,
             Consumer<DiskTierReader> fileReaderReleaser,
@@ -503,7 +504,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
                 int subpartitionId,
                 TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
-                DiskTierReaderView operation,
+                TierReaderViewImpl operation,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
                 Consumer<DiskTierReader> fileReaderReleaser,
