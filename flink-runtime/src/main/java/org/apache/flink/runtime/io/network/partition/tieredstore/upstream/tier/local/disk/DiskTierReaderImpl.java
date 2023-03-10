@@ -29,9 +29,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.util.ExceptionUtils;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -54,8 +51,6 @@ import static org.apache.flink.util.Preconditions.checkState;
  * <p>Note: This class is not thread safe.
  */
 public class DiskTierReaderImpl implements DiskTierReader {
-
-    private static final Logger LOG = LoggerFactory.getLogger(DiskTierReaderImpl.class);
 
     private final ByteBuffer headerBuf;
 
@@ -165,16 +160,12 @@ public class DiskTierReaderImpl implements DiskTierReader {
                 buffers.add(segment);
                 throw throwable;
             }
-
-            LOG.debug("%%% buffers are loaded, size is {}", loadedBuffers.size());
             loadedBuffers.add(BufferIndexOrError.newBuffer(buffer, indexToLoad));
             bufferIndexManager.updateLastLoaded(indexToLoad);
             cachedRegionManager.advance(
                     buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
             ++numLoaded;
         }
-
-        LOG.debug("%%% judge if notify {}, {}", loadedBuffers.size(), numLoaded);
         if (loadedBuffers.size() <= numLoaded) {
             operations.notifyDataAvailable();
         }
@@ -252,12 +243,6 @@ public class DiskTierReaderImpl implements DiskTierReader {
                                 () ->
                                         new NullPointerException(
                                                 "Get a non-throwable and non-buffer bufferIndexOrError, which is not allowed"));
-
-        // Boolean apply = isLastRecordInSegmentDecider.apply(subpartitionId, nextBufferToConsume);
-        // if(buffer.getDataType() == Buffer.DataType.SEGMENT_EVENT){
-        //    System.out.println();
-        // }
-
         return Optional.of(
                 ResultSubpartition.BufferAndBacklog.fromBufferAndLookahead(
                         buffer,
@@ -405,10 +390,6 @@ public class DiskTierReaderImpl implements DiskTierReader {
             this.subpartitionId = subpartitionId;
             this.dataIndex = dataIndex;
         }
-
-        // ------------------------------------------------------------------------
-        //  Called by HsSubpartitionFileReader
-        // ------------------------------------------------------------------------
 
         public void updateConsumingOffset(int consumingOffset) {
             this.consumingOffset = consumingOffset;
