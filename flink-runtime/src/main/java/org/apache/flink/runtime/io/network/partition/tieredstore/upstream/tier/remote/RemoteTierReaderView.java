@@ -34,14 +34,13 @@ import java.util.Optional;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The read view of {@link RemoteTier}, data can be read from dfs. */
+/** The read view of {@link RemoteTierReader}. */
 public class RemoteTierReaderView implements TierReaderView {
 
     private final Object lock = new Object();
 
     private final BufferAvailabilityListener availabilityListener;
 
-    /** Index of last consumed buffer. */
     @GuardedBy("lock")
     private int lastConsumedBufferIndex = -1;
 
@@ -62,7 +61,7 @@ public class RemoteTierReaderView implements TierReaderView {
     @Nullable
     @GuardedBy("lock")
     // dfsDataView can be null only before initialization.
-    private TierReader dfsDataView;
+    private TierReader remoteTierReader;
 
     public RemoteTierReaderView(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
@@ -73,9 +72,9 @@ public class RemoteTierReaderView implements TierReaderView {
     public BufferAndBacklog getNextBuffer() throws IOException {
         try {
             synchronized (lock) {
-                checkNotNull(dfsDataView, "disk data view must be not null.");
+                checkNotNull(remoteTierReader, "disk data view must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume =
-                        dfsDataView.consumeBuffer(lastConsumedBufferIndex + 1, null);
+                        remoteTierReader.consumeBuffer(lastConsumedBufferIndex + 1, null);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.map(this::handleBacklog).orElse(null);
             }
@@ -114,7 +113,6 @@ public class RemoteTierReaderView implements TierReaderView {
                     && cachedNextDataType == Buffer.DataType.EVENT_BUFFER) {
                 availability = true;
             }
-
             int backlog = getSubpartitionBacklog();
             if (backlog == 0) {
                 needNotify = true;
@@ -146,10 +144,10 @@ public class RemoteTierReaderView implements TierReaderView {
      * Set {@link TierReader} for this subpartition, this method only called when {@link
      * RemoteTierReaderView} is creating.
      */
-    public void setDfsDataView(TierReader dfsDataView) {
+    public void setRemoteTierReader(TierReader remoteTierReader) {
         synchronized (lock) {
-            checkState(this.dfsDataView == null, "repeatedly set dfs data view is not allowed.");
-            this.dfsDataView = dfsDataView;
+            checkState(this.remoteTierReader == null, "repeatedly set dfs data view is not allowed.");
+            this.remoteTierReader = remoteTierReader;
         }
     }
 
@@ -171,10 +169,10 @@ public class RemoteTierReaderView implements TierReaderView {
 
     @SuppressWarnings("FieldAccessNotGuarded")
     private int getSubpartitionBacklog() {
-        if (dfsDataView == null) {
+        if (remoteTierReader == null) {
             return 0;
         }
-        return dfsDataView.getBacklog();
+        return remoteTierReader.getBacklog();
     }
 
     private BufferAndBacklog handleBacklog(BufferAndBacklog bufferToConsume) {
@@ -205,17 +203,17 @@ public class RemoteTierReaderView implements TierReaderView {
     }
 
     private void releaseInternal(@Nullable Throwable throwable) {
-        boolean releaseDfsView;
+        boolean releaseRemoteView;
         synchronized (lock) {
             if (isReleased) {
                 return;
             }
             isReleased = true;
             failureCause = throwable;
-            releaseDfsView = dfsDataView != null;
+            releaseRemoteView = remoteTierReader != null;
         }
-        if (releaseDfsView) {
-            dfsDataView.releaseDataView();
+        if (releaseRemoteView) {
+            remoteTierReader.releaseDataView();
         }
     }
 }
