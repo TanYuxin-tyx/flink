@@ -59,7 +59,7 @@ public interface DiskTierReader extends Comparable<DiskTierReader>, TierReader {
                 int subpartitionId,
                 TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
-                TierReaderView operation,
+                TierReaderView tierReaderView,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
                 Consumer<DiskTierReader> fileReaderReleaser,

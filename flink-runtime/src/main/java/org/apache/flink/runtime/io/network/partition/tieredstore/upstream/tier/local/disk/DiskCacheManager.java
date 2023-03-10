@@ -30,7 +30,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
 import java.io.IOException;
@@ -55,16 +55,14 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     private final CacheBufferSpiller spiller;
 
-    private final RegionBufferIndexTracker regionBufferIndexTracker;
-
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
     /**
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderViewId, TierReaderViewImpl>>
-            subpartitionViewOperationsMap;
+    private final List<Map<TierReaderViewId, TierReaderView>>
+            tierReaderViewMap;
 
     private final AtomicInteger hasFlushCompleted = new AtomicInteger(0);
 
@@ -79,16 +77,15 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
             throws IOException {
         this.numSubpartitions = numSubpartitions;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
-        this.regionBufferIndexTracker = regionBufferIndexTracker;
         this.spiller = new DiskCacheBufferSpiller(dataFilePath, regionBufferIndexTracker);
         this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
 
-        this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
+        this.tierReaderViewMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionDiskCacheManagers[subpartitionId] =
                     new SubpartitionDiskCacheManager(
                             subpartitionId, bufferSize, bufferCompressor, this);
-            subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
+            tierReaderViewMap.add(new ConcurrentHashMap<>());
         }
         cacheFlushManager.registerCacheSpillTrigger(this::flushCacheBuffers);
     }
@@ -190,11 +187,11 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     @Override
     public void onDataAvailable(
             int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, TierReaderViewImpl> consumerViewMap =
-                subpartitionViewOperationsMap.get(subpartitionId);
+        Map<TierReaderViewId, TierReaderView> consumerViewMap =
+                tierReaderViewMap.get(subpartitionId);
         tierReaderViewIds.forEach(
                 consumerId -> {
-                    TierReaderViewImpl consumerView =
+                    TierReaderView consumerView =
                             consumerViewMap.get(consumerId);
                     if (consumerView != null) {
                         consumerView.notifyDataAvailable();
@@ -204,7 +201,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     @Override
     public void onConsumerReleased(int subpartitionId, TierReaderViewId tierReaderViewId) {
-        subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderViewId);
+        tierReaderViewMap.get(subpartitionId).remove(tierReaderViewId);
     }
 
     @Override

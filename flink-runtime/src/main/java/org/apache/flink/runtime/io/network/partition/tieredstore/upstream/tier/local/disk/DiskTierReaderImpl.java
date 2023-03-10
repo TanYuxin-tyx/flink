@@ -60,7 +60,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
 
     private final FileChannel dataFileChannel;
 
-    private final TierReaderView operations;
+    private final TierReaderView tierReaderView;
 
     private final CachedRegionManager cachedRegionManager;
 
@@ -76,7 +76,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
             FileChannel dataFileChannel,
-            TierReaderView operations,
+            TierReaderView tierReaderView,
             RegionBufferIndexTracker dataIndex,
             int maxBufferReadAhead,
             Consumer<DiskTierReader> fileReaderReleaser,
@@ -84,7 +84,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
         this.subpartitionId = subpartitionId;
         this.tierReaderViewId = tierReaderViewId;
         this.dataFileChannel = dataFileChannel;
-        this.operations = operations;
+        this.tierReaderView = tierReaderView;
         this.headerBuf = headerBuf;
         this.bufferIndexManager = new BufferIndexManager(maxBufferReadAhead);
         this.cachedRegionManager = new CachedRegionManager(subpartitionId, dataIndex);
@@ -167,7 +167,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
             ++numLoaded;
         }
         if (loadedBuffers.size() <= numLoaded) {
-            operations.notifyDataAvailable();
+            tierReaderView.notifyDataAvailable();
         }
     }
 
@@ -186,7 +186,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
         }
 
         loadedBuffers.add(BufferIndexOrError.newError(failureCause));
-        operations.notifyDataAvailable();
+        tierReaderView.notifyDataAvailable();
     }
 
     @Override
@@ -197,7 +197,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
                 checkNotNull(bufferIndexOrError.getBuffer().get()).recycleBuffer();
             }
         }
-        operations.notifyDataAvailable();
+        tierReaderView.notifyDataAvailable();
     }
 
     /** Refresh downstream consumption progress for another round scheduling of reading. */
@@ -205,7 +205,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
     public void prepareForScheduling() {
         // Access the consuming offset with lock, to prevent loading any buffer released from the
         // memory data manager that is already consumed.
-        int consumingOffset = operations.getConsumingOffset(true);
+        int consumingOffset = tierReaderView.getConsumingOffset(true);
         bufferIndexManager.updateLastConsumed(consumingOffset);
         cachedRegionManager.updateConsumingOffset(consumingOffset);
     }
@@ -485,7 +485,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
                 int subpartitionId,
                 TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
-                TierReaderView operation,
+                TierReaderView tierReaderView,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
                 Consumer<DiskTierReader> fileReaderReleaser,
@@ -494,7 +494,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
                     subpartitionId,
                     tierReaderViewId,
                     dataFileChannel,
-                    operation,
+                    tierReaderView,
                     dataIndex,
                     maxBuffersReadAhead,
                     fileReaderReleaser,

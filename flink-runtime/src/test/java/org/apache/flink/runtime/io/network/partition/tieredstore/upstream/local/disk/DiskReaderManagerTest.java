@@ -458,7 +458,7 @@ class DiskReaderManagerTest {
                     int subpartitionId,
                     TierReaderViewId tierReaderViewId,
                     FileChannel dataFileChannel,
-                    TierReaderView operation,
+                    TierReaderView tierReaderView,
                     RegionBufferIndexTracker dataIndex,
                     int maxBuffersReadAhead,
                     Consumer<DiskTierReader> fileReaderReleaser,

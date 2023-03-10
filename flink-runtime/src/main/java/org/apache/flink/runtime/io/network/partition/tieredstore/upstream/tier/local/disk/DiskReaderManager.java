@@ -157,7 +157,7 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
     public TierReader registerNewConsumer(
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
-            TierReaderView operation)
+            TierReaderView tierReaderView)
             throws IOException {
         synchronized (lock) {
             checkState(!isReleased, "HsFileDataManager is already released.");
@@ -168,7 +168,7 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
                             subpartitionId,
                             tierReaderViewId,
                             dataFileChannel,
-                            operation,
+                            tierReaderView,
                             dataIndex,
                             storeConfiguration.getMaxBuffersReadAhead(),
                             this::releaseSubpartitionReader,
