@@ -34,12 +34,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.l
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.Preconditions;
-import org.apache.flink.util.function.SupplierWithException;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -53,30 +49,20 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-/** This class is responsible for managing cached buffers data before flush to DFS files. */
+/** This class is responsible for managing cached buffers data before flush to remote storage. */
 public class RemoteCacheManager implements RemoteCacheManagerOperation {
-    private static final Logger LOG = LoggerFactory.getLogger(RemoteCacheManager.class);
 
     private final int numSubpartitions;
 
     private final SubpartitionRemoteCacheManager[] subpartitionCacheDataManagers;
 
-    private final Lock lock;
-
-    /**
-     * Each element of the list is all views of the subpartition corresponding to its index, which
-     * are stored in the form of a map that maps consumer id to its subpartition view.
-     */
     private final List<Map<TierReaderViewId, TierReaderView>> subpartitionViewOperationsMap;
 
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadScheduledExecutor(
                     new ThreadFactoryBuilder()
-                            .setNameFormat("tiered store dfs spiller")
+                            .setNameFormat("tiered store remote spiller")
                             // It is more appropriate to use task fail over than exit JVM here,
                             // but the task thread will bring some extra overhead to check the
                             // exception information set by other thread. As the spiller thread will
@@ -90,7 +76,6 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
             ResultPartitionID resultPartitionID,
             int numSubpartitions,
             int bufferSize,
-            boolean isBroadcastOnly,
             String baseDfsPath,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
@@ -98,10 +83,6 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
             throws IOException {
         this.numSubpartitions = numSubpartitions;
         this.subpartitionCacheDataManagers = new SubpartitionRemoteCacheManager[numSubpartitions];
-
-        ReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
-        this.lock = readWriteLock.writeLock();
-
         this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionCacheDataManagers[subpartitionId] =
@@ -113,7 +94,6 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
                             tieredStoreMemoryManager,
                             cacheFlushManager,
                             baseDfsPath,
-                            readWriteLock.readLock(),
                             bufferCompressor,
                             this,
                             ioExecutor);
@@ -148,13 +128,7 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
     }
 
     public TierReader registerNewConsumer(
-            int subpartitionId,
-            TierReaderViewId tierReaderViewId,
-            TierReaderView viewOperations) {
-        LOG.debug(
-                "### registered, subpartition {}, consumerId {},",
-                subpartitionId,
-                tierReaderViewId);
+            int subpartitionId, TierReaderViewId tierReaderViewId, TierReaderView viewOperations) {
         TierReaderView oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
@@ -178,7 +152,6 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
         for (int i = 0; i < numSubpartitions; i++) {
             getSubpartitionCacheDataManager(i).release();
         }
-        // TODO delete the shuffle files
         try {
             ioExecutor.shutdown();
             if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
@@ -188,8 +161,6 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
             ExceptionUtils.rethrow(e);
         }
     }
-
-    private void deleteAllTheShuffleFiles() {}
 
     public void setOutputMetrics(OutputMetrics metrics) {
         // HsOutputMetrics is not thread-safe. It can be shared by all the subpartitions because it
@@ -219,7 +190,6 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
 
     @Override
     public void onConsumerReleased(int subpartitionId, TierReaderViewId tierReaderViewId) {
-        LOG.debug("### Release subpartitionId {}, consumerId {}", subpartitionId, tierReaderViewId);
         subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderViewId);
         getSubpartitionCacheDataManager(subpartitionId).releaseConsumer(tierReaderViewId);
     }
@@ -230,15 +200,6 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
 
     private SubpartitionRemoteCacheManager getSubpartitionCacheDataManager(int targetChannel) {
         return subpartitionCacheDataManagers[targetChannel];
-    }
-
-    private <T, R extends Exception> T callWithLock(SupplierWithException<T, R> callable) throws R {
-        try {
-            lock.lock();
-            return callable.get();
-        } finally {
-            lock.unlock();
-        }
     }
 
     @VisibleForTesting

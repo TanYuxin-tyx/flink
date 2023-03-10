@@ -85,7 +85,6 @@ public class RemoteTier implements StorageTier {
                         resultPartitionID,
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
-                        isBroadcastOnly,
                         baseDfsPath,
                         tieredStoreMemoryManager,
                         cacheFlushManager,
