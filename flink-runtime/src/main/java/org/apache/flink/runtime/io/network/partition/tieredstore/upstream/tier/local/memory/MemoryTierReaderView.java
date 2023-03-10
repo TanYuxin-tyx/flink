@@ -40,10 +40,10 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The read view of {@link MemoryTier}, data will be read from memory. */
-public class SubpartitionMemoryReaderView
+public class MemoryTierReaderView
         implements TierReaderView, SubpartitionMemoryReaderViewOperations {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionMemoryReaderView.class);
+    private static final Logger LOG = LoggerFactory.getLogger(MemoryTierReaderView.class);
 
     private final BufferAvailabilityListener availabilityListener;
     private final Object lock = new Object();
@@ -71,7 +71,7 @@ public class SubpartitionMemoryReaderView
     // memoryDataView can be null only before initialization.
     private TierReader memoryTierReader;
 
-    public SubpartitionMemoryReaderView(BufferAvailabilityListener availabilityListener) {
+    public MemoryTierReaderView(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 

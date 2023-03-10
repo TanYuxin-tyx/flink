@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
-import org.apache.flink.runtime.io.network.partition.ProducerFailedException;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 
@@ -26,7 +25,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-/** The Reader of Single Tier. */
+/** The {@link TierReaderView} is the view of {@link TierReader}. */
 public interface TierReaderView {
 
     @Nullable
@@ -35,21 +34,13 @@ public interface TierReaderView {
     ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable);
 
-    void releaseAllResources() throws IOException;
-
-    boolean isReleased();
-
-    /**
-     * {@link ResultSubpartitionView} can decide whether the failure cause should be reported to
-     * consumer as failure (primary failure) or {@link ProducerFailedException} (secondary failure).
-     * Secondary failure can be reported only if producer (upstream task) is guaranteed to failover.
-     *
-     * <p><strong>BEWARE:</strong> Incorrectly reporting failure cause as primary failure, can hide
-     * the root cause of the failure from the user.
-     */
     Throwable getFailureCause();
 
     int unsynchronizedGetNumberOfQueuedBuffers();
 
     int getNumberOfQueuedBuffers();
+
+    boolean isReleased();
+
+    void releaseAllResources() throws IOException;
 }
