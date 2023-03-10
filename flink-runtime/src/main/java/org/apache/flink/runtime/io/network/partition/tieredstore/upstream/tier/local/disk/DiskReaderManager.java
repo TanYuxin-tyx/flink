@@ -53,13 +53,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.BiFunction;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * File data manager for HsResultPartition, which schedules {@link SubpartitionDiskReaderImpl} for
+ * File data manager for HsResultPartition, which schedules {@link DiskTierReaderImpl} for
  * loading data w.r.t. their offset in the file.
  */
 @ThreadSafe
@@ -78,8 +77,6 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
      */
     private final Duration bufferRequestTimeout;
 
-    private final BiFunction<Integer, Integer, Boolean> isLastRecordInSegmentDecider;
-
     /** Lock used to synchronize multi-thread access to thread-unsafe fields. */
     private final Object lock = new Object();
 
@@ -97,7 +94,7 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
 
     private final RegionBufferIndexTracker dataIndex;
 
-    private final SubpartitionDiskReader.Factory fileReaderFactory;
+    private final DiskTierReader.Factory fileReaderFactory;
 
     private final TieredStoreConfiguration storeConfiguration;
 
@@ -105,7 +102,7 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
 
     /** All readers waiting to read data of different subpartitions. */
     @GuardedBy("lock")
-    private final Set<SubpartitionDiskReader> allReaders = new HashSet<>();
+    private final Set<DiskTierReader> allReaders = new HashSet<>();
 
     /**
      * Whether the data reading task is currently running or not. This flag is used when trying to
@@ -130,9 +127,8 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
             ScheduledExecutorService ioExecutor,
             RegionBufferIndexTracker dataIndex,
             Path dataFilePath,
-            SubpartitionDiskReader.Factory fileReaderFactory,
-            TieredStoreConfiguration storeConfiguration,
-            BiFunction<Integer, Integer, Boolean> isLastRecordInSegmentDecider) {
+            DiskTierReader.Factory fileReaderFactory,
+            TieredStoreConfiguration storeConfiguration) {
         this.fileReaderFactory = fileReaderFactory;
         this.storeConfiguration = checkNotNull(storeConfiguration);
         this.dataIndex = checkNotNull(dataIndex);
@@ -141,7 +137,6 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
         this.ioExecutor = checkNotNull(ioExecutor);
         this.maxRequestedBuffers = storeConfiguration.getMaxRequestedBuffers();
         this.bufferRequestTimeout = checkNotNull(storeConfiguration.getBufferRequestTimeout());
-        this.isLastRecordInSegmentDecider = checkNotNull(isLastRecordInSegmentDecider);
     }
 
     /** Setup read buffer pool. */
@@ -167,7 +162,7 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
             checkState(!isReleased, "HsFileDataManager is already released.");
             lazyInitialize();
 
-            SubpartitionDiskReader subpartitionReader =
+            DiskTierReader subpartitionReader =
                     fileReaderFactory.createFileReader(
                             subpartitionId,
                             tierReaderViewId,
@@ -176,7 +171,6 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
                             dataIndex,
                             storeConfiguration.getMaxBuffersReadAhead(),
                             this::releaseSubpartitionReader,
-                            isLastRecordInSegmentDecider,
                             headerBuf);
 
             allReaders.add(subpartitionReader);
@@ -191,13 +185,13 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
     }
 
     /**
-     * Release specific {@link SubpartitionDiskReader} from {@link DiskReaderManager}.
+     * Release specific {@link DiskTierReader} from {@link DiskReaderManager}.
      *
-     * @param subpartitionDiskReaderView to release.
+     * @param diskTierReaderView to release.
      */
-    public void releaseSubpartitionReader(SubpartitionDiskReader subpartitionDiskReaderView) {
+    public void releaseSubpartitionReader(DiskTierReader diskTierReaderView) {
         synchronized (lock) {
-            removeSubpartitionReaders(Collections.singleton(subpartitionDiskReaderView));
+            removeSubpartitionReaders(Collections.singleton(diskTierReaderView));
         }
     }
 
@@ -210,7 +204,7 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
             isReleased = true;
             releaseFuture.complete(null);
 
-            for (SubpartitionDiskReader fileReader : allReaders) {
+            for (DiskTierReader fileReader : allReaders) {
                 fileReader.release();
             }
         }
@@ -223,7 +217,7 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
 
     /** @return number of buffers read. */
     private int tryRead() {
-        List<SubpartitionDiskReader> availableReaders = prepareAndGetAvailableReaders();
+        List<DiskTierReader> availableReaders = prepareAndGetAvailableReaders();
         if (availableReaders.isEmpty()) {
             return 0;
         }
@@ -332,13 +326,13 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
         }
     }
 
-    private List<SubpartitionDiskReader> prepareAndGetAvailableReaders() {
+    private List<DiskTierReader> prepareAndGetAvailableReaders() {
         synchronized (lock) {
             if (isReleased) {
                 return new ArrayList<>();
             }
-            List<SubpartitionDiskReader> availableReaders = new ArrayList<>();
-            for (SubpartitionDiskReader reader : allReaders) {
+            List<DiskTierReader> availableReaders = new ArrayList<>();
+            for (DiskTierReader reader : allReaders) {
                 reader.prepareForScheduling();
                 availableReaders.add(reader);
             }
@@ -348,10 +342,10 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
     }
 
     private void readData(
-            List<SubpartitionDiskReader> availableReaders, Queue<MemorySegment> buffers) {
+            List<DiskTierReader> availableReaders, Queue<MemorySegment> buffers) {
         int startIndex = 0;
         while (startIndex < availableReaders.size() && !buffers.isEmpty()) {
-            SubpartitionDiskReader subpartitionReader = availableReaders.get(startIndex);
+            DiskTierReader subpartitionReader = availableReaders.get(startIndex);
             startIndex++;
             try {
                 subpartitionReader.readBuffers(buffers, this);
@@ -363,18 +357,18 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
     }
 
     private void failSubpartitionReaders(
-            Collection<SubpartitionDiskReader> readers, Throwable failureCause) {
+            Collection<DiskTierReader> readers, Throwable failureCause) {
         synchronized (lock) {
             removeSubpartitionReaders(readers);
         }
 
-        for (SubpartitionDiskReader reader : readers) {
+        for (DiskTierReader reader : readers) {
             reader.fail(failureCause);
         }
     }
 
     @GuardedBy("lock")
-    private void removeSubpartitionReaders(Collection<SubpartitionDiskReader> readers) {
+    private void removeSubpartitionReaders(Collection<DiskTierReader> readers) {
         allReaders.removeAll(readers);
         if (allReaders.isEmpty()) {
             bufferPool.unregisterRequester(this);

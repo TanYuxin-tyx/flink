@@ -27,17 +27,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Queue;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
 
-/**
- * This component is responsible for reading data from disk for a specific subpartition.
- *
- * <p>In order to access the disk as sequentially as possible {@link SubpartitionDiskReader} need to
- * be able to compare priorities.
- */
-public interface SubpartitionDiskReader extends Comparable<SubpartitionDiskReader>, TierReader {
-    /** Do prep work before this {@link SubpartitionDiskReader} is scheduled to read data. */
+/** The {@link DiskTierReader} is used to consume data from Disk Tier. */
+public interface DiskTierReader extends Comparable<DiskTierReader>, TierReader {
+    /** Do prep work before this {@link DiskTierReader} is scheduled to read data. */
     void prepareForScheduling();
 
     /**
@@ -50,7 +44,7 @@ public interface SubpartitionDiskReader extends Comparable<SubpartitionDiskReade
     void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler) throws IOException;
 
     /**
-     * Fail this {@link SubpartitionDiskReader} caused by failureCause.
+     * Fail this {@link DiskTierReader} caused by failureCause.
      *
      * @param failureCause represents the reason why it failed.
      */
@@ -58,17 +52,16 @@ public interface SubpartitionDiskReader extends Comparable<SubpartitionDiskReade
 
     void release();
 
-    /** Factory to create {@link SubpartitionDiskReader}. */
+    /** Factory to create {@link DiskTierReader}. */
     interface Factory {
-        SubpartitionDiskReader createFileReader(
+        DiskTierReader createFileReader(
                 int subpartitionId,
                 TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
                 DiskTierReaderView operation,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
-                Consumer<SubpartitionDiskReader> fileReaderReleaser,
-                BiFunction<Integer, Integer, Boolean> isLastRecordInSegmentDecider,
+                Consumer<DiskTierReader> fileReaderReleaser,
                 ByteBuffer headerBuffer);
     }
 }

@@ -132,9 +132,8 @@ public class DiskTier implements TierWriter, StorageTier {
                         readIOExecutor,
                         regionBufferIndexTracker,
                         dataFilePath,
-                        SubpartitionDiskReaderImpl.Factory.INSTANCE,
-                        storeConfiguration,
-                        this::isLastRecordInSegment);
+                        DiskTierReaderImpl.Factory.INSTANCE,
+                        storeConfiguration);
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTracker(numSubpartitions, isBroadcastOnly);
     }
