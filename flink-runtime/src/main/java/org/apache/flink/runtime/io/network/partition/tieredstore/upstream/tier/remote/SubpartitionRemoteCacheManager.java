@@ -233,7 +233,6 @@ public class SubpartitionRemoteCacheManager {
                     checkState(!consumerMap.containsKey(tierReaderViewId));
                     RemoteTierReader newConsumer =
                             new RemoteTierReader(
-                                    resultPartitionLock,
                                     subpartitionLock.readLock(),
                                     targetChannel,
                                     tierReaderViewId,
