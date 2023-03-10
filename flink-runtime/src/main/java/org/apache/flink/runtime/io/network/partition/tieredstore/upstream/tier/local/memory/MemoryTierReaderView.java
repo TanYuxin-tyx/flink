@@ -34,7 +34,7 @@ import java.util.Optional;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The read view of {@link MemoryTier}, data will be read from memory. */
+/** The read view of {@link MemoryTierReader}.*/
 public class MemoryTierReaderView implements TierReaderView {
 
     private final Object lock = new Object();
@@ -209,7 +209,6 @@ public class MemoryTierReaderView implements TierReaderView {
             failureCause = throwable;
             releaseMemoryView = memoryTierReader != null;
         }
-
         if (releaseMemoryView) {
             memoryTierReader.releaseDataView();
         }

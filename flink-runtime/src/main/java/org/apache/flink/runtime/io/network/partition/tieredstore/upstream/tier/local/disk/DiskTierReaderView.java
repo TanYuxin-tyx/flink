@@ -36,14 +36,13 @@ import java.util.Queue;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The read view of {@link DiskTier}, data can be read from disk. */
+/** The read view of {@link DiskTierReader}. */
 public class DiskTierReaderView implements TierReaderView {
 
     private final Object lock = new Object();
 
     private final BufferAvailabilityListener availabilityListener;
 
-    /** Index of last consumed buffer. */
     @GuardedBy("lock")
     private int lastConsumedBufferIndex = -1;
 
@@ -241,9 +240,7 @@ public class DiskTierReaderView implements TierReaderView {
             failureCause = throwable;
             releaseDiskView = diskTierReader != null;
         }
-        // release subpartition reader outside of lock to avoid deadlock.
         if (releaseDiskView) {
-            //noinspection FieldAccessNotGuarded
             diskTierReader.releaseDataView();
         }
     }
