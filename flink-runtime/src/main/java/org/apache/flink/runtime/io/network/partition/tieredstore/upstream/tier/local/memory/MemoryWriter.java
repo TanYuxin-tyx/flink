@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.Tiered
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
@@ -60,8 +61,7 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderViewId, SubpartitionMemoryReaderViewOperations>>
-            subpartitionViewOperationsMap;
+    private final List<Map<TierReaderViewId, TierReaderView>> subpartitionViewOperationsMap;
 
     // Record the byte number currently written to each sub partition.
     private final int[] numSubpartitionEmitBytes;
@@ -164,16 +164,9 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
         }
     }
 
-    /**
-     * Register {@link SubpartitionMemoryReaderViewOperations} to {@link
-     * #subpartitionViewOperationsMap}. It is used to obtain the consumption progress of the
-     * subpartition.
-     */
     public TierReader registerNewConsumer(
-            int subpartitionId,
-            TierReaderViewId tierReaderViewId,
-            SubpartitionMemoryReaderViewOperations viewOperations) {
-        SubpartitionMemoryReaderViewOperations oldView =
+            int subpartitionId, TierReaderViewId tierReaderViewId, TierReaderView viewOperations) {
+        TierReaderView oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
                         .put(tierReaderViewId, viewOperations);
@@ -234,14 +227,13 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
     @Override
     public void onDataAvailable(
             int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, SubpartitionMemoryReaderViewOperations> consumerViewMap =
+        Map<TierReaderViewId, TierReaderView> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
         tierReaderViewIds.forEach(
                 consumerId -> {
-                    SubpartitionMemoryReaderViewOperations consumerView =
-                            consumerViewMap.get(consumerId);
-                    if (consumerView != null) {
-                        consumerView.notifyDataAvailable();
+                    TierReaderView tierReaderView = consumerViewMap.get(consumerId);
+                    if (tierReaderView != null) {
+                        tierReaderView.notifyDataAvailable();
                     }
                 });
     }
