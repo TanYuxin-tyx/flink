@@ -126,8 +126,8 @@ public class MemoryTier implements StorageTier {
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        SubpartitionMemoryReaderView memoryReaderView =
-                new SubpartitionMemoryReaderView(availabilityListener);
+        MemoryTierReaderView memoryReaderView =
+                new MemoryTierReaderView(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
         checkMultipleConsumerIsAllowed(lastTierReaderViewId);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one

@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAn
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView.AvailabilityWithBacklog;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TestingTierReader;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.SubpartitionMemoryReaderView;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.MemoryTierReaderView;
 
 import org.junit.jupiter.api.Test;
 
@@ -38,12 +38,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Tests for {@link SubpartitionMemoryReaderView}. */
+/** Tests for {@link MemoryTierReaderView}. */
 class SubpartitionMemoryReaderViewTest {
 
     @Test
     void testGetNextBufferFromMemory() throws IOException {
-        SubpartitionMemoryReaderView subpartitionMemoryReaderView =
+        MemoryTierReaderView memoryTierReaderView =
                 createSubpartitionMemoryReaderView();
         BufferAndBacklog bufferAndBacklog = createBufferAndBacklog(1, DataType.DATA_BUFFER, 0);
         TestingTierReader memoryTierReader =
@@ -51,14 +51,14 @@ class SubpartitionMemoryReaderViewTest {
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(bufferAndBacklog))
                         .build();
-        subpartitionMemoryReaderView.setMemoryTierReader(memoryTierReader);
-        BufferAndBacklog nextBuffer = subpartitionMemoryReaderView.getNextBuffer();
+        memoryTierReaderView.setMemoryTierReader(memoryTierReader);
+        BufferAndBacklog nextBuffer = memoryTierReaderView.getNextBuffer();
         assertThat(nextBuffer).isSameAs(bufferAndBacklog);
     }
 
     @Test
     void testGetNextBufferFromMemoryNextDataTypeIsNone() throws IOException {
-        SubpartitionMemoryReaderView subpartitionMemoryReaderView =
+        MemoryTierReaderView memoryTierReaderView =
                 createSubpartitionMemoryReaderView();
         BufferAndBacklog bufferAndBacklog = createBufferAndBacklog(0, DataType.NONE, 0);
         TestingTierReader memoryTierReader =
@@ -66,8 +66,8 @@ class SubpartitionMemoryReaderViewTest {
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(bufferAndBacklog))
                         .build();
-        subpartitionMemoryReaderView.setMemoryTierReader(memoryTierReader);
-        BufferAndBacklog nextBuffer = subpartitionMemoryReaderView.getNextBuffer();
+        memoryTierReaderView.setMemoryTierReader(memoryTierReader);
+        BufferAndBacklog nextBuffer = memoryTierReaderView.getNextBuffer();
         assertThat(nextBuffer).isNotNull();
         assertThat(nextBuffer.buffer()).isSameAs(bufferAndBacklog.buffer());
         assertThat(nextBuffer.buffersInBacklog()).isEqualTo(bufferAndBacklog.buffersInBacklog());
@@ -77,7 +77,7 @@ class SubpartitionMemoryReaderViewTest {
 
     @Test
     void testGetNextBufferThrowException() {
-        SubpartitionMemoryReaderView subpartitionMemoryReaderView =
+        MemoryTierReaderView memoryTierReaderView =
                 createSubpartitionMemoryReaderView();
         TestingTierReader memoryTierReader =
                 TestingTierReader.builder()
@@ -86,14 +86,14 @@ class SubpartitionMemoryReaderViewTest {
                                     throw new RuntimeException("expected exception.");
                                 })
                         .build();
-        subpartitionMemoryReaderView.setMemoryTierReader(memoryTierReader);
-        assertThatThrownBy(subpartitionMemoryReaderView::getNextBuffer)
+        memoryTierReaderView.setMemoryTierReader(memoryTierReader);
+        assertThatThrownBy(memoryTierReaderView::getNextBuffer)
                 .hasStackTraceContaining("expected exception.");
     }
 
     @Test
     void testGetNextBufferZeroBacklog() throws IOException {
-        SubpartitionMemoryReaderView subpartitionMemoryReaderView =
+        MemoryTierReaderView memoryTierReaderView =
                 createSubpartitionMemoryReaderView();
         int diskBacklog = 0;
         BufferAndBacklog targetBufferAndBacklog =
@@ -103,8 +103,8 @@ class SubpartitionMemoryReaderViewTest {
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(targetBufferAndBacklog))
                         .build();
-        subpartitionMemoryReaderView.setMemoryTierReader(memoryTierReader);
-        assertThat(subpartitionMemoryReaderView.getNextBuffer())
+        memoryTierReaderView.setMemoryTierReader(memoryTierReader);
+        assertThat(memoryTierReaderView.getNextBuffer())
                 .satisfies(
                         (bufferAndBacklog -> {
                             // backlog is reset to maximum backlog of memory and disk.
@@ -122,49 +122,49 @@ class SubpartitionMemoryReaderViewTest {
     @Test
     void testNotifyDataAvailableNeedNotify() throws IOException {
         CompletableFuture<Void> notifyAvailableFuture = new CompletableFuture<>();
-        SubpartitionMemoryReaderView subpartitionMemoryReaderView =
+        MemoryTierReaderView memoryTierReaderView =
                 createSubpartitionMemoryReaderView(() -> notifyAvailableFuture.complete(null));
-        subpartitionMemoryReaderView.setMemoryTierReader(TestingTierReader.NO_OP);
-        subpartitionMemoryReaderView.getNextBuffer();
-        subpartitionMemoryReaderView.notifyDataAvailable();
+        memoryTierReaderView.setMemoryTierReader(TestingTierReader.NO_OP);
+        memoryTierReaderView.getNextBuffer();
+        memoryTierReaderView.notifyDataAvailable();
         assertThat(notifyAvailableFuture).isCompleted();
     }
 
     @Test
     void testNotifyDataAvailableNotNeedNotify() throws IOException {
         CompletableFuture<Void> notifyAvailableFuture = new CompletableFuture<>();
-        SubpartitionMemoryReaderView subpartitionMemoryReaderView =
+        MemoryTierReaderView memoryTierReaderView =
                 createSubpartitionMemoryReaderView(() -> notifyAvailableFuture.complete(null));
-        subpartitionMemoryReaderView.setMemoryTierReader(TestingTierReader.NO_OP);
-        subpartitionMemoryReaderView.getNextBuffer();
-        subpartitionMemoryReaderView.notifyDataAvailable();
+        memoryTierReaderView.setMemoryTierReader(TestingTierReader.NO_OP);
+        memoryTierReaderView.getNextBuffer();
+        memoryTierReaderView.notifyDataAvailable();
         assertThat(notifyAvailableFuture).isCompleted();
     }
 
     @Test
     void testGetZeroBacklogNeedNotify() {
         CompletableFuture<Void> notifyAvailableFuture = new CompletableFuture<>();
-        SubpartitionMemoryReaderView subpartitionMemoryReaderView =
+        MemoryTierReaderView memoryTierReaderView =
                 createSubpartitionMemoryReaderView(() -> notifyAvailableFuture.complete(null));
-        subpartitionMemoryReaderView.setMemoryTierReader(
+        memoryTierReaderView.setMemoryTierReader(
                 TestingTierReader.builder().setGetBacklogSupplier(() -> 0).build());
         AvailabilityWithBacklog availabilityAndBacklog =
-                subpartitionMemoryReaderView.getAvailabilityAndBacklog(0);
+                memoryTierReaderView.getAvailabilityAndBacklog(0);
         assertThat(availabilityAndBacklog.getBacklog()).isZero();
         assertThat(notifyAvailableFuture).isNotCompleted();
-        subpartitionMemoryReaderView.notifyDataAvailable();
+        memoryTierReaderView.notifyDataAvailable();
         assertThat(notifyAvailableFuture).isCompleted();
     }
 
     @Test
     void testGetAvailabilityAndBacklogPositiveCredit() {
-        SubpartitionMemoryReaderView subpartitionMemoryReaderView =
+        MemoryTierReaderView memoryTierReaderView =
                 createSubpartitionMemoryReaderView();
         int backlog = 2;
-        subpartitionMemoryReaderView.setMemoryTierReader(
+        memoryTierReaderView.setMemoryTierReader(
                 TestingTierReader.builder().setGetBacklogSupplier(() -> backlog).build());
         AvailabilityWithBacklog availabilityAndBacklog =
-                subpartitionMemoryReaderView.getAvailabilityAndBacklog(1);
+                memoryTierReaderView.getAvailabilityAndBacklog(1);
         assertThat(availabilityAndBacklog.getBacklog()).isEqualTo(backlog);
         // positive credit always available.
         assertThat(availabilityAndBacklog.isAvailable()).isTrue();
@@ -173,13 +173,13 @@ class SubpartitionMemoryReaderViewTest {
     @Test
     void testGetAvailabilityAndBacklogNonPositiveCreditNextIsData() throws IOException {
         int backlog = 2;
-        SubpartitionMemoryReaderView subpartitionMemoryReaderView =
+        MemoryTierReaderView memoryTierReaderView =
                 createSubpartitionMemoryReaderView();
-        subpartitionMemoryReaderView.setMemoryTierReader(
+        memoryTierReaderView.setMemoryTierReader(
                 TestingTierReader.builder().setGetBacklogSupplier(() -> backlog).build());
-        subpartitionMemoryReaderView.getNextBuffer();
+        memoryTierReaderView.getNextBuffer();
         AvailabilityWithBacklog availabilityAndBacklog =
-                subpartitionMemoryReaderView.getAvailabilityAndBacklog(0);
+                memoryTierReaderView.getAvailabilityAndBacklog(0);
         assertThat(availabilityAndBacklog.getBacklog()).isEqualTo(backlog);
         // if credit is non-positive, only event can be available.
         assertThat(availabilityAndBacklog.isAvailable()).isFalse();
@@ -188,36 +188,36 @@ class SubpartitionMemoryReaderViewTest {
     @Test
     void testGetAvailabilityAndBacklogNonPositiveCreditNextIsEvent() throws IOException {
         int backlog = 2;
-        SubpartitionMemoryReaderView subpartitionMemoryReaderView =
+        MemoryTierReaderView memoryTierReaderView =
                 createSubpartitionMemoryReaderView();
-        subpartitionMemoryReaderView.setMemoryTierReader(
+        memoryTierReaderView.setMemoryTierReader(
                 TestingTierReader.builder().setGetBacklogSupplier(() -> backlog).build());
-        subpartitionMemoryReaderView.getNextBuffer();
+        memoryTierReaderView.getNextBuffer();
         AvailabilityWithBacklog availabilityAndBacklog =
-                subpartitionMemoryReaderView.getAvailabilityAndBacklog(0);
+                memoryTierReaderView.getAvailabilityAndBacklog(0);
         assertThat(availabilityAndBacklog.getBacklog()).isEqualTo(backlog);
         assertThat(availabilityAndBacklog.isAvailable()).isFalse();
     }
 
     @Test
     void testRelease() throws Exception {
-        SubpartitionMemoryReaderView subpartitionMemoryReaderView =
+        MemoryTierReaderView memoryTierReaderView =
                 createSubpartitionMemoryReaderView();
         CompletableFuture<Void> releaseDiskViewFuture = new CompletableFuture<>();
         TestingTierReader memoryTierReader =
                 TestingTierReader.builder()
                         .setReleaseDataViewRunnable(() -> releaseDiskViewFuture.complete(null))
                         .build();
-        subpartitionMemoryReaderView.setMemoryTierReader(memoryTierReader);
-        subpartitionMemoryReaderView.releaseAllResources();
-        assertThat(subpartitionMemoryReaderView.isReleased()).isTrue();
+        memoryTierReaderView.setMemoryTierReader(memoryTierReader);
+        memoryTierReaderView.releaseAllResources();
+        assertThat(memoryTierReaderView.isReleased()).isTrue();
         assertThat(releaseDiskViewFuture).isCompleted();
     }
 
     @Test
     void testGetConsumingOffset() throws IOException {
         AtomicInteger nextBufferIndex = new AtomicInteger(0);
-        SubpartitionMemoryReaderView subpartitionMemoryReaderView =
+        MemoryTierReaderView memoryTierReaderView =
                 createSubpartitionMemoryReaderView();
         TestingTierReader memoryTierReader =
                 TestingTierReader.builder()
@@ -229,21 +229,21 @@ class SubpartitionMemoryReaderViewTest {
                                                         DataType.DATA_BUFFER,
                                                         nextBufferIndex.getAndIncrement())))
                         .build();
-        subpartitionMemoryReaderView.setMemoryTierReader(memoryTierReader);
-        assertThat(subpartitionMemoryReaderView.getConsumingOffset(true)).isEqualTo(-1);
-        subpartitionMemoryReaderView.getNextBuffer();
-        assertThat(subpartitionMemoryReaderView.getConsumingOffset(true)).isEqualTo(0);
-        subpartitionMemoryReaderView.getNextBuffer();
-        assertThat(subpartitionMemoryReaderView.getConsumingOffset(true)).isEqualTo(1);
+        memoryTierReaderView.setMemoryTierReader(memoryTierReader);
+        assertThat(memoryTierReaderView.getConsumingOffset(true)).isEqualTo(-1);
+        memoryTierReaderView.getNextBuffer();
+        assertThat(memoryTierReaderView.getConsumingOffset(true)).isEqualTo(0);
+        memoryTierReaderView.getNextBuffer();
+        assertThat(memoryTierReaderView.getConsumingOffset(true)).isEqualTo(1);
     }
 
-    private static SubpartitionMemoryReaderView createSubpartitionMemoryReaderView() {
-        return new SubpartitionMemoryReaderView(new NoOpBufferAvailablityListener());
+    private static MemoryTierReaderView createSubpartitionMemoryReaderView() {
+        return new MemoryTierReaderView(new NoOpBufferAvailablityListener());
     }
 
-    private static SubpartitionMemoryReaderView createSubpartitionMemoryReaderView(
+    private static MemoryTierReaderView createSubpartitionMemoryReaderView(
             BufferAvailabilityListener bufferAvailabilityListener) {
-        return new SubpartitionMemoryReaderView(bufferAvailabilityListener);
+        return new MemoryTierReaderView(bufferAvailabilityListener);
     }
 
     private static BufferAndBacklog createBufferAndBacklog(
