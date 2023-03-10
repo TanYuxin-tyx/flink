@@ -221,14 +221,23 @@ class SortMergeResultPartitionReadScheduler implements Runnable, BufferRecycler 
         } while (System.nanoTime() < timeoutTime
                 || System.nanoTime() < (timeoutTime = getBufferRequestTimeoutTime()));
 
-        if (numRequestedBuffers <= 0) {
-            throw new TimeoutException(
-                    String.format(
-                            "Buffer request timeout, this means there is a fierce contention of"
-                                    + " the batch shuffle read memory, please increase '%s'.",
-                            TaskManagerOptions.NETWORK_BATCH_SHUFFLE_READ_MEMORY.key()));
-        }
-        return new ArrayDeque<>();
+        LOG.warn(
+                "1: "
+                        + (System.nanoTime() < timeoutTime)
+                        + "2:"
+                        + (System.nanoTime() < (timeoutTime = getBufferRequestTimeoutTime()))
+                        + ",current:"
+                        + System.nanoTime()
+                        + ", timeouttime fun: "
+                        + getBufferRequestTimeoutTime()
+                        + ", timeouttime val:"
+                        + timeoutTime);
+
+        throw new TimeoutException(
+                String.format(
+                        "Buffer request timeout, this means there is a fierce contention of"
+                                + " the batch shuffle read memory, please increase '%s'.",
+                        TaskManagerOptions.NETWORK_BATCH_SHUFFLE_READ_MEMORY.key()));
     }
 
     private long getBufferRequestTimeoutTime() {
