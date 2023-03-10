@@ -26,9 +26,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.util.function.SupplierWithException;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Deque;
@@ -39,15 +36,8 @@ import java.util.concurrent.locks.Lock;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-/**
- * This class is responsible for managing the data of a single consumer. {@link
- * SubpartitionMemoryReader} will create a new {@link SubpartitionMemoryReader} when
- * a consumer is registered.
- */
-public class SubpartitionMemoryReader implements TierReader {
-
-    private static final Logger LOG =
-            LoggerFactory.getLogger(SubpartitionMemoryReader.class);
+/** The {@link MemoryTierReader} is used to consume data from Memory Tier. */
+public class MemoryTierReader implements TierReader {
 
     @GuardedBy("consumerLock")
     private final Deque<BufferContext> unConsumedBuffers = new LinkedList<>();
@@ -60,7 +50,7 @@ public class SubpartitionMemoryReader implements TierReader {
 
     private final MemoryDataWriterOperation memoryDataWriterOperation;
 
-    public SubpartitionMemoryReader(
+    public MemoryTierReader(
             Lock consumerLock,
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
@@ -72,30 +62,18 @@ public class SubpartitionMemoryReader implements TierReader {
     }
 
     @GuardedBy("consumerLock")
-    // this method only called from subpartitionMemoryDataManager with write lock.
     public void addInitialBuffers(Deque<BufferContext> buffers) {
         unConsumedBuffers.addAll(buffers);
     }
 
     @GuardedBy("consumerLock")
-    // this method only called from subpartitionMemoryDataManager with write lock.
     public boolean addBuffer(BufferContext bufferContext) {
         unConsumedBuffers.add(bufferContext);
         trimHeadingReleasedBuffers();
         return unConsumedBuffers.size() <= 1;
     }
 
-    /**
-     * Check whether the head of {@link #unConsumedBuffers} is the buffer to be consumed. If so,
-     * return the buffer and backlog.
-     *
-     * @param toConsumeIndex index of buffer to be consumed.
-     * @return If the head of {@link #unConsumedBuffers} is target, return optional of the buffer
-     *     and backlog. Otherwise, return {@link Optional#empty()}.
-     */
     @SuppressWarnings("FieldAccessNotGuarded")
-    // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
-    // subpartitionLock.
     @Override
     public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(
             int toConsumeIndex, Queue<Buffer> errorBuffers) {
@@ -105,7 +83,6 @@ public class SubpartitionMemoryReader implements TierReader {
                             if (!checkFirstUnConsumedBufferIndex(toConsumeIndex)) {
                                 return Optional.empty();
                             }
-
                             BufferContext bufferContext =
                                     checkNotNull(unConsumedBuffers.pollFirst());
                             Buffer.DataType nextDataType =
@@ -122,17 +99,7 @@ public class SubpartitionMemoryReader implements TierReader {
                                 tuple.f0.isLastBufferInSegment()));
     }
 
-    /**
-     * Check whether the head of {@link #unConsumedBuffers} is the buffer to be consumed next time.
-     * If so, return the next buffer's data type.
-     *
-     * @param nextToConsumeIndex index of the buffer to be consumed next time.
-     * @return If the head of {@link #unConsumedBuffers} is target, return the buffer's data type.
-     *     Otherwise, return {@link Buffer.DataType#NONE}.
-     */
     @SuppressWarnings("FieldAccessNotGuarded")
-    // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
-    // consumerLock.
     @Override
     public Buffer.DataType peekNextToConsumeDataType(
             int nextToConsumeIndex, Queue<Buffer> errorBuffers) {
@@ -154,10 +121,6 @@ public class SubpartitionMemoryReader implements TierReader {
                         == expectedBufferIndex;
     }
 
-    @SuppressWarnings("FieldAccessNotGuarded")
-    // Un-synchronized get unConsumedBuffers size to provide memory data backlog,this will make the
-    // result greater than or equal to the actual backlog, but obtaining an accurate backlog will
-    // bring too much extra overhead.
     @Override
     public int getBacklog() {
         return unConsumedBuffers.size();
