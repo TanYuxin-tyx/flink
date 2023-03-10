@@ -108,7 +108,6 @@ class RemoteDiskCacheManagerTest {
                         new ResultPartitionID(),
                         NUM_SUBPARTITIONS,
                         bufferSize,
-                        false,
                         tmpFolder.getRoot().getPath(),
                         tieredStoreMemoryManager,
                         new CacheFlushManager(),
