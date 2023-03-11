@@ -25,7 +25,6 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreConsumer;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreConsumerFailureCause;
 
 import javax.annotation.Nullable;
 
@@ -137,7 +136,14 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
         }
         isReleased = true;
         for (TierReaderView tierReaderView : tierReaderViews) {
-            tierReaderView.releaseAllResources();
+            if (tierReaderView != null) {
+                try {
+                    tierReaderView.releaseAllResources();
+                } catch (IOException ioException) {
+                    throw new RuntimeException(
+                            "Failed to release partition view resources.", ioException);
+                }
+            }
         }
     }
 
@@ -148,11 +154,13 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     @Override
     public Throwable getFailureCause() {
-        TieredStoreConsumerFailureCause failureCause = new TieredStoreConsumerFailureCause();
         for (TierReaderView tierReaderView : tierReaderViews) {
-            failureCause.appendException(tierReaderView.getFailureCause());
+            Throwable failureCause = tierReaderView.getFailureCause();
+            if (failureCause != null) {
+                return failureCause;
+            }
         }
-        return failureCause.isEmpty() ? null : failureCause;
+        return null;
     }
 
     @Override
@@ -178,9 +186,15 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     // -------------------------------
 
     private boolean findTierContainsNextSegment() {
+
+        for (TierReaderView tierReaderView : tierReaderViews) {
+            tierReaderView.getAvailabilityAndBacklog(Integer.MAX_VALUE);
+        }
+
         if (!hasSegmentFinished) {
             return true;
         }
+
         for (int i = 0; i < tiers.length; i++) {
             StorageTier tieredDataGate = tiers[i];
             if (tieredDataGate.hasCurrentSegment(subpartitionId, currentSegmentId)) {
@@ -188,6 +202,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
                 return true;
             }
         }
+
         return false;
     }
 }
