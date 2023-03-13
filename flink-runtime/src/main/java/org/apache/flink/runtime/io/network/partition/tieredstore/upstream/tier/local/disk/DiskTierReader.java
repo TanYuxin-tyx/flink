@@ -42,8 +42,6 @@ public interface DiskTierReader extends Comparable<DiskTierReader>, TierReader {
     /** Fail this {@link DiskTierReader} caused by failureCause. */
     void fail(Throwable failureCause);
 
-    void release();
-
     /** Factory to create {@link DiskTierReader}. */
     interface Factory {
         DiskTierReader createFileReader(
