@@ -29,7 +29,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
@@ -41,7 +40,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -117,16 +116,10 @@ public class SubpartitionDiskCacheManager {
 
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    public Deque<BufferIndexAndChannel> getBuffersSatisfyStatus() {
+    public List<BufferContext> getBuffersSatisfyStatus() {
         return callWithLock(
                 () -> {
-                    // TODO return iterator to avoid completely traversing the queue for each call.
-                    Deque<BufferIndexAndChannel> targetBuffers = new ArrayDeque<>();
-                    // traverse buffers in order.
-                    allBuffers.forEach(
-                            (bufferContext -> {
-                                targetBuffers.add(bufferContext.getBufferIndexAndChannel());
-                            }));
+                    List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
                     allBuffers.clear();
                     return targetBuffers;
                 });
@@ -141,24 +134,15 @@ public class SubpartitionDiskCacheManager {
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    public List<BufferWithIdentity> spillSubpartitionBuffers(Deque<BufferIndexAndChannel> toSpill) {
-        return callWithLock(
-                () ->
-                        toSpill.stream()
-                                .map(
-                                        indexAndChannel -> {
-                                            int bufferIndex = indexAndChannel.getBufferIndex();
-                                            return startSpillingBuffer(bufferIndex)
-                                                    .map(
-                                                            (context) ->
-                                                                    new BufferWithIdentity(
-                                                                            context.getBuffer(),
-                                                                            bufferIndex,
-                                                                            targetChannel));
-                                        })
-                                .filter(Optional::isPresent)
-                                .map(Optional::get)
-                                .collect(Collectors.toList()));
+    public List<BufferWithIdentity> spillSubpartitionBuffers(Deque<BufferContext> toSpill) {
+        return toSpill.stream()
+                .map(
+                        bufferContext ->
+                                new BufferWithIdentity(
+                                        bufferContext.getBuffer(),
+                                        bufferContext.getBufferIndexAndChannel().getBufferIndex(),
+                                        targetChannel))
+                .collect(Collectors.toList());
     }
 
     public void setOutputMetrics(OutputMetrics outputMetrics) {

@@ -19,13 +19,13 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local.disk;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManagerOperation;
 import org.apache.flink.util.function.SupplierWithException;
 
 import java.util.Collection;
-import java.util.Deque;
+import java.util.List;
 import java.util.function.BiConsumer;
 
 /** Mock {@link DiskCacheManagerOperation} for testing. */
@@ -57,7 +57,7 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
     }
 
     @Override
-    public Deque<BufferIndexAndChannel> getBuffersInOrder(int subpartitionId) {
+    public List<BufferContext> getBuffersInOrder(int subpartitionId) {
         return null;
     }
 

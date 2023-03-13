@@ -209,7 +209,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
         if (bufferWithIdentities.isEmpty()) {
             return;
         }
-        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferWithIdentities);
+        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferWithIdentities, false);
 
         TieredStoreUtils.writeDfsBuffers(writingChannel, expectedBytes, bufferWithHeaders);
         totalBytesWritten += expectedBytes;
