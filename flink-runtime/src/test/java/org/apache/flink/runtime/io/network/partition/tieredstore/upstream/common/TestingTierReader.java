@@ -34,8 +34,6 @@ public class TestingTierReader implements TierReader {
                     Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
             consumeBufferFunction;
 
-    private final Function<Integer, Buffer.DataType> peekNextToConsumeDataTypeFunction;
-
     private final Supplier<Integer> getBacklogSupplier;
 
     private final Runnable releaseDataViewRunnable;
@@ -43,11 +41,9 @@ public class TestingTierReader implements TierReader {
     private TestingTierReader(
             FunctionWithException<Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
                     consumeBufferFunction,
-            Function<Integer, Buffer.DataType> peekNextToConsumeDataTypeFunction,
             Supplier<Integer> getBacklogSupplier,
             Runnable releaseDataViewRunnable) {
         this.consumeBufferFunction = consumeBufferFunction;
-        this.peekNextToConsumeDataTypeFunction = peekNextToConsumeDataTypeFunction;
         this.getBacklogSupplier = getBacklogSupplier;
         this.releaseDataViewRunnable = releaseDataViewRunnable;
     }
@@ -57,8 +53,8 @@ public class TestingTierReader implements TierReader {
     }
 
     @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(
-            int nextBufferToConsume) throws Throwable {
+    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(int nextBufferToConsume)
+            throws Throwable {
         return consumeBufferFunction.apply(nextBufferToConsume);
     }
 
@@ -112,11 +108,7 @@ public class TestingTierReader implements TierReader {
         }
 
         public TestingTierReader build() {
-            return new TestingTierReader(
-                    consumeBufferFunction,
-                    peekNextToConsumeDataTypeFunction,
-                    getBacklogSupplier,
-                    releaseDataViewRunnable);
+            return new TestingTierReader(consumeBufferFunction, getBacklogSupplier, releaseDataViewRunnable);
         }
     }
 }

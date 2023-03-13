@@ -669,7 +669,6 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
         final NettyShuffleEnvironment network = createTieredStoreNettyShuffleEnvironment();
         final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(1);
         int buffersPerChannel = 2;
-        int extraNetworkBuffersPerGate = 8;
 
         try (Closer closer = Closer.create()) {
             closer.register(network::close);
@@ -956,8 +955,8 @@ public class TieredStoreSingleInputGateTest extends InputGateTestBase {
 
     /**
      * Tests that if the {@link PartitionNotFoundException} is set onto one {@link InputChannel},
-     * then it would be thrown directly via {@link SingleInputGate#getNext()}. So we could confirm
-     * the {@link SingleInputGate} would not swallow or transform the original exception.
+     * then it would be thrown directly via {@link TieredStoreSingleInputGate#getNext()}. So we could confirm
+     * the {@link TieredStoreSingleInputGate} would not swallow or transform the original exception.
      */
     @Test
     void testPartitionNotFoundExceptionWhileGetNextBuffer() throws IOException {

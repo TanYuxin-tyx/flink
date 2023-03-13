@@ -19,11 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.memory.MemorySegmentProvider;
-import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.executiongraph.IndexRange;
-import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
@@ -31,26 +28,14 @@ import org.apache.flink.runtime.io.network.buffer.NoOpBufferPool;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannelBuilder;
-import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
-import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
-import org.apache.flink.runtime.taskmanager.NettyShuffleEnvironmentConfiguration;
-import org.apache.flink.runtime.throughput.BufferDebloatConfiguration;
-import org.apache.flink.runtime.throughput.BufferDebloater;
 import org.apache.flink.runtime.throughput.ThroughputCalculator;
 import org.apache.flink.util.clock.SystemClock;
 import org.apache.flink.util.function.SupplierWithException;
 
-import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.stream.IntStream;
 
 /**
  * Utility class to encapsulate the logic of building a {@link TieredStoreSingleInputGate} instance.
@@ -60,13 +45,13 @@ public class TieredStoreSingleInputGateBuilder {
     public static final PartitionProducerStateProvider NO_OP_PRODUCER_CHECKER =
             (dsid, id, consumer) -> {};
 
-    private final IntermediateDataSetID intermediateDataSetID = new IntermediateDataSetID();
+    public static final int BUFFER_SIZE = 4096;
 
-    private final int bufferSize = 4096;
+    private final IntermediateDataSetID intermediateDataSetID = new IntermediateDataSetID();
 
     private ResultPartitionType partitionType = ResultPartitionType.HYBRID_SELECTIVE;
 
-    private IndexRange subpartitionIndexRange = new IndexRange(0, 0);
+    private final IndexRange subpartitionIndexRange = new IndexRange(0, 0);
 
     private int gateIndex = 0;
 
@@ -78,16 +63,7 @@ public class TieredStoreSingleInputGateBuilder {
 
     private MemorySegmentProvider segmentProvider = new NetworkBufferPool(0, 32 * 1024);
 
-    private ChannelStateWriter channelStateWriter = ChannelStateWriter.NO_OP;
-
-    @Nullable
-    private BiFunction<InputChannelBuilder, SingleInputGate, InputChannel> channelFactory = null;
-
     private SupplierWithException<BufferPool, IOException> bufferPoolFactory = NoOpBufferPool::new;
-    private BufferDebloatConfiguration bufferDebloatConfiguration =
-            BufferDebloatConfiguration.fromConfiguration(new Configuration());
-    private Function<BufferDebloatConfiguration, ThroughputCalculator> createThroughputCalculator =
-            config -> new ThroughputCalculator(SystemClock.getInstance());
 
     private JobID jobID = null;
 
@@ -106,12 +82,6 @@ public class TieredStoreSingleInputGateBuilder {
         return this;
     }
 
-    public TieredStoreSingleInputGateBuilder setSubpartitionIndexRange(
-            IndexRange subpartitionIndexRange) {
-        this.subpartitionIndexRange = subpartitionIndexRange;
-        return this;
-    }
-
     public TieredStoreSingleInputGateBuilder setSingleInputGateIndex(int gateIndex) {
         this.gateIndex = gateIndex;
         return this;
@@ -119,18 +89,6 @@ public class TieredStoreSingleInputGateBuilder {
 
     public TieredStoreSingleInputGateBuilder setNumberOfChannels(int numberOfChannels) {
         this.numberOfChannels = numberOfChannels;
-        return this;
-    }
-
-    public TieredStoreSingleInputGateBuilder setupBufferPoolFactory(
-            NettyShuffleEnvironment environment) {
-        NettyShuffleEnvironmentConfiguration config = environment.getConfiguration();
-        this.bufferPoolFactory =
-                SingleInputGateFactory.createBufferPoolFactory(
-                        environment.getNetworkBufferPool(),
-                        1,
-                        config.floatingNetworkBuffersPerGate());
-        this.segmentProvider = environment.getNetworkBufferPool();
         return this;
     }
 
@@ -151,31 +109,6 @@ public class TieredStoreSingleInputGateBuilder {
         return this;
     }
 
-    /** Adds automatic initialization of all channels with the given factory. */
-    public TieredStoreSingleInputGateBuilder setChannelFactory(
-            BiFunction<InputChannelBuilder, SingleInputGate, InputChannel> channelFactory) {
-        this.channelFactory = channelFactory;
-        return this;
-    }
-
-    public TieredStoreSingleInputGateBuilder setChannelStateWriter(
-            ChannelStateWriter channelStateWriter) {
-        this.channelStateWriter = channelStateWriter;
-        return this;
-    }
-
-    public TieredStoreSingleInputGateBuilder setBufferDebloatConfiguration(
-            BufferDebloatConfiguration configuration) {
-        this.bufferDebloatConfiguration = configuration;
-        return this;
-    }
-
-    public TieredStoreSingleInputGateBuilder setThroughputCalculator(
-            Function<BufferDebloatConfiguration, ThroughputCalculator> createThroughputCalculator) {
-        this.createThroughputCalculator = createThroughputCalculator;
-        return this;
-    }
-
     public TieredStoreSingleInputGateBuilder setJobID(JobID jobID) {
         this.jobID = jobID;
         return this;
@@ -188,52 +121,23 @@ public class TieredStoreSingleInputGateBuilder {
     }
 
     public TieredStoreSingleInputGate build() {
-        TieredStoreSingleInputGate gate =
-                new TieredStoreSingleInputGate(
-                        "Tiered Store Single Input Gate",
-                        gateIndex,
-                        Collections.singletonList(0),
-                        intermediateDataSetID,
-                        partitionType,
-                        subpartitionIndexRange,
-                        numberOfChannels,
-                        partitionProducerStateProvider,
-                        bufferPoolFactory,
-                        bufferDecompressor,
-                        segmentProvider,
-                        bufferSize,
-                        createThroughputCalculator.apply(bufferDebloatConfiguration),
-                        maybeCreateBufferDebloater(gateIndex),
-                        jobID,
-                        resultPartitionIDs,
-                        null);
-        if (channelFactory != null) {
-            gate.setInputChannels(
-                    IntStream.range(0, numberOfChannels)
-                            .mapToObj(
-                                    index ->
-                                            channelFactory.apply(
-                                                    InputChannelBuilder.newBuilder()
-                                                            .setStateWriter(channelStateWriter)
-                                                            .setChannelIndex(index),
-                                                    gate))
-                            .toArray(InputChannel[]::new));
-        }
-        return gate;
-    }
-
-    private BufferDebloater maybeCreateBufferDebloater(int gateIndex) {
-        if (bufferDebloatConfiguration.isEnabled()) {
-            return new BufferDebloater(
-                    "Unknown task name in test",
-                    gateIndex,
-                    bufferDebloatConfiguration.getTargetTotalBufferSize().toMillis(),
-                    bufferDebloatConfiguration.getMaxBufferSize(),
-                    bufferDebloatConfiguration.getMinBufferSize(),
-                    bufferDebloatConfiguration.getBufferDebloatThresholdPercentages(),
-                    bufferDebloatConfiguration.getNumberOfSamples());
-        }
-
-        return null;
+        return new TieredStoreSingleInputGate(
+                "Tiered Store Single Input Gate",
+                gateIndex,
+                Collections.singletonList(0),
+                intermediateDataSetID,
+                partitionType,
+                subpartitionIndexRange,
+                numberOfChannels,
+                partitionProducerStateProvider,
+                bufferPoolFactory,
+                bufferDecompressor,
+                segmentProvider,
+                BUFFER_SIZE,
+                new ThroughputCalculator(SystemClock.getInstance()),
+                null,
+                jobID,
+                resultPartitionIDs,
+                null);
     }
 }
