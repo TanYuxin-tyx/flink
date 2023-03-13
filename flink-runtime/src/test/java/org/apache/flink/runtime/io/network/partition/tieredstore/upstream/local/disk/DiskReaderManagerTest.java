@@ -396,7 +396,7 @@ class DiskReaderManagerTest {
         }
 
         @Override
-        public void release() {}
+        public void release() {releaseDataViewRunnable.run();}
 
         @Override
         public int compareTo(DiskTierReader that) {
@@ -435,11 +435,6 @@ class DiskReaderManagerTest {
         @Override
         public int getBacklog() {
             return 0;
-        }
-
-        @Override
-        public void releaseTierReaderView() {
-            releaseDataViewRunnable.run();
         }
 
         /** Factory for {@link TestingDiskTierReader}. */

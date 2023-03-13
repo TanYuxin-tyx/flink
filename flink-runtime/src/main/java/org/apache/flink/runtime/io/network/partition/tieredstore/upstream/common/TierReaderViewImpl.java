@@ -218,17 +218,17 @@ public class TierReaderViewImpl implements TierReaderView {
     }
 
     private void releaseInternal(@Nullable Throwable throwable) {
-        boolean releaseTierReaderView;
+        boolean releaseTierReader;
         synchronized (lock) {
             if (isReleased) {
                 return;
             }
             isReleased = true;
             failureCause = throwable;
-            releaseTierReaderView = tierReader != null;
+            releaseTierReader = tierReader != null;
         }
-        if (releaseTierReaderView) {
-            tierReader.releaseTierReaderView();
+        if (releaseTierReader) {
+            tierReader.release();
         }
     }
 }
