@@ -23,8 +23,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.util.function.SupplierWithException;
 
-import javax.annotation.concurrent.GuardedBy;
-
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.Optional;
@@ -36,7 +34,6 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** The {@link TierReaderImpl} is the default implementation of {@link TierReader}. */
 public abstract class TierReaderImpl implements TierReader {
 
-    @GuardedBy("consumerLock")
     protected final Deque<BufferContext> unConsumedBuffers = new LinkedList<>();
 
     private final Lock readerLock;
@@ -45,18 +42,15 @@ public abstract class TierReaderImpl implements TierReader {
         this.readerLock = readerLock;
     }
 
-    @GuardedBy("consumerLock")
     public void addInitialBuffers(Deque<BufferContext> buffers) {
         unConsumedBuffers.addAll(buffers);
     }
 
-    @GuardedBy("consumerLock")
     public boolean addBuffer(BufferContext bufferContext) {
         unConsumedBuffers.add(bufferContext);
         return unConsumedBuffers.size() <= 1;
     }
 
-    @SuppressWarnings("FieldAccessNotGuarded")
     @Override
     public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(int toConsumeIndex) {
         Optional<Tuple2<BufferContext, Buffer.DataType>> bufferAndNextDataType =
