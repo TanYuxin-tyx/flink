@@ -205,11 +205,6 @@ public class MemoryWriter implements TierWriter, MemoryDataWriterOperation {
     }
 
     @Override
-    public int getNewSegmentSize() {
-        return numBytesInASegment;
-    }
-
-    @Override
     public void setNumBytesInASegment(int numBytesInASegment) {
         this.numBytesInASegment = numBytesInASegment;
     }

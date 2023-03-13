@@ -213,8 +213,7 @@ public class DiskTier implements TierWriter, StorageTier {
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        TierReaderViewImpl diskTierReaderView =
-                new TierReaderViewImpl(availabilityListener);
+        TierReaderViewImpl diskTierReaderView = new TierReaderViewImpl(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
@@ -232,11 +231,6 @@ public class DiskTier implements TierWriter, StorageTier {
         File filePath = dataFilePath.toFile();
         return filePath.getUsableSpace()
                 > (long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction);
-    }
-
-    @Override
-    public int getNewSegmentSize() {
-        return numBytesInASegment;
     }
 
     @Override
