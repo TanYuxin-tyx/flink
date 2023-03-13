@@ -39,10 +39,10 @@ public abstract class TierReaderImpl implements TierReader {
     @GuardedBy("consumerLock")
     protected final Deque<BufferContext> unConsumedBuffers = new LinkedList<>();
 
-    private final Lock consumerLock;
+    private final Lock readerLock;
 
-    public TierReaderImpl(Lock consumerLock) {
-        this.consumerLock = consumerLock;
+    public TierReaderImpl(Lock readerLock) {
+        this.readerLock = readerLock;
     }
 
     @GuardedBy("consumerLock")
@@ -71,7 +71,11 @@ public abstract class TierReaderImpl implements TierReader {
                                     bufferContext.getBufferIndexAndChannel().getBufferIndex()
                                             == toConsumeIndex);
                             Buffer.DataType nextDataType =
-                                    peekNextToConsumeDataTypeInternal(toConsumeIndex + 1);
+                                    unConsumedBuffers.isEmpty()
+                                            ? Buffer.DataType.NONE
+                                            : checkNotNull(unConsumedBuffers.peekFirst())
+                                                    .getBuffer()
+                                                    .getDataType();
                             return Optional.of(Tuple2.of(bufferContext, nextDataType));
                         });
         return bufferAndNextDataType.map(
@@ -84,13 +88,6 @@ public abstract class TierReaderImpl implements TierReader {
                                 tuple.f0.isLastBufferInSegment()));
     }
 
-    @GuardedBy("consumerLock")
-    protected Buffer.DataType peekNextToConsumeDataTypeInternal(int nextToConsumeIndex) {
-        return unConsumedBuffers.isEmpty()
-                ? Buffer.DataType.NONE
-                : checkNotNull(unConsumedBuffers.peekFirst()).getBuffer().getDataType();
-    }
-
     @Override
     public int getBacklog() {
         return unConsumedBuffers.size();
@@ -99,10 +96,10 @@ public abstract class TierReaderImpl implements TierReader {
     protected <R, E extends Exception> R callWithLock(SupplierWithException<R, E> callable)
             throws E {
         try {
-            consumerLock.lock();
+            readerLock.lock();
             return callable.get();
         } finally {
-            consumerLock.unlock();
+            readerLock.unlock();
         }
     }
 }
