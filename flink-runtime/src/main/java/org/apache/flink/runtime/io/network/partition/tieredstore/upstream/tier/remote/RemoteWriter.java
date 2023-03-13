@@ -107,11 +107,6 @@ public class RemoteWriter implements TierWriter {
     }
 
     @Override
-    public int getNewSegmentSize() {
-        return numBytesInASegment;
-    }
-
-    @Override
     public void setNumBytesInASegment(int numBytesInASegment) {
         this.numBytesInASegment = numBytesInASegment;
     }

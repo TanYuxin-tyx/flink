@@ -75,8 +75,6 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
 
     private String baseSubpartitionPath;
 
-    private Path writingSegmentPath;
-
     private boolean isSegmentStarted;
 
     private long currentSegmentIndex = -1;
@@ -140,7 +138,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
                             jobID, resultPartitionID, subpartitionId, baseDfsPath, false);
         }
 
-        writingSegmentPath = generateNewSegmentPath(baseSubpartitionPath, currentSegmentIndex);
+        Path writingSegmentPath = generateNewSegmentPath(baseSubpartitionPath, currentSegmentIndex);
 
         try {
             FileSystem fs = writingSegmentPath.getFileSystem();
