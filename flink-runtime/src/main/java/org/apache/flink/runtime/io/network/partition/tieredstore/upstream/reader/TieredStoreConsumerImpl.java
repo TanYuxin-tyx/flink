@@ -33,7 +33,7 @@ import java.io.IOException;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
-/** The reader of Tiered Store. */
+/** The {@link TieredStoreConsumerImpl} is the implementation of {@link TieredStoreConsumer}. */
 public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     private final int subpartitionId;
@@ -46,8 +46,10 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     private boolean isReleased = false;
 
+    // The currentSegmentId indicates the consumption progress of upstream
     private int currentSegmentId = 0;
 
+    // The consumedSegmentId indicates the consumption progress of downstream
     private int consumedSegmentId = 0;
 
     private boolean hasSegmentFinished = true;
@@ -100,7 +102,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     }
 
     public BufferAndBacklog getNextBufferInternal() throws IOException {
-        if (!findTierContainsNextSegment()) {
+        if (!findTierReaderViewIndex()) {
             return null;
         }
         BufferAndBacklog bufferAndBacklog =
@@ -123,7 +125,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     @Override
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable) {
-        if (findTierContainsNextSegment()) {
+        if (findTierReaderViewIndex()) {
             return tierReaderViews[viewIndexContainsCurrentSegment].getAvailabilityAndBacklog(
                     numCreditsAvailable);
         }
@@ -157,14 +159,14 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
-        findTierContainsNextSegment();
+        findTierReaderViewIndex();
         return tierReaderViews[viewIndexContainsCurrentSegment]
                 .unsynchronizedGetNumberOfQueuedBuffers();
     }
 
     @Override
     public int getNumberOfQueuedBuffers() {
-        findTierContainsNextSegment();
+        findTierReaderViewIndex();
         return tierReaderViews[viewIndexContainsCurrentSegment].getNumberOfQueuedBuffers();
     }
 
@@ -177,7 +179,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     //       Internal Methods
     // -------------------------------
 
-    private boolean findTierContainsNextSegment() {
+    private boolean findTierReaderViewIndex() {
 
         for (TierReaderView tierReaderView : tierReaderViews) {
             tierReaderView.updateNeedNotifyStatus();
