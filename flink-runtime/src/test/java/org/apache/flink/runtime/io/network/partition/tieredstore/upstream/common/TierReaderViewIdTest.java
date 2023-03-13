@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /** Tests for {@link TierReaderViewId}. */
 class TierReaderViewIdTest {
+
     @Test
     void testNewIdFromNull() {
         TierReaderViewId tierReaderViewId = TierReaderViewId.newId(null);

@@ -26,7 +26,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.SubpartitionDiskCacheManager;
 
@@ -37,7 +36,6 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.createTestingOutputMetrics;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.getTierExclusiveBuffers;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -99,23 +97,6 @@ class DiskCacheManagerTest {
                         dataFilePath,
                         null);
         diskCacheManager.setOutputMetrics(TieredStoreTestUtils.createTestingOutputMetrics());
-        return diskCacheManager;
-    }
-
-    private DiskCacheManager createCacheDataManager(
-            BufferPool bufferPool, RegionBufferIndexTracker regionBufferIndexTracker)
-            throws Exception {
-        DiskCacheManager diskCacheManager =
-                new DiskCacheManager(
-                        NUM_SUBPARTITIONS,
-                        bufferSize,
-                        new UpstreamTieredStoreMemoryManager(
-                                bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS),
-                        new CacheFlushManager(),
-                        regionBufferIndexTracker,
-                        dataFilePath,
-                        null);
-        diskCacheManager.setOutputMetrics(createTestingOutputMetrics());
         return diskCacheManager;
     }
 
