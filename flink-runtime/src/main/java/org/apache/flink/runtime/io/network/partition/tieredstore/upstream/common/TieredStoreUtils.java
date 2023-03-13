@@ -57,17 +57,6 @@ public class TieredStoreUtils {
         return bufferWithHeaders;
     }
 
-    public static ByteBuffer[] generateBufferWithHeaders(
-            List<BufferWithIdentity> bufferContexts, boolean flag) {
-        ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * bufferContexts.size()];
-
-        for (int i = 0; i < bufferContexts.size(); i++) {
-            Buffer buffer = bufferContexts.get(i).getBuffer();
-            setBufferWithHeader(buffer, bufferWithHeaders, 2 * i);
-        }
-        return bufferWithHeaders;
-    }
-
     public static void setBufferWithHeader(
             Buffer buffer, ByteBuffer[] bufferWithHeaders, int index) {
         ByteBuffer header = BufferReaderWriterUtil.allocatedHeaderBuffer();
