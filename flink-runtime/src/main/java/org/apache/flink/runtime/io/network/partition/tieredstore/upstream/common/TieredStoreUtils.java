@@ -47,12 +47,22 @@ public class TieredStoreUtils {
 
     private static final float NETWORK_BUFFER_POOL_TRIGGER_FLUSH_RATIO = 0.6f;
 
-    public static ByteBuffer[] generateBufferWithHeaders(
-            List<BufferWithIdentity> bufferWithIdentities) {
-        ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * bufferWithIdentities.size()];
+    public static ByteBuffer[] generateBufferWithHeaders(List<BufferContext> bufferContexts) {
+        ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * bufferContexts.size()];
 
-        for (int i = 0; i < bufferWithIdentities.size(); i++) {
-            Buffer buffer = bufferWithIdentities.get(i).getBuffer();
+        for (int i = 0; i < bufferContexts.size(); i++) {
+            Buffer buffer = bufferContexts.get(i).getBuffer();
+            setBufferWithHeader(buffer, bufferWithHeaders, 2 * i);
+        }
+        return bufferWithHeaders;
+    }
+
+    public static ByteBuffer[] generateBufferWithHeaders(
+            List<BufferWithIdentity> bufferContexts, boolean flag) {
+        ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * bufferContexts.size()];
+
+        for (int i = 0; i < bufferContexts.size(); i++) {
+            Buffer buffer = bufferContexts.get(i).getBuffer();
             setBufferWithHeader(buffer, bufferWithHeaders, 2 * i);
         }
         return bufferWithHeaders;

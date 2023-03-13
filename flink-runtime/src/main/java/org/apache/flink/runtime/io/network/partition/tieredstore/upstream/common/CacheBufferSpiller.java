@@ -37,7 +37,7 @@ public interface CacheBufferSpiller {
     }
 
     default void spillAsync(
-            List<BufferWithIdentity> bufferToSpill,
+            List<BufferContext> bufferToSpill,
             AtomicInteger hasFlushCompleted,
             boolean changeFlushState) {}
 

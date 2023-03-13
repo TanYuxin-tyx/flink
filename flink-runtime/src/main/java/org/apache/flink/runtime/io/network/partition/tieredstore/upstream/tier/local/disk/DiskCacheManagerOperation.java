@@ -19,11 +19,11 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 
 import java.util.Collection;
-import java.util.Deque;
+import java.util.List;
 
 /**
  * This interface is used by operate. Spilling decision may be made and handled inside these operations.
@@ -37,7 +37,7 @@ public interface DiskCacheManagerOperation {
     int getNumSubpartitions();
 
     /** Get all buffers from the subpartition. */
-    Deque<BufferIndexAndChannel> getBuffersInOrder(int subpartitionId);
+    List<BufferContext> getBuffersInOrder(int subpartitionId);
 
     /**
      * Get the current size of buffer pool. *

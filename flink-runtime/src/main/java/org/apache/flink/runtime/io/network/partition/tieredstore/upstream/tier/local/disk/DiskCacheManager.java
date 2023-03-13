@@ -24,13 +24,12 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpillTrigger;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
 import java.io.IOException;
@@ -38,7 +37,6 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -61,8 +59,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderViewId, TierReaderView>>
-            tierReaderViewMap;
+    private final List<Map<TierReaderViewId, TierReaderView>> tierReaderViewMap;
 
     private final AtomicInteger hasFlushCompleted = new AtomicInteger(0);
 
@@ -155,7 +152,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     // Write lock should be acquired before invoke this method.
     @Override
-    public Deque<BufferIndexAndChannel> getBuffersInOrder(int subpartitionId) {
+    public List<BufferContext> getBuffersInOrder(int subpartitionId) {
         SubpartitionDiskCacheManager targetSubpartitionDataManager =
                 getSubpartitionMemoryDataManager(subpartitionId);
         return targetSubpartitionDataManager.getBuffersSatisfyStatus();
@@ -191,8 +188,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                 tierReaderViewMap.get(subpartitionId);
         tierReaderViewIds.forEach(
                 consumerId -> {
-                    TierReaderView consumerView =
-                            consumerViewMap.get(consumerId);
+                    TierReaderView consumerView = consumerViewMap.get(consumerId);
                     if (consumerView != null) {
                         consumerView.notifyDataAvailable();
                     }
@@ -225,20 +221,15 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     }
 
     private void spillBuffers(boolean changeFlushState) {
-        List<BufferWithIdentity> bufferWithIdentities = new ArrayList<>();
+        List<BufferContext> bufferContexts = new ArrayList<>();
         for (int subpartitionId = 0; subpartitionId < getNumSubpartitions(); subpartitionId++) {
-            Deque<BufferIndexAndChannel> buffersInOrder = getBuffersInOrder(subpartitionId);
-            SubpartitionDiskCacheManager subpartitionDataManager =
-                    getSubpartitionMemoryDataManager(subpartitionId);
-            bufferWithIdentities.addAll(
-                    subpartitionDataManager.spillSubpartitionBuffers(buffersInOrder));
+            bufferContexts.addAll(getBuffersInOrder(subpartitionId));
         }
-
-        if (!bufferWithIdentities.isEmpty()) {
+        if (!bufferContexts.isEmpty()) {
             if (changeFlushState) {
                 hasFlushCompleted.getAndIncrement();
             }
-            spiller.spillAsync(bufferWithIdentities, hasFlushCompleted, changeFlushState);
+            spiller.spillAsync(bufferContexts, hasFlushCompleted, changeFlushState);
         }
     }
 

@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
@@ -90,15 +90,10 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
 
     @Override
     public void spillAsync(
-            List<BufferWithIdentity> bufferToSpill,
+            List<BufferContext> bufferToSpill,
             AtomicInteger hasFlushCompleted,
             boolean changeFlushState) {
-        ioExecutor.execute(
-                () ->
-                        spill(
-                                bufferToSpill,
-                                hasFlushCompleted,
-                                changeFlushState));
+        ioExecutor.execute(() -> spill(bufferToSpill, hasFlushCompleted, changeFlushState));
     }
 
     @Override
@@ -106,7 +101,7 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void spill(
-            List<BufferWithIdentity> toWrite,
+            List<BufferContext> toWrite,
             AtomicInteger hasFlushCompleted,
             boolean changeFlushState) {
         try {
@@ -118,10 +113,9 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
             // note that the ownership of these buffers is transferred to the MemoryDataManager,
             // which controls data's life cycle.
             regionBufferIndexTracker.addBuffers(spilledBuffers);
-            for (BufferWithIdentity bufferWithIdentity : toWrite) {
-                bufferWithIdentity.getBuffer().recycleBuffer();
+            for (BufferContext bufferContext : toWrite) {
+                bufferContext.getBuffer().recycleBuffer();
             }
-            //spillingCompleteFuture.complete(null);
             if (changeFlushState) {
                 hasFlushCompleted.decrementAndGet();
             }
@@ -140,16 +134,16 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
      * @return total bytes(header size + buffer size) of all buffers to write.
      */
     private long createSpilledBuffersAndGetTotalBytes(
-            List<BufferWithIdentity> toWrite,
+            List<BufferContext> toWrite,
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
-        for (BufferWithIdentity bufferWithIdentity : toWrite) {
+        for (BufferContext bufferWithIdentity : toWrite) {
             Buffer buffer = bufferWithIdentity.getBuffer();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
                     new RegionBufferIndexTracker.SpilledBuffer(
-                            bufferWithIdentity.getChannelIndex(),
-                            bufferWithIdentity.getBufferIndex(),
+                            bufferWithIdentity.getBufferIndexAndChannel().getChannel(),
+                            bufferWithIdentity.getBufferIndexAndChannel().getBufferIndex(),
                             totalBytesWritten + expectedBytes));
             expectedBytes += numBytes;
         }
@@ -157,13 +151,13 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     }
 
     /** Write all buffers to disk. */
-    private void writeBuffers(List<BufferWithIdentity> bufferWithIdentities, long expectedBytes)
+    private void writeBuffers(List<BufferContext> bufferContexts, long expectedBytes)
             throws IOException {
-        if (bufferWithIdentities.isEmpty()) {
+        if (bufferContexts.isEmpty()) {
             return;
         }
 
-        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferWithIdentities);
+        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferContexts);
 
         BufferReaderWriterUtil.writeBuffers(dataFileChannel, expectedBytes, bufferWithHeaders);
         totalBytesWritten += expectedBytes;
