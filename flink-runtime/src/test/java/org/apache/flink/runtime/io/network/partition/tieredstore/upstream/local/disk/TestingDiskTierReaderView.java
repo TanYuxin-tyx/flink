@@ -53,6 +53,9 @@ public class TestingDiskTierReaderView implements TierReaderView {
         this.notifyDataAvailableRunnable = notifyDataAvailableRunnable;
     }
 
+    @Override
+    public void updateNeedNotifyStatus() {}
+
     @Nullable
     @Override
     public ResultSubpartition.BufferAndBacklog getNextBuffer() throws IOException {
