@@ -148,7 +148,6 @@ public class SubpartitionDiskCacheManager {
         BufferContext bufferContext =
                 new BufferContext(
                         buffer, finishedBufferIndex, targetChannel, isLastRecordInSegment);
-        LOG.debug("%%% add a finished Event");
         addFinishedBuffer(bufferContext);
     }
 
