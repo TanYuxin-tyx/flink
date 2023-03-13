@@ -32,8 +32,6 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
@@ -96,9 +94,6 @@ public class SubpartitionRemoteCacheManager {
 
     @GuardedBy("subpartitionLock")
     private final Deque<BufferContext> allBuffers = new LinkedList<>();
-
-    @GuardedBy("subpartitionLock")
-    private final Map<Integer, BufferContext> bufferIndexToContexts = new HashMap<>();
 
     private final CacheBufferSpiller cacheBufferSpiller;
 
@@ -208,7 +203,6 @@ public class SubpartitionRemoteCacheManager {
                 }
             }
             allBuffers.clear();
-            bufferIndexToContexts.clear();
             isReleased = true;
             hasFlushCompleted.complete(null);
         }
@@ -375,9 +369,6 @@ public class SubpartitionRemoteCacheManager {
                 () -> {
                     finishedBufferIndex++;
                     allBuffers.add(bufferContext);
-                    bufferIndexToContexts.put(
-                            bufferContext.getBufferIndexAndChannel().getBufferIndex(),
-                            bufferContext);
                     updateStatistics(bufferContext.getBuffer());
                     if (allBuffers.size() >= NUM_BUFFERS_TO_FLUSH) {
                         flushCachedBuffers();
@@ -385,21 +376,11 @@ public class SubpartitionRemoteCacheManager {
                 });
     }
 
-    @GuardedBy("subpartitionLock")
-    private Optional<BufferContext> startSpillingBuffer(int bufferIndex) {
-        BufferContext bufferContext = bufferIndexToContexts.get(bufferIndex);
-        if (bufferContext == null) {
-            return Optional.empty();
-        }
-        bufferIndexToContexts.remove(bufferIndex);
-        return Optional.of(bufferContext);
-    }
-
     private void flushCachedBuffersWithChangeFlushStatus() {
-        List<BufferWithIdentity> toSpillBuffersWithId = generateToSpillBuffersWithId();
+        List<BufferContext> bufferContexts = generateToSpillBuffersWithId();
         hasFlushCompleted = new CompletableFuture<>();
         cacheBufferSpiller
-                .spillAsync(toSpillBuffersWithId)
+                .spillAsync(bufferContexts)
                 .thenApply(
                         spilledBuffers -> {
                             hasFlushCompleted.complete(null);
@@ -411,35 +392,13 @@ public class SubpartitionRemoteCacheManager {
         return cacheBufferSpiller.spillAsync(generateToSpillBuffersWithId());
     }
 
-    private List<BufferWithIdentity> generateToSpillBuffersWithId() {
-        List<BufferIndexAndChannel> toSpillBuffers =
-                callWithLock(
-                        () -> {
-                            List<BufferIndexAndChannel> targetBuffers = new ArrayList<>();
-                            allBuffers.forEach(
-                                    (bufferContext ->
-                                            targetBuffers.add(
-                                                    bufferContext.getBufferIndexAndChannel())));
-                            allBuffers.clear();
-                            return targetBuffers;
-                        });
-
-        return getSpillBuffersWithId(toSpillBuffers);
-    }
-
-    private List<BufferWithIdentity> getSpillBuffersWithId(
-            List<BufferIndexAndChannel> toSpillBuffers) {
-        List<BufferWithIdentity> toSpillBuffersWithId = new ArrayList<>();
-        for (BufferIndexAndChannel spillBuffer : toSpillBuffers) {
-            int bufferIndex = spillBuffer.getBufferIndex();
-            Optional<BufferContext> bufferContext = startSpillingBuffer(bufferIndex);
-            checkState(bufferContext.isPresent());
-            BufferWithIdentity bufferWithIdentity =
-                    new BufferWithIdentity(
-                            bufferContext.get().getBuffer(), bufferIndex, targetChannel);
-            toSpillBuffersWithId.add(bufferWithIdentity);
-        }
-        return toSpillBuffersWithId;
+    private List<BufferContext> generateToSpillBuffersWithId() {
+        return callWithLock(
+                () -> {
+                    List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
+                    allBuffers.clear();
+                    return targetBuffers;
+                });
     }
 
     private void updateStatistics(Buffer buffer) {

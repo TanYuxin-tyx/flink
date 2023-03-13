@@ -32,7 +32,7 @@ public interface CacheBufferSpiller {
     void startSegment(int segmentIndex) throws IOException;
 
     default CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spillAsync(
-            List<BufferWithIdentity> bufferToSpill) {
+            List<BufferContext> bufferToSpill) {
         return null;
     }
 

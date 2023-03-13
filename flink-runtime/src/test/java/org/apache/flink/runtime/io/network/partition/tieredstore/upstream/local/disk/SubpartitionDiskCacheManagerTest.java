@@ -20,12 +20,10 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local
 
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
-import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManagerOperation;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.SubpartitionDiskCacheManager;
@@ -157,18 +155,18 @@ class SubpartitionDiskCacheManagerTest {
         assertThat(metrics.getNumBytesOut().getCount()).isEqualTo(recordSize + eventSize);
     }
 
-    private static void checkBuffersRefCountAndValue(
-            List<BufferWithIdentity> bufferWithIdentities,
-            List<Integer> expectedRefCounts,
-            List<Integer> expectedValues) {
-        for (int i = 0; i < bufferWithIdentities.size(); i++) {
-            BufferWithIdentity bufferWithIdentity = bufferWithIdentities.get(i);
-            Buffer buffer = bufferWithIdentity.getBuffer();
-            assertThat(buffer.getNioBufferReadable().order(ByteOrder.LITTLE_ENDIAN).getInt())
-                    .isEqualTo(expectedValues.get(i));
-            assertThat(buffer.refCnt()).isEqualTo(expectedRefCounts.get(i));
-        }
-    }
+    //private static void checkBuffersRefCountAndValue(
+    //        List<BufferWithIdentity> bufferWithIdentities,
+    //        List<Integer> expectedRefCounts,
+    //        List<Integer> expectedValues) {
+    //    for (int i = 0; i < bufferWithIdentities.size(); i++) {
+    //        BufferWithIdentity bufferWithIdentity = bufferWithIdentities.get(i);
+    //        Buffer buffer = bufferWithIdentity.getBuffer();
+    //        assertThat(buffer.getNioBufferReadable().order(ByteOrder.LITTLE_ENDIAN).getInt())
+    //                .isEqualTo(expectedValues.get(i));
+    //        assertThat(buffer.refCnt()).isEqualTo(expectedRefCounts.get(i));
+    //    }
+    //}
 
     private SubpartitionDiskCacheManager createSubpartitionMemoryDataManager(
             DiskCacheManagerOperation diskCacheManagerOperation) {
