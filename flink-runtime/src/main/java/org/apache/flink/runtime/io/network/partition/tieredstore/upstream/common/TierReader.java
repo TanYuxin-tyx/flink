@@ -29,5 +29,5 @@ public interface TierReader {
 
     int getBacklog();
 
-    void releaseDataView();
+    void releaseTierReaderView();
 }

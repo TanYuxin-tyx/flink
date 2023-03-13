@@ -68,7 +68,7 @@ public class TestingTierReader implements TierReader {
     }
 
     @Override
-    public void releaseDataView() {
+    public void releaseTierReaderView() {
         releaseDataViewRunnable.run();
     }
 

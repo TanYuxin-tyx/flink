@@ -228,7 +228,7 @@ public class TierReaderViewImpl implements TierReaderView {
             releaseTierReaderView = tierReader != null;
         }
         if (releaseTierReaderView) {
-            tierReader.releaseDataView();
+            tierReader.releaseTierReaderView();
         }
     }
 }

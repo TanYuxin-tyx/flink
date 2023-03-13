@@ -52,7 +52,7 @@ public class RemoteTierReader extends TierReaderImpl {
     }
 
     @Override
-    public void releaseDataView() {
+    public void releaseTierReaderView() {
         remoteCacheManagerOperation.onConsumerReleased(subpartitionId, tierReaderViewId);
     }
 
