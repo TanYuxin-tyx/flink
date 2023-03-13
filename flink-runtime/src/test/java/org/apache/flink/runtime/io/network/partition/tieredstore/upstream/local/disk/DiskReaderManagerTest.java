@@ -22,7 +22,6 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.testutils.CheckedThread;
 import org.apache.flink.runtime.concurrent.ManuallyTriggeredScheduledExecutorService;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
-import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
@@ -429,14 +428,8 @@ class DiskReaderManagerTest {
 
         @Override
         public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(
-                int nextBufferToConsume, Queue<Buffer> errorBuffers) {
+                int nextBufferToConsume) {
             return Optional.empty();
-        }
-
-        @Override
-        public Buffer.DataType peekNextToConsumeDataType(
-                int nextBufferToConsume, Queue<Buffer> errorBuffers) {
-            return Buffer.DataType.NONE;
         }
 
         @Override
