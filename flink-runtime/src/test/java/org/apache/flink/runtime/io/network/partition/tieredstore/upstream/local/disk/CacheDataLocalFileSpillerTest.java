@@ -22,12 +22,8 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheBufferSpiller;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker.SpilledBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.util.TestLoggerExtension;
 
@@ -43,8 +39,6 @@ import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -124,52 +118,52 @@ class CacheDataLocalFileSpillerTest {
         //        .isInstanceOf(RejectedExecutionException.class);
     }
 
-    /**
-     * create buffer with identity list.
-     *
-     * @param subpartitionId the buffers belong to.
-     * @param dataAndIndexes is the list contains pair of (bufferData, bufferIndex).
-     */
-    private static List<BufferWithIdentity> createBufferWithIdentityList(
-            boolean isCompressed,
-            int subpartitionId,
-            List<Tuple2<Integer, Integer>> dataAndIndexes) {
-        List<BufferWithIdentity> bufferWithIdentityList = new ArrayList<>();
-        for (Tuple2<Integer, Integer> dataAndIndex : dataAndIndexes) {
-            Buffer.DataType dataType =
-                    dataAndIndex.f1 % 2 == 0
-                            ? Buffer.DataType.EVENT_BUFFER
-                            : Buffer.DataType.DATA_BUFFER;
+    ///**
+    // * create buffer with identity list.
+    // *
+    // * @param subpartitionId the buffers belong to.
+    // * @param dataAndIndexes is the list contains pair of (bufferData, bufferIndex).
+    // */
+    //private static List<BufferWithIdentity> createBufferWithIdentityList(
+    //        boolean isCompressed,
+    //        int subpartitionId,
+    //        List<Tuple2<Integer, Integer>> dataAndIndexes) {
+    //    List<BufferWithIdentity> bufferWithIdentityList = new ArrayList<>();
+    //    for (Tuple2<Integer, Integer> dataAndIndex : dataAndIndexes) {
+    //        Buffer.DataType dataType =
+    //                dataAndIndex.f1 % 2 == 0
+    //                        ? Buffer.DataType.EVENT_BUFFER
+    //                        : Buffer.DataType.DATA_BUFFER;
+    //
+    //        MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(BUFFER_SIZE);
+    //        segment.putInt(0, dataAndIndex.f0);
+    //        Buffer buffer =
+    //                new NetworkBuffer(
+    //                        segment, FreeingBufferRecycler.INSTANCE, dataType, BUFFER_SIZE);
+    //        if (isCompressed) {
+    //            buffer.setCompressed(true);
+    //        }
+    //        bufferWithIdentityList.add(
+    //                new BufferWithIdentity(buffer, dataAndIndex.f1, subpartitionId));
+    //    }
+    //    return Collections.unmodifiableList(bufferWithIdentityList);
+    //}
 
-            MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(BUFFER_SIZE);
-            segment.putInt(0, dataAndIndex.f0);
-            Buffer buffer =
-                    new NetworkBuffer(
-                            segment, FreeingBufferRecycler.INSTANCE, dataType, BUFFER_SIZE);
-            if (isCompressed) {
-                buffer.setCompressed(true);
-            }
-            bufferWithIdentityList.add(
-                    new BufferWithIdentity(buffer, dataAndIndex.f1, subpartitionId));
-        }
-        return Collections.unmodifiableList(bufferWithIdentityList);
-    }
-
-    /** get SpilledBuffers from BufferWithIdentities. */
-    private static List<SpilledBuffer> getExpectedSpilledBuffers(
-            List<BufferWithIdentity> bufferWithIdentityList) {
-        long totalBytes = 0;
-        List<SpilledBuffer> spilledBuffers = new ArrayList<>();
-        for (BufferWithIdentity bufferWithIdentity : bufferWithIdentityList) {
-            spilledBuffers.add(
-                    new SpilledBuffer(
-                            bufferWithIdentity.getChannelIndex(),
-                            bufferWithIdentity.getBufferIndex(),
-                            totalBytes));
-            totalBytes += BUFFER_WITH_HEADER_SIZE;
-        }
-        return Collections.unmodifiableList(spilledBuffers);
-    }
+    ///** get SpilledBuffers from BufferWithIdentities. */
+    //private static List<SpilledBuffer> getExpectedSpilledBuffers(
+    //        List<BufferWithIdentity> bufferWithIdentityList) {
+    //    long totalBytes = 0;
+    //    List<SpilledBuffer> spilledBuffers = new ArrayList<>();
+    //    for (BufferWithIdentity bufferWithIdentity : bufferWithIdentityList) {
+    //        spilledBuffers.add(
+    //                new SpilledBuffer(
+    //                        bufferWithIdentity.getChannelIndex(),
+    //                        bufferWithIdentity.getBufferIndex(),
+    //                        totalBytes));
+    //        totalBytes += BUFFER_WITH_HEADER_SIZE;
+    //    }
+    //    return Collections.unmodifiableList(spilledBuffers);
+    //}
 
     private void checkData(boolean isCompressed, List<Tuple2<Integer, Integer>> dataAndIndexes)
             throws Exception {

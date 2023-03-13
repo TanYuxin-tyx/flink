@@ -29,7 +29,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
@@ -42,16 +41,13 @@ import javax.annotation.concurrent.GuardedBy;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -75,9 +71,6 @@ public class SubpartitionDiskCacheManager {
 
     @GuardedBy("subpartitionLock")
     private final Deque<BufferContext> allBuffers = new LinkedList<>();
-
-    @GuardedBy("subpartitionLock")
-    private final Map<Integer, BufferContext> bufferIndexToContexts = new HashMap<>();
 
     @GuardedBy("subpartitionLock")
     private final Set<Integer> lastBufferIndexOfSegments;
@@ -123,26 +116,6 @@ public class SubpartitionDiskCacheManager {
                     allBuffers.clear();
                     return targetBuffers;
                 });
-    }
-
-    /**
-     * Spill this subpartition's buffers in a decision.
-     *
-     * @param toSpill All buffers that need to be spilled belong to this subpartition in a decision.
-     * @return {@link BufferWithIdentity}s about these spill buffers.
-     */
-    @SuppressWarnings("FieldAccessNotGuarded")
-    // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
-    // subpartitionLock.
-    public List<BufferWithIdentity> spillSubpartitionBuffers(Deque<BufferContext> toSpill) {
-        return toSpill.stream()
-                .map(
-                        bufferContext ->
-                                new BufferWithIdentity(
-                                        bufferContext.getBuffer(),
-                                        bufferContext.getBufferIndexAndChannel().getBufferIndex(),
-                                        targetChannel))
-                .collect(Collectors.toList());
     }
 
     public void setOutputMetrics(OutputMetrics outputMetrics) {
@@ -275,24 +248,11 @@ public class SubpartitionDiskCacheManager {
                 () -> {
                     finishedBufferIndex++;
                     allBuffers.add(bufferContext);
-                    bufferIndexToContexts.put(
-                            bufferContext.getBufferIndexAndChannel().getBufferIndex(),
-                            bufferContext);
                     updateStatistics(bufferContext.getBuffer());
                     if (bufferContext.isLastBufferInSegment()) {
                         lastBufferIndexOfSegments.add(finishedBufferIndex - 1);
                     }
                 });
-    }
-
-    @GuardedBy("subpartitionLock")
-    private Optional<BufferContext> startSpillingBuffer(int bufferIndex) {
-        BufferContext bufferContext = bufferIndexToContexts.get(bufferIndex);
-        if (bufferContext == null) {
-            return Optional.empty();
-        }
-        bufferIndexToContexts.remove(bufferIndex);
-        return Optional.of(bufferContext);
     }
 
     private void updateStatistics(Buffer buffer) {

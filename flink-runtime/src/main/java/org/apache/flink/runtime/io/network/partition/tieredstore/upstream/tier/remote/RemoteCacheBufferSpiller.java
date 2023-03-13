@@ -25,7 +25,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferWithIdentity;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
@@ -109,7 +109,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
 
     @Override
     public CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spillAsync(
-            List<BufferWithIdentity> bufferToSpill) {
+            List<BufferContext> bufferToSpill) {
         CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spilledFuture =
                 new CompletableFuture<>();
         ioExecutor.execute(() -> spill(bufferToSpill, spilledFuture));
@@ -160,7 +160,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void spill(
-            List<BufferWithIdentity> toWrite,
+            List<BufferContext> toWrite,
             CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spilledFuture) {
         try {
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers = new ArrayList<>();
@@ -188,28 +188,28 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
      * @return total bytes(header size + buffer size) of all buffers to write.
      */
     private long createSpilledBuffersAndGetTotalBytes(
-            List<BufferWithIdentity> toWrite,
+            List<BufferContext> toWrite,
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
-        for (BufferWithIdentity bufferWithIdentity : toWrite) {
-            Buffer buffer = bufferWithIdentity.getBuffer();
+        for (BufferContext bufferContext : toWrite) {
+            Buffer buffer = bufferContext.getBuffer();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
                     new RegionBufferIndexTracker.SpilledBuffer(
-                            bufferWithIdentity.getChannelIndex(),
-                            bufferWithIdentity.getBufferIndex(),
+                            bufferContext.getBufferIndexAndChannel().getChannel(),
+                            bufferContext.getBufferIndexAndChannel().getBufferIndex(),
                             totalBytesWritten + expectedBytes));
             expectedBytes += numBytes;
         }
         return expectedBytes;
     }
 
-    private void writeBuffers(List<BufferWithIdentity> bufferWithIdentities, long expectedBytes)
+    private void writeBuffers(List<BufferContext> bufferWithIdentities, long expectedBytes)
             throws IOException {
         if (bufferWithIdentities.isEmpty()) {
             return;
         }
-        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferWithIdentities, false);
+        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferWithIdentities);
 
         TieredStoreUtils.writeDfsBuffers(writingChannel, expectedBytes, bufferWithHeaders);
         totalBytesWritten += expectedBytes;
