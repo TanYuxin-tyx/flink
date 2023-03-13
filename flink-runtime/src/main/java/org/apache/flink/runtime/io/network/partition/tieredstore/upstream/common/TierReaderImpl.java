@@ -31,6 +31,7 @@ import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** The {@link TierReaderImpl} is the default implementation of {@link TierReader}. */
 public abstract class TierReaderImpl implements TierReader {
@@ -52,7 +53,6 @@ public abstract class TierReaderImpl implements TierReader {
     @GuardedBy("consumerLock")
     public boolean addBuffer(BufferContext bufferContext) {
         unConsumedBuffers.add(bufferContext);
-        trimHeadingReleasedBuffers();
         return unConsumedBuffers.size() <= 1;
     }
 
@@ -62,11 +62,14 @@ public abstract class TierReaderImpl implements TierReader {
         Optional<Tuple2<BufferContext, Buffer.DataType>> bufferAndNextDataType =
                 callWithLock(
                         () -> {
-                            if (!checkFirstUnConsumedBufferIndex(toConsumeIndex)) {
+                            if (unConsumedBuffers.isEmpty()) {
                                 return Optional.empty();
                             }
                             BufferContext bufferContext =
                                     checkNotNull(unConsumedBuffers.pollFirst());
+                            checkState(
+                                    bufferContext.getBufferIndexAndChannel().getBufferIndex()
+                                            == toConsumeIndex);
                             Buffer.DataType nextDataType =
                                     peekNextToConsumeDataTypeInternal(toConsumeIndex + 1);
                             return Optional.of(Tuple2.of(bufferContext, nextDataType));
@@ -83,29 +86,14 @@ public abstract class TierReaderImpl implements TierReader {
 
     @GuardedBy("consumerLock")
     protected Buffer.DataType peekNextToConsumeDataTypeInternal(int nextToConsumeIndex) {
-        return checkFirstUnConsumedBufferIndex(nextToConsumeIndex)
-                ? checkNotNull(unConsumedBuffers.peekFirst()).getBuffer().getDataType()
-                : Buffer.DataType.NONE;
-    }
-
-    @GuardedBy("consumerLock")
-    protected boolean checkFirstUnConsumedBufferIndex(int expectedBufferIndex) {
-        trimHeadingReleasedBuffers();
-        return !unConsumedBuffers.isEmpty()
-                && unConsumedBuffers.peekFirst().getBufferIndexAndChannel().getBufferIndex()
-                        == expectedBufferIndex;
+        return unConsumedBuffers.isEmpty()
+                ? Buffer.DataType.NONE
+                : checkNotNull(unConsumedBuffers.peekFirst()).getBuffer().getDataType();
     }
 
     @Override
     public int getBacklog() {
         return unConsumedBuffers.size();
-    }
-
-    @GuardedBy("consumerLock")
-    private void trimHeadingReleasedBuffers() {
-        while (!unConsumedBuffers.isEmpty() && unConsumedBuffers.peekFirst().isReleased()) {
-            unConsumedBuffers.removeFirst();
-        }
     }
 
     protected <R, E extends Exception> R callWithLock(SupplierWithException<R, E> callable)
