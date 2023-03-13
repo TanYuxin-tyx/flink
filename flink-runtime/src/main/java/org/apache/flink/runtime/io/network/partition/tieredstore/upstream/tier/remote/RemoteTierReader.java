@@ -25,11 +25,10 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 
-import javax.annotation.concurrent.GuardedBy;
-
 import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 
+import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.DATA_BUFFER;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The {@link RemoteTierReader} is used to consume data from Remote Tier. */
@@ -66,19 +65,11 @@ public class RemoteTierReader extends TierReaderImpl {
                             }
                             BufferContext bufferContext =
                                     checkNotNull(unConsumedBuffers.pollFirst());
-                            Buffer.DataType nextDataType =
-                                    peekNextToConsumeDataTypeInternal(toConsumeIndex + 1);
-                            return Optional.of(Tuple2.of(bufferContext, nextDataType));
+                            return Optional.of(Tuple2.of(bufferContext, null));
                         });
         return bufferAndNextDataType.map(
                 tuple ->
                         new ResultSubpartition.BufferAndBacklog(
-                                null, getBacklog(), tuple.f1, toConsumeIndex, true));
-    }
-
-    @GuardedBy("consumerLock")
-    @Override
-    protected Buffer.DataType peekNextToConsumeDataTypeInternal(int nextToConsumeIndex) {
-        return Buffer.DataType.NONE;
+                                null, -1, DATA_BUFFER, toConsumeIndex, true));
     }
 }
