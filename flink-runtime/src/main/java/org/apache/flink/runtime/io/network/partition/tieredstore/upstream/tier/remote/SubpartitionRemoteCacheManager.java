@@ -202,7 +202,10 @@ public class SubpartitionRemoteCacheManager {
     public void release() {
         if (!isReleased) {
             for (BufferContext bufferContext : allBuffers) {
-                bufferContext.release();
+                Buffer buffer = bufferContext.getBuffer();
+                if (!buffer.isRecycled()) {
+                    buffer.recycleBuffer();
+                }
             }
             allBuffers.clear();
             bufferIndexToContexts.clear();
@@ -388,7 +391,8 @@ public class SubpartitionRemoteCacheManager {
         if (bufferContext == null) {
             return Optional.empty();
         }
-        return bufferContext.startSpilling() ? Optional.of(bufferContext) : Optional.empty();
+        bufferIndexToContexts.remove(bufferIndex);
+        return Optional.of(bufferContext);
     }
 
     private void flushCachedBuffersWithChangeFlushStatus() {
