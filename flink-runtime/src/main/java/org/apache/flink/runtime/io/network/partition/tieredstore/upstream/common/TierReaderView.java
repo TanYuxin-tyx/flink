@@ -34,11 +34,11 @@ public interface TierReaderView {
     ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable);
 
+    void updateNeedNotifyStatus();
+
     void notifyDataAvailable();
 
-    default int getConsumingOffset(boolean withLock) {
-        return -1;
-    }
+    int getConsumingOffset(boolean withLock);
 
     Throwable getFailureCause();
 
