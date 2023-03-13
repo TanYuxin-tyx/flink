@@ -125,6 +125,15 @@ public class TierReaderViewImpl implements TierReaderView {
     }
 
     @Override
+    public void updateNeedNotifyStatus() {
+        synchronized (lock) {
+            if (getSubpartitionBacklog() == 0) {
+                needNotify = true;
+            }
+        }
+    }
+
+    @Override
     public void releaseAllResources() throws IOException {
         releaseInternal(null);
     }
