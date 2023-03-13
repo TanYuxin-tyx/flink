@@ -308,7 +308,7 @@ public class SubpartitionDiskCacheManager {
             return Optional.empty();
         }
         bufferIndexToContexts.remove(bufferIndex);
-        return bufferContext.startSpilling() ? Optional.of(bufferContext) : Optional.empty();
+        return Optional.of(bufferContext);
     }
 
     private void updateStatistics(Buffer buffer) {
