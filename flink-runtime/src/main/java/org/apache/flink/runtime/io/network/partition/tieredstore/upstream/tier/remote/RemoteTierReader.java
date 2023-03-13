@@ -28,7 +28,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Optional;
-import java.util.Queue;
 import java.util.concurrent.locks.Lock;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -58,8 +57,7 @@ public class RemoteTierReader extends TierReaderImpl {
     }
 
     @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(
-            int toConsumeIndex, Queue<Buffer> errorBuffers) {
+    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(int toConsumeIndex) {
         Optional<Tuple2<BufferContext, Buffer.DataType>> bufferAndNextDataType =
                 callWithLock(
                         () -> {

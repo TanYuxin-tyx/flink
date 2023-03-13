@@ -28,7 +28,6 @@ import javax.annotation.concurrent.GuardedBy;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.concurrent.locks.Lock;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -59,8 +58,7 @@ public abstract class TierReaderImpl implements TierReader {
 
     @SuppressWarnings("FieldAccessNotGuarded")
     @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(
-            int toConsumeIndex, Queue<Buffer> errorBuffers) {
+    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(int toConsumeIndex) {
         Optional<Tuple2<BufferContext, Buffer.DataType>> bufferAndNextDataType =
                 callWithLock(
                         () -> {
@@ -81,13 +79,6 @@ public abstract class TierReaderImpl implements TierReader {
                                 tuple.f1,
                                 toConsumeIndex,
                                 tuple.f0.isLastBufferInSegment()));
-    }
-
-    @SuppressWarnings("FieldAccessNotGuarded")
-    @Override
-    public Buffer.DataType peekNextToConsumeDataType(
-            int nextToConsumeIndex, Queue<Buffer> errorBuffers) {
-        return callWithLock(() -> peekNextToConsumeDataTypeInternal(nextToConsumeIndex));
     }
 
     @GuardedBy("consumerLock")
@@ -117,7 +108,8 @@ public abstract class TierReaderImpl implements TierReader {
         }
     }
 
-    protected <R, E extends Exception> R callWithLock(SupplierWithException<R, E> callable) throws E {
+    protected <R, E extends Exception> R callWithLock(SupplierWithException<R, E> callable)
+            throws E {
         try {
             consumerLock.lock();
             return callable.get();

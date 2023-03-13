@@ -23,7 +23,6 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.util.function.FunctionWithException;
 
 import java.util.Optional;
-import java.util.Queue;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -59,14 +58,8 @@ public class TestingTierReader implements TierReader {
 
     @Override
     public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(
-            int nextBufferToConsume, Queue<Buffer> errorBuffers) throws Throwable {
+            int nextBufferToConsume) throws Throwable {
         return consumeBufferFunction.apply(nextBufferToConsume);
-    }
-
-    @Override
-    public Buffer.DataType peekNextToConsumeDataType(
-            int nextBufferToConsume, Queue<Buffer> errorBuffers) {
-        return peekNextToConsumeDataTypeFunction.apply(nextBufferToConsume);
     }
 
     @Override
