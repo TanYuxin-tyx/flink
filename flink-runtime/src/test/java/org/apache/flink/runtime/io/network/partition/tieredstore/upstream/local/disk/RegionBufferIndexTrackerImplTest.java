@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local.disk;
 
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker.ReadableRegion;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker.SpilledBuffer;
@@ -30,6 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -54,34 +56,31 @@ class RegionBufferIndexTrackerImplTest {
      */
     @Test
     void testGetReadableRegionBufferNotExist() {
-        //regionBufferIndexTracker.addBuffers(createSpilledBuffers(0, Arrays.asList(0, 2)));
-        ////regionBufferIndexTracker.markBufferReleased(0, 0);
-        ////regionBufferIndexTracker.markBufferReleased(0, 2);
-        //
-        //// subpartition 0 does not have buffer with index 1
-        //assertThat(regionBufferIndexTracker.getReadableRegion(0, 1, -1)).isNotPresent();
-        //
-        //// subpartition 1 has no buffer
-        //assertThat(regionBufferIndexTracker.getReadableRegion(1, 0, -1)).isNotPresent();
+        regionBufferIndexTracker.addBuffers(createSpilledBuffers(0, Arrays.asList(0, 2)));
+        // subpartition 0 does not have buffer with index 1
+        assertThat(regionBufferIndexTracker.getReadableRegion(0, 1, -1, TierReaderViewId.DEFAULT))
+                .isNotPresent();
+        // subpartition 1 has no buffer
+        assertThat(regionBufferIndexTracker.getReadableRegion(1, 0, -1, TierReaderViewId.DEFAULT))
+                .isNotPresent();
     }
 
     /** If target buffer is not readable, {@link Optional#empty()} should be eventually returned. */
     @Test
     void testGetReadableRegionNotReadable() {
-        //regionBufferIndexTracker.addBuffers(createSpilledBuffers(0, Collections.singletonList(0)));
-        ////regionBufferIndexTracker.markBufferReleased(0, 0);
-        //
-        //// 0-0 is not readable as consuming offset is bigger than 0.
-        //assertThat(regionBufferIndexTracker.getReadableRegion(0, 0, 1)).isNotPresent();
+        regionBufferIndexTracker.addBuffers(createSpilledBuffers(0, Collections.singletonList(0)));
+        // 0-0 is not readable as consuming offset is bigger than 0.
+        assertThat(regionBufferIndexTracker.getReadableRegion(0, 0, 1, TierReaderViewId.DEFAULT))
+                .isNotPresent();
     }
 
     /** If target buffer is not released, {@link Optional#empty()} should be eventually returned. */
     @Test
     void testGetReadableRegionNotReleased() {
-        //regionBufferIndexTracker.addBuffers(createSpilledBuffers(0, Collections.singletonList(0)));
-        //
-        //// 0-0 is not released
-        //assertThat(regionBufferIndexTracker.getReadableRegion(0, 0, -1)).isNotPresent();
+        regionBufferIndexTracker.addBuffers(createSpilledBuffers(0, Collections.singletonList(0)));
+        // 0-0 is not released
+        assertThat(regionBufferIndexTracker.getReadableRegion(0, 0, -1, TierReaderViewId.DEFAULT))
+                .isNotPresent();
     }
 
     /**
@@ -94,18 +93,18 @@ class RegionBufferIndexTrackerImplTest {
 
         regionBufferIndexTracker.addBuffers(
                 createSpilledBuffers(subpartitionId, Arrays.asList(0, 1, 3, 4, 5)));
-        //regionBufferIndexTracker.markBufferReleased(subpartitionId, 1);
-        //regionBufferIndexTracker.markBufferReleased(subpartitionId, 3);
-        //regionBufferIndexTracker.markBufferReleased(subpartitionId, 4);
-
-        //assertThat(regionBufferIndexTracker.getReadableRegion(subpartitionId, 1, 0))
+        //assertThat(
+        //                regionBufferIndexTracker.getReadableRegion(
+        //                        subpartitionId, 1, 0, TierReaderViewId.DEFAULT))
         //        .hasValueSatisfying(
         //                readableRegion -> {
         //                    assertRegionStartWithTargetBufferIndex(readableRegion, 1);
         //                    // Readable region will not include discontinuous buffer.
         //                    assertThat(readableRegion.numReadable).isEqualTo(1);
         //                });
-        //assertThat(regionBufferIndexTracker.getReadableRegion(subpartitionId, 3, 0))
+        //assertThat(
+        //                regionBufferIndexTracker.getReadableRegion(
+        //                        subpartitionId, 3, 0, TierReaderViewId.DEFAULT))
         //        .hasValueSatisfying(
         //                readableRegion -> {
         //                    assertRegionStartWithTargetBufferIndex(readableRegion, 3);
@@ -113,7 +112,9 @@ class RegionBufferIndexTrackerImplTest {
         //                            .isGreaterThanOrEqualTo(1)
         //                            .isLessThanOrEqualTo(2);
         //                });
-        //assertThat(regionBufferIndexTracker.getReadableRegion(subpartitionId, 4, 0))
+        //assertThat(
+        //                regionBufferIndexTracker.getReadableRegion(
+        //                        subpartitionId, 4, 0, TierReaderViewId.DEFAULT))
         //        .hasValueSatisfying(
         //                readableRegion -> {
         //                    assertRegionStartWithTargetBufferIndex(readableRegion, 4);

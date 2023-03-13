@@ -22,7 +22,10 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.util.TestLoggerExtension;
@@ -39,18 +42,22 @@ import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 /** Tests for {@link DiskCacheBufferSpiller}. */
 @ExtendWith(TestLoggerExtension.class)
 class CacheDataLocalFileSpillerTest {
 
     private static final int BUFFER_SIZE = Integer.BYTES;
-
-    private static final long BUFFER_WITH_HEADER_SIZE =
-            BUFFER_SIZE + BufferReaderWriterUtil.HEADER_LENGTH;
 
     private static final int NUM_SUBPARTITIONS = 1;
 
@@ -68,102 +75,85 @@ class CacheDataLocalFileSpillerTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void testSpillSuccessfully(boolean isCompressed) throws Exception {
-        //cacheDataSpiller = createCacheDataSpiller(dataFilePath);
-        //List<BufferWithIdentity> bufferWithIdentityList = new ArrayList<>();
-        //bufferWithIdentityList.addAll(
-        //        createBufferWithIdentityList(
-        //                isCompressed,
-        //                0,
-        //                Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
-        //bufferWithIdentityList.addAll(
-        //        createBufferWithIdentityList(
-        //                isCompressed,
-        //                0,
-        //                Arrays.asList(Tuple2.of(4, 0), Tuple2.of(5, 1), Tuple2.of(6, 2))));
-        //
-        //AtomicInteger flag = new AtomicInteger(1);
-        //cacheDataSpiller.spillAsync(bufferWithIdentityList, flag, true);
-        //while (flag.get() == 1) {
-        //    TimeUnit.MILLISECONDS.sleep(50);
-        //}
-        //checkData(
-        //        isCompressed,
-        //        Arrays.asList(
-        //                Tuple2.of(0, 0),
-        //                Tuple2.of(1, 1),
-        //                Tuple2.of(2, 2),
-        //                Tuple2.of(4, 0),
-        //                Tuple2.of(5, 1),
-        //                Tuple2.of(6, 2)));
+        cacheDataSpiller = createCacheDataSpiller(dataFilePath);
+        List<BufferContext> bufferContextList = new ArrayList<>();
+        bufferContextList.addAll(
+                createBufferContextList(
+                        isCompressed,
+                        0,
+                        Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
+        bufferContextList.addAll(
+                createBufferContextList(
+                        isCompressed,
+                        0,
+                        Arrays.asList(Tuple2.of(4, 0), Tuple2.of(5, 1), Tuple2.of(6, 2))));
+
+        AtomicInteger flag = new AtomicInteger(1);
+        cacheDataSpiller.spillAsync(bufferContextList, flag, true);
+        while (flag.get() == 1) {
+            TimeUnit.MILLISECONDS.sleep(50);
+        }
+        checkData(
+                isCompressed,
+                Arrays.asList(
+                        Tuple2.of(0, 0),
+                        Tuple2.of(1, 1),
+                        Tuple2.of(2, 2),
+                        Tuple2.of(4, 0),
+                        Tuple2.of(5, 1),
+                        Tuple2.of(6, 2)));
     }
 
     @Test
     void testRelease() throws Exception {
-        //cacheDataSpiller = createCacheDataSpiller(dataFilePath);
-        //List<BufferWithIdentity> bufferWithIdentityList =
-        //        new ArrayList<>(
-        //                createBufferWithIdentityList(
-        //                        false,
-        //                        0,
-        //                        Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
-        //AtomicInteger flag = new AtomicInteger(1);
-        //cacheDataSpiller.spillAsync(bufferWithIdentityList, flag, true);
-        //while (flag.get() == 1) {
-        //    TimeUnit.MILLISECONDS.sleep(50);
-        //}
-        //// blocked until spill finished.
-        //cacheDataSpiller.release();
-        //checkData(false, Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2)));
-        //assertThatThrownBy(() -> cacheDataSpiller.spillAsync(bufferWithIdentityList, flag, true))
-        //        .isInstanceOf(RejectedExecutionException.class);
+        cacheDataSpiller = createCacheDataSpiller(dataFilePath);
+        List<BufferContext> bufferContextList =
+                new ArrayList<>(
+                        createBufferContextList(
+                                false,
+                                0,
+                                Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
+        AtomicInteger flag = new AtomicInteger(1);
+        cacheDataSpiller.spillAsync(bufferContextList, flag, true);
+        while (flag.get() == 1) {
+            TimeUnit.MILLISECONDS.sleep(50);
+        }
+        // blocked until spill finished.
+        cacheDataSpiller.release();
+        checkData(false, Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2)));
+        assertThatThrownBy(() -> cacheDataSpiller.spillAsync(bufferContextList, flag, true))
+                .isInstanceOf(RejectedExecutionException.class);
     }
 
-    ///**
-    // * create buffer with identity list.
-    // *
-    // * @param subpartitionId the buffers belong to.
-    // * @param dataAndIndexes is the list contains pair of (bufferData, bufferIndex).
-    // */
-    //private static List<BufferWithIdentity> createBufferWithIdentityList(
-    //        boolean isCompressed,
-    //        int subpartitionId,
-    //        List<Tuple2<Integer, Integer>> dataAndIndexes) {
-    //    List<BufferWithIdentity> bufferWithIdentityList = new ArrayList<>();
-    //    for (Tuple2<Integer, Integer> dataAndIndex : dataAndIndexes) {
-    //        Buffer.DataType dataType =
-    //                dataAndIndex.f1 % 2 == 0
-    //                        ? Buffer.DataType.EVENT_BUFFER
-    //                        : Buffer.DataType.DATA_BUFFER;
-    //
-    //        MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(BUFFER_SIZE);
-    //        segment.putInt(0, dataAndIndex.f0);
-    //        Buffer buffer =
-    //                new NetworkBuffer(
-    //                        segment, FreeingBufferRecycler.INSTANCE, dataType, BUFFER_SIZE);
-    //        if (isCompressed) {
-    //            buffer.setCompressed(true);
-    //        }
-    //        bufferWithIdentityList.add(
-    //                new BufferWithIdentity(buffer, dataAndIndex.f1, subpartitionId));
-    //    }
-    //    return Collections.unmodifiableList(bufferWithIdentityList);
-    //}
+    /**
+     * create buffer with identity list.
+     *
+     * @param subpartitionId the buffers belong to.
+     * @param dataAndIndexes is the list contains pair of (bufferData, bufferIndex).
+     */
+    private static List<BufferContext> createBufferContextList(
+            boolean isCompressed,
+            int subpartitionId,
+            List<Tuple2<Integer, Integer>> dataAndIndexes) {
+        List<BufferContext> bufferContexts = new ArrayList<>();
+        for (Tuple2<Integer, Integer> dataAndIndex : dataAndIndexes) {
+            Buffer.DataType dataType =
+                    dataAndIndex.f1 % 2 == 0
+                            ? Buffer.DataType.EVENT_BUFFER
+                            : Buffer.DataType.DATA_BUFFER;
 
-    ///** get SpilledBuffers from BufferWithIdentities. */
-    //private static List<SpilledBuffer> getExpectedSpilledBuffers(
-    //        List<BufferWithIdentity> bufferWithIdentityList) {
-    //    long totalBytes = 0;
-    //    List<SpilledBuffer> spilledBuffers = new ArrayList<>();
-    //    for (BufferWithIdentity bufferWithIdentity : bufferWithIdentityList) {
-    //        spilledBuffers.add(
-    //                new SpilledBuffer(
-    //                        bufferWithIdentity.getChannelIndex(),
-    //                        bufferWithIdentity.getBufferIndex(),
-    //                        totalBytes));
-    //        totalBytes += BUFFER_WITH_HEADER_SIZE;
-    //    }
-    //    return Collections.unmodifiableList(spilledBuffers);
-    //}
+            MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(BUFFER_SIZE);
+            segment.putInt(0, dataAndIndex.f0);
+            Buffer buffer =
+                    new NetworkBuffer(
+                            segment, FreeingBufferRecycler.INSTANCE, dataType, BUFFER_SIZE);
+            if (isCompressed) {
+                buffer.setCompressed(true);
+            }
+            bufferContexts.add(new BufferContext(buffer, dataAndIndex.f1, subpartitionId, false));
+        }
+        return Collections.unmodifiableList(bufferContexts);
+    }
 
     private void checkData(boolean isCompressed, List<Tuple2<Integer, Integer>> dataAndIndexes)
             throws Exception {
