@@ -27,9 +27,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.Optional;
-import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -69,22 +67,17 @@ public class TierReaderViewImpl implements TierReaderView {
     @Nullable
     @Override
     public BufferAndBacklog getNextBuffer() throws IOException {
-        Queue<Buffer> errorBuffers = new ArrayDeque<>();
         try {
             synchronized (lock) {
                 checkNotNull(tierReader, "TierReader must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume =
-                        tierReader.consumeBuffer(lastConsumedBufferIndex + 1, errorBuffers);
+                        tierReader.consumeBuffer(lastConsumedBufferIndex + 1);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.map(this::handleBacklog).orElse(null);
             }
         } catch (Throwable cause) {
             releaseInternal(cause);
             throw new IOException("Failed to get next buffer from TierReader.", cause);
-        } finally {
-            while (!errorBuffers.isEmpty()) {
-                errorBuffers.poll().recycleBuffer();
-            }
         }
     }
 

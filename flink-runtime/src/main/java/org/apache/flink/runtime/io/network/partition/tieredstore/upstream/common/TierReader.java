@@ -18,24 +18,16 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
-import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 
 import java.util.Optional;
-import java.util.Queue;
 
 /** The {@link TierReader} is used to consume data from different tiers. */
 public interface TierReader {
 
-    Optional<BufferAndBacklog> consumeBuffer(int nextBufferToConsume, Queue<Buffer> errorBuffers)
-            throws Throwable;
+    Optional<BufferAndBacklog> consumeBuffer(int nextBufferToConsume) throws Throwable;
 
-    DataType peekNextToConsumeDataType(int nextBufferToConsume, Queue<Buffer> errorBuffers);
-
-    default int getBacklog() {
-        return 0;
-    }
+    int getBacklog();
 
     void releaseDataView();
 }

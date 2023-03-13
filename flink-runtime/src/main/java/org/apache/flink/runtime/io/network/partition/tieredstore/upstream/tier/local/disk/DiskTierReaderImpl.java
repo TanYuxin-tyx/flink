@@ -27,7 +27,6 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexOrError;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
-import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -223,9 +222,9 @@ public class DiskTierReaderImpl implements DiskTierReader {
     }
 
     @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(
-            int nextBufferToConsume, Queue<Buffer> errorBuffers) throws Throwable {
-        if (!checkAndGetFirstBufferIndexOrError(nextBufferToConsume, errorBuffers).isPresent()) {
+    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(int nextBufferToConsume)
+            throws Throwable {
+        if (!checkAndGetFirstBufferIndexOrError(nextBufferToConsume).isPresent()) {
             return Optional.empty();
         }
 
@@ -253,21 +252,6 @@ public class DiskTierReaderImpl implements DiskTierReader {
     }
 
     @Override
-    public Buffer.DataType peekNextToConsumeDataType(
-            int nextBufferToConsume, Queue<Buffer> errorBuffers) {
-        Buffer.DataType dataType = Buffer.DataType.NONE;
-        try {
-            dataType =
-                    checkAndGetFirstBufferIndexOrError(nextBufferToConsume, errorBuffers)
-                            .map(BufferIndexOrError::getDataType)
-                            .orElse(Buffer.DataType.NONE);
-        } catch (Throwable throwable) {
-            ExceptionUtils.rethrow(throwable);
-        }
-        return dataType;
-    }
-
-    @Override
     public void releaseDataView() {
         fileReaderReleaser.accept(this);
     }
@@ -281,36 +265,18 @@ public class DiskTierReaderImpl implements DiskTierReader {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private Optional<BufferIndexOrError> checkAndGetFirstBufferIndexOrError(
-            int expectedBufferIndex, Queue<Buffer> errorBuffers) throws Throwable {
+    private Optional<BufferIndexOrError> checkAndGetFirstBufferIndexOrError(int expectedBufferIndex)
+            throws Throwable {
         if (loadedBuffers.isEmpty()) {
             return Optional.empty();
         }
 
         BufferIndexOrError peek = loadedBuffers.peek();
-        while (!peek.getThrowable().isPresent() && peek.getIndex() < expectedBufferIndex) {
-            pollAndRecycleBuffer(loadedBuffers, errorBuffers);
-            peek = loadedBuffers.peek();
-            if (peek == null) {
-                return Optional.empty();
-            }
-        }
-
         if (peek.getThrowable().isPresent()) {
             throw peek.getThrowable().get();
-        } else if (peek.getIndex() != expectedBufferIndex) {
-            return Optional.empty();
         }
-
+        checkState(peek.getIndex() == expectedBufferIndex);
         return Optional.of(peek);
-    }
-
-    private void pollAndRecycleBuffer(
-            Deque<BufferIndexOrError> loadedBuffers, Queue<Buffer> errorBuffers) {
-        BufferIndexOrError peek = loadedBuffers.peek();
-        checkNotNull(peek);
-        errorBuffers.add(checkNotNull(peek.getBuffer().get()));
-        loadedBuffers.poll();
     }
 
     private void moveFileOffsetToBuffer(int bufferIndex) throws IOException {
