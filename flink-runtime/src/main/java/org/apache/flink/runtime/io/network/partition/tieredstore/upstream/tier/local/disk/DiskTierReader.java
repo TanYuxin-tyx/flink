@@ -32,23 +32,14 @@ import java.util.function.Consumer;
 
 /** The {@link DiskTierReader} is used to consume data from Disk Tier. */
 public interface DiskTierReader extends Comparable<DiskTierReader>, TierReader {
+
     /** Do prep work before this {@link DiskTierReader} is scheduled to read data. */
     void prepareForScheduling();
 
-    /**
-     * Read data from disk.
-     *
-     * @param buffers for reading, note that the ownership of the buffer taken out from the queue is
-     *     transferred to this class, and the unused buffer must be returned.
-     * @param recycler to return buffer to read buffer pool.
-     */
+    /** Read data from disk. */
     void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler) throws IOException;
 
-    /**
-     * Fail this {@link DiskTierReader} caused by failureCause.
-     *
-     * @param failureCause represents the reason why it failed.
-     */
+    /** Fail this {@link DiskTierReader} caused by failureCause. */
     void fail(Throwable failureCause);
 
     void release();

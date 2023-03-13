@@ -295,12 +295,13 @@ public class DiskTierReaderImpl implements DiskTierReader {
         if (bufferIndex < 0) {
             return Long.MAX_VALUE;
         } else {
-            return cachedRegionManager.getFileOffset(bufferIndex);
+            return cachedRegionManager.getFileOffset();
         }
     }
 
     /** Take care of buffer index consumed by the file reader. */
     static class BufferIndexManager {
+
         private final int maxBuffersReadAhead;
 
         /** Index of the last buffer that has ever been loaded from file. */
@@ -323,7 +324,8 @@ public class DiskTierReaderImpl implements DiskTierReader {
 
         /** Returns a negative value if shouldn't load. */
         private int getNextToLoad() {
-            int nextToLoad = Math.max(lastLoaded, lastConsumed) + 1;
+            checkState(lastLoaded >= lastConsumed);
+            int nextToLoad = lastLoaded + 1;
             int maxToLoad = lastConsumed + maxBuffersReadAhead;
             return nextToLoad <= maxToLoad ? nextToLoad : -1;
         }
@@ -362,8 +364,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
         }
 
         /** Return Long.MAX_VALUE if region does not exist to giving the lowest priority. */
-        private long getFileOffset(int bufferIndex) {
-            // updateCachedRegionIfNeeded(bufferIndex);
+        private long getFileOffset() {
             return currentBufferIndex == -1 ? Long.MAX_VALUE : offset;
         }
 
@@ -386,8 +387,6 @@ public class DiskTierReaderImpl implements DiskTierReader {
          *     derived by starting from the {@code offset} and skipping {@code numSkip} buffers.
          */
         private Tuple2<Integer, Long> getNumSkipAndFileOffset(int bufferIndex) {
-            // updateCachedRegionIfNeeded(bufferIndex);
-
             checkState(numSkip >= 0, "num skip must be greater than or equal to 0");
             // Assumption: buffer index is always requested / updated increasingly
             checkState(currentBufferIndex <= bufferIndex);
