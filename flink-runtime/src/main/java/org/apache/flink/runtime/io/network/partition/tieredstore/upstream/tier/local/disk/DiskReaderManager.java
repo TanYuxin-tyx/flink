@@ -202,9 +202,7 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
             }
             isReleased = true;
             releaseFuture.complete(null);
-            for (DiskTierReader fileReader : allReaders) {
-                fileReader.release();
-            }
+            allReaders.clear();
         }
         releaseFuture.thenRunAsync(this::deleteShuffleFile);
     }
