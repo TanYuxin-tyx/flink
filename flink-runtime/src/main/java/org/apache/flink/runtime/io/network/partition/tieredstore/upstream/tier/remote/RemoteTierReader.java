@@ -61,7 +61,7 @@ public class RemoteTierReader extends TierReaderImpl {
         Optional<Tuple2<BufferContext, Buffer.DataType>> bufferAndNextDataType =
                 callWithLock(
                         () -> {
-                            if (!checkFirstUnConsumedBufferIndex(toConsumeIndex)) {
+                            if (unConsumedBuffers.isEmpty()) {
                                 return Optional.empty();
                             }
                             BufferContext bufferContext =
