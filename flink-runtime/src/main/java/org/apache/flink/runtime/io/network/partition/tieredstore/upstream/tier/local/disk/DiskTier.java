@@ -152,10 +152,6 @@ public class DiskTier implements TierWriter, StorageTier {
                         bufferCompressor);
     }
 
-    boolean isLastRecordInSegment(int subpartitionId, int bufferIndex) {
-        return diskCacheManager.isLastBufferInSegment(subpartitionId, bufferIndex);
-    }
-
     @Override
     public boolean emit(
             ByteBuffer record,
