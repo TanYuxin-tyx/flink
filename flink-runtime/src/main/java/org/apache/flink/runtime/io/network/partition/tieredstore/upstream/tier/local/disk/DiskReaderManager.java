@@ -59,8 +59,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * File data manager for HsResultPartition, which schedules {@link DiskTierReaderImpl} for
- * loading data w.r.t. their offset in the file.
+ * File data manager for HsResultPartition, which schedules {@link DiskTierReaderImpl} for loading
+ * data w.r.t. their offset in the file.
  */
 @ThreadSafe
 public class DiskReaderManager implements Runnable, BufferRecycler {
@@ -155,9 +155,7 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
 
     /** This method only called by result partition to create subpartitionFileReader. */
     public TierReader registerNewConsumer(
-            int subpartitionId,
-            TierReaderViewId tierReaderViewId,
-            TierReaderView tierReaderView)
+            int subpartitionId, TierReaderViewId tierReaderViewId, TierReaderView tierReaderView)
             throws IOException {
         synchronized (lock) {
             checkState(!isReleased, "HsFileDataManager is already released.");
@@ -204,7 +202,6 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
             }
             isReleased = true;
             releaseFuture.complete(null);
-
             for (DiskTierReader fileReader : allReaders) {
                 fileReader.release();
             }
@@ -342,8 +339,7 @@ public class DiskReaderManager implements Runnable, BufferRecycler {
         }
     }
 
-    private void readData(
-            List<DiskTierReader> availableReaders, Queue<MemorySegment> buffers) {
+    private void readData(List<DiskTierReader> availableReaders, Queue<MemorySegment> buffers) {
         int startIndex = 0;
         while (startIndex < availableReaders.size() && !buffers.isEmpty()) {
             DiskTierReader subpartitionReader = availableReaders.get(startIndex);

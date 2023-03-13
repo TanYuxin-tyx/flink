@@ -67,7 +67,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
 
     private final Deque<BufferIndexOrError> loadedBuffers = new LinkedBlockingDeque<>();
 
-    private final Consumer<DiskTierReader> fileReaderReleaser;
+    private final Consumer<DiskTierReader> diskTierReaderReleaser;
 
     private volatile boolean isFailed;
 
@@ -78,7 +78,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
             TierReaderView tierReaderView,
             RegionBufferIndexTracker dataIndex,
             int maxBufferReadAhead,
-            Consumer<DiskTierReader> fileReaderReleaser,
+            Consumer<DiskTierReader> diskTierReaderReleaser,
             ByteBuffer headerBuf) {
         this.subpartitionId = subpartitionId;
         this.tierReaderViewId = tierReaderViewId;
@@ -87,56 +87,24 @@ public class DiskTierReaderImpl implements DiskTierReader {
         this.headerBuf = headerBuf;
         this.bufferIndexManager = new BufferIndexManager(maxBufferReadAhead);
         this.cachedRegionManager = new CachedRegionManager(subpartitionId, dataIndex);
-        this.fileReaderReleaser = fileReaderReleaser;
+        this.diskTierReaderReleaser = diskTierReaderReleaser;
     }
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        DiskTierReaderImpl that = (DiskTierReaderImpl) o;
-        return subpartitionId == that.subpartitionId
-                && Objects.equals(tierReaderViewId, that.tierReaderViewId);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(subpartitionId, tierReaderViewId);
-    }
-
-    /**
-     * Read subpartition data into buffers.
-     *
-     * <p>This transfers the ownership of used buffers to this class. It's this class'
-     * responsibility to release the buffers using the recycler when no longer needed.
-     *
-     * <p>Calling this method does not always use up all the provided buffers. It's this class'
-     * decision when to stop reading. Currently, it stops reading when: 1) buffers are used up, or
-     * 2) reaches the end of the subpartition data within the region, or 3) enough data have been
-     * read ahead the downstream consuming offset.
-     */
     @Override
     public synchronized void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
             throws IOException {
         if (isFailed) {
             throw new IOException("subpartition reader has already failed.");
         }
+        // If the number of loaded buffers achieves the limited value, skip this time.
         int firstBufferToLoad = bufferIndexManager.getNextToLoad();
         if (firstBufferToLoad < 0) {
             return;
         }
-
-        // If lookup result is empty, it means that one the following things have happened:
-        // 1) The target buffer has not been spilled into disk.
-        // 2) The target buffer has not been released from memory.
-        // So, just skip this round reading.
         int numRemainingBuffer =
                 cachedRegionManager.getRemainingBuffersInRegion(
                         firstBufferToLoad, tierReaderViewId);
+        // If there is no data in index, skip this time.
         if (numRemainingBuffer == 0) {
             return;
         }
@@ -171,57 +139,6 @@ public class DiskTierReaderImpl implements DiskTierReader {
     }
 
     @Override
-    public synchronized void fail(Throwable failureCause) {
-        if (isFailed) {
-            return;
-        }
-        isFailed = true;
-        BufferIndexOrError bufferIndexOrError;
-        // empty from tail, in-case subpartition view consumes concurrently and gets the wrong order
-        while ((bufferIndexOrError = loadedBuffers.pollLast()) != null) {
-            if (bufferIndexOrError.getBuffer().isPresent()) {
-                checkNotNull(bufferIndexOrError.getBuffer().get()).recycleBuffer();
-            }
-        }
-
-        loadedBuffers.add(BufferIndexOrError.newError(failureCause));
-        tierReaderView.notifyDataAvailable();
-    }
-
-    @Override
-    public void release() {
-        BufferIndexOrError bufferIndexOrError;
-        while ((bufferIndexOrError = loadedBuffers.pollLast()) != null) {
-            if (bufferIndexOrError.getBuffer().isPresent()) {
-                checkNotNull(bufferIndexOrError.getBuffer().get()).recycleBuffer();
-            }
-        }
-        tierReaderView.notifyDataAvailable();
-    }
-
-    /** Refresh downstream consumption progress for another round scheduling of reading. */
-    @Override
-    public void prepareForScheduling() {
-        // Access the consuming offset with lock, to prevent loading any buffer released from the
-        // memory data manager that is already consumed.
-        int consumingOffset = tierReaderView.getConsumingOffset(true);
-        bufferIndexManager.updateLastConsumed(consumingOffset);
-        cachedRegionManager.updateConsumingOffset(consumingOffset);
-    }
-
-    /** Provides priority calculation logic for io scheduler. */
-    @Override
-    public int compareTo(DiskTierReader that) {
-        checkArgument(that instanceof DiskTierReaderImpl);
-        return Long.compare(
-                getNextOffsetToLoad(), ((DiskTierReaderImpl) that).getNextOffsetToLoad());
-    }
-
-    public Deque<BufferIndexOrError> getLoadedBuffers() {
-        return loadedBuffers;
-    }
-
-    @Override
     public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(int nextBufferToConsume)
             throws Throwable {
         if (!checkAndGetFirstBufferIndexOrError(nextBufferToConsume).isPresent()) {
@@ -252,8 +169,65 @@ public class DiskTierReaderImpl implements DiskTierReader {
     }
 
     @Override
-    public void releaseTierReaderView() {
-        fileReaderReleaser.accept(this);
+    public synchronized void fail(Throwable failureCause) {
+        if (isFailed) {
+            return;
+        }
+        isFailed = true;
+        BufferIndexOrError bufferIndexOrError;
+        // empty from tail, in-case subpartition view consumes concurrently and gets the wrong order
+        while ((bufferIndexOrError = loadedBuffers.pollLast()) != null) {
+            if (bufferIndexOrError.getBuffer().isPresent()) {
+                checkNotNull(bufferIndexOrError.getBuffer().get()).recycleBuffer();
+            }
+        }
+        loadedBuffers.add(BufferIndexOrError.newError(failureCause));
+        tierReaderView.notifyDataAvailable();
+    }
+
+    @Override
+    public void release() {
+        BufferIndexOrError bufferIndexOrError;
+        while ((bufferIndexOrError = loadedBuffers.pollLast()) != null) {
+            if (bufferIndexOrError.getBuffer().isPresent()) {
+                checkNotNull(bufferIndexOrError.getBuffer().get()).recycleBuffer();
+            }
+        }
+        diskTierReaderReleaser.accept(this);
+    }
+
+    @Override
+    public void prepareForScheduling() {
+        // Access the consuming offset with lock, to prevent loading any buffer released from the
+        // memory data manager that is already consumed.
+        int consumingOffset = tierReaderView.getConsumingOffset(true);
+        bufferIndexManager.updateLastConsumed(consumingOffset);
+        cachedRegionManager.updateConsumingOffset(consumingOffset);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        DiskTierReaderImpl that = (DiskTierReaderImpl) o;
+        return subpartitionId == that.subpartitionId
+                && Objects.equals(tierReaderViewId, that.tierReaderViewId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(subpartitionId, tierReaderViewId);
+    }
+
+    @Override
+    public int compareTo(DiskTierReader that) {
+        checkArgument(that instanceof DiskTierReaderImpl);
+        return Long.compare(
+                getNextOffsetToLoad(), ((DiskTierReaderImpl) that).getNextOffsetToLoad());
     }
 
     @Override
@@ -289,7 +263,6 @@ public class DiskTierReaderImpl implements DiskTierReader {
         cachedRegionManager.skipAll(dataFileChannel.position());
     }
 
-    /** Returns Long.MAX_VALUE if it shouldn't load. */
     private long getNextOffsetToLoad() {
         int bufferIndex = bufferIndexManager.getNextToLoad();
         if (bufferIndex < 0) {
@@ -299,7 +272,6 @@ public class DiskTierReaderImpl implements DiskTierReader {
         }
     }
 
-    /** Take care of buffer index consumed by the file reader. */
     static class BufferIndexManager {
 
         private final int maxBuffersReadAhead;
@@ -331,18 +303,6 @@ public class DiskTierReaderImpl implements DiskTierReader {
         }
     }
 
-    /**
-     * Maintains a set of cursors on the last fetched readable region.
-     *
-     * <p>The semantics are:
-     *
-     * <ol>
-     *   <li>The offset of the buffer with {@code currentBufferIndex} in file can be derived by
-     *       starting from {@code offset} and skipping {@code numSkip} buffers.
-     *   <li>The {@code numReadable} continuous buffers starting from the offset of the buffer with
-     *       {@code currentBufferIndex} belongs to the same readable region.
-     * </ol>
-     */
     private static class CachedRegionManager {
         private final int subpartitionId;
         private final RegionBufferIndexTracker dataIndex;

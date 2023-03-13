@@ -44,7 +44,7 @@ public class MemoryTierReader extends TierReaderImpl {
     }
 
     @Override
-    public void releaseTierReaderView() {
+    public void release() {
         memoryDataWriterOperation.onConsumerReleased(subpartitionId, tierReaderViewId);
     }
 }
