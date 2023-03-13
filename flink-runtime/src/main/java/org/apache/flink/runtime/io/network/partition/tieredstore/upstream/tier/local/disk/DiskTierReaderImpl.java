@@ -252,7 +252,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
     }
 
     @Override
-    public void releaseDataView() {
+    public void releaseTierReaderView() {
         fileReaderReleaser.accept(this);
     }
 
