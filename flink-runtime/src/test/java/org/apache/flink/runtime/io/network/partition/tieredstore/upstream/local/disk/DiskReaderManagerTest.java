@@ -69,6 +69,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** Tests for {@link DiskReaderManager}. */
 @ExtendWith(TestLoggerExtension.class)
 class DiskReaderManagerTest {
+
     private static final int BUFFER_SIZE = 1024;
 
     private static final int NUM_SUBPARTITIONS = 10;
@@ -87,7 +88,7 @@ class DiskReaderManagerTest {
 
     private DiskReaderManager fileDataManager;
 
-    private TestingDiskTierReaderView subpartitionViewOperation;
+    private TierReaderView tierReaderView;
 
     private TestingDiskTierReader.Factory factory;
 
@@ -110,7 +111,7 @@ class DiskReaderManagerTest {
                         TieredStoreConfiguration.builder(
                                         NUM_SUBPARTITIONS, bufferPool.getNumBuffersPerRequest())
                                 .build());
-        subpartitionViewOperation = new TestingDiskTierReaderView();
+        tierReaderView = new TierReaderViewImpl(new NoOpBufferAvailablityListener());
     }
 
     @AfterEach
@@ -129,13 +130,9 @@ class DiskReaderManagerTest {
         reader.setReadBuffersConsumer(
                 (requestedBuffers, readBuffers) -> readBuffers.addAll(requestedBuffers));
         factory.allReaders.add(reader);
-
         assertThat(reader.readBuffers).isEmpty();
-
-        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
-
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, tierReaderView);
         ioExecutor.trigger();
-
         assertThat(reader.readBuffers).hasSize(BUFFER_POOL_SIZE);
     }
 
@@ -150,17 +147,12 @@ class DiskReaderManagerTest {
                 });
 
         factory.allReaders.add(reader);
-
-        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
-
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, tierReaderView);
         ioExecutor.trigger();
-
         assertThat(reader.readBuffers).hasSize(BUFFER_POOL_SIZE);
         assertThat(bufferPool.getAvailableBuffers()).isZero();
-
         fileDataManager.recycle(reader.readBuffers.poll());
         fileDataManager.recycle(reader.readBuffers.poll());
-
         // recycle buffer will push new runnable to ioExecutor.
         ioExecutor.trigger();
         assertThat(reader.readBuffers).hasSize(BUFFER_POOL_SIZE);
@@ -170,7 +162,6 @@ class DiskReaderManagerTest {
     @Test
     void testRunReleaseUnusedBuffers() throws Exception {
         TestingDiskTierReader reader = new TestingDiskTierReader();
-
         CompletableFuture<Void> prepareForSchedulingFinished = new CompletableFuture<>();
         reader.setPrepareForSchedulingRunnable(() -> prepareForSchedulingFinished.complete(null));
         reader.setReadBuffersConsumer(
@@ -182,11 +173,8 @@ class DiskReaderManagerTest {
                     readBuffers.add(requestedBuffers.poll());
                 });
         factory.allReaders.add(reader);
-
-        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
-
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, tierReaderView);
         ioExecutor.trigger();
-
         // not used buffer should be recycled.
         assertThat(bufferPool.getAvailableBuffers()).isEqualTo(1);
     }
@@ -196,7 +184,6 @@ class DiskReaderManagerTest {
     void testScheduleReadersOrdered() throws Exception {
         TestingDiskTierReader reader1 = new TestingDiskTierReader();
         TestingDiskTierReader reader2 = new TestingDiskTierReader();
-
         CompletableFuture<Void> readBuffersFinished1 = new CompletableFuture<>();
         CompletableFuture<Void> readBuffersFinished2 = new CompletableFuture<>();
         reader1.setReadBuffersConsumer(
@@ -209,30 +196,23 @@ class DiskReaderManagerTest {
                     assertThat(readBuffersFinished1).isDone();
                     readBuffersFinished2.complete(null);
                 });
-
         reader1.setPriority(1);
         reader2.setPriority(2);
-
         factory.allReaders.add(reader1);
         factory.allReaders.add(reader2);
-
-        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
-        fileDataManager.registerNewConsumer(1, TierReaderViewId.DEFAULT, subpartitionViewOperation);
-
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, tierReaderView);
+        fileDataManager.registerNewConsumer(1, TierReaderViewId.DEFAULT, tierReaderView);
         // trigger run.
         ioExecutor.trigger();
-
         assertThat(readBuffersFinished2).isCompleted();
     }
 
     @Test
     void testRunRequestBufferTimeout() throws Exception {
         Duration bufferRequestTimeout = Duration.ofSeconds(3);
-
         // request all buffer first.
         bufferPool.requestBuffers();
         assertThat(bufferPool.getAvailableBuffers()).isZero();
-
         fileDataManager =
                 new DiskReaderManager(
                         bufferPool,
@@ -244,18 +224,14 @@ class DiskReaderManagerTest {
                                         NUM_SUBPARTITIONS, bufferPool.getNumBuffersPerRequest())
                                 .setBufferRequestTimeout(bufferRequestTimeout)
                                 .build());
-
         TestingDiskTierReader reader = new TestingDiskTierReader();
         CompletableFuture<Void> prepareForSchedulingFinished = new CompletableFuture<>();
         CompletableFuture<Throwable> cause = new CompletableFuture<>();
         reader.setPrepareForSchedulingRunnable(() -> prepareForSchedulingFinished.complete(null));
         reader.setFailConsumer((cause::complete));
         factory.allReaders.add(reader);
-
-        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
-
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, tierReaderView);
         ioExecutor.trigger();
-
         assertThat(prepareForSchedulingFinished).isCompleted();
         assertThat(cause).isCompleted();
         assertThat(cause.get())
@@ -273,11 +249,8 @@ class DiskReaderManagerTest {
                     throw new IOException("expected exception.");
                 });
         factory.allReaders.add(reader);
-
-        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
-
+        fileDataManager.registerNewConsumer(0, TierReaderViewId.DEFAULT, tierReaderView);
         ioExecutor.trigger();
-
         assertThat(cause).isCompleted();
         assertThat(cause.get())
                 .isInstanceOf(IOException.class)
@@ -291,12 +264,11 @@ class DiskReaderManagerTest {
     void testRegisterSubpartitionReaderAfterReleased() {
         TestingDiskTierReader reader = new TestingDiskTierReader();
         factory.allReaders.add(reader);
-
         fileDataManager.release();
         assertThatThrownBy(
                         () -> {
                             fileDataManager.registerNewConsumer(
-                                    0, TierReaderViewId.DEFAULT, subpartitionViewOperation);
+                                    0, TierReaderViewId.DEFAULT, tierReaderView);
                             ioExecutor.trigger();
                         })
                 .isInstanceOf(IllegalStateException.class)
@@ -317,7 +289,6 @@ class DiskReaderManagerTest {
         CompletableFuture<Void> readerFail = new CompletableFuture<>();
         TierReaderView subpartitionView =
                 new TierReaderViewImpl(new NoOpBufferAvailablityListener());
-
         DiskTierReader diskTierReader =
                 new DiskTierReaderImpl(
                         0,
@@ -362,6 +333,7 @@ class DiskReaderManagerTest {
     }
 
     private static class TestingDiskTierReader implements DiskTierReader {
+
         private Runnable prepareForSchedulingRunnable = () -> {};
 
         private BiConsumerWithException<Queue<MemorySegment>, Queue<MemorySegment>, IOException>
