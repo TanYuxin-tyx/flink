@@ -54,7 +54,7 @@ class TierReaderViewTest {
     }
 
     @Test
-    void testGetNextBufferFromMemoryNextDataTypeIsNone() throws IOException {
+    void testGetNextDataTypeIsNone() throws IOException {
         TierReaderView tierReaderView = createTierReaderView();
         BufferAndBacklog bufferAndBacklog = createBufferAndBacklog(0, DataType.NONE, 0);
         TestingTierReader testingTierReader =
