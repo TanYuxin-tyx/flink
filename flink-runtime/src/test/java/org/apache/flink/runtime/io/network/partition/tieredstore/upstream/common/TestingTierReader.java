@@ -18,16 +18,15 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
-import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.util.function.FunctionWithException;
 
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 /** The {@link TestingTierReader} is used to mock the implementation of {@link TierReader}. */
 public class TestingTierReader implements TierReader {
+
     public static final TestingTierReader NO_OP = TestingTierReader.builder().build();
 
     private final FunctionWithException<
@@ -36,16 +35,16 @@ public class TestingTierReader implements TierReader {
 
     private final Supplier<Integer> getBacklogSupplier;
 
-    private final Runnable releaseDataViewRunnable;
+    private final Runnable releaseRunnable;
 
     private TestingTierReader(
             FunctionWithException<Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
                     consumeBufferFunction,
             Supplier<Integer> getBacklogSupplier,
-            Runnable releaseDataViewRunnable) {
+            Runnable releaseRunnable) {
         this.consumeBufferFunction = consumeBufferFunction;
         this.getBacklogSupplier = getBacklogSupplier;
-        this.releaseDataViewRunnable = releaseDataViewRunnable;
+        this.releaseRunnable = releaseRunnable;
     }
 
     public static Builder builder() {
@@ -65,21 +64,19 @@ public class TestingTierReader implements TierReader {
 
     @Override
     public void release() {
-        releaseDataViewRunnable.run();
+        releaseRunnable.run();
     }
 
     /** Builder for {@link TestingTierReader}. */
     public static class Builder {
+
         private FunctionWithException<
                         Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
                 consumeBufferFunction = (ignore) -> Optional.empty();
 
-        private Function<Integer, Buffer.DataType> peekNextToConsumeDataTypeFunction =
-                (ignore) -> Buffer.DataType.NONE;
-
         private Supplier<Integer> getBacklogSupplier = () -> 0;
 
-        private Runnable releaseDataViewRunnable = () -> {};
+        private Runnable releaseRunnable = () -> {};
 
         private Builder() {}
 
@@ -91,24 +88,19 @@ public class TestingTierReader implements TierReader {
             return this;
         }
 
-        public Builder setPeekNextToConsumeDataTypeFunction(
-                Function<Integer, Buffer.DataType> peekNextToConsumeDataTypeFunction) {
-            this.peekNextToConsumeDataTypeFunction = peekNextToConsumeDataTypeFunction;
-            return this;
-        }
-
         public Builder setGetBacklogSupplier(Supplier<Integer> getBacklogSupplier) {
             this.getBacklogSupplier = getBacklogSupplier;
             return this;
         }
 
         public Builder setReleaseDataViewRunnable(Runnable releaseDataViewRunnable) {
-            this.releaseDataViewRunnable = releaseDataViewRunnable;
+            this.releaseRunnable = releaseDataViewRunnable;
             return this;
         }
 
         public TestingTierReader build() {
-            return new TestingTierReader(consumeBufferFunction, getBacklogSupplier, releaseDataViewRunnable);
+            return new TestingTierReader(
+                    consumeBufferFunction, getBacklogSupplier, releaseRunnable);
         }
     }
 }
