@@ -43,19 +43,20 @@ public class SubpartitionSegmentIndexTracker {
 
     private final Boolean isBroadCastOnly;
 
-    private int[] latestSegmentIndexes;
+    private final int[] latestSegmentIndexes;
 
     public SubpartitionSegmentIndexTracker(int numSubpartitions, Boolean isBroadCastOnly) {
-        int numSubpartitions1 = isBroadCastOnly ? 1 : numSubpartitions;
-        this.locks = new Lock[numSubpartitions1];
+        int effectiveNumSubpartitions = isBroadCastOnly ? 1 : numSubpartitions;
+        this.locks = new Lock[effectiveNumSubpartitions];
         this.latestSegmentIndexes = new int[numSubpartitions];
-        Arrays.fill(latestSegmentIndexes, -1);
+        this.isBroadCastOnly = isBroadCastOnly;
         this.subpartitionSegmentIndexes = new HashMap<>();
-        for (int i = 0; i < numSubpartitions1; i++) {
+
+        Arrays.fill(latestSegmentIndexes, -1);
+        for (int i = 0; i < effectiveNumSubpartitions; i++) {
             locks[i] = new ReentrantLock();
             subpartitionSegmentIndexes.put(i, new HashSet<>());
         }
-        this.isBroadCastOnly = isBroadCastOnly;
     }
 
     // Return true if this segment tracker did not already contain the specified segment index.
@@ -64,42 +65,32 @@ public class SubpartitionSegmentIndexTracker {
             return;
         }
         latestSegmentIndexes[subpartitionId] = segmentIndex;
-        if (isBroadCastOnly) {
-            callWithSubpartitionLock(0, () -> subpartitionSegmentIndexes.get(0).add(segmentIndex));
-        } else {
-            callWithSubpartitionLock(
-                    subpartitionId,
-                    () -> subpartitionSegmentIndexes.get(subpartitionId).add(segmentIndex));
-        }
+        int effectiveSubpartitionId = getEffectiveSubpartitionId(subpartitionId);
+        callWithSubpartitionLock(
+                effectiveSubpartitionId,
+                () -> subpartitionSegmentIndexes.get(effectiveSubpartitionId).add(segmentIndex));
     }
 
     public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
-        if (isBroadCastOnly) {
-            return callWithSubpartitionLock(
-                    0,
-                    () -> {
-                        Set<Integer> segmentIndexes = subpartitionSegmentIndexes.get(0);
-                        if (segmentIndexes == null) {
-                            return false;
-                        }
-                        return segmentIndexes.contains(segmentIndex);
-                    });
-        } else {
-            return callWithSubpartitionLock(
-                    subpartitionId,
-                    () -> {
-                        Set<Integer> segmentIndexes =
-                                subpartitionSegmentIndexes.get(subpartitionId);
-                        if (segmentIndexes == null) {
-                            return false;
-                        }
-                        return segmentIndexes.contains(segmentIndex);
-                    });
-        }
+        int effectiveSubpartitionId = getEffectiveSubpartitionId(subpartitionId);
+        return callWithSubpartitionLock(
+                effectiveSubpartitionId,
+                () -> {
+                    Set<Integer> segmentIndexes =
+                            subpartitionSegmentIndexes.get(effectiveSubpartitionId);
+                    if (segmentIndexes == null) {
+                        return false;
+                    }
+                    return segmentIndexes.contains(segmentIndex);
+                });
     }
 
     public void release() {
         subpartitionSegmentIndexes.clear();
+    }
+
+    private int getEffectiveSubpartitionId(int subpartitionId) {
+        return isBroadCastOnly ? 0 : subpartitionId;
     }
 
     private <R, E extends Exception> R callWithSubpartitionLock(
