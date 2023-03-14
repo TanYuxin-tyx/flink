@@ -45,7 +45,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     private static final Logger LOG = LoggerFactory.getLogger(TieredStoreProducerImpl.class);
 
-    private final StorageTier[] tierDataGates;
+    private final StorageTier[] storageTiers;
 
     private final TierWriter[] tierWriters;
 
@@ -60,19 +60,19 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     private final int numSubpartitions;
 
     public TieredStoreProducerImpl(
-            StorageTier[] tierDataGates, int numSubpartitions, boolean isBroadcastOnly)
+            StorageTier[] storageTiers, int numSubpartitions, boolean isBroadcastOnly)
             throws IOException {
-        this.tierDataGates = tierDataGates;
+        this.storageTiers = storageTiers;
         this.subpartitionSegmentIndexes = new int[numSubpartitions];
         this.subpartitionWriterIndex = new int[numSubpartitions];
-        this.tierWriters = new TierWriter[tierDataGates.length];
+        this.tierWriters = new TierWriter[storageTiers.length];
         this.isBroadcastOnly = isBroadcastOnly;
         this.numSubpartitions = numSubpartitions;
 
         Arrays.fill(subpartitionSegmentIndexes, 0);
         Arrays.fill(subpartitionWriterIndex, -1);
-        for (int i = 0; i < tierDataGates.length; i++) {
-            tierWriters[i] = tierDataGates[i].createPartitionTierWriter();
+        for (int i = 0; i < storageTiers.length; i++) {
+            tierWriters[i] = storageTiers[i].createPartitionTierWriter();
         }
     }
 
@@ -110,16 +110,16 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
             boolean isEndOfPartition)
             throws IOException {
 
-        int writerIndex = subpartitionWriterIndex[targetSubpartition];
+        int tierIndex = subpartitionWriterIndex[targetSubpartition];
         // For the first record
-        if (writerIndex == -1) {
-            writerIndex = chooseGateWriter(targetSubpartition);
-            subpartitionWriterIndex[targetSubpartition] = writerIndex;
+        if (tierIndex == -1) {
+            tierIndex = chooseStorageTierIndex(targetSubpartition);
+            subpartitionWriterIndex[targetSubpartition] = tierIndex;
         }
 
         int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
         boolean isLastRecordInSegment =
-                tierWriters[writerIndex].emit(
+                tierWriters[tierIndex].emit(
                         record,
                         targetSubpartition,
                         dataType,
@@ -127,32 +127,32 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
                         isEndOfPartition,
                         segmentIndex);
         if (isLastRecordInSegment) {
-            writerIndex = chooseGateWriter(targetSubpartition);
-            subpartitionWriterIndex[targetSubpartition] = writerIndex;
+            tierIndex = chooseStorageTierIndex(targetSubpartition);
+            subpartitionWriterIndex[targetSubpartition] = tierIndex;
             subpartitionSegmentIndexes[targetSubpartition] = (segmentIndex + 1);
         }
     }
 
-    private int chooseGateWriter(int targetSubpartition) throws IOException {
-        if (tierDataGates.length == 1) {
+    private int chooseStorageTierIndex(int targetSubpartition) throws IOException {
+        if (storageTiers.length == 1) {
             return 0;
         }
         // only for test case Memory and Disk
-        if (tierDataGates.length == 2
-                && tierDataGates[0] instanceof MemoryTier
-                && tierDataGates[1] instanceof DiskTier) {
-            if (!isBroadcastOnly && tierDataGates[0].canStoreNextSegment(targetSubpartition)) {
+        if (storageTiers.length == 2
+                && storageTiers[0] instanceof MemoryTier
+                && storageTiers[1] instanceof DiskTier) {
+            if (!isBroadcastOnly && storageTiers[0].canStoreNextSegment(targetSubpartition)) {
                 return 0;
             }
             return 1;
         }
-        for (int tierGateIndex = 0; tierGateIndex < tierDataGates.length; ++tierGateIndex) {
-            StorageTier tierDataGate = tierDataGates[tierGateIndex];
-            if (isBroadcastOnly && tierDataGate instanceof MemoryTier) {
+        for (int tierIndex = 0; tierIndex < storageTiers.length; ++tierIndex) {
+            StorageTier storageTier = storageTiers[tierIndex];
+            if (isBroadcastOnly && storageTier instanceof MemoryTier) {
                 continue;
             }
-            if (tierDataGates[tierGateIndex].canStoreNextSegment(targetSubpartition)) {
-                return tierGateIndex;
+            if (storageTiers[tierIndex].canStoreNextSegment(targetSubpartition)) {
+                return tierIndex;
             }
         }
         throw new IOException("All gates are full, cannot select the writer of gate");
@@ -160,45 +160,45 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     public void release() {
         Arrays.stream(tierWriters).forEach(TierWriter::release);
-        Arrays.stream(tierDataGates).forEach(StorageTier::release);
+        Arrays.stream(storageTiers).forEach(StorageTier::release);
     }
 
     public void close() {
         Arrays.stream(tierWriters).forEach(TierWriter::close);
-        Arrays.stream(tierDataGates).forEach(StorageTier::close);
+        Arrays.stream(storageTiers).forEach(StorageTier::close);
     }
 
     @Override
     public void alignedBarrierTimeout(long checkpointId) throws IOException {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             storageTier.alignedBarrierTimeout(checkpointId);
         }
     }
 
     @Override
     public void abortCheckpoint(long checkpointId, CheckpointException cause) {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             storageTier.abortCheckpoint(checkpointId, cause);
         }
     }
 
     @Override
     public void flushAll() {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             storageTier.flushAll();
         }
     }
 
     @Override
     public void flush(int subpartitionIndex) {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             storageTier.flush(subpartitionIndex);
         }
     }
 
     @Override
     public int getNumberOfQueuedBuffers() {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             int numberOfQueuedBuffers = storageTier.getNumberOfQueuedBuffers();
             if (numberOfQueuedBuffers != Integer.MIN_VALUE) {
                 return numberOfQueuedBuffers;
@@ -209,7 +209,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     @Override
     public long getSizeOfQueuedBuffersUnsafe() {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             long sizeOfQueuedBuffersUnsafe = storageTier.getSizeOfQueuedBuffersUnsafe();
             if (sizeOfQueuedBuffersUnsafe != Integer.MIN_VALUE) {
                 return sizeOfQueuedBuffersUnsafe;
@@ -220,7 +220,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     @Override
     public int getNumberOfQueuedBuffers(int targetSubpartition) {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             int numberOfQueuedBuffers = storageTier.getNumberOfQueuedBuffers(targetSubpartition);
             if (numberOfQueuedBuffers != Integer.MIN_VALUE) {
                 return numberOfQueuedBuffers;
@@ -231,14 +231,14 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     @Override
     public void setChannelStateWriter(ChannelStateWriter channelStateWriter) {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             storageTier.setChannelStateWriter(channelStateWriter);
         }
     }
 
     @Override
     public CheckpointedResultSubpartition getCheckpointedSubpartition(int subpartitionIndex) {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             CheckpointedResultSubpartition checkpointedSubpartition =
                     storageTier.getCheckpointedSubpartition(subpartitionIndex);
             if (checkpointedSubpartition != null) {
@@ -250,21 +250,21 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     @Override
     public void finishReadRecoveredState(boolean notifyAndBlockOnCompletion) throws IOException {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             storageTier.finishReadRecoveredState(notifyAndBlockOnCompletion);
         }
     }
 
     @Override
     public void onConsumedSubpartition(int subpartitionIndex) {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             storageTier.onConsumedSubpartition(subpartitionIndex);
         }
     }
 
     @Override
     public CompletableFuture<Void> getAllDataProcessedFuture() {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             CompletableFuture<Void> allDataProcessedFuture =
                     storageTier.getAllDataProcessedFuture();
             if (allDataProcessedFuture != null) {
@@ -276,7 +276,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     @Override
     public void onSubpartitionAllDataProcessed(int subpartition) {
-        for (StorageTier storageTier : tierDataGates) {
+        for (StorageTier storageTier : storageTiers) {
             storageTier.onSubpartitionAllDataProcessed(subpartition);
         }
     }
