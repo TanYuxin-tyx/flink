@@ -89,20 +89,20 @@ class TierReaderViewTest {
     @Test
     void testGetNextBufferZeroBacklog() throws IOException {
         TierReaderView tierReaderView = createTierReaderView();
-        int diskBacklog = 0;
+        int backlog = 0;
         BufferAndBacklog targetBufferAndBacklog =
-                createBufferAndBacklog(diskBacklog, DataType.DATA_BUFFER, 0);
-        TestingTierReader memoryTierReader =
+                createBufferAndBacklog(backlog, DataType.DATA_BUFFER, 0);
+        TestingTierReader testingTierReader =
                 TestingTierReader.builder()
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(targetBufferAndBacklog))
                         .build();
-        tierReaderView.setTierReader(memoryTierReader);
+        tierReaderView.setTierReader(testingTierReader);
         assertThat(tierReaderView.getNextBuffer())
                 .satisfies(
                         (bufferAndBacklog -> {
                             // backlog is reset to maximum backlog of memory and disk.
-                            assertThat(bufferAndBacklog.buffersInBacklog()).isEqualTo(diskBacklog);
+                            assertThat(bufferAndBacklog.buffersInBacklog()).isEqualTo(backlog);
                             // other field is not changed.
                             assertThat(bufferAndBacklog.buffer())
                                     .isEqualTo(targetBufferAndBacklog.buffer());
@@ -193,22 +193,22 @@ class TierReaderViewTest {
     @Test
     void testRelease() throws Exception {
         TierReaderView tierReaderView = createTierReaderView();
-        CompletableFuture<Void> releaseDiskViewFuture = new CompletableFuture<>();
+        CompletableFuture<Void> releaseFuture = new CompletableFuture<>();
         TestingTierReader testingTierReader =
                 TestingTierReader.builder()
-                        .setReleaseDataViewRunnable(() -> releaseDiskViewFuture.complete(null))
+                        .setReleaseDataViewRunnable(() -> releaseFuture.complete(null))
                         .build();
         tierReaderView.setTierReader(testingTierReader);
         tierReaderView.releaseAllResources();
         assertThat(tierReaderView.isReleased()).isTrue();
-        assertThat(releaseDiskViewFuture).isCompleted();
+        assertThat(releaseFuture).isCompleted();
     }
 
     @Test
     void testGetConsumingOffset() throws IOException {
         AtomicInteger nextBufferIndex = new AtomicInteger(0);
         TierReaderView tierReaderView = createTierReaderView();
-        TestingTierReader memoryTierReader =
+        TestingTierReader testingTierReader =
                 TestingTierReader.builder()
                         .setConsumeBufferFunction(
                                 (toConsumeBuffer) ->
@@ -218,7 +218,7 @@ class TierReaderViewTest {
                                                         DataType.DATA_BUFFER,
                                                         nextBufferIndex.getAndIncrement())))
                         .build();
-        tierReaderView.setTierReader(memoryTierReader);
+        tierReaderView.setTierReader(testingTierReader);
         assertThat(tierReaderView.getConsumingOffset(true)).isEqualTo(-1);
         tierReaderView.getNextBuffer();
         assertThat(tierReaderView.getConsumingOffset(true)).isEqualTo(0);
