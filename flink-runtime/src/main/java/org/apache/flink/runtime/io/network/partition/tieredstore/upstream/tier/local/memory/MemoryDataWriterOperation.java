@@ -25,7 +25,7 @@ import java.util.Collection;
 
 /**
  * This interface is used by {@link MemoryTierReader} to operate {@link
- * MemoryWriter}. Spilling decision may be made and handled inside these operations.
+ * MemoryTierWriter}. Spilling decision may be made and handled inside these operations.
  */
 public interface MemoryDataWriterOperation {
     /**

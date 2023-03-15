@@ -44,7 +44,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteWriter.BROADCAST_CHANNEL;
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTierWriter.BROADCAST_CHANNEL;
 
 /** The DataManager of DFS. */
 public class RemoteTier implements StorageTier {
@@ -96,7 +96,7 @@ public class RemoteTier implements StorageTier {
 
     @Override
     public TierWriter createPartitionTierWriter() throws IOException {
-        return new RemoteWriter(numSubpartitions, segmentIndexTracker, remoteCacheManager, numBytesInASegment);
+        return new RemoteTierWriter(numSubpartitions, segmentIndexTracker, remoteCacheManager, numBytesInASegment);
     }
 
     @Override

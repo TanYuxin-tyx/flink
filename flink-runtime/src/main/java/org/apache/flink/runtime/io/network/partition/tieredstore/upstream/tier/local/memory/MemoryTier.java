@@ -66,7 +66,7 @@ public class MemoryTier implements StorageTier {
     /** Record the last assigned consumerId for each subpartition. */
     private final TierReaderViewId[] lastTierReaderViewIds;
 
-    private MemoryWriter memoryWriter;
+    private MemoryTierWriter memoryWriter;
 
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
 
@@ -98,7 +98,7 @@ public class MemoryTier implements StorageTier {
     @Override
     public void setup() throws IOException {
         this.memoryWriter =
-                new MemoryWriter(
+                new MemoryTierWriter(
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
                         tieredStoreMemoryManager,

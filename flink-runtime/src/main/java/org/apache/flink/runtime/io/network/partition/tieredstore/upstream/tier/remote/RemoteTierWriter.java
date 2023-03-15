@@ -27,9 +27,9 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
- * Through the {@link RemoteWriter}, records from {@link RemoteTier} is writen to cached buffers.
+ * Through the {@link RemoteTierWriter}, records from {@link RemoteTier} is writen to cached buffers.
  */
-public class RemoteWriter implements TierWriter {
+public class RemoteTierWriter implements TierWriter {
 
     public static final int BROADCAST_CHANNEL = 0;
 
@@ -42,7 +42,7 @@ public class RemoteWriter implements TierWriter {
 
     private int numBytesInASegment;
 
-    public RemoteWriter(
+    public RemoteTierWriter(
             int numSubpartitions,
             SubpartitionSegmentIndexTracker segmentIndexTracker,
             RemoteCacheManager remoteCacheManager,
