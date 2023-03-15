@@ -177,14 +177,10 @@ public class SingleChannelTierClientTest {
     }
 
     private static void writeSingleTestBuffer(FSDataOutputStream outputStream) throws IOException {
-        // 1. Build the data buffer
-        byte[] stringData = new byte[10];
         NetworkBuffer dataBuffer =
                 new NetworkBuffer(
-                        MemorySegmentFactory.allocateUnpooledSegment(stringData.length),
+                        MemorySegmentFactory.allocateUnpooledSegment(1),
                         BufferRecycler.DummyBufferRecycler.INSTANCE);
-        dataBuffer.writeBytes(stringData);
-        // 2. Build the data header buffer
         ByteBuffer headerBuffer = ByteBuffer.wrap(new byte[8]);
         headerBuffer.order(ByteOrder.nativeOrder());
         BufferReaderWriterUtil.setByteChannelBufferHeader(dataBuffer, headerBuffer);
