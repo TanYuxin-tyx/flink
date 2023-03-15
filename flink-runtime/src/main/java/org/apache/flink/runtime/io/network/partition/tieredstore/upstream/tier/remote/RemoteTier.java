@@ -27,15 +27,16 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.metrics.TimerGauge;
 
@@ -78,7 +79,7 @@ public class RemoteTier implements StorageTier {
         this.isBroadcastOnly = isBroadcastOnly;
         this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
         this.segmentIndexTracker =
-                new SubpartitionSegmentIndexTracker(numSubpartitions, isBroadcastOnly);
+                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
         this.remoteCacheManager =
                 new RemoteCacheManager(
                         jobID,
@@ -96,7 +97,8 @@ public class RemoteTier implements StorageTier {
 
     @Override
     public TierWriter createPartitionTierWriter() throws IOException {
-        return new RemoteTierWriter(numSubpartitions, segmentIndexTracker, remoteCacheManager, numBytesInASegment);
+        return new RemoteTierWriter(
+                numSubpartitions, segmentIndexTracker, remoteCacheManager, numBytesInASegment);
     }
 
     @Override
@@ -107,8 +109,7 @@ public class RemoteTier implements StorageTier {
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        TierReaderViewImpl remoteTIerReaderView =
-                new TierReaderViewImpl(availabilityListener);
+        TierReaderViewImpl remoteTierReaderView = new TierReaderViewImpl(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
@@ -116,10 +117,10 @@ public class RemoteTier implements StorageTier {
         lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
         TierReader remoteReader =
                 remoteCacheManager.registerNewConsumer(
-                        subpartitionId, tierReaderViewId, remoteTIerReaderView);
+                        subpartitionId, tierReaderViewId, remoteTierReaderView);
 
-        remoteTIerReaderView.setTierReader(remoteReader);
-        return remoteTIerReaderView;
+        remoteTierReaderView.setTierReader(remoteReader);
+        return remoteTierReaderView;
     }
 
     @Override

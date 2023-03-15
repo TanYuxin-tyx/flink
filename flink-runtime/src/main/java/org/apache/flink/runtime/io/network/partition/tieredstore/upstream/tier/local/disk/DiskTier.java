@@ -32,6 +32,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
@@ -136,7 +137,7 @@ public class DiskTier implements TierWriter, StorageTier {
                         DiskTierReaderImpl.Factory.INSTANCE,
                         storeConfiguration);
         this.segmentIndexTracker =
-                new SubpartitionSegmentIndexTracker(numSubpartitions, isBroadcastOnly);
+                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
     }
 
     @Override

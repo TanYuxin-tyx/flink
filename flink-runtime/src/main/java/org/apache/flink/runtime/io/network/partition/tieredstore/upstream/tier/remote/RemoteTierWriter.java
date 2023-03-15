@@ -27,7 +27,8 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
- * Through the {@link RemoteTierWriter}, records from {@link RemoteTier} is writen to cached buffers.
+ * Through the {@link RemoteTierWriter}, records from {@link RemoteTier} is writen to cached
+ * buffers.
  */
 public class RemoteTierWriter implements TierWriter {
 
