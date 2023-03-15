@@ -180,7 +180,9 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     @Override
     public void close() {}
 
-    /** Release this {@link MemoryTierWriter}, it means all memory taken by this class will recycle. */
+    /**
+     * Release this {@link MemoryTierWriter}, it means all memory taken by this class will recycle.
+     */
     @Override
     public void release() {
         for (int i = 0; i < numSubpartitions; i++) {
