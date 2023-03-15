@@ -74,7 +74,7 @@ public class NettyShuffleEnvironmentBuilder {
 
     private int maxOverdraftBuffersPerGate = 0;
 
-    private String baseDfsHomePath = null;
+    private String baseRemoteStorageHomePath = null;
 
     private String compressionCodec = "LZ4";
 
@@ -185,8 +185,8 @@ public class NettyShuffleEnvironmentBuilder {
         return this;
     }
 
-    public NettyShuffleEnvironmentBuilder setBaseDfsHomePath(String baseDfsHomePath) {
-        this.baseDfsHomePath = baseDfsHomePath;
+    public NettyShuffleEnvironmentBuilder setBaseRemoteStorageHomePath(String baseRemoteStorageHomePath) {
+        this.baseRemoteStorageHomePath = baseRemoteStorageHomePath;
         return this;
     }
 
@@ -278,7 +278,7 @@ public class NettyShuffleEnvironmentBuilder {
                         maxOverdraftBuffersPerGate,
                         hybridShuffleSpilledIndexSegmentSize,
                         hybridShuffleNumRetainedInMemoryRegionsMax,
-                        baseDfsHomePath,
+                        baseRemoteStorageHomePath,
                         minReservedDiskSpaceFraction,
                         isUsingTieredStore,
                         ""),

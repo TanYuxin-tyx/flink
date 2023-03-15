@@ -95,7 +95,7 @@ public abstract class AbstractStreamTaskNetworkInput<
 
     @Override
     public DataInputStatus emitNext(DataOutput<T> output) throws Exception {
-        LOG.debug("I am emitNext 2...");
+
         while (true) {
             // get the stream element from the deserializer
             if (currentRecordDeserializer != null) {
@@ -103,7 +103,6 @@ public abstract class AbstractStreamTaskNetworkInput<
                 try {
                     result = currentRecordDeserializer.getNextRecord(deserializationDelegate);
                 } catch (IOException e) {
-                    LOG.debug("### FAILED 2");
                     throw new IOException(
                             String.format("Can't get next record for channel %s", lastChannel), e);
                 }
@@ -112,7 +111,6 @@ public abstract class AbstractStreamTaskNetworkInput<
                 }
 
                 if (result.isFullRecord()) {
-                    LOG.debug("### DFS resolves successfully");
                     processElement(deserializationDelegate.getInstance(), output);
                     if (canEmitBatchOfRecords.check()) {
                         continue;
@@ -121,7 +119,6 @@ public abstract class AbstractStreamTaskNetworkInput<
                 }
             }
 
-            LOG.debug("### start poll buffer from gate");
             Optional<BufferOrEvent> bufferOrEvent = checkpointedInputGate.pollNext();
             if (bufferOrEvent.isPresent()) {
                 // return to the mailbox after receiving a checkpoint barrier to avoid processing of
@@ -150,17 +147,13 @@ public abstract class AbstractStreamTaskNetworkInput<
 
     private void processElement(StreamElement recordOrMark, DataOutput<T> output) throws Exception {
         if (recordOrMark.isRecord()) {
-            LOG.debug("#### processElement1");
             output.emitRecord(recordOrMark.asRecord());
         } else if (recordOrMark.isWatermark()) {
-            LOG.debug("#### processElement2");
             statusWatermarkValve.inputWatermark(
                     recordOrMark.asWatermark(), flattenedChannelIndices.get(lastChannel), output);
         } else if (recordOrMark.isLatencyMarker()) {
-            LOG.debug("#### processElement3");
             output.emitLatencyMarker(recordOrMark.asLatencyMarker());
         } else if (recordOrMark.isWatermarkStatus()) {
-            LOG.debug("#### processElement4");
             statusWatermarkValve.inputWatermarkStatus(
                     recordOrMark.asWatermarkStatus(),
                     flattenedChannelIndices.get(lastChannel),
@@ -173,12 +166,10 @@ public abstract class AbstractStreamTaskNetworkInput<
     protected DataInputStatus processEvent(BufferOrEvent bufferOrEvent) {
         // Event received
         final AbstractEvent event = bufferOrEvent.getEvent();
-        LOG.debug("### AbstractStreamTaskNetworkInput received: {}", event);
         if (event.getClass() == EndOfData.class) {
             switch (checkpointedInputGate.hasReceivedEndOfData()) {
                 case NOT_END_OF_DATA:
                     // skip
-                    LOG.debug("### checkpointedInputGate.hasReceivedEndOfData() NOT_END_OF_DATA");
                     break;
                 case DRAINED:
                     return DataInputStatus.END_OF_DATA;
