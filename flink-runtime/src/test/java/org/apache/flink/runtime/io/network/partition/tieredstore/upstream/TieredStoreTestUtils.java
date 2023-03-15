@@ -38,6 +38,7 @@ import java.util.Map;
 
 /** Test utils for tiered store. */
 public class TieredStoreTestUtils {
+
     public static final int MEMORY_SEGMENT_SIZE = 128;
 
     public static List<BufferIndexAndChannel> createBufferIndexAndChannelsList(

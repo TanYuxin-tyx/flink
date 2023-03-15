@@ -116,11 +116,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** Tests for {@link TieredStoreSingleInputGate}. */
 public class TieredStoreSingleInputGateTest extends InputGateTestBase {
 
-    private static final int NETWORK_BUFFER_POOL_NUM_BUFFERS = 20;
+    private static final int NETWORK_BUFFER_POOL_NUM_BUFFERS = 4;
 
-    private static final int LOCAL_BUFFER_POOL_NUM_BUFFERS = 10;
+    private static final int LOCAL_BUFFER_POOL_NUM_BUFFERS = 2;
 
-    private static final int MEMORY_SEGMENT_SIZE = 32 * 1024;
+    private static final int MEMORY_SEGMENT_SIZE = 1024;
 
     private static final JobID JOB_ID = JobID.generate();
 
