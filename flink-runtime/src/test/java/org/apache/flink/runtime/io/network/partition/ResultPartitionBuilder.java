@@ -92,13 +92,11 @@ public class ResultPartitionBuilder {
 
     private long hybridShuffleNumRetainedInMemoryRegionsMax = Long.MAX_VALUE;
 
-    private String baseDfsHomePath = null;
+    private String baseRemoteStorageHomePath = null;
 
     private long minDiskReserveBytes = 0L;
 
     private String tieredStoreTiers = null;
-
-    private String tieredStoreSpillingType = null;
 
     public void setJobID(JobID jobID) {
         this.jobID = jobID;
@@ -232,8 +230,8 @@ public class ResultPartitionBuilder {
         return this;
     }
 
-    public ResultPartitionBuilder setBaseDfsHomePath(String baseDfsHomePath) {
-        this.baseDfsHomePath = baseDfsHomePath;
+    public ResultPartitionBuilder setBaseRemoteStorageHomePath(String baseRemoteStorageHomePath) {
+        this.baseRemoteStorageHomePath = baseRemoteStorageHomePath;
         return this;
     }
 
@@ -244,11 +242,6 @@ public class ResultPartitionBuilder {
 
     public ResultPartitionBuilder setTieredStoreTiers(String tieredStoreTiers) {
         this.tieredStoreTiers = tieredStoreTiers;
-        return this;
-    }
-
-    public ResultPartitionBuilder setTieredStoreSpillingType(String tieredStoreSpillingType) {
-        this.tieredStoreSpillingType = tieredStoreSpillingType;
         return this;
     }
 
@@ -291,7 +284,7 @@ public class ResultPartitionBuilder {
                         maxOverdraftBuffersPerGate,
                         hybridShuffleSpilledIndexSegmentSize,
                         hybridShuffleNumRetainedInMemoryRegionsMax,
-                        baseDfsHomePath,
+                        baseRemoteStorageHomePath,
                         minDiskReserveBytes,
                         false,
                         tieredStoreTiers);

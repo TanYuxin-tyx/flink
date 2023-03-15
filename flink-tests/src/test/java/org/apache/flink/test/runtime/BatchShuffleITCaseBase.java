@@ -41,8 +41,6 @@ import org.apache.flink.testutils.junit.utils.TempDirUtils;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.io.TempDir;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -127,7 +125,6 @@ class BatchShuffleITCaseBase {
     }
 
     private static class StringSource implements ParallelSourceFunction<String> {
-        private static final Logger LOG = LoggerFactory.getLogger(StringSource.class);
         private volatile boolean isRunning = true;
         private int numRecordsToSend;
 
@@ -138,7 +135,6 @@ class BatchShuffleITCaseBase {
         @Override
         public void run(SourceContext<String> ctx) throws Exception {
             while (isRunning && numRecordsToSend-- > 0) {
-                LOG.debug("### String Source send: " + RECORD);
                 ctx.collect(RECORD);
             }
         }
@@ -150,9 +146,6 @@ class BatchShuffleITCaseBase {
     }
 
     private static class VerifySink extends RichSinkFunction<String> {
-
-        private static final Logger LOG = LoggerFactory.getLogger(VerifySink.class);
-
         private final boolean failExecution;
 
         private final boolean deletePartitionFile;
@@ -164,7 +157,6 @@ class BatchShuffleITCaseBase {
 
         @Override
         public void open(Configuration parameters) throws Exception {
-            LOG.debug("### opened! ");
             NUM_RECEIVED_RECORDS[getRuntimeContext().getIndexOfThisSubtask()] = 0;
             if (getRuntimeContext().getAttemptNumber() > 0
                     || getRuntimeContext().getIndexOfThisSubtask() != 0) {
@@ -186,7 +178,6 @@ class BatchShuffleITCaseBase {
         public void invoke(String value, Context context) throws Exception {
             NUM_RECEIVED_RECORDS[getRuntimeContext().getIndexOfThisSubtask()]++;
             assertThat(value).isEqualTo(RECORD);
-            LOG.debug("### invoked!, the value is {}", Arrays.toString(NUM_RECEIVED_RECORDS));
         }
 
         private static void deleteFiles(File root) throws IOException {
