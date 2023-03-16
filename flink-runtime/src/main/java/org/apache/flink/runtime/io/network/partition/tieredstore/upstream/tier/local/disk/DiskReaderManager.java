@@ -59,8 +59,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * File data manager for HsResultPartition, which schedules {@link DiskTierReaderImpl} for loading
- * data w.r.t. their offset in the file.
+ * File data manager for tiered store result partition, which schedules {@link DiskTierReaderImpl}
+ * for loading data w.r.t. their offset in the file.
  */
 @ThreadSafe
 public class DiskReaderManager implements Runnable, BufferRecycler {
