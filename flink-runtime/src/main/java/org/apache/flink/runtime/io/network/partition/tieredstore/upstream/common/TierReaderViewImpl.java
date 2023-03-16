@@ -40,7 +40,7 @@ public class TierReaderViewImpl implements TierReaderView {
     private final BufferAvailabilityListener availabilityListener;
 
     @GuardedBy("lock")
-    private int lastConsumedBufferIndex = -1;
+    private int consumingOffset = -1;
 
     @GuardedBy("lock")
     private boolean needNotify = true;
@@ -71,7 +71,7 @@ public class TierReaderViewImpl implements TierReaderView {
             synchronized (lock) {
                 checkNotNull(tierReader, "TierReader must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume =
-                        tierReader.consumeBuffer(lastConsumedBufferIndex + 1);
+                        tierReader.consumeBuffer(consumingOffset + 1);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.map(this::handleBacklog).orElse(null);
             }
@@ -138,14 +138,13 @@ public class TierReaderViewImpl implements TierReaderView {
         }
     }
 
-    @SuppressWarnings("FieldAccessNotGuarded")
     @Override
     public int getConsumingOffset(boolean withLock) {
         if (!withLock) {
-            return lastConsumedBufferIndex;
+            return consumingOffset;
         }
         synchronized (lock) {
-            return lastConsumedBufferIndex;
+            return consumingOffset;
         }
     }
 
@@ -205,11 +204,11 @@ public class TierReaderViewImpl implements TierReaderView {
         assert Thread.holdsLock(lock);
         // if consumed, update and check consume offset
         if (bufferAndBacklog.isPresent()) {
-            ++lastConsumedBufferIndex;
-            checkState(bufferAndBacklog.get().getSequenceNumber() == lastConsumedBufferIndex);
+            ++consumingOffset;
+            checkState(bufferAndBacklog.get().getSequenceNumber() == consumingOffset);
         }
 
-        // update need-notify
+        // update need notify status
         boolean dataAvailable =
                 bufferAndBacklog.map(BufferAndBacklog::isDataAvailable).orElse(false);
         needNotify = !dataAvailable;
