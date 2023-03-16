@@ -24,11 +24,6 @@ import java.util.Objects;
 
 /** This class represents the identifier of hybrid shuffle's consumer. */
 public class TierReaderViewId {
-    /**
-     * This consumer id is used in the scenarios that information related to specific consumer needs
-     * to be ignored.
-     */
-    public static final TierReaderViewId ANY = new TierReaderViewId(-1);
 
     /** This consumer id is used for the first consumer of a single subpartition. */
     public static final TierReaderViewId DEFAULT = new TierReaderViewId(0);

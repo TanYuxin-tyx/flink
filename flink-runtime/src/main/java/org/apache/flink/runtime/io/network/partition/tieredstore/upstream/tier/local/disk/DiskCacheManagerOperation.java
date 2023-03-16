@@ -26,7 +26,8 @@ import java.util.Collection;
 import java.util.List;
 
 /**
- * This interface is used by operate. Spilling decision may be made and handled inside these operations.
+ * This interface is used by operate. Spilling decision may be made and handled inside these
+ * operations.
  */
 public interface DiskCacheManagerOperation {
     /**
@@ -71,49 +72,4 @@ public interface DiskCacheManagerOperation {
      * @param bufferIndex the index the consumer needs.
      */
     boolean isLastBufferInSegment(int subpartitionId, int bufferIndex);
-
-    enum SpillStatus {
-        /** The buffer is spilling or spilled already. */
-        SPILL,
-        /** The buffer not start spilling. */
-        NOT_SPILL,
-    }
-
-    /** This enum represents buffer status of consume in hybrid shuffle mode. */
-    enum ConsumeStatus {
-        /** The buffer has already consumed by downstream. */
-        CONSUMED,
-        /** The buffer is not consumed by downstream. */
-        NOT_CONSUMED,
-        /** The buffer is either consumed or not consumed. */
-        ALL
-    }
-
-    /** This class represents a pair of {@link ConsumeStatus} and consumer id. */
-    class ConsumeStatusWithId {
-        public static final ConsumeStatusWithId ALL_ANY =
-                new ConsumeStatusWithId(ConsumeStatus.ALL, TierReaderViewId.ANY);
-
-        ConsumeStatus status;
-
-        TierReaderViewId tierReaderViewId;
-
-        private ConsumeStatusWithId(ConsumeStatus status, TierReaderViewId tierReaderViewId) {
-            this.status = status;
-            this.tierReaderViewId = tierReaderViewId;
-        }
-
-        public static ConsumeStatusWithId fromStatusAndConsumerId(
-                ConsumeStatus consumeStatus, TierReaderViewId tierReaderViewId) {
-            return new ConsumeStatusWithId(consumeStatus, tierReaderViewId);
-        }
-
-        public TierReaderViewId getConsumerId() {
-            return tierReaderViewId;
-        }
-
-        public ConsumeStatus getStatus() {
-            return status;
-        }
-    }
 }
