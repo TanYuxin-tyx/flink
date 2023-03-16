@@ -31,10 +31,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
@@ -44,8 +42,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
-
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTierWriter.BROADCAST_CHANNEL;
 
 /** The DataManager of DFS. */
 public class RemoteTier implements StorageTier {
@@ -105,22 +101,22 @@ public class RemoteTier implements StorageTier {
     public TierReaderView createTierReaderView(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
-        // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
-        // channel.
-        subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
-
-        TierReaderViewImpl remoteTierReaderView = new TierReaderViewImpl(availabilityListener);
-        TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
-        // assign a unique id for each consumer, now it is guaranteed by the value that is one
-        // higher than the last consumerId's id field.
-        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
-        lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
-        TierReader remoteReader =
-                remoteCacheManager.registerNewConsumer(
-                        subpartitionId, tierReaderViewId, remoteTierReaderView);
-
-        remoteTierReaderView.setTierReader(remoteReader);
-        return remoteTierReaderView;
+        //// if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
+        //// channel.
+        //subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
+        //
+        //TierReaderViewImpl remoteTierReaderView = new TierReaderViewImpl(availabilityListener);
+        //TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
+        //// assign a unique id for each consumer, now it is guaranteed by the value that is one
+        //// higher than the last consumerId's id field.
+        //TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
+        //lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
+        //TierReader remoteReader =
+        //        remoteCacheManager.registerNewConsumer(
+        //                subpartitionId, tierReaderViewId, remoteTierReaderView);
+        //
+        //remoteTierReaderView.setTierReader(remoteReader);
+        return null;
     }
 
     @Override

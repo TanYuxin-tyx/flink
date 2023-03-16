@@ -30,8 +30,11 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** The {@link TieredStoreConsumerImpl} is the implementation of {@link TieredStoreConsumer}. */
 public class TieredStoreConsumerImpl implements TieredStoreConsumer {
@@ -40,9 +43,9 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     private final BufferAvailabilityListener availabilityListener;
 
-    private final StorageTier[] tiers;
+    private List<StorageTier> registedTiers;
 
-    private final TierReaderView[] tierReaderViews;
+    private List<TierReaderView> registeredTierReaderViews;
 
     private boolean isReleased = false;
 
@@ -66,15 +69,19 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
         checkArgument(tiers.length > 0, "The number of StorageTier must be larger than 0.");
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
-        this.tiers = tiers;
-        this.tierReaderViews = new TierReaderView[tiers.length];
-        createTierReaderViews();
+        registerNettyUsers(tiers);
     }
 
-    private void createTierReaderViews() throws IOException {
-        for (int i = 0; i < tiers.length; i++) {
-            tierReaderViews[i] =
-                    tiers[i].createTierReaderView(subpartitionId, availabilityListener);
+    private void registerNettyUsers(StorageTier[] tiers) throws IOException {
+        registedTiers = new ArrayList<>();
+        registeredTierReaderViews = new ArrayList<>();
+        for (StorageTier tier : tiers) {
+            TierReaderView tierReaderView =
+                    tier.createTierReaderView(subpartitionId, availabilityListener);
+            if (tierReaderView != null) {
+                registedTiers.add(tier);
+                registeredTierReaderViews.add(tierReaderView);
+            }
         }
     }
 
@@ -92,6 +99,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     @Override
     public void updateConsumedSegmentId(int segmentId) {
         synchronized (this) {
+            currentSegmentId = segmentId;
             consumedSegmentId = segmentId;
         }
     }
@@ -106,16 +114,14 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
             return null;
         }
         BufferAndBacklog bufferAndBacklog =
-                tierReaderViews[viewIndexContainsCurrentSegment].getNextBuffer();
+                registeredTierReaderViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
 
         if (bufferAndBacklog != null) {
             hasSegmentFinished = bufferAndBacklog.isLastBufferInSegment();
             if (hasSegmentFinished) {
                 currentSegmentId++;
             }
-            if (bufferAndBacklog.buffer() == null) {
-                return getNextBuffer();
-            }
+            checkState(bufferAndBacklog.buffer() != null);
             bufferAndBacklog.setSequenceNumber(currentSequenceNumber);
             currentSequenceNumber++;
         }
@@ -126,8 +132,9 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable) {
         if (findTierReaderViewIndex()) {
-            return tierReaderViews[viewIndexContainsCurrentSegment].getAvailabilityAndBacklog(
-                    numCreditsAvailable);
+            return registeredTierReaderViews
+                    .get(viewIndexContainsCurrentSegment)
+                    .getAvailabilityAndBacklog(numCreditsAvailable);
         }
         return new ResultSubpartitionView.AvailabilityWithBacklog(false, 0);
     }
@@ -138,7 +145,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
             return;
         }
         isReleased = true;
-        for (TierReaderView tierReaderView : tierReaderViews) {
+        for (TierReaderView tierReaderView : registeredTierReaderViews) {
             tierReaderView.release();
         }
     }
@@ -151,7 +158,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     @Override
     public Throwable getFailureCause() {
         TieredStoreConsumerFailureCause failureCause = new TieredStoreConsumerFailureCause();
-        for (TierReaderView tierReaderView : tierReaderViews) {
+        for (TierReaderView tierReaderView : registeredTierReaderViews) {
             failureCause.appendException(tierReaderView.getFailureCause());
         }
         return failureCause.isEmpty() ? null : failureCause;
@@ -160,14 +167,17 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
         findTierReaderViewIndex();
-        return tierReaderViews[viewIndexContainsCurrentSegment]
+        return registeredTierReaderViews
+                .get(viewIndexContainsCurrentSegment)
                 .unsynchronizedGetNumberOfQueuedBuffers();
     }
 
     @Override
     public int getNumberOfQueuedBuffers() {
         findTierReaderViewIndex();
-        return tierReaderViews[viewIndexContainsCurrentSegment].getNumberOfQueuedBuffers();
+        return registeredTierReaderViews
+                .get(viewIndexContainsCurrentSegment)
+                .getNumberOfQueuedBuffers();
     }
 
     @VisibleForTesting
@@ -181,15 +191,15 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     private boolean findTierReaderViewIndex() {
 
-        for (TierReaderView tierReaderView : tierReaderViews) {
+        for (TierReaderView tierReaderView : registeredTierReaderViews) {
             tierReaderView.updateNeedNotifyStatus();
         }
 
         if (!hasSegmentFinished) {
             return true;
         }
-        for (int i = 0; i < tiers.length; i++) {
-            StorageTier tieredDataGate = tiers[i];
+        for (int i = 0; i < registedTiers.size(); i++) {
+            StorageTier tieredDataGate = registedTiers.get(i);
             if (tieredDataGate.hasCurrentSegment(subpartitionId, currentSegmentId)) {
                 viewIndexContainsCurrentSegment = i;
                 return true;
