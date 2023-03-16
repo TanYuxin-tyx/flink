@@ -127,7 +127,7 @@ public class TierReaderViewImpl implements TierReaderView {
     }
 
     @Override
-    public void releaseAllResources() throws IOException {
+    public void release() throws IOException {
         releaseInternal(null);
     }
 

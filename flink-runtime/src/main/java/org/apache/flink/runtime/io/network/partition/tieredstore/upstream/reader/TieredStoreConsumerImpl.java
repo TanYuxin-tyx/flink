@@ -139,7 +139,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
         }
         isReleased = true;
         for (TierReaderView tierReaderView : tierReaderViews) {
-            tierReaderView.releaseAllResources();
+            tierReaderView.release();
         }
     }
 

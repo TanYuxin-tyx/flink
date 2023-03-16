@@ -48,7 +48,7 @@ public interface TierReaderView {
 
     int getNumberOfQueuedBuffers();
 
-    boolean isReleased();
+    void release() throws IOException;
 
-    void releaseAllResources() throws IOException;
+    boolean isReleased();
 }

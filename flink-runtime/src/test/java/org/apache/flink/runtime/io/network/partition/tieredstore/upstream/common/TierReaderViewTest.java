@@ -199,7 +199,7 @@ class TierReaderViewTest {
                         .setReleaseDataViewRunnable(() -> releaseFuture.complete(null))
                         .build();
         tierReaderView.setTierReader(testingTierReader);
-        tierReaderView.releaseAllResources();
+        tierReaderView.release();
         assertThat(tierReaderView.isReleased()).isTrue();
         assertThat(releaseFuture).isCompleted();
     }
