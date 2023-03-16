@@ -33,6 +33,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The {@link RemoteTierReader} is used to consume data from Remote Tier. */
 public class RemoteTierReader extends TierReaderImpl {
+
     private final TierReaderViewId tierReaderViewId;
 
     private final int subpartitionId;
