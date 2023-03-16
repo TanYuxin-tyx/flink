@@ -32,9 +32,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.util.Preconditions;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -48,8 +45,6 @@ import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
 public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
-
-    private static final Logger LOG = LoggerFactory.getLogger(MemoryTierWriter.class);
 
     private final int numSubpartitions;
 
