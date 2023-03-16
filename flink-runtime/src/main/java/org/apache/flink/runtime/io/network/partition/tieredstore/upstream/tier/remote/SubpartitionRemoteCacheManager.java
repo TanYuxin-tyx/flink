@@ -39,14 +39,11 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.concurrent.FutureUtils;
-import org.apache.flink.util.function.SupplierWithException;
-import org.apache.flink.util.function.ThrowingRunnable;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -60,7 +57,7 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.checkFlushCacheBuffers;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -89,19 +86,14 @@ public class SubpartitionRemoteCacheManager {
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedSegmentInfoIndex;
 
-    @GuardedBy("subpartitionLock")
     private final Deque<BufferContext> allSegmentInfos = new LinkedList<>();
 
-    @GuardedBy("subpartitionLock")
     private final Deque<BufferContext> allBuffers = new LinkedList<>();
 
     private final CacheBufferSpiller cacheBufferSpiller;
 
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
-    private final ReentrantReadWriteLock subpartitionLock = new ReentrantReadWriteLock();
-
-    @GuardedBy("subpartitionLock")
     private final Map<TierReaderViewId, RemoteTierReader> consumerMap;
 
     @Nullable private final BufferCompressor bufferCompressor;
@@ -166,30 +158,26 @@ public class SubpartitionRemoteCacheManager {
         checkState(isSegmentStarted);
         isSegmentStarted = false;
         List<TierReaderViewId> needNotify = new ArrayList<>(consumerMap.size());
-        runWithLock(
-                () -> {
-                    CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>>
-                            spillDoneFuture = flushCachedBuffers();
-                    try {
-                        spillDoneFuture.get();
-                        checkFlushCacheBuffers(tieredStoreMemoryManager, this::flushCachedBuffers);
-                    } catch (Exception e) {
-                        LOG.debug("Failed to finishSegment", e);
-                    }
-                    cacheBufferSpiller.finishSegment(segmentIndex);
-                    BufferContext segmentInfoBufferContext =
-                            new BufferContext(null, finishedSegmentInfoIndex, targetChannel, true);
-                    allSegmentInfos.add(segmentInfoBufferContext);
-                    ++finishedSegmentInfoIndex;
-                    checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
-                    // notify downstream
-                    for (Map.Entry<TierReaderViewId, RemoteTierReader> consumerEntry :
-                            consumerMap.entrySet()) {
-                        if (consumerEntry.getValue().addBuffer(segmentInfoBufferContext)) {
-                            needNotify.add(consumerEntry.getKey());
-                        }
-                    }
-                });
+        CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spillDoneFuture =
+                flushCachedBuffers();
+        try {
+            spillDoneFuture.get();
+            checkFlushCacheBuffers(tieredStoreMemoryManager, this::flushCachedBuffers);
+        } catch (Exception e) {
+            LOG.debug("Failed to finish the segment.", e);
+        }
+        cacheBufferSpiller.finishSegment(segmentIndex);
+        BufferContext segmentInfoBufferContext =
+                new BufferContext(null, finishedSegmentInfoIndex, targetChannel, true);
+        allSegmentInfos.add(segmentInfoBufferContext);
+        ++finishedSegmentInfoIndex;
+        checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
+        // notify downstream
+        for (Map.Entry<TierReaderViewId, RemoteTierReader> consumerEntry : consumerMap.entrySet()) {
+            if (consumerEntry.getValue().addBuffer(segmentInfoBufferContext)) {
+                needNotify.add(consumerEntry.getKey());
+            }
+        }
         cacheDataManagerOperation.onDataAvailable(targetChannel, needNotify);
     }
 
@@ -209,24 +197,21 @@ public class SubpartitionRemoteCacheManager {
     }
 
     public void releaseConsumer(TierReaderViewId tierReaderViewId) {
-        runWithLock(() -> checkNotNull(consumerMap.remove(tierReaderViewId)));
+        checkNotNull(consumerMap.remove(tierReaderViewId));
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
     public RemoteTierReader registerNewConsumer(TierReaderViewId tierReaderViewId) {
-        return callWithLock(
-                () -> {
-                    checkState(!consumerMap.containsKey(tierReaderViewId));
-                    RemoteTierReader newConsumer =
-                            new RemoteTierReader(
-                                    subpartitionLock.readLock(),
-                                    targetChannel,
-                                    tierReaderViewId,
-                                    cacheDataManagerOperation);
-                    newConsumer.addInitialBuffers(allSegmentInfos);
-                    consumerMap.put(tierReaderViewId, newConsumer);
-                    return newConsumer;
-                });
+        checkState(!consumerMap.containsKey(tierReaderViewId));
+        RemoteTierReader newConsumer =
+                new RemoteTierReader(
+                        new ReentrantLock(),
+                        targetChannel,
+                        tierReaderViewId,
+                        cacheDataManagerOperation);
+        newConsumer.addInitialBuffers(allSegmentInfos);
+        consumerMap.put(tierReaderViewId, newConsumer);
+        return newConsumer;
     }
 
     // ------------------------------------------------------------------------
@@ -261,7 +246,7 @@ public class SubpartitionRemoteCacheManager {
         writeRecord(record, isLastRecordInSegment);
     }
 
-    private void ensureCapacityForRecord(ByteBuffer record) throws InterruptedException {
+    private void ensureCapacityForRecord(ByteBuffer record) {
         final int numRecordBytes = record.remaining();
         int availableBytes =
                 Optional.ofNullable(unfinishedBuffers.peek())
@@ -365,15 +350,12 @@ public class SubpartitionRemoteCacheManager {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     private void addFinishedBuffer(BufferContext bufferContext) {
-        runWithLock(
-                () -> {
-                    finishedBufferIndex++;
-                    allBuffers.add(bufferContext);
-                    updateStatistics(bufferContext.getBuffer());
-                    if (allBuffers.size() >= NUM_BUFFERS_TO_FLUSH) {
-                        flushCachedBuffers();
-                    }
-                });
+        finishedBufferIndex++;
+        allBuffers.add(bufferContext);
+        updateStatistics(bufferContext.getBuffer());
+        if (allBuffers.size() >= NUM_BUFFERS_TO_FLUSH) {
+            flushCachedBuffers();
+        }
     }
 
     private void flushCachedBuffersWithChangeFlushStatus() {
@@ -393,12 +375,9 @@ public class SubpartitionRemoteCacheManager {
     }
 
     private List<BufferContext> generateToSpillBuffersWithId() {
-        return callWithLock(
-                () -> {
-                    List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
-                    allBuffers.clear();
-                    return targetBuffers;
-                });
+        List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
+        allBuffers.clear();
+        return targetBuffers;
     }
 
     private void updateStatistics(Buffer buffer) {
@@ -412,24 +391,6 @@ public class SubpartitionRemoteCacheManager {
         flushCachedBuffers();
         while (!unfinishedBuffers.isEmpty()) {
             unfinishedBuffers.poll().close();
-        }
-    }
-
-    private <E extends Exception> void runWithLock(ThrowingRunnable<E> runnable) throws E {
-        try {
-            subpartitionLock.writeLock().lock();
-            runnable.run();
-        } finally {
-            subpartitionLock.writeLock().unlock();
-        }
-    }
-
-    private <R, E extends Exception> R callWithLock(SupplierWithException<R, E> callable) throws E {
-        try {
-            subpartitionLock.writeLock().lock();
-            return callable.get();
-        } finally {
-            subpartitionLock.writeLock().unlock();
         }
     }
 
