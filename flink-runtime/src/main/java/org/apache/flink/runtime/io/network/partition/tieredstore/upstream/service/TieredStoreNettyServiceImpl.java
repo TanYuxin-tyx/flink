@@ -40,17 +40,17 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  */
 public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
 
-    private final int subpartitionId;
-
     private final BufferAvailabilityListener availabilityListener;
 
     private final StorageTier[] allTiers;
+
+    private final int subpartitionId;
 
     private List<StorageTier> registeredTiers;
 
     private List<TierReaderView> registeredTierReaderViews;
 
-    private boolean isReleased = false;
+    private boolean isClosed = false;
 
     private int requiredSegmentId = 0;
 
@@ -87,7 +87,17 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     @Nullable
     @Override
     public BufferAndBacklog getNextBuffer() throws IOException {
-        return getNextBufferInternal();
+        if (stopSendingData || !findTierReaderViewIndex()) {
+            return null;
+        }
+        BufferAndBacklog bufferAndBacklog =
+                registeredTierReaderViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
+        if (bufferAndBacklog != null) {
+            stopSendingData = bufferAndBacklog.buffer().getDataType() == SEGMENT_EVENT;
+            bufferAndBacklog.setSequenceNumber(currentSequenceNumber);
+            currentSequenceNumber++;
+        }
+        return bufferAndBacklog;
     }
 
     @Override
@@ -99,21 +109,6 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     @Override
     public void forceNotifyAvailable() {
         availabilityListener.notifyDataAvailable();
-    }
-
-    public BufferAndBacklog getNextBufferInternal() throws IOException {
-        if (stopSendingData || !findTierReaderViewIndex()) {
-            return null;
-        }
-        BufferAndBacklog bufferAndBacklog =
-                registeredTierReaderViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
-
-        if (bufferAndBacklog != null) {
-            stopSendingData = bufferAndBacklog.buffer().getDataType() == SEGMENT_EVENT;
-            bufferAndBacklog.setSequenceNumber(currentSequenceNumber);
-            currentSequenceNumber++;
-        }
-        return bufferAndBacklog;
     }
 
     @Override
@@ -129,10 +124,10 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
 
     @Override
     public void close() throws IOException {
-        if (isReleased) {
+        if (isClosed) {
             return;
         }
-        isReleased = true;
+        isClosed = true;
         for (TierReaderView tierReaderView : registeredTierReaderViews) {
             tierReaderView.release();
         }
@@ -140,7 +135,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
 
     @Override
     public boolean isClosed() {
-        return isReleased;
+        return isClosed;
     }
 
     @Override

@@ -48,7 +48,9 @@ public class SingleChannelReaderImpl implements SingleChannelReader {
         }
         BufferAndAvailability bufferData = bufferAndAvailability.get();
         if (bufferData.buffer().getDataType() == Buffer.DataType.SEGMENT_EVENT) {
-            checkState(getSegmentId(bufferData) == (currentSegmentId + 1));
+            checkState(
+                    getSegmentId(bufferData) == (currentSegmentId + 1),
+                    "Received illegal segmentId");
             currentSegmentId++;
         }
         return Optional.of(bufferData);
