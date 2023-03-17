@@ -133,9 +133,7 @@ public class SubpartitionDiskCacheManager {
         Buffer buffer =
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
-        BufferContext bufferContext =
-                new BufferContext(
-                        buffer, finishedBufferIndex, targetChannel, isLastRecordInSegment);
+        BufferContext bufferContext = new BufferContext(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(bufferContext);
     }
 
@@ -205,10 +203,7 @@ public class SubpartitionDiskCacheManager {
         bufferConsumer.close();
         BufferContext bufferContext =
                 new BufferContext(
-                        compressBuffersIfPossible(buffer),
-                        finishedBufferIndex,
-                        targetChannel,
-                        isLastBufferInSegment);
+                        compressBuffersIfPossible(buffer), finishedBufferIndex, targetChannel);
         addFinishedBuffer(bufferContext);
     }
 
@@ -234,9 +229,6 @@ public class SubpartitionDiskCacheManager {
         finishedBufferIndex++;
         allBuffers.add(bufferContext);
         updateStatistics(bufferContext.getBuffer());
-        if (bufferContext.isLastBufferInSegment()) {
-            lastBufferIndexOfSegments.add(finishedBufferIndex - 1);
-        }
     }
 
     private void updateStatistics(Buffer buffer) {

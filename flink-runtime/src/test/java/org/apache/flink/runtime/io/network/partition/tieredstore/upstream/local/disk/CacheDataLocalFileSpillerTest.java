@@ -150,7 +150,7 @@ class CacheDataLocalFileSpillerTest {
             if (isCompressed) {
                 buffer.setCompressed(true);
             }
-            bufferContexts.add(new BufferContext(buffer, dataAndIndex.f1, subpartitionId, false));
+            bufferContexts.add(new BufferContext(buffer, dataAndIndex.f1, subpartitionId));
         }
         return Collections.unmodifiableList(bufferContexts);
     }

@@ -184,9 +184,7 @@ public class SubpartitionRemoteCacheManager {
         Buffer buffer =
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
-        BufferContext bufferContext =
-                new BufferContext(
-                        buffer, finishedBufferIndex, targetChannel, isLastRecordInSegment);
+        BufferContext bufferContext = new BufferContext(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(bufferContext);
     }
 
@@ -259,10 +257,7 @@ public class SubpartitionRemoteCacheManager {
         bufferConsumer.close();
         BufferContext bufferContext =
                 new BufferContext(
-                        compressBuffersIfPossible(buffer),
-                        finishedBufferIndex,
-                        targetChannel,
-                        isLastBufferInSegment);
+                        compressBuffersIfPossible(buffer), finishedBufferIndex, targetChannel);
         addFinishedBuffer(bufferContext);
     }
 
