@@ -187,9 +187,7 @@ public class SubpartitionMemoryDataManager {
         Buffer buffer =
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
-        BufferContext bufferContext =
-                new BufferContext(
-                        buffer, finishedBufferIndex, targetChannel, isLastRecordInSegment);
+        BufferContext bufferContext = new BufferContext(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(isBroadcast, bufferContext);
     }
 
@@ -265,10 +263,7 @@ public class SubpartitionMemoryDataManager {
         bufferConsumer.close();
         BufferContext bufferContext =
                 new BufferContext(
-                        compressBuffersIfPossible(buffer),
-                        finishedBufferIndex,
-                        targetChannel,
-                        isLastBufferInSegment);
+                        compressBuffersIfPossible(buffer), finishedBufferIndex, targetChannel);
         addFinishedBuffer(isBroadcast, bufferContext);
     }
 

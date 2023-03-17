@@ -27,13 +27,10 @@ public class BufferContext {
 
     private final BufferIndexAndChannel bufferIndexAndChannel;
 
-    private final boolean isLastBufferInSegment;
-
     public BufferContext(
-            Buffer buffer, int bufferIndex, int subpartitionId, boolean isLastBufferInSegment) {
+            Buffer buffer, int bufferIndex, int subpartitionId) {
         this.bufferIndexAndChannel = new BufferIndexAndChannel(bufferIndex, subpartitionId);
         this.buffer = buffer;
-        this.isLastBufferInSegment = isLastBufferInSegment;
     }
 
     public Buffer getBuffer() {
@@ -42,9 +39,5 @@ public class BufferContext {
 
     public BufferIndexAndChannel getBufferIndexAndChannel() {
         return bufferIndexAndChannel;
-    }
-
-    public boolean isLastBufferInSegment() {
-        return isLastBufferInSegment;
     }
 }
