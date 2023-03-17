@@ -105,7 +105,7 @@ public class BoundedBlockingSubpartitionDirectTransferReader implements ResultSu
             nextDataType = Buffer.DataType.EVENT_BUFFER;
         }
         return BufferAndBacklog.fromBufferAndLookahead(
-                current, nextDataType, numDataBuffers, sequenceNumber++, false);
+                current, nextDataType, numDataBuffers, sequenceNumber++);
     }
 
     private void updateStatistics(Buffer buffer) {

@@ -164,8 +164,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
                         buffer,
                         nextDataType,
                         backlog,
-                        bufferIndex,
-                        buffer.getDataType() == Buffer.DataType.SEGMENT_EVENT));
+                        bufferIndex));
     }
 
     @Override

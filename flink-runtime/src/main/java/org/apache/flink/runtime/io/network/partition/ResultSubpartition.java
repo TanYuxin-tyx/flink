@@ -127,19 +127,16 @@ public abstract class ResultSubpartition {
         private final int buffersInBacklog;
         private Buffer.DataType nextDataType;
         private int sequenceNumber;
-        private final boolean isLastBufferInSegment;
 
         public BufferAndBacklog(
                 Buffer buffer,
                 int buffersInBacklog,
                 Buffer.DataType nextDataType,
-                int sequenceNumber,
-                boolean isLastBufferInSegment) {
+                int sequenceNumber) {
             this.buffer = buffer;
             this.buffersInBacklog = buffersInBacklog;
             this.nextDataType = checkNotNull(nextDataType);
             this.sequenceNumber = sequenceNumber;
-            this.isLastBufferInSegment = isLastBufferInSegment;
         }
 
         public Buffer buffer() {
@@ -174,18 +171,13 @@ public abstract class ResultSubpartition {
             this.nextDataType = nextDataType;
         }
 
-        public boolean isLastBufferInSegment() {
-            return isLastBufferInSegment;
-        }
-
         public static BufferAndBacklog fromBufferAndLookahead(
                 Buffer current,
                 Buffer.DataType nextDataType,
                 int backlog,
-                int sequenceNumber,
-                boolean isLastBufferInSegment) {
+                int sequenceNumber) {
             return new BufferAndBacklog(
-                    current, backlog, nextDataType, sequenceNumber, isLastBufferInSegment);
+                    current, backlog, nextDataType, sequenceNumber);
         }
     }
 }
