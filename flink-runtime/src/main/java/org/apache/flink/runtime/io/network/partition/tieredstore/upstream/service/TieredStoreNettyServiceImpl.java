@@ -59,7 +59,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     // The consumedSegmentId indicates the consumption progress of downstream
     private int requiredSegmentId = 0;
 
-    private boolean hasSegmentFinished = true;
+    private boolean hasSegmentFinished = false;
 
     private int viewIndexContainsCurrentSegment = -1;
 
@@ -101,6 +101,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     public void updateRequiredSegmentId(int segmentId) {
         synchronized (this) {
             currentSegmentId = segmentId;
+            hasSegmentFinished = false;
         }
     }
 
@@ -110,7 +111,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     }
 
     public BufferAndBacklog getNextBufferInternal() throws IOException {
-        if (!findTierReaderViewIndex()) {
+        if (hasSegmentFinished || !findTierReaderViewIndex()) {
             return null;
         }
         BufferAndBacklog bufferAndBacklog =
@@ -192,7 +193,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
             tierReaderView.updateNeedNotifyStatus();
         }
 
-        if (!hasSegmentFinished) {
+        if (!hasSegmentFinished && viewIndexContainsCurrentSegment != -1) {
             return true;
         }
         for (int i = 0; i < registeredTiers.size(); i++) {
