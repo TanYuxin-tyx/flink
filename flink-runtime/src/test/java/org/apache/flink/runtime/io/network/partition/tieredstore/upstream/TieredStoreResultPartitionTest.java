@@ -615,7 +615,7 @@ class TieredStoreResultPartitionTest {
                             while (true) {
                                 view.getNextBuffer();
                                 if (((TieredStoreNettyServiceImpl) view.getNettyService())
-                                                .getCurrentSegmentId()
+                                                .getRequiredSegmentId()
                                         == expectSegmentIndex) {
                                     break;
                                 }

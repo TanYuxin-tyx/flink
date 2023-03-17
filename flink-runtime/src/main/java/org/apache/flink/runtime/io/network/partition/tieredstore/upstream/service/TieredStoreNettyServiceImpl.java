@@ -34,7 +34,6 @@ import java.util.List;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
 import static org.apache.flink.util.Preconditions.checkArgument;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * The {@link TieredStoreNettyServiceImpl} is the implementation of {@link TieredStoreNettyService}.
@@ -53,13 +52,9 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
 
     private boolean isReleased = false;
 
-    // The currentSegmentId indicates the consumption progress of upstream
-    private int currentSegmentId = 0;
-
-    // The consumedSegmentId indicates the consumption progress of downstream
     private int requiredSegmentId = 0;
 
-    private boolean hasSegmentFinished = false;
+    private boolean stopSendingData = false;
 
     private int viewIndexContainsCurrentSegment = -1;
 
@@ -92,17 +87,13 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     @Nullable
     @Override
     public BufferAndBacklog getNextBuffer() throws IOException {
-        synchronized (this) {
-            return getNextBufferInternal();
-        }
+        return getNextBufferInternal();
     }
 
     @Override
     public void updateRequiredSegmentId(int segmentId) {
-        synchronized (this) {
-            currentSegmentId = segmentId;
-            hasSegmentFinished = false;
-        }
+        requiredSegmentId = segmentId;
+        stopSendingData = false;
     }
 
     @Override
@@ -111,15 +102,14 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     }
 
     public BufferAndBacklog getNextBufferInternal() throws IOException {
-        if (hasSegmentFinished || !findTierReaderViewIndex()) {
+        if (stopSendingData || !findTierReaderViewIndex()) {
             return null;
         }
         BufferAndBacklog bufferAndBacklog =
                 registeredTierReaderViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
 
         if (bufferAndBacklog != null) {
-            hasSegmentFinished = bufferAndBacklog.buffer().getDataType() == SEGMENT_EVENT;
-            checkState(bufferAndBacklog.buffer() != null);
+            stopSendingData = bufferAndBacklog.buffer().getDataType() == SEGMENT_EVENT;
             bufferAndBacklog.setSequenceNumber(currentSequenceNumber);
             currentSequenceNumber++;
         }
@@ -179,8 +169,8 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     }
 
     @VisibleForTesting
-    public int getCurrentSegmentId() {
-        return currentSegmentId;
+    public int getRequiredSegmentId() {
+        return requiredSegmentId;
     }
 
     // -------------------------------
@@ -188,17 +178,12 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     // -------------------------------
 
     private boolean findTierReaderViewIndex() {
-
         for (TierReaderView tierReaderView : registeredTierReaderViews) {
             tierReaderView.updateNeedNotifyStatus();
         }
-
-        //if (!hasSegmentFinished && viewIndexContainsCurrentSegment != -1) {
-        //    return true;
-        //}
         for (int i = 0; i < registeredTiers.size(); i++) {
             StorageTier tieredDataGate = registeredTiers.get(i);
-            if (tieredDataGate.hasCurrentSegment(subpartitionId, currentSegmentId)) {
+            if (tieredDataGate.hasCurrentSegment(subpartitionId, requiredSegmentId)) {
                 viewIndexContainsCurrentSegment = i;
                 return true;
             }
