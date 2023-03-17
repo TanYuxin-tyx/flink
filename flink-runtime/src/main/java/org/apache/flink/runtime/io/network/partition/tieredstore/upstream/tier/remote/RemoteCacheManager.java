@@ -25,39 +25,28 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
-import org.apache.flink.util.Preconditions;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /** This class is responsible for managing cached buffers data before flush to remote storage. */
-public class RemoteCacheManager implements RemoteCacheManagerOperation {
+public class RemoteCacheManager {
 
     private final int numSubpartitions;
 
     private final SubpartitionRemoteCacheManager[] subpartitionCacheDataManagers;
-
-    private final List<Map<TierReaderViewId, TierReaderView>> subpartitionViewOperationsMap;
 
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadScheduledExecutor(
@@ -83,7 +72,6 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
             throws IOException {
         this.numSubpartitions = numSubpartitions;
         this.subpartitionCacheDataManagers = new SubpartitionRemoteCacheManager[numSubpartitions];
-        this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionCacheDataManagers[subpartitionId] =
                     new SubpartitionRemoteCacheManager(
@@ -95,9 +83,7 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
                             cacheFlushManager,
                             baseDfsPath,
                             bufferCompressor,
-                            this,
                             ioExecutor);
-            subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
         }
     }
 
@@ -125,18 +111,6 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
 
     public void finishSegment(int targetSubpartition, int segmentIndex) {
         getSubpartitionCacheDataManager(targetSubpartition).finishSegment(segmentIndex);
-    }
-
-    public TierReader registerNewConsumer(
-            int subpartitionId, TierReaderViewId tierReaderViewId, TierReaderView viewOperations) {
-        TierReaderView oldView =
-                subpartitionViewOperationsMap
-                        .get(subpartitionId)
-                        .put(tierReaderViewId, viewOperations);
-        Preconditions.checkState(
-                oldView == null, "Each subpartition view should have unique consumerId.");
-        return getSubpartitionCacheDataManager(subpartitionId)
-                .registerNewConsumer(tierReaderViewId);
     }
 
     /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
@@ -168,30 +142,6 @@ public class RemoteCacheManager implements RemoteCacheManagerOperation {
         for (int i = 0; i < numSubpartitions; i++) {
             getSubpartitionCacheDataManager(i).setOutputMetrics(metrics);
         }
-    }
-
-    // ------------------------------------
-    //      Callback for subpartition
-    // ------------------------------------
-
-    @Override
-    public void onDataAvailable(
-            int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, TierReaderView> consumerViewMap =
-                subpartitionViewOperationsMap.get(subpartitionId);
-        tierReaderViewIds.forEach(
-                consumerId -> {
-                    TierReaderView consumerView = consumerViewMap.get(consumerId);
-                    if (consumerView != null) {
-                        consumerView.notifyDataAvailable();
-                    }
-                });
-    }
-
-    @Override
-    public void onConsumerReleased(int subpartitionId, TierReaderViewId tierReaderViewId) {
-        subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderViewId);
-        getSubpartitionCacheDataManager(subpartitionId).releaseConsumer(tierReaderViewId);
     }
 
     // ------------------------------------

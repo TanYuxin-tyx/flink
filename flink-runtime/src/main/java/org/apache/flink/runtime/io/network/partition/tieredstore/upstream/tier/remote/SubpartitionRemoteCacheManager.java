@@ -34,7 +34,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.Tiered
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
@@ -49,15 +48,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.locks.ReentrantLock;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.checkFlushCacheBuffers;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -75,26 +71,17 @@ public class SubpartitionRemoteCacheManager {
 
     private static final int NUM_BUFFERS_TO_FLUSH = 1;
 
-    private final RemoteCacheManagerOperation cacheDataManagerOperation;
-
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
 
-    // Not guarded by lock because it is expected only accessed from task's main thread.
-    private int finishedSegmentInfoIndex;
-
-    private final Deque<BufferContext> allSegmentInfos = new LinkedList<>();
-
     private final Deque<BufferContext> allBuffers = new LinkedList<>();
 
     private final CacheBufferSpiller cacheBufferSpiller;
 
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
-
-    private final Map<TierReaderViewId, RemoteTierReader> consumerMap;
 
     @Nullable private final BufferCompressor bufferCompressor;
 
@@ -117,14 +104,11 @@ public class SubpartitionRemoteCacheManager {
             CacheFlushManager cacheFlushManager,
             String baseDfsPath,
             @Nullable BufferCompressor bufferCompressor,
-            RemoteCacheManagerOperation cacheDataManagerOperation,
             ExecutorService ioExecutor) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
-        this.cacheDataManagerOperation = cacheDataManagerOperation;
         this.bufferCompressor = bufferCompressor;
-        this.consumerMap = new HashMap<>();
         this.cacheBufferSpiller =
                 new RemoteCacheBufferSpiller(
                         jobID, resultPartitionID, targetChannel, baseDfsPath, ioExecutor);
@@ -157,7 +141,6 @@ public class SubpartitionRemoteCacheManager {
     public void finishSegment(int segmentIndex) {
         checkState(isSegmentStarted);
         isSegmentStarted = false;
-        List<TierReaderViewId> needNotify = new ArrayList<>(consumerMap.size());
         CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spillDoneFuture =
                 flushCachedBuffers();
         try {
@@ -167,18 +150,7 @@ public class SubpartitionRemoteCacheManager {
             LOG.debug("Failed to finish the segment.", e);
         }
         cacheBufferSpiller.finishSegment(segmentIndex);
-        BufferContext segmentInfoBufferContext =
-                new BufferContext(null, finishedSegmentInfoIndex, targetChannel, true);
-        allSegmentInfos.add(segmentInfoBufferContext);
-        ++finishedSegmentInfoIndex;
         checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
-        // notify downstream
-        for (Map.Entry<TierReaderViewId, RemoteTierReader> consumerEntry : consumerMap.entrySet()) {
-            if (consumerEntry.getValue().addBuffer(segmentInfoBufferContext)) {
-                needNotify.add(consumerEntry.getKey());
-            }
-        }
-        cacheDataManagerOperation.onDataAvailable(targetChannel, needNotify);
     }
 
     /** Release all buffers. */
@@ -194,24 +166,6 @@ public class SubpartitionRemoteCacheManager {
             isReleased = true;
             hasFlushCompleted.complete(null);
         }
-    }
-
-    public void releaseConsumer(TierReaderViewId tierReaderViewId) {
-        checkNotNull(consumerMap.remove(tierReaderViewId));
-    }
-
-    @SuppressWarnings("FieldAccessNotGuarded")
-    public RemoteTierReader registerNewConsumer(TierReaderViewId tierReaderViewId) {
-        checkState(!consumerMap.containsKey(tierReaderViewId));
-        RemoteTierReader newConsumer =
-                new RemoteTierReader(
-                        new ReentrantLock(),
-                        targetChannel,
-                        tierReaderViewId,
-                        cacheDataManagerOperation);
-        newConsumer.addInitialBuffers(allSegmentInfos);
-        consumerMap.put(tierReaderViewId, newConsumer);
-        return newConsumer;
     }
 
     // ------------------------------------------------------------------------

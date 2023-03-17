@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
+package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service;
 
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
@@ -25,8 +25,10 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-/** The consumer interface of Tiered Store, data will be read from different store tiers. */
-public interface TieredStoreConsumer {
+/** */
+public interface TieredStoreNettyService {
+
+    void start() throws IOException;
 
     @Nullable
     ResultSubpartition.BufferAndBacklog getNextBuffer() throws IOException;
@@ -42,9 +44,9 @@ public interface TieredStoreConsumer {
 
     void updateConsumedSegmentId(int segmentId);
 
-    boolean isReleased();
+    boolean isClosed();
 
-    void releaseAllResources() throws IOException;
+    void close() throws IOException;
 
     Throwable getFailureCause();
 }
