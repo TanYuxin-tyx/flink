@@ -118,9 +118,6 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
 
         if (bufferAndBacklog != null) {
             hasSegmentFinished = bufferAndBacklog.buffer().getDataType() == SEGMENT_EVENT;
-            if (hasSegmentFinished) {
-                currentSegmentId++;
-            }
             checkState(bufferAndBacklog.buffer() != null);
             bufferAndBacklog.setSequenceNumber(currentSequenceNumber);
             currentSequenceNumber++;
