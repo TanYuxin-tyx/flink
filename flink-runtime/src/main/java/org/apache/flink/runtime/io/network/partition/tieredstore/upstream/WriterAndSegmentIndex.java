@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.writer;
+package org.apache.flink.runtime.io.network.partition.tieredstore.upstream;
 
 /** Record the available writer and their segment index for single subpartition. */
 public class WriterAndSegmentIndex {

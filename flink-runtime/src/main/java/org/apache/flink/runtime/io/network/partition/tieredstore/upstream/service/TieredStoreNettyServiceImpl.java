@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.reader;
+package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
@@ -24,7 +24,6 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAn
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreConsumer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreConsumerFailureCause;
 
 import javax.annotation.Nullable;
@@ -36,14 +35,18 @@ import java.util.List;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The {@link TieredStoreConsumerImpl} is the implementation of {@link TieredStoreConsumer}. */
-public class TieredStoreConsumerImpl implements TieredStoreConsumer {
+/**
+ * The {@link TieredStoreNettyServiceImpl} is the implementation of {@link TieredStoreNettyService}.
+ */
+public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
 
     private final int subpartitionId;
 
     private final BufferAvailabilityListener availabilityListener;
 
-    private List<StorageTier> registedTiers;
+    private StorageTier[] allTiers;
+
+    private List<StorageTier> registeredTiers;
 
     private List<TierReaderView> registeredTierReaderViews;
 
@@ -61,25 +64,25 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
 
     private int currentSequenceNumber = 0;
 
-    public TieredStoreConsumerImpl(
+    public TieredStoreNettyServiceImpl(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            StorageTier[] tiers)
+            StorageTier[] allTiers)
             throws IOException {
-        checkArgument(tiers.length > 0, "The number of StorageTier must be larger than 0.");
+        checkArgument(allTiers.length > 0, "The number of StorageTier must be larger than 0.");
+        this.allTiers = allTiers;
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
-        registerNettyUsers(tiers);
     }
 
-    private void registerNettyUsers(StorageTier[] tiers) throws IOException {
-        registedTiers = new ArrayList<>();
+    public void start() throws IOException {
+        registeredTiers = new ArrayList<>();
         registeredTierReaderViews = new ArrayList<>();
-        for (StorageTier tier : tiers) {
+        for (StorageTier tier : allTiers) {
             TierReaderView tierReaderView =
                     tier.createTierReaderView(subpartitionId, availabilityListener);
             if (tierReaderView != null) {
-                registedTiers.add(tier);
+                registeredTiers.add(tier);
                 registeredTierReaderViews.add(tierReaderView);
             }
         }
@@ -140,7 +143,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     }
 
     @Override
-    public void releaseAllResources() throws IOException {
+    public void close() throws IOException {
         if (isReleased) {
             return;
         }
@@ -151,7 +154,7 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
     }
 
     @Override
-    public boolean isReleased() {
+    public boolean isClosed() {
         return isReleased;
     }
 
@@ -198,8 +201,8 @@ public class TieredStoreConsumerImpl implements TieredStoreConsumer {
         if (!hasSegmentFinished) {
             return true;
         }
-        for (int i = 0; i < registedTiers.size(); i++) {
-            StorageTier tieredDataGate = registedTiers.get(i);
+        for (int i = 0; i < registeredTiers.size(); i++) {
+            StorageTier tieredDataGate = registeredTiers.get(i);
             if (tieredDataGate.hasCurrentSegment(subpartitionId, currentSegmentId)) {
                 viewIndexContainsCurrentSegment = i;
                 return true;

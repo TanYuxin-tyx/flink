@@ -47,7 +47,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.reader.TieredStoreConsumerImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service.TieredStoreNettyServiceImpl;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.IOUtils;
@@ -614,7 +614,7 @@ class TieredStoreResultPartitionTest {
                             view.notifyRequiredSegmentId(Integer.MAX_VALUE);
                             while (true) {
                                 view.getNextBuffer();
-                                if (((TieredStoreConsumerImpl) view.getStoreConsumer())
+                                if (((TieredStoreNettyServiceImpl) view.getNettyService())
                                                 .getCurrentSegmentId()
                                         == expectSegmentIndex) {
                                     break;

@@ -49,7 +49,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.l
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.MemoryTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTier;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.writer.TieredStoreProducerImpl;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.function.SupplierWithException;

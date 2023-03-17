@@ -23,8 +23,8 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreConsumer;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.reader.TieredStoreConsumerImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service.TieredStoreNettyService;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service.TieredStoreNettyServiceImpl;
 
 import javax.annotation.Nullable;
 
@@ -34,26 +34,23 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 
 class TieredStoreSubpartitionViewDelegate implements ResultSubpartitionView {
 
-    private final TieredStoreConsumer storeConsumer;
-
-    private String taskName;
+    private final TieredStoreNettyService nettyService;
 
     TieredStoreSubpartitionViewDelegate(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            StorageTier[] tierDataGates)
+            StorageTier[] tiers)
             throws IOException {
-        checkArgument(tierDataGates.length > 0, "Empty tier transmitters.");
-
-        this.storeConsumer =
-                new TieredStoreConsumerImpl(subpartitionId, availabilityListener, tierDataGates);
-        this.taskName = taskName;
+        checkArgument(tiers.length > 0, "Empty tier transmitters.");
+        this.nettyService =
+                new TieredStoreNettyServiceImpl(subpartitionId, availabilityListener, tiers);
+        nettyService.start();
     }
 
     @Nullable
     @Override
     public ResultSubpartition.BufferAndBacklog getNextBuffer() throws IOException {
-        return storeConsumer.getNextBuffer();
+        return nettyService.getNextBuffer();
     }
 
     @Override
@@ -64,12 +61,12 @@ class TieredStoreSubpartitionViewDelegate implements ResultSubpartitionView {
 
     @Override
     public void releaseAllResources() throws IOException {
-        storeConsumer.releaseAllResources();
+        nettyService.close();
     }
 
     @Override
     public boolean isReleased() {
-        return storeConsumer.isReleased();
+        return nettyService.isClosed();
     }
 
     @Override
@@ -85,22 +82,22 @@ class TieredStoreSubpartitionViewDelegate implements ResultSubpartitionView {
 
     @Override
     public Throwable getFailureCause() {
-        return storeConsumer.getFailureCause();
+        return nettyService.getFailureCause();
     }
 
     @Override
     public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
-        return storeConsumer.getAvailabilityAndBacklog(numCreditsAvailable);
+        return nettyService.getAvailabilityAndBacklog(numCreditsAvailable);
     }
 
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
-        return storeConsumer.unsynchronizedGetNumberOfQueuedBuffers();
+        return nettyService.unsynchronizedGetNumberOfQueuedBuffers();
     }
 
     @Override
     public int getNumberOfQueuedBuffers() {
-        return storeConsumer.getNumberOfQueuedBuffers();
+        return nettyService.getNumberOfQueuedBuffers();
     }
 
     @Override
@@ -111,12 +108,12 @@ class TieredStoreSubpartitionViewDelegate implements ResultSubpartitionView {
 
     @Override
     public void notifyRequiredSegmentId(int segmentId) {
-        storeConsumer.updateConsumedSegmentId(segmentId);
-        storeConsumer.forceNotifyAvailable();
+        nettyService.updateConsumedSegmentId(segmentId);
+        nettyService.forceNotifyAvailable();
     }
 
     @VisibleForTesting
-    public TieredStoreConsumer getStoreConsumer() {
-        return storeConsumer;
+    public TieredStoreNettyService getNettyService() {
+        return nettyService;
     }
 }
