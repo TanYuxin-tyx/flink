@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -120,7 +121,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
                 registeredTierReaderViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
 
         if (bufferAndBacklog != null) {
-            hasSegmentFinished = bufferAndBacklog.isLastBufferInSegment();
+            hasSegmentFinished = bufferAndBacklog.buffer().getDataType() == SEGMENT_EVENT;
             if (hasSegmentFinished) {
                 currentSegmentId++;
             }
