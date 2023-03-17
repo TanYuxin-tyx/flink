@@ -194,8 +194,7 @@ public class PartitionRequestQueueTest {
                     TestBufferFactory.createBuffer(10),
                     buffers,
                     buffers > 0 ? Buffer.DataType.DATA_BUFFER : Buffer.DataType.NONE,
-                    0,
-                    false);
+                    0);
         }
 
         @Override
@@ -220,8 +219,7 @@ public class PartitionRequestQueueTest {
                     nextBuffer.buffer().readOnlySlice(),
                     nextBuffer.buffersInBacklog(),
                     nextBuffer.getNextDataType(),
-                    0,
-                    false);
+                    0);
         }
     }
 

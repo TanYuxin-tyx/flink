@@ -239,6 +239,6 @@ class TierReaderViewTest {
             int buffersInBacklog, DataType nextDataType, int sequenceNumber) {
         int bufferSize = 8;
         Buffer buffer = TieredStoreTestUtils.createBuffer(bufferSize, true);
-        return new BufferAndBacklog(buffer, buffersInBacklog, nextDataType, sequenceNumber, false);
+        return new BufferAndBacklog(buffer, buffersInBacklog, nextDataType, sequenceNumber);
     }
 }

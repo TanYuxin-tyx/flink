@@ -193,8 +193,7 @@ public class TierReaderViewImpl implements TierReaderView {
                         bufferToConsume.buffer(),
                         getSubpartitionBacklog(),
                         bufferToConsume.getNextDataType(),
-                        bufferToConsume.getSequenceNumber(),
-                        bufferToConsume.isLastBufferInSegment())
+                        bufferToConsume.getSequenceNumber())
                 : bufferToConsume;
     }
 

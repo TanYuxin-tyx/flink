@@ -548,8 +548,7 @@ public class PipelinedSubpartition extends ResultSubpartition
                     buffer,
                     getBuffersInBacklogUnsafe(),
                     isDataAvailableUnsafe() ? getNextBufferTypeUnsafe() : Buffer.DataType.NONE,
-                    sequenceNumber++,
-                    false);
+                    sequenceNumber++);
         }
     }
 
