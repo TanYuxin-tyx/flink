@@ -45,7 +45,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
 
     private final BufferAvailabilityListener availabilityListener;
 
-    private StorageTier[] allTiers;
+    private final StorageTier[] allTiers;
 
     private List<StorageTier> registeredTiers;
 
@@ -93,18 +93,14 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     @Override
     public BufferAndBacklog getNextBuffer() throws IOException {
         synchronized (this) {
-            if (currentSegmentId <= requiredSegmentId) {
-                return getNextBufferInternal();
-            }
+            return getNextBufferInternal();
         }
-        return null;
     }
 
     @Override
     public void updateRequiredSegmentId(int segmentId) {
         synchronized (this) {
             currentSegmentId = segmentId;
-            requiredSegmentId = segmentId;
         }
     }
 
