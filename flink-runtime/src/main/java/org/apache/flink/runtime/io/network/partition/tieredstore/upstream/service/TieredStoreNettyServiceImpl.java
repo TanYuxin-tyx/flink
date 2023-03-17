@@ -193,9 +193,9 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
             tierReaderView.updateNeedNotifyStatus();
         }
 
-        if (!hasSegmentFinished && viewIndexContainsCurrentSegment != -1) {
-            return true;
-        }
+        //if (!hasSegmentFinished && viewIndexContainsCurrentSegment != -1) {
+        //    return true;
+        //}
         for (int i = 0; i < registeredTiers.size(); i++) {
             StorageTier tieredDataGate = registeredTiers.get(i);
             if (tieredDataGate.hasCurrentSegment(subpartitionId, currentSegmentId)) {
