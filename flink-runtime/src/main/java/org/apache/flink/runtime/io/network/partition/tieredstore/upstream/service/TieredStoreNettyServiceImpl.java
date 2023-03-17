@@ -56,7 +56,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     private int currentSegmentId = 0;
 
     // The consumedSegmentId indicates the consumption progress of downstream
-    private int consumedSegmentId = 0;
+    private int requiredSegmentId = 0;
 
     private boolean hasSegmentFinished = true;
 
@@ -92,7 +92,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     @Override
     public BufferAndBacklog getNextBuffer() throws IOException {
         synchronized (this) {
-            if (currentSegmentId <= consumedSegmentId) {
+            if (currentSegmentId <= requiredSegmentId) {
                 return getNextBufferInternal();
             }
         }
@@ -100,10 +100,10 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     }
 
     @Override
-    public void updateConsumedSegmentId(int segmentId) {
+    public void updateRequiredSegmentId(int segmentId) {
         synchronized (this) {
             currentSegmentId = segmentId;
-            consumedSegmentId = segmentId;
+            requiredSegmentId = segmentId;
         }
     }
 

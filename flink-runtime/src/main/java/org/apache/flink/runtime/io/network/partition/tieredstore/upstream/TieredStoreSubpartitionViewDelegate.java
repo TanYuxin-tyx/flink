@@ -108,7 +108,7 @@ class TieredStoreSubpartitionViewDelegate implements ResultSubpartitionView {
 
     @Override
     public void notifyRequiredSegmentId(int segmentId) {
-        nettyService.updateConsumedSegmentId(segmentId);
+        nettyService.updateRequiredSegmentId(segmentId);
         nettyService.forceNotifyAvailable();
     }
 
