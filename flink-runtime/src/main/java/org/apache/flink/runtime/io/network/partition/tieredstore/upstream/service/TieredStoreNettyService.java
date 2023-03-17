@@ -42,7 +42,7 @@ public interface TieredStoreNettyService {
 
     void forceNotifyAvailable();
 
-    void updateConsumedSegmentId(int segmentId);
+    void updateRequiredSegmentId(int segmentId);
 
     boolean isClosed();
 
