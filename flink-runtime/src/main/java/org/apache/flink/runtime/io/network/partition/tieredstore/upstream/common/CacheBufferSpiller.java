@@ -18,8 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
-import org.apache.flink.core.fs.Path;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -36,6 +34,4 @@ public interface CacheBufferSpiller {
     void release();
 
     void close();
-
-    Path getBaseSubpartitionPath();
 }
