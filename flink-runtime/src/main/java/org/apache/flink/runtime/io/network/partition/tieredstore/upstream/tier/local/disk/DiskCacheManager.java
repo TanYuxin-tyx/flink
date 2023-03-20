@@ -102,7 +102,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
             boolean isLastBufferInSegment)
             throws IOException {
         try {
-            getSubpartitionMemoryDataManager(targetChannel)
+            getSubpartitionCacheDataManager(targetChannel)
                     .append(record, dataType, isLastBufferInSegment);
         } catch (InterruptedException e) {
             throw new IOException(e);
@@ -123,7 +123,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     public void append(Buffer buffer, int targetChannel, boolean isLastBufferInSegment)
             throws IOException {
         try {
-            getSubpartitionMemoryDataManager(targetChannel).append(buffer, isLastBufferInSegment);
+            getSubpartitionCacheDataManager(targetChannel).append(buffer, isLastBufferInSegment);
         } catch (InterruptedException e) {
             throw new IOException(e);
         }
@@ -142,17 +142,17 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
      * Release this {@link DiskCacheManager}, it means all memory taken by this class will recycle.
      */
     public void release() {
-        partitionFileWriter.release();
         for (int i = 0; i < numSubpartitions; i++) {
-            getSubpartitionMemoryDataManager(i).release();
+            getSubpartitionCacheDataManager(i).release();
         }
+        partitionFileWriter.release();
     }
 
     public void setOutputMetrics(OutputMetrics metrics) {
         // HsOutputMetrics is not thread-safe. It can be shared by all the subpartitions because it
         // is expected always updated from the producer task's mailbox thread.
         for (int i = 0; i < numSubpartitions; i++) {
-            getSubpartitionMemoryDataManager(i).setOutputMetrics(metrics);
+            getSubpartitionCacheDataManager(i).setOutputMetrics(metrics);
         }
     }
 
@@ -169,7 +169,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     @Override
     public List<BufferContext> getBuffersInOrder(int subpartitionId) {
         SubpartitionDiskCacheManager targetSubpartitionDataManager =
-                getSubpartitionMemoryDataManager(subpartitionId);
+                getSubpartitionCacheDataManager(subpartitionId);
         return targetSubpartitionDataManager.getBuffersSatisfyStatus();
     }
 
@@ -217,7 +217,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     @Override
     public boolean isLastBufferInSegment(int subpartitionId, int bufferIndex) {
-        return getSubpartitionMemoryDataManager(subpartitionId)
+        return getSubpartitionCacheDataManager(subpartitionId)
                 .getLastBufferIndexOfSegments()
                 .contains(bufferIndex);
     }
@@ -249,7 +249,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
         }
     }
 
-    private SubpartitionDiskCacheManager getSubpartitionMemoryDataManager(int targetChannel) {
+    private SubpartitionDiskCacheManager getSubpartitionCacheDataManager(int targetChannel) {
         return subpartitionDiskCacheManagers[targetChannel];
     }
 
