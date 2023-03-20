@@ -32,13 +32,10 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
-import org.apache.flink.util.ExceptionUtils;
-import org.apache.flink.util.function.SupplierWithException;
-import org.apache.flink.util.function.ThrowingRunnable;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,10 +52,8 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.checkFlushCacheBuffers;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -82,13 +77,11 @@ public class SubpartitionRemoteCacheManager {
 
     private final Deque<BufferContext> allBuffers = new LinkedList<>();
 
-    private final CacheBufferSpiller cacheBufferSpiller;
-
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
-    @Nullable private final BufferCompressor bufferCompressor;
+    private final PartitionFileWriter partitionFileWriter;
 
-    private final Lock lock;
+    @Nullable private final BufferCompressor bufferCompressor;
 
     @Nullable private OutputMetrics outputMetrics;
 
@@ -101,6 +94,8 @@ public class SubpartitionRemoteCacheManager {
     private volatile CompletableFuture<Void> hasFlushCompleted =
             CompletableFuture.completedFuture(null);
 
+    private AtomicInteger currentSegmentId = new AtomicInteger(-1);
+
     public SubpartitionRemoteCacheManager(
             JobID jobID,
             ResultPartitionID resultPartitionID,
@@ -110,16 +105,14 @@ public class SubpartitionRemoteCacheManager {
             CacheFlushManager cacheFlushManager,
             String baseDfsPath,
             @Nullable BufferCompressor bufferCompressor,
-            ExecutorService ioExecutor) {
+            ExecutorService ioExecutor,
+            PartitionFileWriter partitionFileWriter) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.bufferCompressor = bufferCompressor;
-        this.lock = new ReentrantLock();
-        this.cacheBufferSpiller =
-                new RemoteCacheBufferSpiller(
-                        jobID, resultPartitionID, targetChannel, baseDfsPath, ioExecutor);
         cacheFlushManager.registerCacheSpillTrigger(this::flushCachedBuffers);
+        this.partitionFileWriter = partitionFileWriter;
     }
 
     // ------------------------------------------------------------------------
@@ -140,23 +133,13 @@ public class SubpartitionRemoteCacheManager {
     }
 
     public void startSegment(int segmentIndex) throws IOException {
-        checkState(!isSegmentStarted);
-        isSegmentStarted = true;
-        cacheBufferSpiller.startSegment(segmentIndex);
+        currentSegmentId.set(segmentIndex);
     }
 
     public void finishSegment(int segmentIndex) {
-        checkState(isSegmentStarted);
-        isSegmentStarted = false;
-        CompletableFuture<Void> spillDoneFuture = flushCachedBuffers();
-        try {
-            spillDoneFuture.get();
-            checkFlushCacheBuffers(tieredStoreMemoryManager, this::flushCachedBuffers);
-        } catch (Exception e) {
-            LOG.error("Failed to finish the segment.", e);
-            ExceptionUtils.rethrow(e);
-        }
-        cacheBufferSpiller.finishSegment(segmentIndex);
+        checkState(currentSegmentId.get() == segmentIndex);
+        flushCachedBuffers();
+        partitionFileWriter.finishSegment(targetChannel, segmentIndex);
         checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
     }
 
@@ -195,7 +178,8 @@ public class SubpartitionRemoteCacheManager {
     }
 
     private void writeRecord(
-            ByteBuffer record, Buffer.DataType dataType, boolean isLastBufferInSegment) {
+            ByteBuffer record, Buffer.DataType dataType, boolean isLastBufferInSegment)
+            throws InterruptedException {
         checkArgument(!dataType.isEvent());
 
         ensureCapacityForRecord(record);
@@ -227,8 +211,14 @@ public class SubpartitionRemoteCacheManager {
                     checkNotNull(
                             unfinishedBuffers.peek(), "Expect enough capacity for the record.");
             currentWritingBuffer.append(record);
-            if (currentWritingBuffer.isFull() || !record.hasRemaining() && isLastBufferInSegment) {
-                finishCurrentWritingBuffer();
+            if (currentWritingBuffer.isFull() && record.hasRemaining()) {
+                finishCurrentWritingBuffer(false);
+            } else if (currentWritingBuffer.isFull() && !record.hasRemaining()) {
+                finishCurrentWritingBuffer(isLastBufferInSegment);
+            } else if (!currentWritingBuffer.isFull() && !record.hasRemaining()) {
+                if (isLastBufferInSegment) {
+                    finishCurrentWritingBuffer(true);
+                }
             }
         }
     }
@@ -239,10 +229,10 @@ public class SubpartitionRemoteCacheManager {
             return;
         }
 
-        finishCurrentWritingBuffer();
+        finishCurrentWritingBuffer(false);
     }
 
-    private void finishCurrentWritingBuffer() {
+    private void finishCurrentWritingBuffer(boolean isLastBufferInSegment) {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
 
         if (currentWritingBuffer == null || isClosed) {
@@ -279,16 +269,16 @@ public class SubpartitionRemoteCacheManager {
         MemorySegment segment =
                 tieredStoreMemoryManager.requestMemorySegmentBlocking(
                         TieredStoreMode.TieredType.IN_DFS);
-        tryCheckFlushCacheBuffers();
+        // tryCheckFlushCacheBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
     }
 
-    private void tryCheckFlushCacheBuffers() {
-        if (hasFlushCompleted.isDone()) {
-            checkFlushCacheBuffers(
-                    tieredStoreMemoryManager, this::flushCachedBuffersWithChangeFlushStatus);
-        }
-    }
+    //private void tryCheckFlushCacheBuffers() {
+    //    if (hasFlushCompleted.isDone()) {
+    //        checkFlushCacheBuffers(
+    //                tieredStoreMemoryManager, this::flushCachedBuffersWithChangeFlushStatus);
+    //    }
+    //}
 
     private void recycleBuffer(MemorySegment buffer) {
         tieredStoreMemoryManager.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_DFS);
@@ -303,33 +293,27 @@ public class SubpartitionRemoteCacheManager {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     private void addFinishedBuffer(BufferContext bufferContext) {
-        runWithLock(
-                () -> {
-                    finishedBufferIndex++;
-                    allBuffers.add(bufferContext);
-                    updateStatistics(bufferContext.getBuffer());
-                });
+        finishedBufferIndex++;
+        allBuffers.add(bufferContext);
+        updateStatistics(bufferContext.getBuffer());
         if (allBuffers.size() >= NUM_BUFFERS_TO_FLUSH) {
             flushCachedBuffers();
         }
     }
 
-    private void flushCachedBuffersWithChangeFlushStatus() {
+    private void flushCachedBuffers() {
         List<BufferContext> bufferContexts = generateToSpillBuffersWithId();
-        hasFlushCompleted = cacheBufferSpiller.spillAsync(bufferContexts);
-    }
-
-    private CompletableFuture<Void> flushCachedBuffers() {
-        return cacheBufferSpiller.spillAsync(generateToSpillBuffersWithId());
+        if (bufferContexts.size() > 0) {
+            partitionFileWriter.spillAsync(targetChannel, currentSegmentId.get(), bufferContexts);
+        }
     }
 
     private List<BufferContext> generateToSpillBuffersWithId() {
-        return callWithLock(
-                () -> {
-                    List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
-                    allBuffers.clear();
-                    return targetBuffers;
-                });
+        synchronized (allBuffers) {
+            List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
+            allBuffers.clear();
+            return targetBuffers;
+        }
     }
 
     private void updateStatistics(Buffer buffer) {
@@ -347,24 +331,8 @@ public class SubpartitionRemoteCacheManager {
 
     @VisibleForTesting
     public Path getBaseSubpartitionPath() {
-        return new Path(((RemoteCacheBufferSpiller) cacheBufferSpiller).getBaseSubpartitionPath());
-    }
-
-    private <E extends Exception> void runWithLock(ThrowingRunnable<E> runnable) throws E {
-        try {
-            lock.lock();
-            runnable.run();
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    private <T, R extends Exception> T callWithLock(SupplierWithException<T, R> callable) throws R {
-        try {
-            lock.lock();
-            return callable.get();
-        } finally {
-            lock.unlock();
-        }
+        // return new Path(((RemoteCacheBufferSpiller)
+        // cacheBufferSpiller).getBaseSubpartitionPath());
+        return null;
     }
 }

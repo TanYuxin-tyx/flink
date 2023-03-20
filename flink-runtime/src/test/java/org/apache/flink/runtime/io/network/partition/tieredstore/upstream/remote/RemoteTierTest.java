@@ -77,6 +77,7 @@ class RemoteTierTest {
                 new CacheFlushManager(),
                 false,
                 tmpFolder.getRoot().getPath(),
+                null,
                 null);
     }
 }

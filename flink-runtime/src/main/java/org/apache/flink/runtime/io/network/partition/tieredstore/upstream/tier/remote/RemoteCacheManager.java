@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.util.ExceptionUtils;
@@ -68,7 +69,8 @@ public class RemoteCacheManager {
             String baseDfsPath,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
-            BufferCompressor bufferCompressor)
+            BufferCompressor bufferCompressor,
+            PartitionFileWriter partitionFileWriter)
             throws IOException {
         this.numSubpartitions = numSubpartitions;
         this.subpartitionCacheDataManagers = new SubpartitionRemoteCacheManager[numSubpartitions];
@@ -83,7 +85,8 @@ public class RemoteCacheManager {
                             cacheFlushManager,
                             baseDfsPath,
                             bufferCompressor,
-                            ioExecutor);
+                            ioExecutor,
+                            partitionFileWriter);
         }
     }
 

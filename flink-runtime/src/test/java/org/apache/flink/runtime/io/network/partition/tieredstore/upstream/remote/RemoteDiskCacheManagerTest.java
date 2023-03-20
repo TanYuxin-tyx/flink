@@ -123,6 +123,7 @@ class RemoteDiskCacheManagerTest {
                         tmpFolder.getRoot().getPath(),
                         tieredStoreMemoryManager,
                         new CacheFlushManager(),
+                        null,
                         null);
         cacheDataManager.setOutputMetrics(TieredStoreTestUtils.createTestingOutputMetrics());
         return cacheDataManager;

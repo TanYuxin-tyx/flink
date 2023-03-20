@@ -7,10 +7,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.Tiered
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTierReaderImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 
-import javax.annotation.Nullable;
-
 import java.nio.file.Path;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
 /** THe implementation of {@link PartitionFileManager}. */
@@ -18,9 +15,9 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
 
     // For Writer PRODUCER_MERGE
 
-    @Nullable private final Path dataFilePath;
+    private final Path dataFilePath;
 
-    @Nullable private final RegionBufferIndexTracker regionBufferIndexTracker;
+    private final RegionBufferIndexTracker regionBufferIndexTracker;
 
     // For Reader PRODUCER_MERGE
 
@@ -32,23 +29,33 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
 
     // For Writer PRODUCER_HASH
 
+    private final int numSubpartitions;
+
     private JobID jobID;
 
     private ResultPartitionID resultPartitionID;
 
-    private ExecutorService ioExecutor;
+    private String baseShuffleDataPath;
 
     public PartitionFileManagerImpl(
-            @Nullable Path dataFilePath,
-            @Nullable RegionBufferIndexTracker regionBufferIndexTracker,
+            Path dataFilePath,
+            RegionBufferIndexTracker regionBufferIndexTracker,
             BatchShuffleReadBufferPool readBufferPool,
             ScheduledExecutorService readIOExecutor,
-            TieredStoreConfiguration storeConfiguration) {
+            TieredStoreConfiguration storeConfiguration,
+            int numSubpartitions,
+            JobID jobID,
+            ResultPartitionID resultPartitionID,
+            String baseShuffleDataPath) {
         this.dataFilePath = dataFilePath;
+        this.regionBufferIndexTracker = regionBufferIndexTracker;
         this.readBufferPool = readBufferPool;
         this.readIOExecutor = readIOExecutor;
-        this.regionBufferIndexTracker = regionBufferIndexTracker;
         this.storeConfiguration = storeConfiguration;
+        this.numSubpartitions = numSubpartitions;
+        this.jobID = jobID;
+        this.resultPartitionID = resultPartitionID;
+        this.baseShuffleDataPath = baseShuffleDataPath;
     }
 
     @Override
@@ -57,7 +64,8 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
             case PRODUCER_MERGE:
                 return new ProducerMergePartitionFileWriter(dataFilePath, regionBufferIndexTracker);
             case PRODUCER_HASH:
-                return new HashPartitionFileWriter(jobID, resultPartitionID, 0, "", ioExecutor);
+                return new HashPartitionFileWriter(
+                        jobID, numSubpartitions, resultPartitionID, baseShuffleDataPath);
         }
         throw new UnsupportedOperationException(
                 "PartitionFileManager doesn't support the type of partition file: "
