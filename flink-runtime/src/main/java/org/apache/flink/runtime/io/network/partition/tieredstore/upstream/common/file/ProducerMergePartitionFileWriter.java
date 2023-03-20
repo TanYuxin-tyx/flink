@@ -68,13 +68,16 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     }
 
     @Override
-    public void startSegment(int subpartitionId, int segmentIndex) {
-        // nothing to do
+    public CompletableFuture<Void> spillAsync(
+            int subpartitionId, int segmentId, List<BufferContext> bufferToSpill) {
+        // nothing to do.
+        return null;
     }
 
     @Override
-    public void finishSegment(int subpartitionId, int segmentIndex) {
-        // nothing to do
+    public CompletableFuture<Void> finishSegment(int subpartitionId, int segmentId) {
+        // nothing to do.
+        return null;
     }
 
     @Override

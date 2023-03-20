@@ -146,7 +146,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                         new RegionBufferIndexTrackerImpl(isBroadcast ? 1 : numSubpartitions),
                         readBufferPool,
                         readIOExecutor,
-                        storeConfiguration);
+                        storeConfiguration,
+                        numSubpartitions, jobID, partitionId, storeConfiguration.getBaseDfsHomePath());
     }
 
     // Called by task thread.
@@ -335,7 +336,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 cacheFlushManager,
                 isBroadcast,
                 baseDfsPath,
-                bufferCompressor);
+                bufferCompressor,
+                partitionFileManager);
     }
 
     @Override
