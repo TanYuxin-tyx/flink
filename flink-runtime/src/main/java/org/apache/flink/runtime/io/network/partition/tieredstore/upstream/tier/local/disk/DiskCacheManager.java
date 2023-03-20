@@ -98,22 +98,22 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
      * @param record to be managed by this class.
      * @param targetChannel target subpartition of this record.
      * @param dataType the type of this record. In other words, is it data or event.
-     * @param isLastRecordInSegment whether this record is the last record in a segment.
+     * @param isLastBufferInSegment whether this record is the last record in a segment.
      */
     public void append(
             ByteBuffer record,
             int targetChannel,
             Buffer.DataType dataType,
-            boolean isLastRecordInSegment)
+            boolean isLastBufferInSegment)
             throws IOException {
         try {
             getSubpartitionMemoryDataManager(targetChannel)
-                    .append(record, dataType, isLastRecordInSegment);
+                    .append(record, dataType, isLastBufferInSegment);
         } catch (InterruptedException e) {
             throw new IOException(e);
         }
         // force spill all buffers to disk.
-        if (isLastRecordInSegment) {
+        if (isLastBufferInSegment) {
             flushAndReleaseCacheBuffers();
         }
     }
@@ -125,11 +125,10 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
      * @param targetChannel target subpartition of this record.
      * @param isLastBufferInSegment whether this record is the last record in a segment.
      */
-    public void append(BufferContext buffer, int targetChannel, boolean isLastBufferInSegment)
+    public void append(Buffer buffer, int targetChannel, boolean isLastBufferInSegment)
             throws IOException {
         try {
-            getSubpartitionMemoryDataManager(targetChannel)
-                    .append(buffer.getBuffer(), isLastBufferInSegment);
+            getSubpartitionMemoryDataManager(targetChannel).append(buffer, isLastBufferInSegment);
         } catch (InterruptedException e) {
             throw new IOException(e);
         }

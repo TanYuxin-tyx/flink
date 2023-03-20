@@ -23,16 +23,16 @@ public class WriterAndSegmentIndex {
 
     private final int writerIndex;
 
-    private final boolean isLastRecordInSegment;
+    private final boolean isLastBufferInSegment;
 
     private final int segmentIndex;
 
     private final int subpartitionId;
 
     public WriterAndSegmentIndex(
-            int writerIndex, boolean isLastRecordInSegment, int segmentIndex, int subpartitionId) {
+            int writerIndex, boolean isLastBufferInSegment, int segmentIndex, int subpartitionId) {
         this.writerIndex = writerIndex;
-        this.isLastRecordInSegment = isLastRecordInSegment;
+        this.isLastBufferInSegment = isLastBufferInSegment;
         this.segmentIndex = segmentIndex;
         this.subpartitionId = subpartitionId;
     }
@@ -41,8 +41,8 @@ public class WriterAndSegmentIndex {
         return writerIndex;
     }
 
-    public boolean isLastRecordInSegment() {
-        return isLastRecordInSegment;
+    public boolean isLastBufferInSegment() {
+        return isLastBufferInSegment;
     }
 
     public long getSegmentIndex() {

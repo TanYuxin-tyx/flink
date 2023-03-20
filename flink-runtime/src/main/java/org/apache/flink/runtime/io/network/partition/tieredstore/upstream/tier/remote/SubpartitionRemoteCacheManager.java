@@ -118,12 +118,12 @@ public class SubpartitionRemoteCacheManager {
     //  Called by DfsCacheDataManager
     // ------------------------------------------------------------------------
 
-    public void append(ByteBuffer record, Buffer.DataType dataType, boolean isLastRecordInSegment)
+    public void append(ByteBuffer record, Buffer.DataType dataType, boolean isLastBufferInSegment)
             throws InterruptedException {
         if (dataType.isEvent()) {
-            writeEvent(record, dataType, isLastRecordInSegment);
+            writeEvent(record, dataType, isLastBufferInSegment);
         } else {
-            writeRecord(record, dataType, isLastRecordInSegment);
+            writeRecord(record, dataType, isLastBufferInSegment);
         }
     }
 
@@ -170,7 +170,7 @@ public class SubpartitionRemoteCacheManager {
     // ------------------------------------------------------------------------
 
     private void writeEvent(
-            ByteBuffer event, Buffer.DataType dataType, boolean isLastRecordInSegment) {
+            ByteBuffer event, Buffer.DataType dataType, boolean isLastBufferInSegment) {
         checkArgument(dataType.isEvent());
 
         // each Event must take an exclusive buffer
@@ -186,13 +186,13 @@ public class SubpartitionRemoteCacheManager {
     }
 
     private void writeRecord(
-            ByteBuffer record, Buffer.DataType dataType, boolean isLastRecordInSegment)
+            ByteBuffer record, Buffer.DataType dataType, boolean isLastBufferInSegment)
             throws InterruptedException {
         checkArgument(!dataType.isEvent());
 
         ensureCapacityForRecord(record);
 
-        writeRecord(record, isLastRecordInSegment);
+        writeRecord(record, isLastBufferInSegment);
     }
 
     private void ensureCapacityForRecord(ByteBuffer record) {
@@ -213,7 +213,7 @@ public class SubpartitionRemoteCacheManager {
         }
     }
 
-    private void writeRecord(ByteBuffer record, boolean isLastRecordInSegment) {
+    private void writeRecord(ByteBuffer record, boolean isLastBufferInSegment) {
         while (record.hasRemaining()) {
             BufferBuilder currentWritingBuffer =
                     checkNotNull(
@@ -222,9 +222,9 @@ public class SubpartitionRemoteCacheManager {
             if (currentWritingBuffer.isFull() && record.hasRemaining()) {
                 finishCurrentWritingBuffer(false);
             } else if (currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                finishCurrentWritingBuffer(isLastRecordInSegment);
+                finishCurrentWritingBuffer(isLastBufferInSegment);
             } else if (!currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                if (isLastRecordInSegment) {
+                if (isLastBufferInSegment) {
                     finishCurrentWritingBuffer(true);
                 }
             }

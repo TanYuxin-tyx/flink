@@ -30,8 +30,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public class HashBasedCachedBuffer implements CacheBufferOperation {
-
-    private final int numSubpartitions;
     private final SubpartitionCachedBuffer[] subpartitionCachedBuffers;
 
     private final TieredStoreMemoryManager storeMemoryManager;
@@ -42,8 +40,6 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
             BufferCompressor bufferCompressor,
             TieredStoreMemoryManager storeMemoryManager,
             TieredStoreProducer storeProducer) {
-
-        this.numSubpartitions = numSubpartitions;
         this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numSubpartitions];
         this.storeMemoryManager = storeMemoryManager;
 

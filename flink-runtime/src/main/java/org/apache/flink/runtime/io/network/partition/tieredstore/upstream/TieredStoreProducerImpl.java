@@ -25,7 +25,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulator;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
@@ -127,18 +126,18 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     @Override
     public void emitBuffers(
             int targetSubpartition,
-            List<BufferContext> finishedBuffers,
+            List<Buffer> finishedBuffers,
             boolean isBroadcast,
             boolean isEndOfPartition)
             throws IOException {
-        for (BufferContext finishedBuffer : finishedBuffers) {
+        for (Buffer finishedBuffer : finishedBuffers) {
             emitFinishedBuffer(targetSubpartition, finishedBuffer, isBroadcast, isEndOfPartition);
         }
     }
 
     private void emitFinishedBuffer(
             int targetSubpartition,
-            BufferContext finishedBuffer,
+            Buffer finishedBuffer,
             boolean isBroadcast,
             boolean isEndOfPartition)
             throws IOException {
@@ -180,7 +179,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         }
 
         int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
-        boolean isLastRecordInSegment =
+        boolean isLastBufferInSegment =
                 tierWriters[tierIndex].emit(
                         record,
                         targetSubpartition,
@@ -188,7 +187,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
                         isBroadcast,
                         isEndOfPartition,
                         segmentIndex);
-        if (isLastRecordInSegment) {
+        if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(targetSubpartition);
             subpartitionWriterIndex[targetSubpartition] = tierIndex;
             subpartitionSegmentIndexes[targetSubpartition] = (segmentIndex + 1);

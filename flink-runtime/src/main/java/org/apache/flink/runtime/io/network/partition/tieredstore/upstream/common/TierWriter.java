@@ -41,7 +41,7 @@ public interface TierWriter {
 
     boolean emitBuffer(
             int targetSubpartition,
-            BufferContext finishedBuffer,
+            Buffer finishedBuffer,
             boolean isBroadcast,
             boolean isEndOfPartition,
             int segmentId)
