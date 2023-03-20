@@ -228,14 +228,8 @@ public class SubpartitionMemoryDataManager {
                     checkNotNull(
                             unfinishedBuffers.peek(), "Expect enough capacity for the record.");
             currentWritingBuffer.append(record);
-            if (currentWritingBuffer.isFull() && record.hasRemaining()) {
-                finishCurrentWritingBuffer(isBroadcast, false);
-            } else if (currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                finishCurrentWritingBuffer(isBroadcast, isLastBufferInSegment);
-            } else if (!currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                if (isLastBufferInSegment) {
-                    finishCurrentWritingBuffer(isBroadcast, true);
-                }
+            if (currentWritingBuffer.isFull() || !record.hasRemaining() && isLastBufferInSegment) {
+                finishCurrentWritingBuffer(isBroadcast);
             }
         }
     }
@@ -246,10 +240,10 @@ public class SubpartitionMemoryDataManager {
             return;
         }
 
-        finishCurrentWritingBuffer(isBroadcast, false);
+        finishCurrentWritingBuffer(isBroadcast);
     }
 
-    private void finishCurrentWritingBuffer(boolean isBroadcast, boolean isLastBufferInSegment) {
+    private void finishCurrentWritingBuffer(boolean isBroadcast) {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
         if (currentWritingBuffer == null) {
             return;

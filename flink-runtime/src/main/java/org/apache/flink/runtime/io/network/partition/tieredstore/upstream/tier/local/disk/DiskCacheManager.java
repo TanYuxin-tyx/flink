@@ -123,7 +123,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     public void append(Buffer buffer, int targetChannel, boolean isLastBufferInSegment)
             throws IOException {
         try {
-            getSubpartitionCacheDataManager(targetChannel).append(buffer, isLastBufferInSegment);
+            getSubpartitionCacheDataManager(targetChannel).append(buffer);
         } catch (InterruptedException e) {
             throw new IOException(e);
         }
