@@ -186,8 +186,7 @@ public class SubpartitionRemoteCacheManager {
     }
 
     private void writeRecord(
-            ByteBuffer record, Buffer.DataType dataType, boolean isLastBufferInSegment)
-            throws InterruptedException {
+            ByteBuffer record, Buffer.DataType dataType, boolean isLastBufferInSegment) {
         checkArgument(!dataType.isEvent());
 
         ensureCapacityForRecord(record);
@@ -219,14 +218,8 @@ public class SubpartitionRemoteCacheManager {
                     checkNotNull(
                             unfinishedBuffers.peek(), "Expect enough capacity for the record.");
             currentWritingBuffer.append(record);
-            if (currentWritingBuffer.isFull() && record.hasRemaining()) {
-                finishCurrentWritingBuffer(false);
-            } else if (currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                finishCurrentWritingBuffer(isLastBufferInSegment);
-            } else if (!currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                if (isLastBufferInSegment) {
-                    finishCurrentWritingBuffer(true);
-                }
+            if (currentWritingBuffer.isFull() || !record.hasRemaining() && isLastBufferInSegment) {
+                finishCurrentWritingBuffer();
             }
         }
     }
@@ -237,10 +230,10 @@ public class SubpartitionRemoteCacheManager {
             return;
         }
 
-        finishCurrentWritingBuffer(false);
+        finishCurrentWritingBuffer();
     }
 
-    private void finishCurrentWritingBuffer(boolean isLastBufferInSegment) {
+    private void finishCurrentWritingBuffer() {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
 
         if (currentWritingBuffer == null || isClosed) {

@@ -92,13 +92,13 @@ public class SubpartitionDiskCacheManager {
     public void append(ByteBuffer record, DataType dataType, boolean isLastBufferInSegment)
             throws InterruptedException {
         if (dataType.isEvent()) {
-            writeEvent(record, dataType, isLastBufferInSegment);
+            writeEvent(record, dataType);
         } else {
             writeRecord(record, dataType, isLastBufferInSegment);
         }
     }
 
-    public void append(Buffer buffer, boolean isLastRecordInSegment) throws InterruptedException {
+    public void append(Buffer buffer) throws InterruptedException {
         BufferContext toAddBuffer = new BufferContext(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(toAddBuffer);
     }
@@ -127,7 +127,7 @@ public class SubpartitionDiskCacheManager {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private void writeEvent(ByteBuffer event, DataType dataType, boolean isLastBufferInSegment) {
+    private void writeEvent(ByteBuffer event, DataType dataType) {
         checkArgument(dataType.isEvent());
 
         // each Event must take an exclusive buffer
@@ -175,14 +175,8 @@ public class SubpartitionDiskCacheManager {
                     checkNotNull(
                             unfinishedBuffers.peek(), "Expect enough capacity for the record.");
             currentWritingBuffer.append(record);
-            if (currentWritingBuffer.isFull() && record.hasRemaining()) {
-                finishCurrentWritingBuffer(false);
-            } else if (currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                finishCurrentWritingBuffer(isLastBufferInSegment);
-            } else if (!currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                if (isLastBufferInSegment) {
-                    finishCurrentWritingBuffer(true);
-                }
+            if (currentWritingBuffer.isFull() || !record.hasRemaining() && isLastBufferInSegment) {
+                finishCurrentWritingBuffer();
             }
         }
     }
@@ -193,10 +187,10 @@ public class SubpartitionDiskCacheManager {
             return;
         }
 
-        finishCurrentWritingBuffer(false);
+        finishCurrentWritingBuffer();
     }
 
-    private void finishCurrentWritingBuffer(boolean isLastBufferInSegment) {
+    private void finishCurrentWritingBuffer() {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
         if (currentWritingBuffer == null) {
             return;
