@@ -1,22 +1,4 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote;
+package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
@@ -26,9 +8,9 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteCacheBufferSpiller;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -50,11 +32,8 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.writeSegmentFinishFile;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/**
- * This component is responsible for asynchronously writing in-memory data to DFS file. Each
- * spilling operation will write the DFS file sequentially.
- */
-public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
+/** THe implementation of {@link PartitionFileWriter} with merged logic. */
+public class MergePartitionFileWriter implements PartitionFileWriter {
 
     private static final Logger LOG = LoggerFactory.getLogger(RemoteCacheBufferSpiller.class);
 
@@ -79,7 +58,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
 
     private long currentSegmentIndex = -1;
 
-    public RemoteCacheBufferSpiller(
+    public MergePartitionFileWriter(
             JobID jobID,
             ResultPartitionID resultPartitionID,
             int subpartitionId,
@@ -122,10 +101,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
     }
 
     @Override
-    public void release() {}
-
-    @Override
-    public void close() {
+    public void release() {
         closeWritingChannel();
     }
 
