@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
@@ -192,11 +191,5 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
         } catch (Exception e) {
             ExceptionUtils.rethrow(e);
         }
-    }
-
-    @VisibleForTesting
-    @Override
-    public org.apache.flink.core.fs.Path getBaseSubpartitionPath() {
-        return null;
     }
 }

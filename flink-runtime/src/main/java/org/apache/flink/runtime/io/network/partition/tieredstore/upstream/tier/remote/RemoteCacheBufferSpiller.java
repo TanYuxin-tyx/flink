@@ -155,9 +155,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
-    private void spill(
-            List<BufferContext> toWrite,
-            CompletableFuture<Void> spillSuccessNotifier) {
+    private void spill(List<BufferContext> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
         try {
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers = new ArrayList<>();
             long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
@@ -223,7 +221,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
     }
 
     @VisibleForTesting
-    public Path getBaseSubpartitionPath() {
-        return new Path(baseSubpartitionPath);
+    public String getBaseSubpartitionPath() {
+        return baseSubpartitionPath;
     }
 }

@@ -339,6 +339,6 @@ public class SubpartitionRemoteCacheManager {
 
     @VisibleForTesting
     public Path getBaseSubpartitionPath() {
-        return cacheBufferSpiller.getBaseSubpartitionPath();
+        return new Path(((RemoteCacheBufferSpiller) cacheBufferSpiller).getBaseSubpartitionPath());
     }
 }
