@@ -18,14 +18,13 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /** Spilling the caching data in a cached data manager. */
 public interface CacheBufferSpiller {
 
-    void startSegment(int segmentIndex) throws IOException;
+    void startSegment(int segmentIndex);
 
     CompletableFuture<Void> spillAsync(List<BufferContext> bufferToSpill);
 
