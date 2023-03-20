@@ -111,8 +111,7 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
             Buffer finishedBuffer,
             boolean isBroadcast,
             boolean isEndOfPartition,
-            int segmentId)
-            throws IOException {
+            int segmentId) {
         boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.readableBytes();
         if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
@@ -121,47 +120,22 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
         }
         subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
         if (isLastBufferInSegment && !isEndOfPartition) {
-            append(finishedBuffer, targetSubpartition, isBroadcast && isBroadcastOnly, false);
+            append(finishedBuffer, targetSubpartition, isBroadcast && isBroadcastOnly);
             // Send the EndOfSegmentEvent
-            ByteBuffer endOfSegment =
-                    EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentId + 1);
-            append(
-                    endOfSegment,
-                    targetSubpartition,
-                    SEGMENT_EVENT,
-                    isBroadcast && isBroadcastOnly,
-                    true);
+            appendEndOfSegmentEvent(segmentId, targetSubpartition, isBroadcast && isBroadcastOnly);
         } else {
-            append(
-                    finishedBuffer,
-                    targetSubpartition,
-                    isBroadcast && isBroadcastOnly,
-                    isLastBufferInSegment);
+            append(finishedBuffer, targetSubpartition, isBroadcast && isBroadcastOnly);
         }
         return isLastBufferInSegment;
     }
 
-    private void append(
-            ByteBuffer record,
-            int targetChannel,
-            Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isLastBufferInSegment)
-            throws IOException {
-        try {
-            getSubpartitionMemoryDataManager(targetChannel)
-                    .append(record, dataType, isBroadcast, isLastBufferInSegment);
-        } catch (InterruptedException e) {
-            throw new IOException(e);
-        }
+    private void appendEndOfSegmentEvent(int segmentId, int targetChannel, boolean isBroadcast) {
+        ByteBuffer endOfSegment = EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentId + 1);
+        getSubpartitionMemoryDataManager(targetChannel)
+                .append(endOfSegment, SEGMENT_EVENT, isBroadcast, true);
     }
 
-    private void append(
-            Buffer finishedBuffer,
-            int targetChannel,
-            boolean isBroadcast,
-            boolean isLastBufferInSegment)
-            throws IOException {
+    private void append(Buffer finishedBuffer, int targetChannel, boolean isBroadcast) {
         getSubpartitionMemoryDataManager(targetChannel)
                 .addFinishedBuffer(isBroadcast, finishedBuffer);
     }
@@ -218,7 +192,7 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     // ------------------------------------
 
     @Override
-    public MemorySegment requestBufferFromPool(int subpartitionId) throws InterruptedException {
+    public MemorySegment requestBufferFromPool(int subpartitionId) {
         return tieredStoreMemoryManager.requestMemorySegmentBlocking(
                 TieredStoreMode.TieredType.IN_MEM);
     }
