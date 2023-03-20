@@ -57,7 +57,7 @@ public class RemoteTierWriter implements TierWriter {
     public void setup() throws IOException {}
 
     @Override
-    public boolean emitBuffer(
+    public boolean emit(
             int targetSubpartition,
             Buffer finishedBuffer,
             boolean isBroadcast,

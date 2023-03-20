@@ -106,7 +106,7 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     public void setup() throws IOException {}
 
     @Override
-    public boolean emitBuffer(
+    public boolean emit(
             int targetSubpartition,
             Buffer finishedBuffer,
             boolean isBroadcast,
