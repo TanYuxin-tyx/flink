@@ -62,7 +62,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
                     FileChannel.open(
                             dataFilePath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
         } catch (IOException e) {
-            throw new RuntimeException("Failed to create file channel.");
+            throw new RuntimeException("Failed to create file channel.", e);
         }
         this.regionBufferIndexTracker = regionBufferIndexTracker;
     }

@@ -45,8 +45,11 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.MemoryTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTier;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
@@ -57,6 +60,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -65,6 +69,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.HYBRID_SELECTIVE;
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier.DATA_FILE_SUFFIX;
 import static org.apache.flink.runtime.shuffle.NettyShuffleUtils.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -88,9 +93,9 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private final boolean isBroadcast;
 
-    private TieredStoreMemoryManager tieredStoreMemoryManager;
-
     private final CacheFlushManager cacheFlushManager;
+
+    public final Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers;
 
     private StorageTier[] tierDataGates;
 
@@ -98,7 +103,9 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private boolean hasNotifiedEndOfUserRecords;
 
-    public final Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers;
+    private TieredStoreMemoryManager tieredStoreMemoryManager;
+
+    private PartitionFileManager partitionFileManager;
 
     public TieredStoreResultPartition(
             JobID jobID,
@@ -139,6 +146,13 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         this.storeConfiguration = storeConfiguration;
         this.tierExclusiveBuffers = new HashMap<>();
         this.cacheFlushManager = new CacheFlushManager();
+        this.partitionFileManager =
+                new PartitionFileManagerImpl(
+                        Paths.get(dataFileBasePath + DATA_FILE_SUFFIX),
+                        new RegionBufferIndexTrackerImpl(isBroadcast ? 1 : numSubpartitions),
+                        readBufferPool,
+                        readIOExecutor,
+                        storeConfiguration);
     }
 
     // Called by task thread.
@@ -306,7 +320,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 bufferCompressor,
                 readBufferPool,
                 readIOExecutor,
-                storeConfiguration);
+                storeConfiguration,
+                partitionFileManager);
     }
 
     private RemoteTier getRemoteTier() throws IOException {
