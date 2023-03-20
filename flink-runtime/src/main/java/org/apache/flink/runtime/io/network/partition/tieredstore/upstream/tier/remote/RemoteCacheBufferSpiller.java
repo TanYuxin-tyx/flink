@@ -106,12 +106,10 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
     }
 
     @Override
-    public CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spillAsync(
-            List<BufferContext> bufferToSpill) {
-        CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spilledFuture =
-                new CompletableFuture<>();
-        ioExecutor.execute(() -> spill(bufferToSpill, spilledFuture));
-        return spilledFuture;
+    public CompletableFuture<Void> spillAsync(List<BufferContext> bufferToSpill) {
+        CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
+        ioExecutor.execute(() -> spill(bufferToSpill, spillSuccessNotifier));
+        return spillSuccessNotifier;
     }
 
     @Override
@@ -159,7 +157,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void spill(
             List<BufferContext> toWrite,
-            CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spilledFuture) {
+            CompletableFuture<Void> spillSuccessNotifier) {
         try {
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers = new ArrayList<>();
             long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
@@ -167,12 +165,8 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
             writeBuffers(toWrite, expectedBytes);
             toWrite.forEach(buffer -> buffer.getBuffer().recycleBuffer());
             toWrite.clear();
-            // complete spill future when buffers are written to disk successfully.
-            // note that the ownership of these buffers is transferred to the MemoryDataManager,
-            // which controls data's life cycle.
-            spilledFuture.complete(spilledBuffers);
+            spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
-            // if spilling is failed, throw exception directly to uncaughtExceptionHandler.
             ExceptionUtils.rethrow(exception);
         }
     }
