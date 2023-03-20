@@ -63,8 +63,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     public TieredStoreNettyServiceImpl(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            StorageTier[] allTiers)
-            throws IOException {
+            StorageTier[] allTiers) {
         checkArgument(allTiers.length > 0, "The number of StorageTier must be larger than 0.");
         this.allTiers = allTiers;
         this.subpartitionId = subpartitionId;
