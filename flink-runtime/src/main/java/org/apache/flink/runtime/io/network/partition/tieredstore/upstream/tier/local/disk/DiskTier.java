@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartit
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
@@ -182,6 +183,34 @@ public class DiskTier implements TierWriter, StorageTier {
         return isLastRecordInSegment;
     }
 
+    @Override
+    public boolean emitBuffer(
+            int targetSubpartition,
+            BufferContext finishedBuffer,
+            boolean isBroadcast,
+            boolean isEndOfPartition,
+            int segmentId)
+            throws IOException {
+        boolean isLastBufferInSegment = false;
+        numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.getBuffer().readableBytes();
+        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
+            isLastBufferInSegment = true;
+            numSubpartitionEmitBytes[targetSubpartition] = 0;
+        }
+
+        segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
+        if (isLastBufferInSegment && !isEndOfPartition) {
+            emitBuffer(finishedBuffer, targetSubpartition, false);
+            // Send the EndOfSegmentEvent
+            ByteBuffer endOfSegment =
+                    EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentId + 1);
+            emit(endOfSegment, targetSubpartition, SEGMENT_EVENT, true);
+        } else {
+            emitBuffer(finishedBuffer, targetSubpartition, isLastBufferInSegment);
+        }
+        return isLastBufferInSegment;
+    }
+
     private void emit(
             ByteBuffer record,
             int targetSubpartition,
@@ -189,6 +218,12 @@ public class DiskTier implements TierWriter, StorageTier {
             boolean isLastRecordInSegment)
             throws IOException {
         diskCacheManager.append(record, targetSubpartition, dataType, isLastRecordInSegment);
+    }
+
+    private void emitBuffer(
+            BufferContext finishedBuffer, int targetSubpartition, boolean isLastRecordInSegment)
+            throws IOException {
+        diskCacheManager.append(finishedBuffer, targetSubpartition, isLastRecordInSegment);
     }
 
     /**

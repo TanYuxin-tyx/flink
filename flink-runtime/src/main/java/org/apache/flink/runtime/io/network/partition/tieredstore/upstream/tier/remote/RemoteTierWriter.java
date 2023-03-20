@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 
@@ -87,6 +88,33 @@ public class RemoteTierWriter implements TierWriter {
         return isLastRecordInSegment;
     }
 
+    @Override
+    public boolean emitBuffer(
+            int targetSubpartition,
+            BufferContext finishedBuffer,
+            boolean isBroadcast,
+            boolean isEndOfPartition,
+            int segmentId)
+            throws IOException {
+        boolean isLastBufferInSegment = false;
+        numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.getBuffer().readableBytes();
+        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
+            isLastBufferInSegment = true;
+            numSubpartitionEmitBytes[targetSubpartition] = 0;
+        }
+
+        if (!segmentIndexTracker.hasCurrentSegment(targetSubpartition, segmentId)) {
+            segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
+            cacheDataManager.startSegment(targetSubpartition, segmentId);
+        }
+        emitBuffer(finishedBuffer, targetSubpartition, isLastBufferInSegment);
+        if (isLastBufferInSegment || isEndOfPartition) {
+            cacheDataManager.finishSegment(targetSubpartition, segmentId);
+        }
+
+        return isLastBufferInSegment;
+    }
+
     private void emit(
             ByteBuffer record,
             int targetSubpartition,
@@ -94,6 +122,11 @@ public class RemoteTierWriter implements TierWriter {
             boolean isLastRecordInSegment)
             throws IOException {
         cacheDataManager.append(record, targetSubpartition, dataType, isLastRecordInSegment);
+    }
+
+    private void emitBuffer(
+            BufferContext finishedBuffer, int targetSubpartition, boolean isLastBufferInSegment) {
+        cacheDataManager.appendBuffer(finishedBuffer, targetSubpartition, isLastBufferInSegment);
     }
 
     @Override
