@@ -67,8 +67,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     private final BufferAccumulator bufferAccumulator;
 
-    private final TieredStoreMemoryManager storeMemoryManager;
-
     public TieredStoreProducerImpl(
             StorageTier[] storageTiers,
             int numSubpartitions,
@@ -82,7 +80,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         this.subpartitionWriterIndex = new int[numSubpartitions];
         this.tierWriters = new TierWriter[storageTiers.length];
         this.isBroadcastOnly = isBroadcastOnly;
-        this.storeMemoryManager = storeMemoryManager;
         this.numSubpartitions = numSubpartitions;
         this.bufferAccumulator =
                 new BufferAccumulator(
@@ -98,8 +95,8 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     @VisibleForTesting
     @Override
     public void setNumBytesInASegment(int numBytesInASegment) {
-        for (int i = 0; i < tierWriters.length; i++) {
-            tierWriters[i].setNumBytesInASegment(numBytesInASegment);
+        for (TierWriter tierWriter : tierWriters) {
+            tierWriter.setNumBytesInASegment(numBytesInASegment);
         }
     }
 
@@ -153,37 +150,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
                 tierWriters[tierIndex].emitBuffer(
                         targetSubpartition,
                         finishedBuffer,
-                        isBroadcast,
-                        isEndOfPartition,
-                        segmentIndex);
-        if (isLastBufferInSegment) {
-            tierIndex = chooseStorageTierIndex(targetSubpartition);
-            subpartitionWriterIndex[targetSubpartition] = tierIndex;
-            subpartitionSegmentIndexes[targetSubpartition] = (segmentIndex + 1);
-        }
-    }
-
-    private void emitInternal(
-            ByteBuffer record,
-            int targetSubpartition,
-            Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
-            throws IOException {
-
-        int tierIndex = subpartitionWriterIndex[targetSubpartition];
-        // For the first record
-        if (tierIndex == -1) {
-            tierIndex = chooseStorageTierIndex(targetSubpartition);
-            subpartitionWriterIndex[targetSubpartition] = tierIndex;
-        }
-
-        int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
-        boolean isLastBufferInSegment =
-                tierWriters[tierIndex].emit(
-                        record,
-                        targetSubpartition,
-                        dataType,
                         isBroadcast,
                         isEndOfPartition,
                         segmentIndex);

@@ -154,35 +154,6 @@ public class DiskTier implements TierWriter, StorageTier {
     }
 
     @Override
-    public boolean emit(
-            ByteBuffer record,
-            int targetSubpartition,
-            Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition,
-            int segmentIndex)
-            throws IOException {
-        boolean isLastBufferInSegment = false;
-        numSubpartitionEmitBytes[targetSubpartition] += record.remaining();
-        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
-            isLastBufferInSegment = true;
-            numSubpartitionEmitBytes[targetSubpartition] = 0;
-        }
-
-        segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentIndex);
-        if (isLastBufferInSegment && !isEndOfPartition) {
-            emit(record, targetSubpartition, dataType, false);
-            // Send the EndOfSegmentEvent
-            ByteBuffer endOfSegment =
-                    EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentIndex + 1);
-            emit(endOfSegment, targetSubpartition, SEGMENT_EVENT, true);
-        } else {
-            emit(record, targetSubpartition, dataType, isLastBufferInSegment);
-        }
-        return isLastBufferInSegment;
-    }
-
-    @Override
     public boolean emitBuffer(
             int targetSubpartition,
             Buffer finishedBuffer,

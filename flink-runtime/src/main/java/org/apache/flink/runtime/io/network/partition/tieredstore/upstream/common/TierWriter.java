@@ -21,7 +21,6 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 /**
  * This {@link TierWriter} is the writer for specific tier. Each tier may contain data of all
@@ -29,15 +28,6 @@ import java.nio.ByteBuffer;
  */
 public interface TierWriter {
     void setup() throws IOException;
-
-    boolean emit(
-            ByteBuffer record,
-            int targetSubpartition,
-            Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition,
-            int segmentIndex)
-            throws IOException;
 
     boolean emitBuffer(
             int targetSubpartition,
