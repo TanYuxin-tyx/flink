@@ -26,7 +26,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.SubpartitionDiskCacheManager;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -96,8 +95,6 @@ class DiskCacheManagerTest {
                         bufferSize,
                         tieredStoreMemoryManager,
                         new CacheFlushManager(),
-                        new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
-                        dataFilePath,
                         null,
                         null);
         diskCacheManager.setOutputMetrics(TieredStoreTestUtils.createTestingOutputMetrics());

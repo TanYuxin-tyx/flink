@@ -20,14 +20,12 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.
 
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
-import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
@@ -54,17 +52,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.DATA_FILE_SUFFIX;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */
 public class DiskTier implements TierWriter, StorageTier {
 
     public static final int BROADCAST_CHANNEL = 0;
-
-    public static final String DATA_FILE_SUFFIX = ".store.data";
 
     private final int numSubpartitions;
 
@@ -81,8 +77,6 @@ public class DiskTier implements TierWriter, StorageTier {
     private final float minReservedDiskSpaceFraction;
 
     private final boolean isBroadcastOnly;
-
-    private final RegionBufferIndexTracker regionBufferIndexTracker;
 
     private final BufferCompressor bufferCompressor;
 
@@ -117,9 +111,6 @@ public class DiskTier implements TierWriter, StorageTier {
             float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
             @Nullable BufferCompressor bufferCompressor,
-            BatchShuffleReadBufferPool readBufferPool,
-            ScheduledExecutorService readIOExecutor,
-            TieredStoreConfiguration storeConfiguration,
             PartitionFileManager partitionFileManager) {
         this.numSubpartitions = numSubpartitions;
         this.networkBufferSize = networkBufferSize;
@@ -132,8 +123,6 @@ public class DiskTier implements TierWriter, StorageTier {
         this.bufferCompressor = bufferCompressor;
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
-        this.regionBufferIndexTracker =
-                new RegionBufferIndexTrackerImpl(isBroadcastOnly ? 1 : numSubpartitions);
         this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
@@ -150,8 +139,6 @@ public class DiskTier implements TierWriter, StorageTier {
                         networkBufferSize,
                         tieredStoreMemoryManager,
                         cacheFlushManager,
-                        regionBufferIndexTracker,
-                        dataFilePath,
                         bufferCompressor,
                         partitionFileManager);
     }
@@ -265,7 +252,6 @@ public class DiskTier implements TierWriter, StorageTier {
             partitionFileReader.release();
             checkNotNull(diskCacheManager).release();
             segmentIndexTracker.release();
-            regionBufferIndexTracker.release();
             isReleased = true;
         }
     }

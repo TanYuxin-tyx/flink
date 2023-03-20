@@ -37,7 +37,9 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** Utils for reading or writing to tiered store. */
 public class TieredStoreUtils {
 
-    private static final String TIER_STORE_DIR = "tiered-store";
+    public static final String TIER_STORE_DIR = "tiered-store";
+
+    public static final String DATA_FILE_SUFFIX = ".store.data";
 
     private static final String SEGMENT_FILE_PREFIX = "seg-";
 
