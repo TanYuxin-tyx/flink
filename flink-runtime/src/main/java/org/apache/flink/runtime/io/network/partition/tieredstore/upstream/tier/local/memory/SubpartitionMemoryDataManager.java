@@ -118,18 +118,18 @@ public class SubpartitionMemoryDataManager {
      *
      * @param record to be managed by this class.
      * @param dataType the type of this record. In other words, is it data or event.
-     * @param isLastRecordInSegment whether this record is the last record in a segment.
+     * @param isLastBufferInSegment whether this record is the last record in a segment.
      */
     public void append(
             ByteBuffer record,
             DataType dataType,
             boolean isBroadcast,
-            boolean isLastRecordInSegment)
+            boolean isLastBufferInSegment)
             throws InterruptedException {
         if (dataType.isEvent()) {
-            writeEvent(record, dataType, isBroadcast, isLastRecordInSegment);
+            writeEvent(record, dataType, isBroadcast, isLastBufferInSegment);
         } else {
-            writeRecord(record, dataType, isBroadcast, isLastRecordInSegment);
+            writeRecord(record, dataType, isBroadcast, isLastBufferInSegment);
         }
     }
 
@@ -176,7 +176,7 @@ public class SubpartitionMemoryDataManager {
             ByteBuffer event,
             DataType dataType,
             boolean isBroadcast,
-            boolean isLastRecordInSegment) {
+            boolean isLastBufferInSegment) {
         checkArgument(dataType.isEvent());
 
         // each Event must take an exclusive buffer
@@ -195,13 +195,13 @@ public class SubpartitionMemoryDataManager {
             ByteBuffer record,
             DataType dataType,
             boolean isBroadcast,
-            boolean isLastRecordInSegment)
+            boolean isLastBufferInSegment)
             throws InterruptedException {
         checkArgument(!dataType.isEvent());
 
         ensureCapacityForRecord(record);
 
-        writeRecord(record, isBroadcast, isLastRecordInSegment);
+        writeRecord(record, isBroadcast, isLastBufferInSegment);
     }
 
     private void ensureCapacityForRecord(ByteBuffer record) throws InterruptedException {
@@ -224,7 +224,7 @@ public class SubpartitionMemoryDataManager {
     }
 
     private void writeRecord(
-            ByteBuffer record, boolean isBroadcast, boolean isLastRecordInSegment) {
+            ByteBuffer record, boolean isBroadcast, boolean isLastBufferInSegment) {
         while (record.hasRemaining()) {
             BufferBuilder currentWritingBuffer =
                     checkNotNull(
@@ -233,9 +233,9 @@ public class SubpartitionMemoryDataManager {
             if (currentWritingBuffer.isFull() && record.hasRemaining()) {
                 finishCurrentWritingBuffer(isBroadcast, false);
             } else if (currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                finishCurrentWritingBuffer(isBroadcast, isLastRecordInSegment);
+                finishCurrentWritingBuffer(isBroadcast, isLastBufferInSegment);
             } else if (!currentWritingBuffer.isFull() && !record.hasRemaining()) {
-                if (isLastRecordInSegment) {
+                if (isLastBufferInSegment) {
                     finishCurrentWritingBuffer(isBroadcast, true);
                 }
             }

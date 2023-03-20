@@ -22,7 +22,6 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
@@ -115,15 +114,15 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
             boolean isEndOfPartition,
             int segmentIndex)
             throws IOException {
-        boolean isLastRecordInSegment = false;
+        boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[targetSubpartition] += record.remaining();
         if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
-            isLastRecordInSegment = true;
+            isLastBufferInSegment = true;
             numSubpartitionEmitBytes[targetSubpartition] = 0;
         }
         subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(
                 targetSubpartition, segmentIndex);
-        if (isLastRecordInSegment && !isEndOfPartition) {
+        if (isLastBufferInSegment && !isEndOfPartition) {
             append(record, targetSubpartition, dataType, isBroadcast && isBroadcastOnly, false);
             // Send the EndOfSegmentEvent
             ByteBuffer endOfSegment =
@@ -140,21 +139,21 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
                     targetSubpartition,
                     dataType,
                     isBroadcast && isBroadcastOnly,
-                    isLastRecordInSegment);
+                    isLastBufferInSegment);
         }
-        return isLastRecordInSegment;
+        return isLastBufferInSegment;
     }
 
     @Override
     public boolean emitBuffer(
             int targetSubpartition,
-            BufferContext finishedBuffer,
+            Buffer finishedBuffer,
             boolean isBroadcast,
             boolean isEndOfPartition,
             int segmentId)
             throws IOException {
         boolean isLastBufferInSegment = false;
-        numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.getBuffer().readableBytes();
+        numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.readableBytes();
         if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
             isLastBufferInSegment = true;
             numSubpartitionEmitBytes[targetSubpartition] = 0;
@@ -186,24 +185,24 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
             int targetChannel,
             Buffer.DataType dataType,
             boolean isBroadcast,
-            boolean isLastRecordInSegment)
+            boolean isLastBufferInSegment)
             throws IOException {
         try {
             getSubpartitionMemoryDataManager(targetChannel)
-                    .append(record, dataType, isBroadcast, isLastRecordInSegment);
+                    .append(record, dataType, isBroadcast, isLastBufferInSegment);
         } catch (InterruptedException e) {
             throw new IOException(e);
         }
     }
 
     private void append(
-            BufferContext finishedBuffer,
+            Buffer finishedBuffer,
             int targetChannel,
             boolean isBroadcast,
-            boolean isLastRecordInSegment)
+            boolean isLastBufferInSegment)
             throws IOException {
         getSubpartitionMemoryDataManager(targetChannel)
-                .addFinishedBuffer(isBroadcast, finishedBuffer.getBuffer());
+                .addFinishedBuffer(isBroadcast, finishedBuffer);
     }
 
     public TierReader registerNewConsumer(

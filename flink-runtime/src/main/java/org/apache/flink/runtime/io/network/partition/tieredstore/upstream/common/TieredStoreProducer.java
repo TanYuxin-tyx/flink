@@ -42,7 +42,7 @@ public interface TieredStoreProducer extends ChannelStateHolder, CheckpointedRes
 
     void emitBuffers(
             int targetSubpartition,
-            List<BufferContext> finishedBuffers,
+            List<Buffer> finishedBuffers,
             boolean isBroadcast,
             boolean isEndOfPartition)
             throws IOException;

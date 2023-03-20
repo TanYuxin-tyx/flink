@@ -24,7 +24,6 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
@@ -96,20 +95,19 @@ public class RemoteCacheManager {
             ByteBuffer record,
             int targetChannel,
             Buffer.DataType dataType,
-            boolean isLastRecordInSegment)
+            boolean isLastBufferInSegment)
             throws IOException {
         try {
             getSubpartitionCacheDataManager(targetChannel)
-                    .append(record, dataType, isLastRecordInSegment);
+                    .append(record, dataType, isLastBufferInSegment);
         } catch (InterruptedException e) {
             throw new IOException(e);
         }
     }
 
     public void appendBuffer(
-            BufferContext finishedBuffer, int targetChannel, boolean isLastRecordInSegment) {
-        getSubpartitionCacheDataManager(targetChannel)
-                .addFinishedBuffer(finishedBuffer.getBuffer());
+            Buffer finishedBuffer, int targetChannel, boolean isLastBufferInSegment) {
+        getSubpartitionCacheDataManager(targetChannel).addFinishedBuffer(finishedBuffer);
     }
 
     public void startSegment(int targetSubpartition, int segmentIndex) throws IOException {
