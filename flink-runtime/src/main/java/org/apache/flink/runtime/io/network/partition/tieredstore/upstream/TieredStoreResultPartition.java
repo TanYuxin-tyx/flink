@@ -69,7 +69,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.HYBRID_SELECTIVE;
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier.DATA_FILE_SUFFIX;
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.DATA_FILE_SUFFIX;
 import static org.apache.flink.runtime.shuffle.NettyShuffleUtils.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -77,11 +77,9 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** ResultPartition for TieredStore. */
 public class TieredStoreResultPartition extends ResultPartition implements ChannelStateHolder {
 
+    public final Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers;
+
     private final JobID jobID;
-
-    private final BatchShuffleReadBufferPool readBufferPool;
-
-    private final ScheduledExecutorService readIOExecutor;
 
     private final int networkBufferSize;
 
@@ -95,7 +93,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private final CacheFlushManager cacheFlushManager;
 
-    public final Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers;
+    private final PartitionFileManager partitionFileManager;
 
     private StorageTier[] tierDataGates;
 
@@ -104,8 +102,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     private boolean hasNotifiedEndOfUserRecords;
 
     private TieredStoreMemoryManager tieredStoreMemoryManager;
-
-    private PartitionFileManager partitionFileManager;
 
     public TieredStoreResultPartition(
             JobID jobID,
@@ -137,8 +133,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 bufferPoolFactory);
 
         this.jobID = jobID;
-        this.readBufferPool = readBufferPool;
-        this.readIOExecutor = readIOExecutor;
         this.networkBufferSize = networkBufferSize;
         this.dataFileBasePath = dataFileBasePath;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
@@ -318,9 +312,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 minReservedDiskSpaceFraction,
                 isBroadcast,
                 bufferCompressor,
-                readBufferPool,
-                readIOExecutor,
-                storeConfiguration,
                 partitionFileManager);
     }
 

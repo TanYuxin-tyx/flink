@@ -26,7 +26,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpillTrigger;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
@@ -37,7 +36,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -54,14 +52,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
 
     private final SubpartitionDiskCacheManager[] subpartitionDiskCacheManagers;
 
-    private CacheBufferSpiller spiller;
-
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
-    /**
-     * Each element of the list is all views of the subpartition corresponding to its index, which
-     * are stored in the form of a map that maps consumer id to its subpartition view.
-     */
     private final List<Map<TierReaderViewId, TierReaderView>> tierReaderViewMap;
 
     private volatile CompletableFuture<Void> hasFlushCompleted =
@@ -74,16 +66,11 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
             int bufferSize,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
-            RegionBufferIndexTracker regionBufferIndexTracker,
-            Path dataFilePath,
             BufferCompressor bufferCompressor,
-            PartitionFileManager partitionFileManager)
-            throws IOException {
+            PartitionFileManager partitionFileManager) {
         this.numSubpartitions = numSubpartitions;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
-        //this.spiller = new DiskCacheBufferSpiller(dataFilePath, regionBufferIndexTracker);
         this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
-
         this.tierReaderViewMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionDiskCacheManagers[subpartitionId] =
@@ -91,7 +78,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
                             subpartitionId, bufferSize, bufferCompressor, this);
             tierReaderViewMap.add(new ConcurrentHashMap<>());
         }
-        this.partitionFileWriter = partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
+        this.partitionFileWriter =
+                partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
         cacheFlushManager.registerCacheSpillTrigger(this::flushCacheBuffers);
     }
 
@@ -253,7 +241,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
             bufferContexts.addAll(getBuffersInOrder(subpartitionId));
         }
         if (!bufferContexts.isEmpty()) {
-            CompletableFuture<Void> spillSuccessNotifier = partitionFileWriter.spillAsync(bufferContexts);
+            CompletableFuture<Void> spillSuccessNotifier =
+                    partitionFileWriter.spillAsync(bufferContexts);
             if (changeFlushState) {
                 hasFlushCompleted = spillSuccessNotifier;
             }
