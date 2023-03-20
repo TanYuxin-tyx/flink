@@ -39,6 +39,9 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileType;
 import org.apache.flink.runtime.metrics.TimerGauge;
 
 import javax.annotation.Nullable;
@@ -48,6 +51,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -85,14 +89,16 @@ public class DiskTier implements TierWriter, StorageTier {
     /** Record the last assigned consumerId for each subpartition. */
     private final TierReaderViewId[] lastTierReaderViewIds;
 
-    private final DiskReaderManager diskReaderManager;
+    private final PartitionFileReader partitionFileReader;
 
     // Record the byte number currently written to each sub partition.
     private final int[] numSubpartitionEmitBytes;
 
-    private DiskCacheManager diskCacheManager;
-
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
+
+    private final PartitionFileManager partitionFileManager;
+
+    private DiskCacheManager diskCacheManager;
 
     // TODO, Make this configurable.
     private int numBytesInASegment = 4 * 1024 * 1024; // 4 M
@@ -113,11 +119,12 @@ public class DiskTier implements TierWriter, StorageTier {
             @Nullable BufferCompressor bufferCompressor,
             BatchShuffleReadBufferPool readBufferPool,
             ScheduledExecutorService readIOExecutor,
-            TieredStoreConfiguration storeConfiguration) {
+            TieredStoreConfiguration storeConfiguration,
+            PartitionFileManager partitionFileManager) {
         this.numSubpartitions = numSubpartitions;
         this.networkBufferSize = networkBufferSize;
         this.resultPartitionID = resultPartitionID;
-        this.dataFilePath = new File(dataFileBasePath + DATA_FILE_SUFFIX).toPath();
+        this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.isBroadcastOnly = isBroadcastOnly;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
@@ -128,16 +135,11 @@ public class DiskTier implements TierWriter, StorageTier {
         this.regionBufferIndexTracker =
                 new RegionBufferIndexTrackerImpl(isBroadcastOnly ? 1 : numSubpartitions);
         this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
-        this.diskReaderManager =
-                new DiskReaderManager(
-                        readBufferPool,
-                        readIOExecutor,
-                        regionBufferIndexTracker,
-                        dataFilePath,
-                        DiskTierReaderImpl.Factory.INSTANCE,
-                        storeConfiguration);
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
+        this.partitionFileManager = partitionFileManager;
+        this.partitionFileReader =
+                partitionFileManager.createPartitionFileReader(PartitionFileType.PRODUCER_MERGE);
     }
 
     @Override
@@ -150,7 +152,8 @@ public class DiskTier implements TierWriter, StorageTier {
                         cacheFlushManager,
                         regionBufferIndexTracker,
                         dataFilePath,
-                        bufferCompressor);
+                        bufferCompressor,
+                        partitionFileManager);
     }
 
     @Override
@@ -219,7 +222,7 @@ public class DiskTier implements TierWriter, StorageTier {
         TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
         lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
         TierReader diskReader =
-                diskReaderManager.registerNewConsumer(
+                partitionFileReader.registerNewConsumer(
                         subpartitionId, tierReaderViewId, diskTierReaderView);
         diskTierReaderView.setTierReader(diskReader);
         return diskTierReaderView;
@@ -259,7 +262,7 @@ public class DiskTier implements TierWriter, StorageTier {
         // 2. delete shuffle file.
         // 3. release all data in memory.
         if (!isReleased) {
-            diskReaderManager.release();
+            partitionFileReader.release();
             checkNotNull(diskCacheManager).release();
             segmentIndexTracker.release();
             regionBufferIndexTracker.release();

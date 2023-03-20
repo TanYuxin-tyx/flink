@@ -98,6 +98,7 @@ class DiskCacheManagerTest {
                         new CacheFlushManager(),
                         new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
                         dataFilePath,
+                        null,
                         null);
         diskCacheManager.setOutputMetrics(TieredStoreTestUtils.createTestingOutputMetrics());
         return diskCacheManager;
