@@ -24,8 +24,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import java.util.Collection;
 
 /**
- * This interface is used by {@link MemoryTierReader} to operate {@link
- * MemoryTierWriter}. Spilling decision may be made and handled inside these operations.
+ * This interface is used by {@link MemoryTierReader} to operate {@link MemoryTierWriter}. Spilling
+ * decision may be made and handled inside these operations.
  */
 public interface MemoryDataWriterOperation {
     /**
@@ -33,7 +33,7 @@ public interface MemoryDataWriterOperation {
      *
      * @return requested buffer.
      */
-    MemorySegment requestBufferFromPool(int subpartitionId) throws InterruptedException;
+    MemorySegment requestBufferFromPool(int subpartitionId);
 
     /**
      * This method is called when subpartition data become available.

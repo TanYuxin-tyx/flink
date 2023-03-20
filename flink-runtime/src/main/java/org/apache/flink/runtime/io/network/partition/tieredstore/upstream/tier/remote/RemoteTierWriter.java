@@ -23,7 +23,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
@@ -81,15 +80,6 @@ public class RemoteTierWriter implements TierWriter {
         }
 
         return isLastBufferInSegment;
-    }
-
-    private void emit(
-            ByteBuffer record,
-            int targetSubpartition,
-            Buffer.DataType dataType,
-            boolean isLastBufferInSegment)
-            throws IOException {
-        cacheDataManager.append(record, targetSubpartition, dataType, isLastBufferInSegment);
     }
 
     private void emitBuffer(

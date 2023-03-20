@@ -171,23 +171,16 @@ public class DiskTier implements TierWriter, StorageTier {
         segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
         if (isLastBufferInSegment && !isEndOfPartition) {
             emitBuffer(finishedBuffer, targetSubpartition, false);
-            // Send the EndOfSegmentEvent
-            ByteBuffer endOfSegment =
-                    EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentId + 1);
-            emit(endOfSegment, targetSubpartition, SEGMENT_EVENT, true);
+            emitEndOfSegmentEvent(segmentId, targetSubpartition);
         } else {
             emitBuffer(finishedBuffer, targetSubpartition, isLastBufferInSegment);
         }
         return isLastBufferInSegment;
     }
 
-    private void emit(
-            ByteBuffer record,
-            int targetSubpartition,
-            Buffer.DataType dataType,
-            boolean isLastBufferInSegment)
-            throws IOException {
-        diskCacheManager.append(record, targetSubpartition, dataType, isLastBufferInSegment);
+    private void emitEndOfSegmentEvent(int segmentId, int targetChannel) throws IOException {
+        ByteBuffer endOfSegment = EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentId + 1);
+        diskCacheManager.append(endOfSegment, targetChannel, SEGMENT_EVENT, true);
     }
 
     private void emitBuffer(

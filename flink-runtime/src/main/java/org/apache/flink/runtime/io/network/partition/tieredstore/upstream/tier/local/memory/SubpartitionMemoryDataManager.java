@@ -124,8 +124,7 @@ public class SubpartitionMemoryDataManager {
             ByteBuffer record,
             DataType dataType,
             boolean isBroadcast,
-            boolean isLastBufferInSegment)
-            throws InterruptedException {
+            boolean isLastBufferInSegment) {
         if (dataType.isEvent()) {
             writeEvent(record, dataType, isBroadcast, isLastBufferInSegment);
         } else {
@@ -195,8 +194,7 @@ public class SubpartitionMemoryDataManager {
             ByteBuffer record,
             DataType dataType,
             boolean isBroadcast,
-            boolean isLastBufferInSegment)
-            throws InterruptedException {
+            boolean isLastBufferInSegment) {
         checkArgument(!dataType.isEvent());
 
         ensureCapacityForRecord(record);
@@ -204,7 +202,7 @@ public class SubpartitionMemoryDataManager {
         writeRecord(record, isBroadcast, isLastBufferInSegment);
     }
 
-    private void ensureCapacityForRecord(ByteBuffer record) throws InterruptedException {
+    private void ensureCapacityForRecord(ByteBuffer record) {
         final int numRecordBytes = record.remaining();
         int availableBytes =
                 Optional.ofNullable(unfinishedBuffers.peek())
