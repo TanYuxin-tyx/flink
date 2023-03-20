@@ -106,45 +106,6 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     public void setup() throws IOException {}
 
     @Override
-    public boolean emit(
-            ByteBuffer record,
-            int targetSubpartition,
-            Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition,
-            int segmentIndex)
-            throws IOException {
-        boolean isLastBufferInSegment = false;
-        numSubpartitionEmitBytes[targetSubpartition] += record.remaining();
-        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
-            isLastBufferInSegment = true;
-            numSubpartitionEmitBytes[targetSubpartition] = 0;
-        }
-        subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(
-                targetSubpartition, segmentIndex);
-        if (isLastBufferInSegment && !isEndOfPartition) {
-            append(record, targetSubpartition, dataType, isBroadcast && isBroadcastOnly, false);
-            // Send the EndOfSegmentEvent
-            ByteBuffer endOfSegment =
-                    EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentIndex + 1);
-            append(
-                    endOfSegment,
-                    targetSubpartition,
-                    SEGMENT_EVENT,
-                    isBroadcast && isBroadcastOnly,
-                    true);
-        } else {
-            append(
-                    record,
-                    targetSubpartition,
-                    dataType,
-                    isBroadcast && isBroadcastOnly,
-                    isLastBufferInSegment);
-        }
-        return isLastBufferInSegment;
-    }
-
-    @Override
     public boolean emitBuffer(
             int targetSubpartition,
             Buffer finishedBuffer,

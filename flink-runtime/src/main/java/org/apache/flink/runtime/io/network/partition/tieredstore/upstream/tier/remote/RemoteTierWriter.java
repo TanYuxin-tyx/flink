@@ -32,8 +32,6 @@ import java.util.Arrays;
  */
 public class RemoteTierWriter implements TierWriter {
 
-    public static final int BROADCAST_CHANNEL = 0;
-
     // Record the byte number currently written to each sub partition.
     private final int[] numSubpartitionEmitBytes;
 
@@ -57,35 +55,6 @@ public class RemoteTierWriter implements TierWriter {
 
     @Override
     public void setup() throws IOException {}
-
-    @Override
-    public boolean emit(
-            ByteBuffer record,
-            int targetSubpartition,
-            Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition,
-            int segmentIndex)
-            throws IOException {
-
-        boolean isLastBufferInSegment = false;
-        numSubpartitionEmitBytes[targetSubpartition] += record.remaining();
-        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
-            isLastBufferInSegment = true;
-            numSubpartitionEmitBytes[targetSubpartition] = 0;
-        }
-
-        if (!segmentIndexTracker.hasCurrentSegment(targetSubpartition, segmentIndex)) {
-            segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentIndex);
-            cacheDataManager.startSegment(targetSubpartition, segmentIndex);
-        }
-        emit(record, targetSubpartition, dataType, isLastBufferInSegment);
-        if (isLastBufferInSegment || isEndOfPartition) {
-            cacheDataManager.finishSegment(targetSubpartition, segmentIndex);
-        }
-
-        return isLastBufferInSegment;
-    }
 
     @Override
     public boolean emitBuffer(
