@@ -43,7 +43,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** THe implementation of {@link PartitionFileReader} with merged logic. */
-public class MergePartitionFileReader implements Runnable, BufferRecycler {
+public class ProducerMergePartitionFileReader implements Runnable, BufferRecycler, PartitionFileReader {
 
     private static final Logger LOG = LoggerFactory.getLogger(DiskReaderManager.class);
 
@@ -104,7 +104,7 @@ public class MergePartitionFileReader implements Runnable, BufferRecycler {
     @GuardedBy("lock")
     private FileChannel dataFileChannel;
 
-    public MergePartitionFileReader(
+    public ProducerMergePartitionFileReader(
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
             RegionBufferIndexTracker dataIndex,

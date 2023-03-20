@@ -13,9 +13,9 @@ public interface PartitionFileWriter {
 
     CompletableFuture<Void> spillAsync(List<BufferContext> bufferToSpill);
 
-    void startSegment(int segmentIndex);
+    void startSegment(int subpartitionId, int segmentIndex);
 
-    void finishSegment(int segmentIndex);
+    void finishSegment(int subpartitionId, int segmentIndex);
 
     void release();
 }

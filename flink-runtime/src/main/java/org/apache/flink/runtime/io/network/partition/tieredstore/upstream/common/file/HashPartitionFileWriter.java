@@ -1,76 +1,87 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file;
 
+import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.JobID;
+import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteCacheBufferSpiller;
 import org.apache.flink.util.ExceptionUtils;
-import org.apache.flink.util.FatalExitExceptionHandler;
-
-import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.createBaseSubpartitionPath;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.generateBufferWithHeaders;
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.generateNewSegmentPath;
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.writeSegmentFinishFile;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** THe implementation of {@link PartitionFileWriter} with merged logic. */
 public class HashPartitionFileWriter implements PartitionFileWriter {
 
-    private static final Logger LOG = LoggerFactory.getLogger(HashPartitionFileWriter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RemoteCacheBufferSpiller.class);
 
-    /** One thread to perform spill operation. */
-    private final ExecutorService ioExecutor =
-            Executors.newSingleThreadScheduledExecutor(
-                    new ThreadFactoryBuilder()
-                            .setNameFormat("tiered store merged file spiller")
-                            // It is more appropriate to use task fail over than exit JVM here,
-                            // but the task thread will bring some extra overhead to check the
-                            // exception information set by other thread. As the spiller thread will
-                            // not encounter exceptions in most cases, we temporarily choose the
-                            // form of fatal error to deal except thrown by spiller thread.
-                            .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
-                            .build());
+    private final ExecutorService ioExecutor;
 
-    /** File channel to write data. */
-    private final FileChannel dataFileChannel;
+    private final JobID jobID;
+
+    private final ResultPartitionID resultPartitionID;
+
+    private final int subpartitionId;
+
+    private final String baseDfsPath;
 
     /** Records the current writing location. */
     private long totalBytesWritten;
 
-    private final RegionBufferIndexTracker regionBufferIndexTracker;
+    private WritableByteChannel writingChannel;
+
+    private String baseSubpartitionPath;
+
+    private boolean isSegmentStarted;
+
+    private long currentSegmentIndex = -1;
 
     public HashPartitionFileWriter(
-            Path dataFilePath, RegionBufferIndexTracker regionBufferIndexTracker)
-            throws IOException {
-        LOG.info("Creating partition file " + dataFilePath);
-        this.dataFileChannel =
-                FileChannel.open(
-                        dataFilePath, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-        this.regionBufferIndexTracker = regionBufferIndexTracker;
+            JobID jobID,
+            ResultPartitionID resultPartitionID,
+            int subpartitionId,
+            String baseDfsPath,
+            ExecutorService ioExecutor) {
+        this.ioExecutor = ioExecutor;
+        this.jobID = jobID;
+        this.resultPartitionID = resultPartitionID;
+        this.subpartitionId = subpartitionId;
+        this.baseDfsPath = baseDfsPath;
     }
 
     @Override
-    public void startSegment(int segmentIndex) {
-        // nothing to do
-    }
+    public void startSegment(int subpartitionId, int segmentIndex) {
+        if (segmentIndex <= currentSegmentIndex) {
+            return;
+        }
 
-    @Override
-    public void finishSegment(int segmentIndex) {
-        // nothing to do
+        checkState(!isSegmentStarted);
+        isSegmentStarted = true;
+        currentSegmentIndex = segmentIndex;
+
+        openNewSegmentFile();
     }
 
     @Override
@@ -80,16 +91,54 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         return spillSuccessNotifier;
     }
 
+    @Override
+    public void finishSegment(int subpartitionId, int segmentIndex) {
+        checkState(currentSegmentIndex == segmentIndex);
+        checkState(isSegmentStarted);
+
+        closeCurrentSegmentFile();
+        isSegmentStarted = false;
+    }
+
+    @Override
+    public void release() {
+        closeWritingChannel();
+    }
+
+    private void openNewSegmentFile() {
+        try {
+            if (baseSubpartitionPath == null) {
+                baseSubpartitionPath =
+                        createBaseSubpartitionPath(
+                                jobID, resultPartitionID, subpartitionId, baseDfsPath, false);
+            }
+
+            Path writingSegmentPath =
+                    generateNewSegmentPath(baseSubpartitionPath, currentSegmentIndex);
+            FileSystem fs = writingSegmentPath.getFileSystem();
+            OutputStream outputStream =
+                    fs.create(writingSegmentPath, FileSystem.WriteMode.OVERWRITE);
+            writingChannel = Channels.newChannel(outputStream);
+        } catch (IOException e) {
+            throw new RuntimeException("Cannot open a new segment file.");
+        }
+    }
+
+    private void closeCurrentSegmentFile() {
+        checkState(writingChannel.isOpen(), "Writing channel is already closed.");
+        closeWritingChannel();
+        writeFinishSegmentFile();
+    }
+
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void spill(List<BufferContext> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
         try {
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers = new ArrayList<>();
             long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
+            // write all buffers to file
             writeBuffers(toWrite, expectedBytes);
-            regionBufferIndexTracker.addBuffers(spilledBuffers);
-            for (BufferContext bufferContext : toWrite) {
-                bufferContext.getBuffer().recycleBuffer();
-            }
+            toWrite.forEach(buffer -> buffer.getBuffer().recycleBuffer());
+            toWrite.clear();
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
@@ -108,49 +157,47 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
             List<BufferContext> toWrite,
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
-        for (BufferContext bufferWithIdentity : toWrite) {
-            Buffer buffer = bufferWithIdentity.getBuffer();
+        for (BufferContext bufferContext : toWrite) {
+            Buffer buffer = bufferContext.getBuffer();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
                     new RegionBufferIndexTracker.SpilledBuffer(
-                            bufferWithIdentity.getBufferIndexAndChannel().getChannel(),
-                            bufferWithIdentity.getBufferIndexAndChannel().getBufferIndex(),
+                            bufferContext.getBufferIndexAndChannel().getChannel(),
+                            bufferContext.getBufferIndexAndChannel().getBufferIndex(),
                             totalBytesWritten + expectedBytes));
             expectedBytes += numBytes;
         }
         return expectedBytes;
     }
 
-    /** Write all buffers to disk. */
-    private void writeBuffers(List<BufferContext> bufferContexts, long expectedBytes)
+    private void writeBuffers(List<BufferContext> bufferWithIdentities, long expectedBytes)
             throws IOException {
-        if (bufferContexts.isEmpty()) {
+        if (bufferWithIdentities.isEmpty()) {
             return;
         }
+        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferWithIdentities);
 
-        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferContexts);
-
-        BufferReaderWriterUtil.writeBuffers(dataFileChannel, expectedBytes, bufferWithHeaders);
+        TieredStoreUtils.writeDfsBuffers(writingChannel, expectedBytes, bufferWithHeaders);
         totalBytesWritten += expectedBytes;
     }
 
-    /**
-     * Release this {@link HashPartitionFileWriter} when resultPartition is released. It means
-     * spiller will wait for all previous spilling operation done blocking and close the file
-     * channel.
-     *
-     * <p>This method only called by rpc thread.
-     */
-    @Override
-    public void release() {
-        try {
-            ioExecutor.shutdown();
-            if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
-                throw new TimeoutException("Shutdown spilling thread timeout.");
+    private void closeWritingChannel() {
+        if (writingChannel != null && writingChannel.isOpen()) {
+            try {
+                writingChannel.close();
+            } catch (Exception e) {
+                LOG.warn("Failed to close writing segment channel.", e);
             }
-            dataFileChannel.close();
-        } catch (Exception e) {
-            ExceptionUtils.rethrow(e);
         }
+    }
+
+    private void writeFinishSegmentFile() {
+        checkState(baseSubpartitionPath != null, "Empty subpartition path.");
+        writeSegmentFinishFile(baseSubpartitionPath, currentSegmentIndex);
+    }
+
+    @VisibleForTesting
+    public String getBaseSubpartitionPath() {
+        return baseSubpartitionPath;
     }
 }
