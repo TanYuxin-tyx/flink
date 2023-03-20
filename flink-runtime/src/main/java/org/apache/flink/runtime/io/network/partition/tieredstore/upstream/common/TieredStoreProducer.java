@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.partition.CheckpointedResultPartition
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /** The producer interface of Tiered Store, data can be written to different store tiers. */
@@ -35,6 +36,13 @@ public interface TieredStoreProducer extends ChannelStateHolder, CheckpointedRes
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
+            boolean isBroadcast,
+            boolean isEndOfPartition)
+            throws IOException;
+
+    void emitBuffers(
+            int targetSubpartition,
+            List<BufferContext> finishedBuffers,
             boolean isBroadcast,
             boolean isEndOfPartition)
             throws IOException;

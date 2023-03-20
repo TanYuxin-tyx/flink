@@ -16,25 +16,18 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream;
+package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache;
 
-/** The store mode for Tiered Store. */
-public interface TieredStoreMode {
+import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 
-    enum TieredType implements TieredStoreMode {
-        IN_CACHE,
-        IN_MEM,
-        IN_LOCAL,
-        IN_DFS,
-    }
+public interface CacheBufferOperation {
 
-    enum Tiers implements TieredStoreMode {
-        MEMORY,
-        LOCAL,
-        DFS,
-        MEMORY_LOCAL,
-        MEMORY_DFS,
-        MEMORY_LOCAL_DFS,
-        LOCAL_DFS
-    }
+    /**
+     * Get the current size of buffer pool. *
+     *
+     * <p>/** Request buffer from buffer pool.
+     *
+     * @return requested buffer.
+     */
+    BufferBuilder requestBufferFromPool() throws InterruptedException;
 }

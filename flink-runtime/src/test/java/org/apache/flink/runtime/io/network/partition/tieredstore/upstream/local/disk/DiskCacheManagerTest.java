@@ -65,7 +65,10 @@ class DiskCacheManagerTest {
         BufferPool bufferPool = networkBufferPool.createBufferPool(POOL_SIZE, POOL_SIZE);
         TieredStoreMemoryManager tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(
-                        bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+                        bufferPool,
+                        getTierExclusiveBuffers(),
+                        NUM_SUBPARTITIONS,
+                        new CacheFlushManager());
         DiskCacheManager diskCacheManager = createCacheDataManager(tieredStoreMemoryManager);
         SubpartitionDiskCacheManager subpartitionDiskCacheManager =
                 diskCacheManager.getSubpartitionDiskCacheManagers()[targetChannel];

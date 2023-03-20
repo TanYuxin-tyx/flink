@@ -39,6 +39,14 @@ public interface TierWriter {
             int segmentIndex)
             throws IOException;
 
+    boolean emitBuffer(
+            int targetSubpartition,
+            BufferContext finishedBuffer,
+            boolean isBroadcast,
+            boolean isEndOfPartition,
+            int segmentId)
+            throws IOException;
+
     void setNumBytesInASegment(int numBytesInASegment);
 
     void release();

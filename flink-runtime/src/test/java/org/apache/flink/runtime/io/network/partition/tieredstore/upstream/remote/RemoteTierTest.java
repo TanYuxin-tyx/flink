@@ -64,7 +64,10 @@ class RemoteTierTest {
         BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
         TieredStoreMemoryManager tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(
-                        bufferPool, getTierExclusiveBuffers(), NUM_SUBPARTITIONS);
+                        bufferPool,
+                        getTierExclusiveBuffers(),
+                        NUM_SUBPARTITIONS,
+                        new CacheFlushManager());
         return new RemoteTier(
                 JobID.generate(),
                 NUM_SUBPARTITIONS,

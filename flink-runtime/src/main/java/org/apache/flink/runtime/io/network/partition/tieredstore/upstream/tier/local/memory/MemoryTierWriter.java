@@ -22,6 +22,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
@@ -144,6 +145,42 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
         return isLastRecordInSegment;
     }
 
+    @Override
+    public boolean emitBuffer(
+            int targetSubpartition,
+            BufferContext finishedBuffer,
+            boolean isBroadcast,
+            boolean isEndOfPartition,
+            int segmentId)
+            throws IOException {
+        boolean isLastBufferInSegment = false;
+        numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.getBuffer().readableBytes();
+        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
+            isLastBufferInSegment = true;
+            numSubpartitionEmitBytes[targetSubpartition] = 0;
+        }
+        subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
+        if (isLastBufferInSegment && !isEndOfPartition) {
+            append(finishedBuffer, targetSubpartition, isBroadcast && isBroadcastOnly, false);
+            // Send the EndOfSegmentEvent
+            ByteBuffer endOfSegment =
+                    EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentId + 1);
+            append(
+                    endOfSegment,
+                    targetSubpartition,
+                    SEGMENT_EVENT,
+                    isBroadcast && isBroadcastOnly,
+                    true);
+        } else {
+            append(
+                    finishedBuffer,
+                    targetSubpartition,
+                    isBroadcast && isBroadcastOnly,
+                    isLastBufferInSegment);
+        }
+        return isLastBufferInSegment;
+    }
+
     private void append(
             ByteBuffer record,
             int targetChannel,
@@ -157,6 +194,16 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
         } catch (InterruptedException e) {
             throw new IOException(e);
         }
+    }
+
+    private void append(
+            BufferContext finishedBuffer,
+            int targetChannel,
+            boolean isBroadcast,
+            boolean isLastRecordInSegment)
+            throws IOException {
+        getSubpartitionMemoryDataManager(targetChannel)
+                .addFinishedBuffer(isBroadcast, finishedBuffer.getBuffer());
     }
 
     public TierReader registerNewConsumer(

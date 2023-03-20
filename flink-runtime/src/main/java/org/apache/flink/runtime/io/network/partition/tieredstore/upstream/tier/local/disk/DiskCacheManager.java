@@ -118,6 +118,27 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
         }
     }
 
+    /**
+     * Append buffer to {@link DiskCacheManager}.
+     *
+     * @param buffer to be managed by this class.
+     * @param targetChannel target subpartition of this record.
+     * @param isLastBufferInSegment whether this record is the last record in a segment.
+     */
+    public void append(BufferContext buffer, int targetChannel, boolean isLastBufferInSegment)
+            throws IOException {
+        try {
+            getSubpartitionMemoryDataManager(targetChannel)
+                    .append(buffer.getBuffer(), isLastBufferInSegment);
+        } catch (InterruptedException e) {
+            throw new IOException(e);
+        }
+        // force spill all buffers to disk.
+        if (isLastBufferInSegment) {
+            flushAndReleaseCacheBuffers();
+        }
+    }
+
     /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
     public void close() {
         flushAndReleaseCacheBuffers();

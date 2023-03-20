@@ -79,17 +79,24 @@ public class TieredStoreUtils {
     public static void checkFlushCacheBuffers(
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheBufferSpillTrigger cacheBufferSpillTrigger) {
+        if (needFlushCacheBuffers(tieredStoreMemoryManager)) {
+            cacheBufferSpillTrigger.notifyFlushCachedBuffers();
+        }
+    }
+
+    public static boolean needFlushCacheBuffers(TieredStoreMemoryManager tieredStoreMemoryManager) {
         int numTotal = tieredStoreMemoryManager.numTotalBuffers();
         int numRequested = tieredStoreMemoryManager.numRequestedBuffers();
+        if (numRequested >= numTotal
+                || (numRequested * 1.0 / numTotal) >= LOCAL_BUFFER_POOL_TRIGGER_FLUSH_RATIO) {
+            return true;
+        }
+
         int networkAvailableBuffers =
                 tieredStoreMemoryManager.getNetworkBufferPoolAvailableBuffers();
         int networkTotalBuffers = tieredStoreMemoryManager.getNetworkBufferPoolTotalBuffers();
-        if (numRequested >= numTotal
-                || (numRequested * 1.0 / numTotal) >= LOCAL_BUFFER_POOL_TRIGGER_FLUSH_RATIO
-                || (networkTotalBuffers - networkAvailableBuffers) * 1.0 / networkTotalBuffers
-                        >= NETWORK_BUFFER_POOL_TRIGGER_FLUSH_RATIO) {
-            cacheBufferSpillTrigger.notifyFlushCachedBuffers();
-        }
+        return (networkTotalBuffers - networkAvailableBuffers) * 1.0 / networkTotalBuffers
+                >= NETWORK_BUFFER_POOL_TRIGGER_FLUSH_RATIO;
     }
 
     public static String createBaseSubpartitionPath(

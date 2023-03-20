@@ -292,6 +292,11 @@ public class SubpartitionRemoteCacheManager {
         tieredStoreMemoryManager.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_DFS);
     }
 
+    void addFinishedBuffer(Buffer buffer) {
+        BufferContext toAddBuffer = new BufferContext(buffer, finishedBufferIndex, targetChannel);
+        addFinishedBuffer(toAddBuffer);
+    }
+
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.

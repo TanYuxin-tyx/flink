@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.needFlushCacheBuffers;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** Upstream tasks will get buffer from this {@link UpstreamTieredStoreMemoryManager}. */
@@ -37,18 +38,26 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     private final Map<TieredStoreMode.TieredType, AtomicInteger> tierRequestedBuffersCounter;
 
+    private final CacheFlushManager cacheFlushManager;
+
     private final AtomicInteger numRequestedBuffers = new AtomicInteger(0);
 
     private final int numSubpartitions;
 
+    private final int numTotalExclusiveBuffers;
+
     public UpstreamTieredStoreMemoryManager(
             BufferPool bufferPool,
             Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers,
-            int numSubpartitions) {
+            int numSubpartitions,
+            CacheFlushManager cacheFlushManager) {
         this.bufferPool = bufferPool;
         this.tierExclusiveBuffers = tierExclusiveBuffers;
         this.tierRequestedBuffersCounter = new HashMap<>();
+        this.cacheFlushManager = cacheFlushManager;
         this.numSubpartitions = numSubpartitions;
+        this.numTotalExclusiveBuffers =
+                tierExclusiveBuffers.values().stream().mapToInt(i -> i).sum();
     }
 
     public BufferPool getBufferPool() {
@@ -59,6 +68,8 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     public int numAvailableBuffers(TieredStoreMode.TieredType tieredType) {
         int numTotalBuffers = bufferPool.getNumBuffers();
         switch (tieredType) {
+            case IN_CACHE:
+                return getAvailableBuffersForCache(numTotalBuffers);
             case IN_MEM:
                 return getAvailableBuffersForMemory(numTotalBuffers);
             case IN_LOCAL:
@@ -89,6 +100,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
             throw new RuntimeException("Failed to request memory segments.", throwable);
         }
         incRequestedBufferCounter(tieredType);
+        checkNeedTriggerFlushCachedBuffers();
         return requestedBuffer;
     }
 
@@ -111,6 +123,12 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     @Override
     public void close() {}
 
+    private void checkNeedTriggerFlushCachedBuffers() {
+        if (needFlushCacheBuffers(this)) {
+            cacheFlushManager.triggerFlushCachedBuffers();
+        }
+    }
+
     private void incRequestedBufferCounter(TieredStoreMode.TieredType tieredType) {
         numRequestedBuffers.getAndIncrement();
         tierRequestedBuffersCounter.putIfAbsent(tieredType, new AtomicInteger(0));
@@ -121,6 +139,10 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
         numRequestedBuffers.decrementAndGet();
         AtomicInteger numRequestedBuffers = tierRequestedBuffersCounter.get(tieredType);
         checkNotNull(numRequestedBuffers).decrementAndGet();
+    }
+
+    private int getAvailableBuffersForCache(int numAvailableBuffers) {
+        return numAvailableBuffers - numTotalExclusiveBuffers;
     }
 
     // Available - numSubpartitions + numExclusiveBuffersInMem - numRequestedFromMem

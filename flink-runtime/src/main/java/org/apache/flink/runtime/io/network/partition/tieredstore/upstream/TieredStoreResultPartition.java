@@ -150,7 +150,13 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
         setupTierDataGates();
         tieredStoreProducer =
-                new TieredStoreProducerImpl(tierDataGates, numSubpartitions, isBroadcast);
+                new TieredStoreProducerImpl(
+                        tierDataGates,
+                        numSubpartitions,
+                        networkBufferSize,
+                        bufferCompressor,
+                        isBroadcast,
+                        tieredStoreMemoryManager);
     }
 
     @Override
@@ -273,7 +279,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         }
         tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(
-                        bufferPool, tierExclusiveBuffers, numSubpartitions);
+                        bufferPool, tierExclusiveBuffers, numSubpartitions, cacheFlushManager);
     }
 
     private MemoryTier getMemoryTier() {

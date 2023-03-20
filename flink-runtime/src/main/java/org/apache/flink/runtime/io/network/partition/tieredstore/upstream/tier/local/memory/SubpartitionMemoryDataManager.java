@@ -28,8 +28,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
@@ -280,6 +280,11 @@ public class SubpartitionMemoryDataManager {
      */
     private boolean canBeCompressed(Buffer buffer) {
         return bufferCompressor != null && buffer.isBuffer() && buffer.readableBytes() > 0;
+    }
+
+    void addFinishedBuffer(boolean isBroadcast, Buffer buffer) {
+        BufferContext toAddBuffer = new BufferContext(buffer, finishedBufferIndex, targetChannel);
+        addFinishedBuffer(isBroadcast, toAddBuffer);
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
