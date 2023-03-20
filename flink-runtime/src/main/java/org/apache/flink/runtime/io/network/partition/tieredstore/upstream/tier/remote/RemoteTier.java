@@ -34,6 +34,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.metrics.TimerGauge;
 
@@ -63,7 +65,8 @@ public class RemoteTier implements StorageTier {
             CacheFlushManager cacheFlushManager,
             boolean isBroadcastOnly,
             String baseDfsPath,
-            @Nullable BufferCompressor bufferCompressor)
+            @Nullable BufferCompressor bufferCompressor,
+            PartitionFileManager partitionFileManager)
             throws IOException {
         this.numSubpartitions = numSubpartitions;
         this.segmentIndexTracker =
@@ -77,7 +80,9 @@ public class RemoteTier implements StorageTier {
                         baseDfsPath,
                         tieredStoreMemoryManager,
                         cacheFlushManager,
-                        bufferCompressor);
+                        bufferCompressor,
+                        partitionFileManager.createPartitionFileWriter(
+                                PartitionFileType.PRODUCER_HASH));
     }
 
     @Override

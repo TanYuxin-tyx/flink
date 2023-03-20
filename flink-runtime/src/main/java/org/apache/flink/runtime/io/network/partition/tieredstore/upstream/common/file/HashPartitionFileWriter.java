@@ -9,22 +9,24 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteCacheBufferSpiller;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FatalExitExceptionHandler;
+
+import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.createBaseSubpartitionPath;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.generateBufferWithHeaders;
@@ -37,167 +39,128 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
 
     private static final Logger LOG = LoggerFactory.getLogger(RemoteCacheBufferSpiller.class);
 
-    private final ExecutorService ioExecutor;
+    private final ExecutorService ioExecutor =
+            Executors.newSingleThreadExecutor(
+                    new ThreadFactoryBuilder()
+                            .setNameFormat("HashPartitionFileWriter flusher")
+                            .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
+                            .build());
 
     private final JobID jobID;
 
     private final ResultPartitionID resultPartitionID;
 
-    private final int subpartitionId;
+    private final String baseShuffleDataPath;
 
-    private final String baseDfsPath;
-
-    /** Records the current writing location. */
-    private long totalBytesWritten;
-
-    private WritableByteChannel writingChannel;
-
-    private String baseSubpartitionPath;
-
-    private boolean isSegmentStarted;
-
-    private long currentSegmentIndex = -1;
+    private volatile WritableByteChannel[] subpartitionChannels;
 
     public HashPartitionFileWriter(
             JobID jobID,
+            int numSubpartitions,
             ResultPartitionID resultPartitionID,
-            int subpartitionId,
-            String baseDfsPath,
-            ExecutorService ioExecutor) {
-        this.ioExecutor = ioExecutor;
+            String baseShuffleDataPath) {
         this.jobID = jobID;
         this.resultPartitionID = resultPartitionID;
-        this.subpartitionId = subpartitionId;
-        this.baseDfsPath = baseDfsPath;
-    }
-
-    @Override
-    public void startSegment(int subpartitionId, int segmentIndex) {
-        if (segmentIndex <= currentSegmentIndex) {
-            return;
-        }
-
-        checkState(!isSegmentStarted);
-        isSegmentStarted = true;
-        currentSegmentIndex = segmentIndex;
-
-        openNewSegmentFile();
+        this.baseShuffleDataPath = baseShuffleDataPath;
+        this.subpartitionChannels = new WritableByteChannel[numSubpartitions];
+        Arrays.fill(subpartitionChannels, null);
     }
 
     @Override
     public CompletableFuture<Void> spillAsync(List<BufferContext> bufferToSpill) {
+        // nothing to do.
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Void> spillAsync(
+            int subpartitionId, int segmentId, List<BufferContext> bufferToSpill) {
+        checkState(bufferToSpill.size() > 0);
         CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
-        ioExecutor.execute(() -> spill(bufferToSpill, spillSuccessNotifier));
+        ioExecutor.execute(
+                () -> spill(subpartitionId, segmentId, bufferToSpill, spillSuccessNotifier));
         return spillSuccessNotifier;
     }
 
     @Override
-    public void finishSegment(int subpartitionId, int segmentIndex) {
-        checkState(currentSegmentIndex == segmentIndex);
-        checkState(isSegmentStarted);
-
-        closeCurrentSegmentFile();
-        isSegmentStarted = false;
+    public CompletableFuture<Void> finishSegment(int subpartitionId, int segmentId) {
+        CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
+        ioExecutor.execute(() -> writeFinishSegmentFile(subpartitionId, segmentId));
+        return spillSuccessNotifier;
     }
 
     @Override
     public void release() {
-        closeWritingChannel();
-    }
-
-    private void openNewSegmentFile() {
-        try {
-            if (baseSubpartitionPath == null) {
-                baseSubpartitionPath =
-                        createBaseSubpartitionPath(
-                                jobID, resultPartitionID, subpartitionId, baseDfsPath, false);
-            }
-
-            Path writingSegmentPath =
-                    generateNewSegmentPath(baseSubpartitionPath, currentSegmentIndex);
-            FileSystem fs = writingSegmentPath.getFileSystem();
-            OutputStream outputStream =
-                    fs.create(writingSegmentPath, FileSystem.WriteMode.OVERWRITE);
-            writingChannel = Channels.newChannel(outputStream);
-        } catch (IOException e) {
-            throw new RuntimeException("Cannot open a new segment file.");
-        }
-    }
-
-    private void closeCurrentSegmentFile() {
-        checkState(writingChannel.isOpen(), "Writing channel is already closed.");
-        closeWritingChannel();
-        writeFinishSegmentFile();
+        ioExecutor.shutdown();
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
-    private void spill(List<BufferContext> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
+    private void spill(
+            int subpartitionId,
+            int segmentId,
+            List<BufferContext> toWrite,
+            CompletableFuture<Void> spillSuccessNotifier) {
         try {
-            List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers = new ArrayList<>();
-            long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
-            // write all buffers to file
-            writeBuffers(toWrite, expectedBytes);
+            writeBuffers(
+                    subpartitionId,
+                    segmentId,
+                    toWrite,
+                    createSpilledBuffersAndGetTotalBytes(toWrite));
             toWrite.forEach(buffer -> buffer.getBuffer().recycleBuffer());
-            toWrite.clear();
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
         }
     }
 
-    /**
-     * Compute buffer's file offset and create spilled buffers.
-     *
-     * @param toWrite for create {@link RegionBufferIndexTracker.SpilledBuffer}.
-     * @param spilledBuffers receive the created {@link RegionBufferIndexTracker.SpilledBuffer} by
-     *     this method.
-     * @return total bytes(header size + buffer size) of all buffers to write.
-     */
     private long createSpilledBuffersAndGetTotalBytes(
-            List<BufferContext> toWrite,
-            List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
+            List<BufferContext> toWriteSubpartitionBuffers) {
         long expectedBytes = 0;
-        for (BufferContext bufferContext : toWrite) {
+        for (BufferContext bufferContext : toWriteSubpartitionBuffers) {
             Buffer buffer = bufferContext.getBuffer();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
-            spilledBuffers.add(
-                    new RegionBufferIndexTracker.SpilledBuffer(
-                            bufferContext.getBufferIndexAndChannel().getChannel(),
-                            bufferContext.getBufferIndexAndChannel().getBufferIndex(),
-                            totalBytesWritten + expectedBytes));
             expectedBytes += numBytes;
         }
         return expectedBytes;
     }
 
-    private void writeBuffers(List<BufferContext> bufferWithIdentities, long expectedBytes)
+    private void writeBuffers(
+            int subpartitionId, int segmentId, List<BufferContext> toWrite, long expectedBytes)
             throws IOException {
-        if (bufferWithIdentities.isEmpty()) {
-            return;
+        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(toWrite);
+        WritableByteChannel currentChannel = subpartitionChannels[subpartitionId];
+        if (currentChannel == null) {
+            String subpartitionPath =
+                    createBaseSubpartitionPath(
+                            jobID, resultPartitionID, subpartitionId, baseShuffleDataPath, false);
+            Path writingSegmentPath = generateNewSegmentPath(subpartitionPath, segmentId);
+            FileSystem fs = writingSegmentPath.getFileSystem();
+            currentChannel =
+                    Channels.newChannel(
+                            fs.create(writingSegmentPath, FileSystem.WriteMode.NO_OVERWRITE));
+            TieredStoreUtils.writeDfsBuffers(currentChannel, expectedBytes, bufferWithHeaders);
+            subpartitionChannels[subpartitionId] = currentChannel;
+        } else {
+            TieredStoreUtils.writeDfsBuffers(currentChannel, expectedBytes, bufferWithHeaders);
         }
-        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferWithIdentities);
-
-        TieredStoreUtils.writeDfsBuffers(writingChannel, expectedBytes, bufferWithHeaders);
-        totalBytesWritten += expectedBytes;
     }
 
-    private void closeWritingChannel() {
-        if (writingChannel != null && writingChannel.isOpen()) {
-            try {
-                writingChannel.close();
-            } catch (Exception e) {
-                LOG.warn("Failed to close writing segment channel.", e);
-            }
+    private void writeFinishSegmentFile(int subpartitionId, int segmentId) {
+        String subpartitionPath = null;
+        try {
+            subpartitionPath =
+                    createBaseSubpartitionPath(
+                            jobID, resultPartitionID, subpartitionId, baseShuffleDataPath, false);
+        } catch (IOException exception) {
+            ExceptionUtils.rethrow(exception);
         }
-    }
-
-    private void writeFinishSegmentFile() {
-        checkState(baseSubpartitionPath != null, "Empty subpartition path.");
-        writeSegmentFinishFile(baseSubpartitionPath, currentSegmentIndex);
+        writeSegmentFinishFile(subpartitionPath, segmentId);
+        // clear the current channel
+        subpartitionChannels[subpartitionId] = null;
     }
 
     @VisibleForTesting
-    public String getBaseSubpartitionPath() {
-        return baseSubpartitionPath;
+    public String getBaseSubpartitionPath(int subpartitionId) {
+        return "";
     }
 }
