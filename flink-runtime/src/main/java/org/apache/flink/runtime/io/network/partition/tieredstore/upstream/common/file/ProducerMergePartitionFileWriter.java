@@ -156,5 +156,6 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
         } catch (Exception e) {
             ExceptionUtils.rethrow(e);
         }
+        regionBufferIndexTracker.release();
     }
 }
