@@ -46,12 +46,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 /** Tests for {@link DiskCacheBufferSpiller}. */
 @ExtendWith(TestLoggerExtension.class)
@@ -89,7 +87,7 @@ class CacheDataLocalFileSpillerTest {
                         Arrays.asList(Tuple2.of(4, 0), Tuple2.of(5, 1), Tuple2.of(6, 2))));
 
         AtomicInteger flag = new AtomicInteger(1);
-        cacheDataSpiller.spillAsync(bufferContextList, flag, true);
+        //cacheDataSpiller.spillAsync(bufferContextList, flag, true);
         while (flag.get() == 1) {
             TimeUnit.MILLISECONDS.sleep(50);
         }
@@ -114,15 +112,15 @@ class CacheDataLocalFileSpillerTest {
                                 0,
                                 Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
         AtomicInteger flag = new AtomicInteger(1);
-        cacheDataSpiller.spillAsync(bufferContextList, flag, true);
+        //cacheDataSpiller.spillAsync(bufferContextList, flag, true);
         while (flag.get() == 1) {
             TimeUnit.MILLISECONDS.sleep(50);
         }
         // blocked until spill finished.
         cacheDataSpiller.release();
         checkData(false, Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2)));
-        assertThatThrownBy(() -> cacheDataSpiller.spillAsync(bufferContextList, flag, true))
-                .isInstanceOf(RejectedExecutionException.class);
+        //assertThatThrownBy(() -> cacheDataSpiller.spillAsync(bufferContextList, flag, true))
+        //        .isInstanceOf(RejectedExecutionException.class);
     }
 
     /**

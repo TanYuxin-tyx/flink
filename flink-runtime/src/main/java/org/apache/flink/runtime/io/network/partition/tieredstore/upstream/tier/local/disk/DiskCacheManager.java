@@ -39,8 +39,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.checkFlushCacheBuffers;
 
@@ -61,7 +61,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
      */
     private final List<Map<TierReaderViewId, TierReaderView>> tierReaderViewMap;
 
-    private final AtomicInteger hasFlushCompleted = new AtomicInteger(0);
+    private volatile CompletableFuture<Void> hasFlushCompleted =
+            CompletableFuture.completedFuture(null);
 
     public DiskCacheManager(
             int numSubpartitions,
@@ -172,7 +173,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     }
 
     private void tryCheckFlushCacheBuffers() {
-        if (hasFlushCompleted.get() == 0) {
+        if (hasFlushCompleted.isDone()) {
             checkFlushCacheBuffers(tieredStoreMemoryManager, this);
         }
     }
@@ -226,10 +227,10 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
             bufferContexts.addAll(getBuffersInOrder(subpartitionId));
         }
         if (!bufferContexts.isEmpty()) {
+            CompletableFuture<Void> spillSuccessNotifier = spiller.spillAsync(bufferContexts);
             if (changeFlushState) {
-                hasFlushCompleted.getAndIncrement();
+                hasFlushCompleted = spillSuccessNotifier;
             }
-            spiller.spillAsync(bufferContexts, hasFlushCompleted, changeFlushState);
         }
     }
 

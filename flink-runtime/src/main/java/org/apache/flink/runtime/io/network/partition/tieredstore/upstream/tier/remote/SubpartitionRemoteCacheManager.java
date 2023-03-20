@@ -36,8 +36,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
-import org.apache.flink.util.concurrent.FutureUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -93,7 +91,8 @@ public class SubpartitionRemoteCacheManager {
 
     private volatile boolean isReleased;
 
-    private CompletableFuture<Void> hasFlushCompleted = FutureUtils.completedVoidFuture();
+    private volatile CompletableFuture<Void> hasFlushCompleted =
+            CompletableFuture.completedFuture(null);
 
     public SubpartitionRemoteCacheManager(
             JobID jobID,
@@ -141,8 +140,7 @@ public class SubpartitionRemoteCacheManager {
     public void finishSegment(int segmentIndex) {
         checkState(isSegmentStarted);
         isSegmentStarted = false;
-        CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> spillDoneFuture =
-                flushCachedBuffers();
+        CompletableFuture<Void> spillDoneFuture = flushCachedBuffers();
         try {
             spillDoneFuture.get();
             checkFlushCacheBuffers(tieredStoreMemoryManager, this::flushCachedBuffers);
@@ -164,7 +162,6 @@ public class SubpartitionRemoteCacheManager {
             }
             allBuffers.clear();
             isReleased = true;
-            hasFlushCompleted.complete(null);
         }
     }
 
@@ -309,17 +306,10 @@ public class SubpartitionRemoteCacheManager {
 
     private void flushCachedBuffersWithChangeFlushStatus() {
         List<BufferContext> bufferContexts = generateToSpillBuffersWithId();
-        hasFlushCompleted = new CompletableFuture<>();
-        cacheBufferSpiller
-                .spillAsync(bufferContexts)
-                .thenApply(
-                        spilledBuffers -> {
-                            hasFlushCompleted.complete(null);
-                            return spilledBuffers;
-                        });
+        hasFlushCompleted = cacheBufferSpiller.spillAsync(bufferContexts);
     }
 
-    private CompletableFuture<List<RegionBufferIndexTracker.SpilledBuffer>> flushCachedBuffers() {
+    private CompletableFuture<Void> flushCachedBuffers() {
         return cacheBufferSpiller.spillAsync(generateToSpillBuffersWithId());
     }
 
@@ -336,7 +326,6 @@ public class SubpartitionRemoteCacheManager {
 
     void close() {
         isClosed = true;
-        hasFlushCompleted.complete(null);
         flushCachedBuffers();
         while (!unfinishedBuffers.isEmpty()) {
             unfinishedBuffers.poll().close();

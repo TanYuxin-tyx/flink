@@ -38,11 +38,11 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.generateBufferWithHeaders;
 
@@ -89,21 +89,17 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     public void startSegment(int segmentIndex) {}
 
     @Override
-    public void spillAsync(
-            List<BufferContext> bufferToSpill,
-            AtomicInteger hasFlushCompleted,
-            boolean changeFlushState) {
-        ioExecutor.execute(() -> spill(bufferToSpill, hasFlushCompleted, changeFlushState));
+    public CompletableFuture<Void> spillAsync(List<BufferContext> bufferToSpill) {
+        CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
+        ioExecutor.execute(() -> spill(bufferToSpill, spillSuccessNotifier));
+        return spillSuccessNotifier;
     }
 
     @Override
     public void finishSegment(int segmentIndex) {}
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
-    private void spill(
-            List<BufferContext> toWrite,
-            AtomicInteger hasFlushCompleted,
-            boolean changeFlushState) {
+    private void spill(List<BufferContext> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
         try {
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers = new ArrayList<>();
             long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
@@ -116,9 +112,7 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
             for (BufferContext bufferContext : toWrite) {
                 bufferContext.getBuffer().recycleBuffer();
             }
-            if (changeFlushState) {
-                hasFlushCompleted.decrementAndGet();
-            }
+            spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
             // if spilling is failed, throw exception directly to uncaughtExceptionHandler.
             ExceptionUtils.rethrow(exception);
