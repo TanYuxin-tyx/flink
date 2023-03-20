@@ -29,7 +29,7 @@ import java.io.IOException;
 public interface TierWriter {
     void setup() throws IOException;
 
-    boolean emitBuffer(
+    boolean emit(
             int targetSubpartition,
             Buffer finishedBuffer,
             boolean isBroadcast,

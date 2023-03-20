@@ -147,7 +147,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
         int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
         boolean isLastBufferInSegment =
-                tierWriters[tierIndex].emitBuffer(
+                tierWriters[tierIndex].emit(
                         targetSubpartition,
                         finishedBuffer,
                         isBroadcast,
