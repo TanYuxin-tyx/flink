@@ -25,7 +25,6 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
 import org.apache.flink.runtime.io.network.partition.DataBuffer;
 import org.apache.flink.runtime.io.network.partition.HashBasedDataBuffer;
-import org.apache.flink.runtime.io.network.partition.SortBasedDataBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
@@ -159,7 +158,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
                     numBuffersForSort,
                     null);
         } else {
-            return new SortBasedDataBuffer(
+            return new SortBasedCacheBuffer(
                     freeSegments,
                     this::recycleBuffer,
                     numSubpartitions,
@@ -195,7 +194,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         useHashBuffer = false;
         int numWriteBuffers = 0;
         if (freeSegments.size() >= 2 * numSubpartitions) {
-            //            useHashBuffer = true;
+            useHashBuffer = true;
         } else if (bufferSize >= NUM_WRITE_BUFFER_BYTES) {
             numWriteBuffers = 1;
         } else {
@@ -272,6 +271,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     private MemorySegment getFreeSegment() {
+        //        return checkNotNull(freeSegments.poll());
         MemorySegment freeSegment = freeSegments.poll();
         if (freeSegment == null) {
             freeSegment =
