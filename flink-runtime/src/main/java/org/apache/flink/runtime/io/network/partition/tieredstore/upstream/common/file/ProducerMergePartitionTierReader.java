@@ -16,13 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk;
+package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -30,28 +31,28 @@ import java.nio.channels.FileChannel;
 import java.util.Queue;
 import java.util.function.Consumer;
 
-/** The {@link DiskTierReader} is used to consume data from Disk Tier. */
-public interface DiskTierReader extends Comparable<DiskTierReader>, TierReader {
+/** The {@link ProducerMergePartitionTierReader} is used to consume shuffle data that's merged by producer. */
+public interface ProducerMergePartitionTierReader extends Comparable<ProducerMergePartitionTierReader>, TierReader {
 
-    /** Do prep work before this {@link DiskTierReader} is scheduled to read data. */
+    /** Do prep work before this {@link ProducerMergePartitionTierReader} is scheduled to read data. */
     void prepareForScheduling();
 
     /** Read data from disk. */
     void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler) throws IOException;
 
-    /** Fail this {@link DiskTierReader} caused by failureCause. */
+    /** Fail this {@link ProducerMergePartitionTierReader} caused by failureCause. */
     void fail(Throwable failureCause);
 
-    /** Factory to create {@link DiskTierReader}. */
+    /** Factory to create {@link ProducerMergePartitionTierReader}. */
     interface Factory {
-        DiskTierReader createFileReader(
+        ProducerMergePartitionTierReader createFileReader(
                 int subpartitionId,
                 TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
                 TierReaderView tierReaderView,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
-                Consumer<DiskTierReader> fileReaderReleaser,
+                Consumer<ProducerMergePartitionTierReader> fileReaderReleaser,
                 ByteBuffer headerBuffer);
     }
 }
