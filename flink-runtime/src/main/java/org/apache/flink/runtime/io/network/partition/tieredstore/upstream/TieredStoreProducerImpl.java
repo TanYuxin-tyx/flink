@@ -34,9 +34,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.l
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.MemoryTier;
 import org.apache.flink.util.ExceptionUtils;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -50,8 +47,6 @@ import java.util.concurrent.CompletableFuture;
  * appropriate {@link TierWriter}.
  */
 public class TieredStoreProducerImpl implements TieredStoreProducer {
-
-    private static final Logger LOG = LoggerFactory.getLogger(TieredStoreProducerImpl.class);
 
     private final StorageTier[] storageTiers;
 
@@ -199,6 +194,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     public void close() {
         Arrays.stream(tierWriters).forEach(TierWriter::close);
         Arrays.stream(storageTiers).forEach(StorageTier::close);
+        bufferAccumulator.close();
     }
 
     @Override
