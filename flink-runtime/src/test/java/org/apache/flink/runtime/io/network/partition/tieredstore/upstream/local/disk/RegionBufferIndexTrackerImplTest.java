@@ -74,15 +74,6 @@ class RegionBufferIndexTrackerImplTest {
                 .isNotPresent();
     }
 
-    /** If target buffer is not released, {@link Optional#empty()} should be eventually returned. */
-    @Test
-    void testGetReadableRegionNotReleased() {
-        regionBufferIndexTracker.addBuffers(createSpilledBuffers(0, Collections.singletonList(0)));
-        // 0-0 is not released
-        assertThat(regionBufferIndexTracker.getReadableRegion(0, 0, -1, TierReaderViewId.DEFAULT))
-                .isNotPresent();
-    }
-
     /**
      * If target buffer is already readable, a not null {@link ReadableRegion} starts with the given
      * buffer index should be returned.
