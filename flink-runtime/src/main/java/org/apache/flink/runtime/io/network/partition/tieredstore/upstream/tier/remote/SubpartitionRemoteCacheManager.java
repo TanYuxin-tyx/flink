@@ -37,6 +37,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.function.SupplierWithException;
+import org.apache.flink.util.function.ThrowingRunnable;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +55,8 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.checkFlushCacheBuffers;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -84,6 +88,8 @@ public class SubpartitionRemoteCacheManager {
 
     @Nullable private final BufferCompressor bufferCompressor;
 
+    private final Lock lock;
+
     @Nullable private OutputMetrics outputMetrics;
 
     private boolean isSegmentStarted = false;
@@ -109,6 +115,7 @@ public class SubpartitionRemoteCacheManager {
         this.bufferSize = bufferSize;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.bufferCompressor = bufferCompressor;
+        this.lock = new ReentrantLock();
         this.cacheBufferSpiller =
                 new RemoteCacheBufferSpiller(
                         jobID, resultPartitionID, targetChannel, baseDfsPath, ioExecutor);
@@ -296,9 +303,12 @@ public class SubpartitionRemoteCacheManager {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     private void addFinishedBuffer(BufferContext bufferContext) {
-        finishedBufferIndex++;
-        allBuffers.add(bufferContext);
-        updateStatistics(bufferContext.getBuffer());
+        runWithLock(
+                () -> {
+                    finishedBufferIndex++;
+                    allBuffers.add(bufferContext);
+                    updateStatistics(bufferContext.getBuffer());
+                });
         if (allBuffers.size() >= NUM_BUFFERS_TO_FLUSH) {
             flushCachedBuffers();
         }
@@ -314,9 +324,12 @@ public class SubpartitionRemoteCacheManager {
     }
 
     private List<BufferContext> generateToSpillBuffersWithId() {
-        List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
-        allBuffers.clear();
-        return targetBuffers;
+        return callWithLock(
+                () -> {
+                    List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
+                    allBuffers.clear();
+                    return targetBuffers;
+                });
     }
 
     private void updateStatistics(Buffer buffer) {
@@ -335,5 +348,23 @@ public class SubpartitionRemoteCacheManager {
     @VisibleForTesting
     public Path getBaseSubpartitionPath() {
         return new Path(((RemoteCacheBufferSpiller) cacheBufferSpiller).getBaseSubpartitionPath());
+    }
+
+    private <E extends Exception> void runWithLock(ThrowingRunnable<E> runnable) throws E {
+        try {
+            lock.lock();
+            runnable.run();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private <T, R extends Exception> T callWithLock(SupplierWithException<T, R> callable) throws R {
+        try {
+            lock.lock();
+            return callable.get();
+        } finally {
+            lock.unlock();
+        }
     }
 }
