@@ -218,25 +218,13 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         dataBuffer.finish();
 
         Queue<MemorySegment> segments = new ArrayDeque<>(freeSegments);
-        int numBuffersToWrite =
-                useHashBuffer
-                        ? EXPECTED_WRITE_BATCH_SIZE
-                        : Math.min(EXPECTED_WRITE_BATCH_SIZE, segments.size());
-        List<BufferWithChannel> toWrite = new ArrayList<>(numBuffersToWrite);
-
         do {
-            if (toWrite.size() >= numBuffersToWrite) {
-                writeBuffers(toWrite, isBroadcast, isEndOfPartition);
-                segments = new ArrayDeque<>(freeSegments);
-            }
-
             BufferWithChannel bufferWithChannel = dataBuffer.getNextBuffer(segments.poll());
             if (bufferWithChannel == null) {
-                writeBuffers(toWrite, isBroadcast, isEndOfPartition);
                 break;
             }
-
-            toWrite.add(compressBufferIfPossible(bufferWithChannel));
+            addFinishedBuffer(
+                    compressBufferIfPossible(bufferWithChannel), isBroadcast, isEndOfPartition);
         } while (true);
 
         releaseFreeBuffers();
@@ -295,11 +283,6 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
         addFinishedBuffers(toWrite, isBroadcast);
         releaseFreeBuffers();
-    }
-
-    private void writeBuffers(
-            List<BufferWithChannel> buffers, boolean isBroadcast, boolean isEndOfPartition) {
-        addFinishedBuffers(buffers, isBroadcast, isEndOfPartition);
     }
 
     private void releaseDataBuffer(DataBuffer dataBuffer) {
