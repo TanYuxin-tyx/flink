@@ -120,6 +120,7 @@ public class SubpartitionRemoteCacheManager {
     }
 
     public void startSegment(int segmentIndex) throws IOException {
+        checkState(currentSegmentId.get() != segmentIndex);
         currentSegmentId.set(segmentIndex);
     }
 
