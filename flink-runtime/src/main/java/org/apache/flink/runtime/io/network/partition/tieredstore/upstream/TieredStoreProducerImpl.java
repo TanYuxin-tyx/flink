@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.CachedBufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
@@ -79,7 +80,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         this.isBroadcastOnly = isBroadcastOnly;
         this.numSubpartitions = numSubpartitions;
         this.bufferAccumulator =
-                new BufferAccumulator(
+                new BufferAccumulatorImpl(
                         numSubpartitions,
                         bufferSize,
                         bufferCompressor,
@@ -112,11 +113,11 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
         if (isBroadcast && !isBroadcastOnly) {
             for (int i = 0; i < numSubpartitions; ++i) {
-                bufferAccumulator.emitInternal(
+                bufferAccumulator.emit(
                         record.duplicate(), i, dataType, isBroadcast, isEndOfPartition);
             }
         } else {
-            bufferAccumulator.emitInternal(
+            bufferAccumulator.emit(
                     record, targetSubpartition, dataType, isBroadcast, isEndOfPartition);
         }
     }
