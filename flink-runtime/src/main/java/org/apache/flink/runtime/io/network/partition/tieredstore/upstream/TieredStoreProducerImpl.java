@@ -113,12 +113,10 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
         if (isBroadcast && !isBroadcastOnly) {
             for (int i = 0; i < numSubpartitions; ++i) {
-                bufferAccumulator.emit(
-                        record.duplicate(), i, dataType, isBroadcast, isEndOfPartition);
+                bufferAccumulator.emit(record.duplicate(), i, dataType, false, isEndOfPartition);
             }
         } else {
-            bufferAccumulator.emit(
-                    record, targetSubpartition, dataType, isBroadcast, isEndOfPartition);
+            bufferAccumulator.emit(record, targetSubpartition, dataType, false, isEndOfPartition);
         }
     }
 

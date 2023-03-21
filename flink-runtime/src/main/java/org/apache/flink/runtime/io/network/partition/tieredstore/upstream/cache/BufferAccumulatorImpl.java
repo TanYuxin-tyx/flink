@@ -33,12 +33,8 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedList;
-import java.util.List;
-import java.util.Queue;
 import java.util.function.Consumer;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -47,7 +43,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private static final int NUM_WRITE_BUFFER_BYTES = 4 * 1024 * 1024;
 
-    private static final int EXPECTED_WRITE_BATCH_SIZE = 256;
+    private static final int EXPECTED_WRITE_BATCH_SIZE = 64;
 
     private int numRequiredBuffer = 128;
 
@@ -199,7 +195,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         useHashBuffer = false;
         int numWriteBuffers = 0;
         if (freeSegments.size() >= 2 * numSubpartitions) {
-            useHashBuffer = true;
+            //            useHashBuffer = true;
         } else if (bufferSize >= NUM_WRITE_BUFFER_BYTES) {
             numWriteBuffers = 1;
         } else {
@@ -217,26 +213,13 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         }
         dataBuffer.finish();
 
-        Queue<MemorySegment> segments = new ArrayDeque<>(freeSegments);
-        int numBuffersToWrite =
-                useHashBuffer
-                        ? EXPECTED_WRITE_BATCH_SIZE
-                        : Math.min(EXPECTED_WRITE_BATCH_SIZE, segments.size());
-        List<BufferWithChannel> toWrite = new ArrayList<>(numBuffersToWrite);
-
         do {
-            if (toWrite.size() >= numBuffersToWrite) {
-                writeBuffers(toWrite, isBroadcast, isEndOfPartition);
-                segments = new ArrayDeque<>(freeSegments);
-            }
-
-            BufferWithChannel bufferWithChannel = dataBuffer.getNextBuffer(segments.poll());
+            BufferWithChannel bufferWithChannel = dataBuffer.getNextBuffer(getFreeSegment());
             if (bufferWithChannel == null) {
-                writeBuffers(toWrite, isBroadcast, isEndOfPartition);
                 break;
             }
-
-            toWrite.add(compressBufferIfPossible(bufferWithChannel));
+            addFinishedBuffer(
+                    compressBufferIfPossible(bufferWithChannel), isBroadcast, isEndOfPartition);
         } while (true);
 
         releaseFreeBuffers();
@@ -274,50 +257,33 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
             Buffer.DataType dataType,
             boolean isBroadcast) {
 
-        List<BufferWithChannel> toWrite = new ArrayList<>();
-        Queue<MemorySegment> segments = new ArrayDeque<>(freeSegments);
-
         while (record.hasRemaining()) {
-            if (segments.isEmpty()) {
-                addFinishedBuffers(toWrite, isBroadcast);
-                toWrite.clear();
-                segments = new ArrayDeque<>(freeSegments);
-            }
-
             int toCopy = Math.min(record.remaining(), bufferSize);
-            MemorySegment writeBuffer = checkNotNull(segments.poll());
+            MemorySegment writeBuffer = checkNotNull(getFreeSegment());
             writeBuffer.put(0, record, toCopy);
 
-            NetworkBuffer buffer = new NetworkBuffer(writeBuffer, (buf) -> {}, dataType, toCopy);
+            NetworkBuffer buffer =
+                    new NetworkBuffer(writeBuffer, this::recycleBuffer, dataType, toCopy);
             BufferWithChannel bufferWithChannel = new BufferWithChannel(buffer, targetSubpartition);
-            toWrite.add(compressBufferIfPossible(bufferWithChannel));
+            addFinishedBuffer(compressBufferIfPossible(bufferWithChannel), isBroadcast, false);
         }
 
-        addFinishedBuffers(toWrite, isBroadcast);
         releaseFreeBuffers();
     }
 
-    private void writeBuffers(
-            List<BufferWithChannel> buffers, boolean isBroadcast, boolean isEndOfPartition) {
-        addFinishedBuffers(buffers, isBroadcast, isEndOfPartition);
+    private MemorySegment getFreeSegment() {
+        MemorySegment freeSegment = freeSegments.poll();
+        if (freeSegment == null) {
+            freeSegment =
+                    storeMemoryManager.requestMemorySegmentBlocking(
+                            TieredStoreMode.TieredType.IN_CACHE);
+        }
+        return freeSegment;
     }
 
     private void releaseDataBuffer(DataBuffer dataBuffer) {
         if (dataBuffer != null) {
             dataBuffer.release();
-        }
-    }
-
-    private void addFinishedBuffers(List<BufferWithChannel> finishedBuffers, boolean isBroadcast) {
-        addFinishedBuffers(finishedBuffers, isBroadcast, false);
-    }
-
-    private void addFinishedBuffers(
-            List<BufferWithChannel> finishedBuffers,
-            boolean isBroadcast,
-            boolean isEndOfPartition) {
-        for (BufferWithChannel buffer : finishedBuffers) {
-            addFinishedBuffer(buffer, isBroadcast, isEndOfPartition);
         }
     }
 
