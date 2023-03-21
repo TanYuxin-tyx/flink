@@ -18,10 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.remote;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
@@ -69,15 +67,13 @@ class RemoteTierTest {
                         NUM_SUBPARTITIONS,
                         new CacheFlushManager());
         return new RemoteTier(
-                JobID.generate(),
                 NUM_SUBPARTITIONS,
                 1024,
-                new ResultPartitionID(),
                 tieredStoreMemoryManager,
                 new CacheFlushManager(),
                 false,
-                tmpFolder.getRoot().getPath(),
                 null,
                 null);
     }
+    // tmpFolder.getRoot().getPath(),
 }
