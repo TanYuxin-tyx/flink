@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
@@ -29,16 +28,12 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -51,17 +46,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.checkFlushCacheBuffers;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** This class is responsible for managing the data in a single subpartition. */
 public class SubpartitionRemoteCacheManager {
-
-    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionRemoteCacheManager.class);
 
     private final int targetChannel;
 
@@ -85,8 +78,6 @@ public class SubpartitionRemoteCacheManager {
 
     @Nullable private OutputMetrics outputMetrics;
 
-    private boolean isSegmentStarted = false;
-
     private volatile boolean isClosed;
 
     private volatile boolean isReleased;
@@ -94,18 +85,14 @@ public class SubpartitionRemoteCacheManager {
     private volatile CompletableFuture<Void> hasFlushCompleted =
             CompletableFuture.completedFuture(null);
 
-    private AtomicInteger currentSegmentId = new AtomicInteger(-1);
+    private final AtomicInteger currentSegmentId = new AtomicInteger(-1);
 
     public SubpartitionRemoteCacheManager(
-            JobID jobID,
-            ResultPartitionID resultPartitionID,
             int targetChannel,
             int bufferSize,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
-            String baseDfsPath,
             @Nullable BufferCompressor bufferCompressor,
-            ExecutorService ioExecutor,
             PartitionFileWriter partitionFileWriter) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
@@ -269,16 +256,15 @@ public class SubpartitionRemoteCacheManager {
         MemorySegment segment =
                 tieredStoreMemoryManager.requestMemorySegmentBlocking(
                         TieredStoreMode.TieredType.IN_DFS);
-        // tryCheckFlushCacheBuffers();
+        tryCheckFlushCacheBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
     }
 
-    //private void tryCheckFlushCacheBuffers() {
-    //    if (hasFlushCompleted.isDone()) {
-    //        checkFlushCacheBuffers(
-    //                tieredStoreMemoryManager, this::flushCachedBuffersWithChangeFlushStatus);
-    //    }
-    //}
+    private void tryCheckFlushCacheBuffers() {
+        if (hasFlushCompleted.isDone()) {
+            checkFlushCacheBuffers(tieredStoreMemoryManager, this::flushCachedBuffersWithCheck);
+        }
+    }
 
     private void recycleBuffer(MemorySegment buffer) {
         tieredStoreMemoryManager.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_DFS);
@@ -305,6 +291,17 @@ public class SubpartitionRemoteCacheManager {
         List<BufferContext> bufferContexts = generateToSpillBuffersWithId();
         if (bufferContexts.size() > 0) {
             partitionFileWriter.spillAsync(targetChannel, currentSegmentId.get(), bufferContexts);
+        }
+    }
+
+    private void flushCachedBuffersWithCheck() {
+        hasFlushCompleted = new CompletableFuture<>();
+        List<BufferContext> bufferContexts = generateToSpillBuffersWithId();
+        if (bufferContexts.size() > 0) {
+            CompletableFuture<Void> completableFuture =
+                    partitionFileWriter.spillAsync(
+                            targetChannel, currentSegmentId.get(), bufferContexts);
+            completableFuture.thenRun(() -> hasFlushCompleted.complete(null));
         }
     }
 

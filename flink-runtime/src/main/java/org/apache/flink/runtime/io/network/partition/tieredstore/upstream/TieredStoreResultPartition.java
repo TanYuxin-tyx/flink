@@ -328,14 +328,11 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                                     .key()));
         }
         return new RemoteTier(
-                jobID,
                 numSubpartitions,
                 networkBufferSize,
-                getPartitionId(),
                 tieredStoreMemoryManager,
                 cacheFlushManager,
                 isBroadcast,
-                baseDfsPath,
                 bufferCompressor,
                 partitionFileManager);
     }

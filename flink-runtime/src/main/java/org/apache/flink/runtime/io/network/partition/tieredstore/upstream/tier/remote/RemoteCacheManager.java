@@ -19,11 +19,9 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileWriter;
@@ -62,11 +60,8 @@ public class RemoteCacheManager {
                             .build());
 
     public RemoteCacheManager(
-            JobID jobID,
-            ResultPartitionID resultPartitionID,
             int numSubpartitions,
             int bufferSize,
-            String baseDfsPath,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
             BufferCompressor bufferCompressor,
@@ -77,15 +72,11 @@ public class RemoteCacheManager {
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionCacheDataManagers[subpartitionId] =
                     new SubpartitionRemoteCacheManager(
-                            jobID,
-                            resultPartitionID,
                             subpartitionId,
                             bufferSize,
                             tieredStoreMemoryManager,
                             cacheFlushManager,
-                            baseDfsPath,
                             bufferCompressor,
-                            ioExecutor,
                             partitionFileWriter);
         }
     }

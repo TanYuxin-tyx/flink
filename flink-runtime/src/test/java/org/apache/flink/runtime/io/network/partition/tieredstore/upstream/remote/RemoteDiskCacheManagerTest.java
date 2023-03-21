@@ -18,11 +18,9 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.remote;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
@@ -116,11 +114,8 @@ class RemoteDiskCacheManagerTest {
             TieredStoreMemoryManager tieredStoreMemoryManager) throws Exception {
         RemoteCacheManager cacheDataManager =
                 new RemoteCacheManager(
-                        JobID.generate(),
-                        new ResultPartitionID(),
                         NUM_SUBPARTITIONS,
                         bufferSize,
-                        tmpFolder.getRoot().getPath(),
                         tieredStoreMemoryManager,
                         new CacheFlushManager(),
                         null,

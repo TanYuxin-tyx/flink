@@ -19,14 +19,12 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
@@ -57,14 +55,11 @@ public class RemoteTier implements StorageTier {
     private int numBytesInASegment = 4 * 1024; // 4 M
 
     public RemoteTier(
-            JobID jobID,
             int numSubpartitions,
             int networkBufferSize,
-            ResultPartitionID resultPartitionID,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
             boolean isBroadcastOnly,
-            String baseDfsPath,
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager)
             throws IOException {
@@ -73,11 +68,8 @@ public class RemoteTier implements StorageTier {
                 new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
         this.remoteCacheManager =
                 new RemoteCacheManager(
-                        jobID,
-                        resultPartitionID,
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
-                        baseDfsPath,
                         tieredStoreMemoryManager,
                         cacheFlushManager,
                         bufferCompressor,
