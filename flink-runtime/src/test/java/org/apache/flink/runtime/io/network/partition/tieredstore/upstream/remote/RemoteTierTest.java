@@ -18,11 +18,14 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.remote;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTier;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +44,8 @@ class RemoteTierTest {
 
     private static final int NUM_SUBPARTITIONS = 3;
 
+    private static final int BUFFER_SIZE = Integer.BYTES * 3;
+
     private TemporaryFolder tmpFolder;
 
     @BeforeEach
@@ -51,21 +56,20 @@ class RemoteTierTest {
 
     @Test
     void testDataManagerStoreSegment() throws Exception {
-        RemoteTier dataManager = createDfsDataManager();
+        RemoteTier dataManager = createRemoteTier();
         assertThat(dataManager.canStoreNextSegment(0)).isTrue();
     }
 
-    private RemoteTier createDfsDataManager() throws IOException {
-        int bufferSize = Integer.BYTES * 3;
-        int poolSize = 10;
-        NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
-        BufferPool bufferPool = networkBufferPool.createBufferPool(poolSize, poolSize);
+    private RemoteTier createRemoteTier() throws IOException {
+        NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, BUFFER_SIZE);
+        BufferPool bufferPool = networkBufferPool.createBufferPool(NUM_BUFFERS, NUM_BUFFERS);
         TieredStoreMemoryManager tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(
                         bufferPool,
                         getTierExclusiveBuffers(),
                         NUM_SUBPARTITIONS,
                         new CacheFlushManager());
+
         return new RemoteTier(
                 NUM_SUBPARTITIONS,
                 1024,
@@ -73,7 +77,15 @@ class RemoteTierTest {
                 new CacheFlushManager(),
                 false,
                 null,
-                null);
+                new PartitionFileManagerImpl(
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        NUM_SUBPARTITIONS,
+                        JobID.generate(),
+                        new ResultPartitionID(),
+                        tmpFolder.getRoot().getPath()));
     }
-    // tmpFolder.getRoot().getPath(),
 }

@@ -71,7 +71,7 @@ class RemoteDiskCacheManagerTest {
                         NUM_SUBPARTITIONS,
                         JobID.generate(),
                         new ResultPartitionID(),
-                        tmpFolder.newFolder().getPath());
+                        tmpFolder.getRoot().getPath());
     }
 
     @Test
