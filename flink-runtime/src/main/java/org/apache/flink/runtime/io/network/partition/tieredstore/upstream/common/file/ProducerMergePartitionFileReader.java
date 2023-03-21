@@ -9,7 +9,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.Tiered
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskReaderManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
@@ -42,10 +41,10 @@ import java.util.concurrent.TimeoutException;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** THe implementation of {@link PartitionFileReader} with merged logic. */
-public class ProducerMergePartitionFileReader implements Runnable, BufferRecycler, PartitionFileReader {
+/** THe implementation of {@link org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileReader} with merged logic. */
+public class ProducerMergePartitionFileReader implements Runnable, BufferRecycler, org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileReader {
 
-    private static final Logger LOG = LoggerFactory.getLogger(DiskReaderManager.class);
+    private static final Logger LOG = LoggerFactory.getLogger(PartitionFileReader.class);
 
     /** Executor to run the shuffle data reading task. */
     private final ScheduledExecutorService ioExecutor;
@@ -165,7 +164,7 @@ public class ProducerMergePartitionFileReader implements Runnable, BufferRecycle
     }
 
     /**
-     * Release specific {@link DiskTierReader} from {@link DiskReaderManager}.
+     * Release specific {@link DiskTierReader} from {@link PartitionFileReader}.
      *
      * @param diskTierReaderView to release.
      */
