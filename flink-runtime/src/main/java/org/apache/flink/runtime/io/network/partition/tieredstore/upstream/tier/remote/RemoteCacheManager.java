@@ -105,8 +105,7 @@ public class RemoteCacheManager {
         }
     }
 
-    public void appendBuffer(
-            Buffer finishedBuffer, int targetChannel, boolean isLastBufferInSegment) {
+    public void appendBuffer(Buffer finishedBuffer, int targetChannel) {
         getSubpartitionCacheDataManager(targetChannel).addFinishedBuffer(finishedBuffer);
     }
 

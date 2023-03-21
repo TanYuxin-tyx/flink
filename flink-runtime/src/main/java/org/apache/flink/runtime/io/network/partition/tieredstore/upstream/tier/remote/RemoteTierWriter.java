@@ -65,7 +65,8 @@ public class RemoteTierWriter implements TierWriter {
             throws IOException {
         boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.readableBytes();
-        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
+        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment
+                || isEndOfPartition) {
             isLastBufferInSegment = true;
             numSubpartitionEmitBytes[targetSubpartition] = 0;
         }
@@ -74,17 +75,16 @@ public class RemoteTierWriter implements TierWriter {
             segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
             cacheDataManager.startSegment(targetSubpartition, segmentId);
         }
-        emitBuffer(finishedBuffer, targetSubpartition, isLastBufferInSegment);
-        if (isLastBufferInSegment || isEndOfPartition) {
+        emitBuffer(finishedBuffer, targetSubpartition);
+        if (isLastBufferInSegment) {
             cacheDataManager.finishSegment(targetSubpartition, segmentId);
         }
 
         return isLastBufferInSegment;
     }
 
-    private void emitBuffer(
-            Buffer finishedBuffer, int targetSubpartition, boolean isLastBufferInSegment) {
-        cacheDataManager.appendBuffer(finishedBuffer, targetSubpartition, isLastBufferInSegment);
+    private void emitBuffer(Buffer finishedBuffer, int targetSubpartition) {
+        cacheDataManager.appendBuffer(finishedBuffer, targetSubpartition);
     }
 
     @Override

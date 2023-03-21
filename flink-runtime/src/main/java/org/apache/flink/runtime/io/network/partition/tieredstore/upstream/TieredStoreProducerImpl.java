@@ -25,12 +25,14 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.CachedBufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.MemoryTier;
+import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,7 +85,11 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         this.numSubpartitions = numSubpartitions;
         this.bufferAccumulator =
                 new BufferAccumulator(
-                        numSubpartitions, bufferSize, bufferCompressor, storeMemoryManager, this);
+                        numSubpartitions,
+                        bufferSize,
+                        bufferCompressor,
+                        storeMemoryManager,
+                        this::notifyFinishedBuffer);
 
         Arrays.fill(subpartitionSegmentIndexes, 0);
         Arrays.fill(subpartitionWriterIndex, -1);
@@ -156,7 +162,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(targetSubpartition);
             subpartitionWriterIndex[targetSubpartition] = tierIndex;
-            subpartitionSegmentIndexes[targetSubpartition] = (segmentIndex + 1);
+            subpartitionSegmentIndexes[targetSubpartition] = segmentIndex + 1;
         }
     }
 
@@ -305,6 +311,18 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     public void onSubpartitionAllDataProcessed(int subpartition) {
         for (StorageTier storageTier : storageTiers) {
             storageTier.onSubpartitionAllDataProcessed(subpartition);
+        }
+    }
+
+    private void notifyFinishedBuffer(CachedBufferContext bufferContext) {
+        try {
+            emitBuffers(
+                    bufferContext.getTargetChannel(),
+                    bufferContext.getBuffers(),
+                    bufferContext.isBroadcast(),
+                    bufferContext.isEndOfPartition());
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e);
         }
     }
 }

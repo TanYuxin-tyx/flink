@@ -105,6 +105,16 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     }
 
     @Override
+    public MemorySegment requestMemorySegment(TieredStoreMode.TieredType tieredType) {
+        MemorySegment requestedBuffer = bufferPool.requestMemorySegment();
+        if (requestedBuffer != null) {
+            incRequestedBufferCounter(tieredType);
+            checkNeedTriggerFlushCachedBuffers();
+        }
+        return requestedBuffer;
+    }
+
+    @Override
     public int getNetworkBufferPoolAvailableBuffers() {
         return bufferPool.getNetworkBufferPoolAvailableBuffers();
     }
@@ -115,6 +125,13 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     }
 
     @Override
+    public void checkNeedTriggerFlushCachedBuffers() {
+        if (needFlushCacheBuffers(this)) {
+            cacheFlushManager.triggerFlushCachedBuffers();
+        }
+    }
+
+    @Override
     public void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TieredType tieredType) {
         bufferPool.recycle(memorySegment);
         decRequestedBufferCounter(tieredType);
@@ -122,12 +139,6 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     @Override
     public void close() {}
-
-    private void checkNeedTriggerFlushCachedBuffers() {
-        if (needFlushCacheBuffers(this)) {
-            cacheFlushManager.triggerFlushCachedBuffers();
-        }
-    }
 
     private void incRequestedBufferCounter(TieredStoreMode.TieredType tieredType) {
         numRequestedBuffers.getAndIncrement();

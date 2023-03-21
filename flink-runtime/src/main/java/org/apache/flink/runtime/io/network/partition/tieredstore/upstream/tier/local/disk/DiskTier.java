@@ -165,6 +165,9 @@ public class DiskTier implements TierWriter, StorageTier {
         } else {
             emitBuffer(finishedBuffer, targetSubpartition, isLastBufferInSegment);
         }
+        if (isEndOfPartition) {
+            cacheFlushManager.triggerFlushCachedBuffers();
+        }
         return isLastBufferInSegment;
     }
 

@@ -18,16 +18,28 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache;
 
-import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
+import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
 
-public interface CacheBufferOperation {
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
-    /**
-     * Get the current size of buffer pool. *
-     *
-     * <p>/** Request buffer from buffer pool.
-     *
-     * @return requested buffer.
-     */
-    BufferBuilder requestBufferFromPool() throws InterruptedException;
+public interface CacheBuffer {
+
+    boolean append(
+            ByteBuffer record,
+            int targetChannel,
+            Buffer.DataType dataType,
+            boolean isBroadcast,
+            boolean isEndOfPartition)
+            throws IOException;
+
+    BufferWithChannel getNextBuffer(MemorySegment transitBuffer);
+
+    BufferWithChannel getNextBuffer(
+            MemorySegment target, int targetChannel, BufferRecycler recycler);
+
+    void finish();
 }

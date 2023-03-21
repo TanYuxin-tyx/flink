@@ -26,7 +26,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.SubpartitionDiskCacheManager;
 
 import org.slf4j.Logger;
@@ -40,6 +39,8 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -51,9 +52,9 @@ public class SubpartitionCachedBuffer {
 
     private final int bufferSize;
 
-    private final CacheBufferOperation cacheBufferOperation;
+    private final Supplier<BufferBuilder> bufferRequestSupplier;
 
-    private final TieredStoreProducer storeProducer;
+    private final Consumer<CachedBufferContext> finishedBufferListener;
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
@@ -64,12 +65,12 @@ public class SubpartitionCachedBuffer {
             int targetChannel,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
-            TieredStoreProducer storeProducer,
-            CacheBufferOperation cacheBufferOperation) {
+            Consumer<CachedBufferContext> finishedBufferListener,
+            Supplier<BufferBuilder> bufferRequestSupplier) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
-        this.cacheBufferOperation = cacheBufferOperation;
-        this.storeProducer = storeProducer;
+        this.bufferRequestSupplier = bufferRequestSupplier;
+        this.finishedBufferListener = finishedBufferListener;
         this.bufferCompressor = bufferCompressor;
     }
 
@@ -125,7 +126,7 @@ public class SubpartitionCachedBuffer {
         writeRecord(record, isBroadcast, isEndOfPartition);
     }
 
-    private void ensureCapacityForRecord(ByteBuffer record) throws InterruptedException {
+    private void ensureCapacityForRecord(ByteBuffer record) {
         final int numRecordBytes = record.remaining();
         int availableBytes =
                 Optional.ofNullable(unfinishedBuffers.peek())
@@ -137,7 +138,7 @@ public class SubpartitionCachedBuffer {
 
         while (availableBytes < numRecordBytes) {
             // request unfinished buffer.
-            BufferBuilder bufferBuilder = cacheBufferOperation.requestBufferFromPool();
+            BufferBuilder bufferBuilder = bufferRequestSupplier.get();
             unfinishedBuffers.add(bufferBuilder);
             availableBytes += bufferSize;
         }
@@ -197,9 +198,12 @@ public class SubpartitionCachedBuffer {
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    private void addFinishedBuffer(Buffer buffer, boolean isBroadcast, boolean isEndOfPartition)
-            throws IOException {
-        storeProducer.emitBuffers(
-                targetChannel, Collections.singletonList(buffer), isBroadcast, isEndOfPartition);
+    private void addFinishedBuffer(Buffer buffer, boolean isBroadcast, boolean isEndOfPartition) {
+        finishedBufferListener.accept(
+                new CachedBufferContext(
+                        targetChannel,
+                        Collections.singletonList(buffer),
+                        isBroadcast,
+                        isEndOfPartition));
     }
 }

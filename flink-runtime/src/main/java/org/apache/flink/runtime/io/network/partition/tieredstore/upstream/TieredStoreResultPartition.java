@@ -56,6 +56,9 @@ import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.function.SupplierWithException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -76,6 +79,8 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** ResultPartition for TieredStore. */
 public class TieredStoreResultPartition extends ResultPartition implements ChannelStateHolder {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TieredStoreResultPartition.class);
 
     public final Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers;
 
@@ -360,6 +365,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
             } else {
                 broadcast(serializedEvent, buffer.getDataType(), false);
             }
+        } catch (Throwable throwable) {
+            LOG.error("Failed to broadcast event.", throwable);
         } finally {
             buffer.recycleBuffer();
         }

@@ -36,6 +36,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
+import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -145,7 +146,8 @@ public class SubpartitionRemoteCacheManager {
             spillDoneFuture.get();
             checkFlushCacheBuffers(tieredStoreMemoryManager, this::flushCachedBuffers);
         } catch (Exception e) {
-            LOG.debug("Failed to finish the segment.", e);
+            LOG.error("Failed to finish the segment.", e);
+            ExceptionUtils.rethrow(e);
         }
         cacheBufferSpiller.finishSegment(segmentIndex);
         checkState(allBuffers.isEmpty(), "Leaking finished buffers.");

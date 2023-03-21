@@ -22,14 +22,16 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.function.Consumer;
 
-public class HashBasedCachedBuffer implements CacheBufferOperation {
+public class HashBasedCachedBuffer implements CacheBuffer {
     private final SubpartitionCachedBuffer[] subpartitionCachedBuffers;
 
     private final TieredStoreMemoryManager storeMemoryManager;
@@ -39,18 +41,23 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
             int bufferSize,
             BufferCompressor bufferCompressor,
             TieredStoreMemoryManager storeMemoryManager,
-            TieredStoreProducer storeProducer) {
+            Consumer<CachedBufferContext> finishedBufferListener) {
         this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numSubpartitions];
         this.storeMemoryManager = storeMemoryManager;
 
         for (int i = 0; i < numSubpartitions; i++) {
             subpartitionCachedBuffers[i] =
                     new SubpartitionCachedBuffer(
-                            i, bufferSize, bufferCompressor, storeProducer, this);
+                            i,
+                            bufferSize,
+                            bufferCompressor,
+                            finishedBufferListener,
+                            this::requestBufferFromPool);
         }
     }
 
-    public void append(
+    @Override
+    public boolean append(
             ByteBuffer record,
             int targetChannel,
             Buffer.DataType dataType,
@@ -60,13 +67,27 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
         try {
             getSubpartitionCachedBuffer(targetChannel)
                     .append(record, dataType, isBroadcast, isEndOfPartition);
+            return true;
         } catch (InterruptedException e) {
             throw new IOException(e);
         }
     }
 
     @Override
-    public BufferBuilder requestBufferFromPool() throws InterruptedException {
+    public BufferWithChannel getNextBuffer(MemorySegment transitBuffer) {
+        return null;
+    }
+
+    @Override
+    public BufferWithChannel getNextBuffer(
+            MemorySegment target, int targetChannel, BufferRecycler recycler) {
+        return null;
+    }
+
+    @Override
+    public void finish() {}
+
+    private BufferBuilder requestBufferFromPool() {
         MemorySegment segment =
                 storeMemoryManager.requestMemorySegmentBlocking(
                         TieredStoreMode.TieredType.IN_CACHE);
