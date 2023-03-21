@@ -161,10 +161,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
                                                 "Get a non-throwable and non-buffer bufferIndexOrError, which is not allowed"));
         return Optional.of(
                 ResultSubpartition.BufferAndBacklog.fromBufferAndLookahead(
-                        buffer,
-                        nextDataType,
-                        backlog,
-                        bufferIndex));
+                        buffer, nextDataType, backlog, bufferIndex));
     }
 
     @Override
@@ -400,6 +397,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
 
     /** Factory of {@link DiskTierReader}. */
     public static class Factory implements DiskTierReader.Factory {
+
         public static final Factory INSTANCE = new Factory();
 
         private Factory() {}

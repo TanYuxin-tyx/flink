@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.createBaseSubpartitionPath;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.generateBufferWithHeaders;
@@ -91,7 +93,14 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
 
     @Override
     public void release() {
-        ioExecutor.shutdown();
+        try {
+            ioExecutor.shutdown();
+            if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
+                throw new TimeoutException("Shutdown spilling thread timeout.");
+            }
+        } catch (Exception e) {
+            ExceptionUtils.rethrow(e);
+        }
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */

@@ -15,9 +15,9 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
 
     // For Writer PRODUCER_MERGE
 
-    private final Path dataFilePath;
+    private final Path producerMergeShuffleFilePath;
 
-    private final RegionBufferIndexTracker regionBufferIndexTracker;
+    private final RegionBufferIndexTracker producerMergeIndex;
 
     // For Reader PRODUCER_MERGE
 
@@ -31,41 +31,42 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
 
     private final int numSubpartitions;
 
-    private JobID jobID;
+    private final JobID jobID;
 
-    private ResultPartitionID resultPartitionID;
+    private final ResultPartitionID resultPartitionID;
 
-    private String baseShuffleDataPath;
+    private final String hashShuffleDataPath;
 
     public PartitionFileManagerImpl(
-            Path dataFilePath,
-            RegionBufferIndexTracker regionBufferIndexTracker,
+            Path producerMergeShuffleFilePath,
+            RegionBufferIndexTracker producerMergeIndex,
             BatchShuffleReadBufferPool readBufferPool,
             ScheduledExecutorService readIOExecutor,
             TieredStoreConfiguration storeConfiguration,
             int numSubpartitions,
             JobID jobID,
             ResultPartitionID resultPartitionID,
-            String baseShuffleDataPath) {
-        this.dataFilePath = dataFilePath;
-        this.regionBufferIndexTracker = regionBufferIndexTracker;
+            String hashShuffleFilePath) {
+        this.producerMergeShuffleFilePath = producerMergeShuffleFilePath;
+        this.producerMergeIndex = producerMergeIndex;
         this.readBufferPool = readBufferPool;
         this.readIOExecutor = readIOExecutor;
         this.storeConfiguration = storeConfiguration;
         this.numSubpartitions = numSubpartitions;
         this.jobID = jobID;
         this.resultPartitionID = resultPartitionID;
-        this.baseShuffleDataPath = baseShuffleDataPath;
+        this.hashShuffleDataPath = hashShuffleFilePath;
     }
 
     @Override
     public PartitionFileWriter createPartitionFileWriter(PartitionFileType partitionFileType) {
         switch (partitionFileType) {
             case PRODUCER_MERGE:
-                return new ProducerMergePartitionFileWriter(dataFilePath, regionBufferIndexTracker);
+                return new ProducerMergePartitionFileWriter(producerMergeShuffleFilePath,
+                        producerMergeIndex);
             case PRODUCER_HASH:
                 return new HashPartitionFileWriter(
-                        jobID, numSubpartitions, resultPartitionID, baseShuffleDataPath);
+                        jobID, numSubpartitions, resultPartitionID, hashShuffleDataPath);
         }
         throw new UnsupportedOperationException(
                 "PartitionFileManager doesn't support the type of partition file: "
@@ -79,8 +80,8 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
                 return new ProducerMergePartitionFileReader(
                         readBufferPool,
                         readIOExecutor,
-                        regionBufferIndexTracker,
-                        dataFilePath,
+                        producerMergeIndex,
+                        producerMergeShuffleFilePath,
                         DiskTierReaderImpl.Factory.INSTANCE,
                         storeConfiguration);
         }

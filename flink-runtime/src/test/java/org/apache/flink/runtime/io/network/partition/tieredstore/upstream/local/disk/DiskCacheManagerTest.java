@@ -18,14 +18,18 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local.disk;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.SubpartitionDiskCacheManager;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -96,7 +100,16 @@ class DiskCacheManagerTest {
                         tieredStoreMemoryManager,
                         new CacheFlushManager(),
                         null,
-                        null);
+                        new PartitionFileManagerImpl(
+                                dataFilePath,
+                                new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
+                                null,
+                                null,
+                                null,
+                                NUM_SUBPARTITIONS,
+                                JobID.generate(),
+                                new ResultPartitionID(),
+                                null));
         diskCacheManager.setOutputMetrics(TieredStoreTestUtils.createTestingOutputMetrics());
         return diskCacheManager;
     }

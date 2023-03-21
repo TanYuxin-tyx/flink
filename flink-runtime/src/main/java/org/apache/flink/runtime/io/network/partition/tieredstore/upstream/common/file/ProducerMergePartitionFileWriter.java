@@ -35,14 +35,9 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
 
     /** One thread to perform spill operation. */
     private final ExecutorService ioExecutor =
-            Executors.newSingleThreadScheduledExecutor(
+            Executors.newSingleThreadExecutor(
                     new ThreadFactoryBuilder()
-                            .setNameFormat("tiered store merged file spiller")
-                            // It is more appropriate to use task fail over than exit JVM here,
-                            // but the task thread will bring some extra overhead to check the
-                            // exception information set by other thread. As the spiller thread will
-                            // not encounter exceptions in most cases, we temporarily choose the
-                            // form of fatal error to deal except thrown by spiller thread.
+                            .setNameFormat("ProducerMergePartitionFileWriter Spiller")
                             .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
                             .build());
 
