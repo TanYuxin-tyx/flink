@@ -29,9 +29,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.flink.util.function.SupplierWithException;
+import org.apache.flink.util.function.ThrowingRunnable;
 
 import javax.annotation.Nullable;
 
@@ -44,14 +43,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** This class is responsible for managing the data in a single subpartition. */
 public class SubpartitionDiskCacheManager {
-
-    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionDiskCacheManager.class);
 
     private final int targetChannel;
 
@@ -69,6 +68,8 @@ public class SubpartitionDiskCacheManager {
 
     private final Set<Integer> lastBufferIndexOfSegments;
 
+    private final Lock lock;
+
     @Nullable private final BufferCompressor bufferCompressor;
 
     @Nullable private OutputMetrics outputMetrics;
@@ -83,6 +84,7 @@ public class SubpartitionDiskCacheManager {
         this.diskCacheManagerOperation = diskCacheManagerOperation;
         this.bufferCompressor = bufferCompressor;
         this.lastBufferIndexOfSegments = new HashSet<>();
+        this.lock = new ReentrantLock();
     }
 
     // ------------------------------------------------------------------------
@@ -106,9 +108,12 @@ public class SubpartitionDiskCacheManager {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     public List<BufferContext> getBuffersSatisfyStatus() {
-        List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
-        allBuffers.clear();
-        return targetBuffers;
+        return callWithLock(
+                () -> {
+                    List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
+                    allBuffers.clear();
+                    return targetBuffers;
+                });
     }
 
     public void setOutputMetrics(OutputMetrics outputMetrics) {
@@ -225,9 +230,12 @@ public class SubpartitionDiskCacheManager {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     private void addFinishedBuffer(BufferContext bufferContext) {
-        finishedBufferIndex++;
-        allBuffers.add(bufferContext);
-        updateStatistics(bufferContext.getBuffer());
+        runWithLock(
+                () -> {
+                    finishedBufferIndex++;
+                    allBuffers.add(bufferContext);
+                    updateStatistics(bufferContext.getBuffer());
+                });
     }
 
     private void updateStatistics(Buffer buffer) {
@@ -237,6 +245,24 @@ public class SubpartitionDiskCacheManager {
 
     @VisibleForTesting
     public int getFinishedBufferIndex() {
-        return finishedBufferIndex;
+        return callWithLock(() -> finishedBufferIndex);
+    }
+
+    private <E extends Exception> void runWithLock(ThrowingRunnable<E> runnable) throws E {
+        try {
+            lock.lock();
+            runnable.run();
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private <T, R extends Exception> T callWithLock(SupplierWithException<T, R> callable) throws R {
+        try {
+            lock.lock();
+            return callable.get();
+        } finally {
+            lock.unlock();
+        }
     }
 }

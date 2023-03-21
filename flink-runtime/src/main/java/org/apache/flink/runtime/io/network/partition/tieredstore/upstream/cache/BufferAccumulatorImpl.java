@@ -319,7 +319,6 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         for (BufferWithChannel buffer : finishedBuffers) {
             addFinishedBuffer(buffer, isBroadcast, isEndOfPartition);
         }
-        storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
     }
 
     private void addFinishedBuffer(
