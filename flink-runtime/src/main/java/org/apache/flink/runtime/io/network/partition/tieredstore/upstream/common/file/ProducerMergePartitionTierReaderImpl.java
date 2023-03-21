@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk;
+package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexOrError;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -45,11 +46,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * Default implementation of {@link DiskTierReader}.
+ * Default implementation of {@link ProducerMergePartitionTierReader}.
  *
  * <p>Note: This class is not thread safe.
  */
-public class DiskTierReaderImpl implements DiskTierReader {
+public class ProducerMergePartitionTierReaderImpl implements ProducerMergePartitionTierReader {
 
     private final ByteBuffer headerBuf;
 
@@ -67,18 +68,18 @@ public class DiskTierReaderImpl implements DiskTierReader {
 
     private final Deque<BufferIndexOrError> loadedBuffers = new LinkedBlockingDeque<>();
 
-    private final Consumer<DiskTierReader> diskTierReaderReleaser;
+    private final Consumer<ProducerMergePartitionTierReader> diskTierReaderReleaser;
 
     private volatile boolean isFailed;
 
-    public DiskTierReaderImpl(
+    public ProducerMergePartitionTierReaderImpl(
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
             FileChannel dataFileChannel,
             TierReaderView tierReaderView,
             RegionBufferIndexTracker dataIndex,
             int maxBufferReadAhead,
-            Consumer<DiskTierReader> diskTierReaderReleaser,
+            Consumer<ProducerMergePartitionTierReader> diskTierReaderReleaser,
             ByteBuffer headerBuf) {
         this.subpartitionId = subpartitionId;
         this.tierReaderViewId = tierReaderViewId;
@@ -209,7 +210,7 @@ public class DiskTierReaderImpl implements DiskTierReader {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        DiskTierReaderImpl that = (DiskTierReaderImpl) o;
+        ProducerMergePartitionTierReaderImpl that = (ProducerMergePartitionTierReaderImpl) o;
         return subpartitionId == that.subpartitionId
                 && Objects.equals(tierReaderViewId, that.tierReaderViewId);
     }
@@ -220,10 +221,10 @@ public class DiskTierReaderImpl implements DiskTierReader {
     }
 
     @Override
-    public int compareTo(DiskTierReader that) {
-        checkArgument(that instanceof DiskTierReaderImpl);
+    public int compareTo(ProducerMergePartitionTierReader that) {
+        checkArgument(that instanceof ProducerMergePartitionTierReaderImpl);
         return Long.compare(
-                getNextOffsetToLoad(), ((DiskTierReaderImpl) that).getNextOffsetToLoad());
+                getNextOffsetToLoad(), ((ProducerMergePartitionTierReaderImpl) that).getNextOffsetToLoad());
     }
 
     @Override
@@ -395,24 +396,24 @@ public class DiskTierReaderImpl implements DiskTierReader {
         }
     }
 
-    /** Factory of {@link DiskTierReader}. */
-    public static class Factory implements DiskTierReader.Factory {
+    /** Factory of {@link ProducerMergePartitionTierReader}. */
+    public static class Factory implements ProducerMergePartitionTierReader.Factory {
 
         public static final Factory INSTANCE = new Factory();
 
         private Factory() {}
 
         @Override
-        public DiskTierReader createFileReader(
+        public ProducerMergePartitionTierReader createFileReader(
                 int subpartitionId,
                 TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
                 TierReaderView tierReaderView,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
-                Consumer<DiskTierReader> fileReaderReleaser,
+                Consumer<ProducerMergePartitionTierReader> fileReaderReleaser,
                 ByteBuffer headerBuffer) {
-            return new DiskTierReaderImpl(
+            return new ProducerMergePartitionTierReaderImpl(
                     subpartitionId,
                     tierReaderViewId,
                     dataFileChannel,

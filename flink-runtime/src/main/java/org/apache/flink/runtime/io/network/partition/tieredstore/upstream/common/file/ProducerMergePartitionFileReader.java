@@ -9,7 +9,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.Tiered
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
@@ -42,9 +41,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** THe implementation of {@link org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileReader} with merged logic. */
-public class ProducerMergePartitionFileReader implements Runnable, BufferRecycler, org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileReader {
+public class ProducerMergePartitionFileReader implements Runnable, BufferRecycler, PartitionFileReader {
 
-    private static final Logger LOG = LoggerFactory.getLogger(PartitionFileReader.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ProducerMergePartitionFileReader.class);
 
     /** Executor to run the shuffle data reading task. */
     private final ScheduledExecutorService ioExecutor;
@@ -75,7 +74,7 @@ public class ProducerMergePartitionFileReader implements Runnable, BufferRecycle
 
     private final RegionBufferIndexTracker dataIndex;
 
-    private final DiskTierReader.Factory fileReaderFactory;
+    private final ProducerMergePartitionTierReader.Factory fileReaderFactory;
 
     private final TieredStoreConfiguration storeConfiguration;
 
@@ -83,7 +82,7 @@ public class ProducerMergePartitionFileReader implements Runnable, BufferRecycle
 
     /** All readers waiting to read data of different subpartitions. */
     @GuardedBy("lock")
-    private final Set<DiskTierReader> allReaders = new HashSet<>();
+    private final Set<ProducerMergePartitionTierReader> allReaders = new HashSet<>();
 
     /**
      * Whether the data reading task is currently running or not. This flag is used when trying to
@@ -108,7 +107,7 @@ public class ProducerMergePartitionFileReader implements Runnable, BufferRecycle
             ScheduledExecutorService ioExecutor,
             RegionBufferIndexTracker dataIndex,
             Path dataFilePath,
-            DiskTierReader.Factory fileReaderFactory,
+            ProducerMergePartitionTierReader.Factory fileReaderFactory,
             TieredStoreConfiguration storeConfiguration) {
         this.fileReaderFactory = fileReaderFactory;
         this.storeConfiguration = checkNotNull(storeConfiguration);
@@ -134,14 +133,14 @@ public class ProducerMergePartitionFileReader implements Runnable, BufferRecycle
     }
 
     /** This method only called by result partition to create subpartitionFileReader. */
-    public TierReader registerNewConsumer(
+    public TierReader registerTierReader(
             int subpartitionId, TierReaderViewId tierReaderViewId, TierReaderView tierReaderView)
             throws IOException {
         synchronized (lock) {
             checkState(!isReleased, "HsFileDataManager is already released.");
             lazyInitialize();
 
-            DiskTierReader subpartitionReader =
+            ProducerMergePartitionTierReader subpartitionReader =
                     fileReaderFactory.createFileReader(
                             subpartitionId,
                             tierReaderViewId,
@@ -164,13 +163,13 @@ public class ProducerMergePartitionFileReader implements Runnable, BufferRecycle
     }
 
     /**
-     * Release specific {@link DiskTierReader} from {@link PartitionFileReader}.
+     * Release specific {@link ProducerMergePartitionTierReader} from {@link PartitionFileReader}.
      *
-     * @param diskTierReaderView to release.
+     * @param producerMergePartitionTierReaderView to release.
      */
-    public void releaseSubpartitionReader(DiskTierReader diskTierReaderView) {
+    public void releaseSubpartitionReader(ProducerMergePartitionTierReader producerMergePartitionTierReaderView) {
         synchronized (lock) {
-            removeSubpartitionReaders(Collections.singleton(diskTierReaderView));
+            removeSubpartitionReaders(Collections.singleton(producerMergePartitionTierReaderView));
         }
     }
 
@@ -193,7 +192,7 @@ public class ProducerMergePartitionFileReader implements Runnable, BufferRecycle
 
     /** @return number of buffers read. */
     private int tryRead() {
-        List<DiskTierReader> availableReaders = prepareAndGetAvailableReaders();
+        List<ProducerMergePartitionTierReader> availableReaders = prepareAndGetAvailableReaders();
         if (availableReaders.isEmpty()) {
             return 0;
         }
@@ -302,13 +301,13 @@ public class ProducerMergePartitionFileReader implements Runnable, BufferRecycle
         }
     }
 
-    private List<DiskTierReader> prepareAndGetAvailableReaders() {
+    private List<ProducerMergePartitionTierReader> prepareAndGetAvailableReaders() {
         synchronized (lock) {
             if (isReleased) {
                 return new ArrayList<>();
             }
-            List<DiskTierReader> availableReaders = new ArrayList<>();
-            for (DiskTierReader reader : allReaders) {
+            List<ProducerMergePartitionTierReader> availableReaders = new ArrayList<>();
+            for (ProducerMergePartitionTierReader reader : allReaders) {
                 reader.prepareForScheduling();
                 availableReaders.add(reader);
             }
@@ -317,10 +316,10 @@ public class ProducerMergePartitionFileReader implements Runnable, BufferRecycle
         }
     }
 
-    private void readData(List<DiskTierReader> availableReaders, Queue<MemorySegment> buffers) {
+    private void readData(List<ProducerMergePartitionTierReader> availableReaders, Queue<MemorySegment> buffers) {
         int startIndex = 0;
         while (startIndex < availableReaders.size() && !buffers.isEmpty()) {
-            DiskTierReader subpartitionReader = availableReaders.get(startIndex);
+            ProducerMergePartitionTierReader subpartitionReader = availableReaders.get(startIndex);
             startIndex++;
             try {
                 subpartitionReader.readBuffers(buffers, this);
@@ -332,18 +331,18 @@ public class ProducerMergePartitionFileReader implements Runnable, BufferRecycle
     }
 
     private void failSubpartitionReaders(
-            Collection<DiskTierReader> readers, Throwable failureCause) {
+            Collection<ProducerMergePartitionTierReader> readers, Throwable failureCause) {
         synchronized (lock) {
             removeSubpartitionReaders(readers);
         }
 
-        for (DiskTierReader reader : readers) {
+        for (ProducerMergePartitionTierReader reader : readers) {
             reader.fail(failureCause);
         }
     }
 
     @GuardedBy("lock")
-    private void removeSubpartitionReaders(Collection<DiskTierReader> readers) {
+    private void removeSubpartitionReaders(Collection<ProducerMergePartitionTierReader> readers) {
         allReaders.removeAll(readers);
         if (allReaders.isEmpty()) {
             bufferPool.unregisterRequester(this);

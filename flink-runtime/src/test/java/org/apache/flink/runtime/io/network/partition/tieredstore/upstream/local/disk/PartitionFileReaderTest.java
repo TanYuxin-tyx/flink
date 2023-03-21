@@ -30,7 +30,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.ProducerMergePartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTierReader;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.ProducerMergePartitionTierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.util.function.BiConsumerWithException;
@@ -86,7 +86,7 @@ class PartitionFileReaderTest {
 
     private TierReaderView tierReaderView;
 
-    private TestingDiskTierReader.Factory factory;
+    private TestingProducerMergePartitionTierReader.Factory factory;
 
     @BeforeEach
     void before(@TempDir Path tempDir) throws IOException {
@@ -96,7 +96,7 @@ class PartitionFileReaderTest {
         ioExecutor = new ManuallyTriggeredScheduledExecutorService();
         dataFilePath = Files.createFile(tempDir.resolve(".data"));
         dataFileChannel = openFileChannel(dataFilePath);
-        factory = new TestingDiskTierReader.Factory();
+        factory = new TestingProducerMergePartitionTierReader.Factory();
         tierReaderView = new TierReaderViewImpl(new NoOpBufferAvailablityListener());
     }
 
@@ -111,12 +111,12 @@ class PartitionFileReaderTest {
     @Test
     void testProducerMergePartitionFileReaderRegisterNewConsumer() throws Exception {
         partitionFileReader = createProducerMergePartitionFileReader();
-        TestingDiskTierReader reader = new TestingDiskTierReader();
+        TestingProducerMergePartitionTierReader reader = new TestingProducerMergePartitionTierReader();
         reader.setReadBuffersConsumer(
                 (requestedBuffers, readBuffers) -> readBuffers.addAll(requestedBuffers));
         factory.allReaders.add(reader);
         assertThat(reader.readBuffers).isEmpty();
-        partitionFileReader.registerNewConsumer(0, TierReaderViewId.DEFAULT, tierReaderView);
+        partitionFileReader.registerTierReader(0, TierReaderViewId.DEFAULT, tierReaderView);
         ioExecutor.trigger();
         assertThat(reader.readBuffers).hasSize(BUFFER_POOL_SIZE);
     }
@@ -124,7 +124,7 @@ class PartitionFileReaderTest {
     @Test
     void testBufferReleasedTriggerRun() throws Exception {
         partitionFileReader = createProducerMergePartitionFileReader();
-        TestingDiskTierReader reader = new TestingDiskTierReader();
+        TestingProducerMergePartitionTierReader reader = new TestingProducerMergePartitionTierReader();
         reader.setReadBuffersConsumer(
                 (requestedBuffer, readBuffers) -> {
                     while (!requestedBuffer.isEmpty()) {
@@ -132,7 +132,7 @@ class PartitionFileReaderTest {
                     }
                 });
         factory.allReaders.add(reader);
-        partitionFileReader.registerNewConsumer(0, TierReaderViewId.DEFAULT, tierReaderView);
+        partitionFileReader.registerTierReader(0, TierReaderViewId.DEFAULT, tierReaderView);
         ioExecutor.trigger();
         assertThat(reader.readBuffers).hasSize(BUFFER_POOL_SIZE);
         assertThat(bufferPool.getAvailableBuffers()).isZero();
@@ -147,7 +147,7 @@ class PartitionFileReaderTest {
     @Test
     void testRunReleaseUnusedBuffers() throws Exception {
         partitionFileReader = createProducerMergePartitionFileReader();
-        TestingDiskTierReader reader = new TestingDiskTierReader();
+        TestingProducerMergePartitionTierReader reader = new TestingProducerMergePartitionTierReader();
         CompletableFuture<Void> prepareForSchedulingFinished = new CompletableFuture<>();
         reader.setPrepareForSchedulingRunnable(() -> prepareForSchedulingFinished.complete(null));
         reader.setReadBuffersConsumer(
@@ -159,7 +159,7 @@ class PartitionFileReaderTest {
                     readBuffers.add(requestedBuffers.poll());
                 });
         factory.allReaders.add(reader);
-        partitionFileReader.registerNewConsumer(0, TierReaderViewId.DEFAULT, tierReaderView);
+        partitionFileReader.registerTierReader(0, TierReaderViewId.DEFAULT, tierReaderView);
         ioExecutor.trigger();
         // not used buffer should be recycled.
         assertThat(bufferPool.getAvailableBuffers()).isEqualTo(1);
@@ -169,8 +169,8 @@ class PartitionFileReaderTest {
     @Test
     void testScheduleReadersOrdered() throws Exception {
         partitionFileReader = createProducerMergePartitionFileReader();
-        TestingDiskTierReader reader1 = new TestingDiskTierReader();
-        TestingDiskTierReader reader2 = new TestingDiskTierReader();
+        TestingProducerMergePartitionTierReader reader1 = new TestingProducerMergePartitionTierReader();
+        TestingProducerMergePartitionTierReader reader2 = new TestingProducerMergePartitionTierReader();
         CompletableFuture<Void> readBuffersFinished1 = new CompletableFuture<>();
         CompletableFuture<Void> readBuffersFinished2 = new CompletableFuture<>();
         reader1.setReadBuffersConsumer(
@@ -187,8 +187,8 @@ class PartitionFileReaderTest {
         reader2.setPriority(2);
         factory.allReaders.add(reader1);
         factory.allReaders.add(reader2);
-        partitionFileReader.registerNewConsumer(0, TierReaderViewId.DEFAULT, tierReaderView);
-        partitionFileReader.registerNewConsumer(1, TierReaderViewId.DEFAULT, tierReaderView);
+        partitionFileReader.registerTierReader(0, TierReaderViewId.DEFAULT, tierReaderView);
+        partitionFileReader.registerTierReader(1, TierReaderViewId.DEFAULT, tierReaderView);
         // trigger run.
         ioExecutor.trigger();
         assertThat(readBuffersFinished2).isCompleted();
@@ -210,13 +210,13 @@ class PartitionFileReaderTest {
         // request all buffer first.
         bufferPool.requestBuffers();
         assertThat(bufferPool.getAvailableBuffers()).isZero();
-        TestingDiskTierReader reader = new TestingDiskTierReader();
+        TestingProducerMergePartitionTierReader reader = new TestingProducerMergePartitionTierReader();
         CompletableFuture<Void> prepareForSchedulingFinished = new CompletableFuture<>();
         CompletableFuture<Throwable> cause = new CompletableFuture<>();
         reader.setPrepareForSchedulingRunnable(() -> prepareForSchedulingFinished.complete(null));
         reader.setFailConsumer((cause::complete));
         factory.allReaders.add(reader);
-        partitionFileReader.registerNewConsumer(0, TierReaderViewId.DEFAULT, tierReaderView);
+        partitionFileReader.registerTierReader(0, TierReaderViewId.DEFAULT, tierReaderView);
         ioExecutor.trigger();
         assertThat(prepareForSchedulingFinished).isCompleted();
         assertThat(cause).isCompleted();
@@ -228,7 +228,7 @@ class PartitionFileReaderTest {
     @Test
     void testRunReadBuffersThrowException() throws Exception {
         partitionFileReader = createProducerMergePartitionFileReader();
-        TestingDiskTierReader reader = new TestingDiskTierReader();
+        TestingProducerMergePartitionTierReader reader = new TestingProducerMergePartitionTierReader();
         CompletableFuture<Throwable> cause = new CompletableFuture<>();
         reader.setFailConsumer((cause::complete));
         reader.setReadBuffersConsumer(
@@ -236,7 +236,7 @@ class PartitionFileReaderTest {
                     throw new IOException("expected exception.");
                 });
         factory.allReaders.add(reader);
-        partitionFileReader.registerNewConsumer(0, TierReaderViewId.DEFAULT, tierReaderView);
+        partitionFileReader.registerTierReader(0, TierReaderViewId.DEFAULT, tierReaderView);
         ioExecutor.trigger();
         assertThat(cause).isCompleted();
         assertThat(cause.get())
@@ -247,12 +247,12 @@ class PartitionFileReaderTest {
     @Test
     void testRegisterSubpartitionReaderAfterReleased() {
         partitionFileReader = createProducerMergePartitionFileReader();
-        TestingDiskTierReader reader = new TestingDiskTierReader();
+        TestingProducerMergePartitionTierReader reader = new TestingProducerMergePartitionTierReader();
         factory.allReaders.add(reader);
         partitionFileReader.release();
         assertThatThrownBy(
                         () -> {
-                            partitionFileReader.registerNewConsumer(
+                            partitionFileReader.registerTierReader(
                                     0, TierReaderViewId.DEFAULT, tierReaderView);
                             ioExecutor.trigger();
                         })
@@ -276,7 +276,7 @@ class PartitionFileReaderTest {
         return FileChannel.open(path, StandardOpenOption.READ);
     }
 
-    private static class TestingDiskTierReader implements DiskTierReader {
+    private static class TestingProducerMergePartitionTierReader implements ProducerMergePartitionTierReader {
 
         private Runnable prepareForSchedulingRunnable = () -> {};
 
@@ -291,7 +291,7 @@ class PartitionFileReaderTest {
 
         private int priority;
 
-        private TestingDiskTierReader() {
+        private TestingProducerMergePartitionTierReader() {
             this.readBuffers = new ArrayDeque<>();
         }
 
@@ -317,9 +317,9 @@ class PartitionFileReaderTest {
         }
 
         @Override
-        public int compareTo(DiskTierReader that) {
-            checkArgument(that instanceof TestingDiskTierReader);
-            return Integer.compare(priority, ((TestingDiskTierReader) that).priority);
+        public int compareTo(ProducerMergePartitionTierReader that) {
+            checkArgument(that instanceof TestingProducerMergePartitionTierReader);
+            return Integer.compare(priority, ((TestingProducerMergePartitionTierReader) that).priority);
         }
 
         public void setPriority(int priority) {
@@ -355,18 +355,18 @@ class PartitionFileReaderTest {
             return 0;
         }
 
-        private static class Factory implements DiskTierReader.Factory {
-            private final Queue<DiskTierReader> allReaders = new ArrayDeque<>();
+        private static class Factory implements ProducerMergePartitionTierReader.Factory {
+            private final Queue<ProducerMergePartitionTierReader> allReaders = new ArrayDeque<>();
 
             @Override
-            public DiskTierReader createFileReader(
+            public ProducerMergePartitionTierReader createFileReader(
                     int subpartitionId,
                     TierReaderViewId tierReaderViewId,
                     FileChannel dataFileChannel,
                     TierReaderView tierReaderView,
                     RegionBufferIndexTracker dataIndex,
                     int maxBuffersReadAhead,
-                    Consumer<DiskTierReader> fileReaderReleaser,
+                    Consumer<ProducerMergePartitionTierReader> fileReaderReleaser,
                     ByteBuffer headerBuffer) {
                 return checkNotNull(allReaders.poll());
             }

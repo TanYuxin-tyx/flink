@@ -212,7 +212,7 @@ public class DiskTier implements TierWriter, StorageTier {
         TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
         lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
         TierReader diskReader =
-                partitionFileReader.registerNewConsumer(
+                partitionFileReader.registerTierReader(
                         subpartitionId, tierReaderViewId, diskTierReaderView);
         diskTierReaderView.setTierReader(diskReader);
         return diskTierReaderView;
