@@ -4,7 +4,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTierReaderImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 
 import java.nio.file.Path;
@@ -82,7 +81,7 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
                         readIOExecutor,
                         producerMergeIndex,
                         producerMergeShuffleFilePath,
-                        DiskTierReaderImpl.Factory.INSTANCE,
+                        ProducerMergePartitionTierReaderImpl.Factory.INSTANCE,
                         storeConfiguration);
         }
         throw new UnsupportedOperationException(

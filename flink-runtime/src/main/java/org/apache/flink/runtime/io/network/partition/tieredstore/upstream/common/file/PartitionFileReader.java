@@ -12,7 +12,7 @@ import java.io.IOException;
  */
 public interface PartitionFileReader {
 
-    TierReader registerNewConsumer(
+    TierReader registerTierReader(
             int subpartitionId, TierReaderViewId tierReaderViewId, TierReaderView tierReaderView)
             throws IOException;
 
