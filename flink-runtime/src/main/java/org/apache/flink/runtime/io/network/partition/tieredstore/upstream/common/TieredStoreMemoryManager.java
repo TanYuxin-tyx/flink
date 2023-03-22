@@ -34,6 +34,8 @@ public interface TieredStoreMemoryManager {
 
     int numTotalBuffers();
 
+    int numRequiredMemorySegments();
+
     MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TieredType tieredType);
 
     MemorySegment requestMemorySegment(TieredStoreMode.TieredType tieredType);

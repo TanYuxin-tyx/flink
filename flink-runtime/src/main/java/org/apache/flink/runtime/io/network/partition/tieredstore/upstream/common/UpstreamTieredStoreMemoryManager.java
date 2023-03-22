@@ -87,6 +87,11 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     }
 
     @Override
+    public int numRequiredMemorySegments() {
+        return bufferPool.getNumberOfRequiredMemorySegments();
+    }
+
+    @Override
     public int numRequestedBuffers() {
         return numRequestedBuffers.get();
     }

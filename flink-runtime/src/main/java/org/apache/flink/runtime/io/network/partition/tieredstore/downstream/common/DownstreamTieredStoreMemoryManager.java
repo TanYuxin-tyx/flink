@@ -44,6 +44,11 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
+    public int numRequiredMemorySegments() {
+        return localBufferPool.getNumberOfRequiredMemorySegments();
+    }
+
+    @Override
     public MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TieredType tieredType) {
         try {
             return localBufferPool.requestMemorySegmentBlocking();

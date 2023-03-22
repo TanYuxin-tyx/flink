@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache;
 
+import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
@@ -43,8 +44,6 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     private static final int NUM_WRITE_BUFFER_BYTES = 4 * 1024 * 1024;
 
     private static final int EXPECTED_WRITE_BATCH_SIZE = 64;
-
-    private int numRequiredBuffer = 128;
 
     private final int numSubpartitions;
 
@@ -120,7 +119,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         releaseDataBuffer(broadcastDataBuffer);
     }
 
-    private DataBuffer getUnicastDataBuffer() {
+    private DataBuffer getUnicastDataBuffer() throws IOException {
         flushBroadcastDataBuffer();
 
         if (unicastDataBuffer != null
@@ -133,7 +132,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         return unicastDataBuffer;
     }
 
-    private DataBuffer getBroadcastDataBuffer() {
+    private DataBuffer getBroadcastDataBuffer() throws IOException {
         flushUnicastDataBuffer();
 
         if (broadcastDataBuffer != null
@@ -146,7 +145,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         return broadcastDataBuffer;
     }
 
-    private DataBuffer createNewDataBuffer() {
+    private DataBuffer createNewDataBuffer() throws IOException {
         requestNetworkBuffers();
 
         if (useHashBuffer) {
@@ -168,8 +167,16 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         }
     }
 
-    private void requestGuaranteedBuffers() {
-        while (freeSegments.size() < numRequiredBuffer) {
+    private void requestGuaranteedBuffers() throws IOException {
+        int numRequiredBuffer = storeMemoryManager.numRequiredMemorySegments();
+        if (numRequiredBuffer < 2) {
+            throw new IOException(
+                    String.format(
+                            "Too few sort buffers, please increase %s.",
+                            NettyShuffleEnvironmentOptions.NETWORK_SORT_SHUFFLE_MIN_BUFFERS));
+        }
+
+        while (freeSegments.size() < EXPECTED_WRITE_BATCH_SIZE) {
             freeSegments.add(
                     checkNotNull(
                             storeMemoryManager.requestMemorySegmentBlocking(
@@ -177,23 +184,23 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         }
     }
 
-    private void requestNetworkBuffers() {
-        numRequiredBuffer = Math.min(numRequiredBuffer, 2 * numSubpartitions + 8);
+    private void requestNetworkBuffers() throws IOException {
         requestGuaranteedBuffers();
 
         // avoid taking too many buffers in one result partition
-        while (freeSegments.size() < 3 * numSubpartitions) {
-            MemorySegment segment =
-                    storeMemoryManager.requestMemorySegment(TieredStoreMode.TieredType.IN_CACHE);
-            if (segment == null) {
-                break;
-            }
-            freeSegments.add(segment);
-        }
+        //        while (freeSegments.size() < numSubpartitions + 8) {
+        //            MemorySegment segment =
+        //
+        // storeMemoryManager.requestMemorySegment(TieredStoreMode.TieredType.IN_CACHE);
+        //            if (segment == null) {
+        //                break;
+        //            }
+        //            freeSegments.add(segment);
+        //        }
 
         useHashBuffer = false;
         int numWriteBuffers = 0;
-        if (freeSegments.size() >= 2 * numSubpartitions) {
+        if (freeSegments.size() >= numSubpartitions) {
             useHashBuffer = true;
         } else if (bufferSize >= NUM_WRITE_BUFFER_BYTES) {
             numWriteBuffers = 1;
