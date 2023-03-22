@@ -43,6 +43,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import static org.apache.flink.util.Preconditions.checkState;
+
 /**
  * This is a common entrypoint of the emitted records. These records will be transferred to the
  * appropriate {@link TierWriter}.
@@ -52,6 +54,10 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     private final StorageTier[] storageTiers;
 
     private final TierWriter[] tierWriters;
+
+    private final TieredStoreMode.TieredType[] tieredTypes;
+
+    private final TieredStoreMemoryManager storeMemoryManager;
 
     // Record the newest segment index belonged to each sub partition.
     private final int[] subpartitionSegmentIndexes;
@@ -67,6 +73,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     public TieredStoreProducerImpl(
             StorageTier[] storageTiers,
+            TieredStoreMode.TieredType[] tieredTypes,
             int numSubpartitions,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
@@ -77,6 +84,8 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         this.subpartitionSegmentIndexes = new int[numSubpartitions];
         this.subpartitionWriterIndex = new int[numSubpartitions];
         this.tierWriters = new TierWriter[storageTiers.length];
+        this.tieredTypes = tieredTypes;
+        this.storeMemoryManager = storeMemoryManager;
         this.isBroadcastOnly = isBroadcastOnly;
         this.numSubpartitions = numSubpartitions;
         this.bufferAccumulator =
@@ -92,6 +101,8 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         for (int i = 0; i < storageTiers.length; i++) {
             tierWriters[i] = storageTiers[i].createPartitionTierWriter();
         }
+
+        checkState(storageTiers.length == tieredTypes.length, "Wrong number of tiers.");
     }
 
     @VisibleForTesting
@@ -146,6 +157,8 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         }
 
         int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
+        storeMemoryManager.decNumRequestedBuffer(TieredStoreMode.TieredType.IN_CACHE);
+        storeMemoryManager.incNumRequestedBuffer(tieredTypes[tierIndex]);
         boolean isLastBufferInSegment =
                 tierWriters[tierIndex].emit(
                         targetSubpartition,
@@ -153,6 +166,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
                         isBroadcast,
                         isEndOfPartition,
                         segmentIndex);
+        storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(targetSubpartition);
             subpartitionWriterIndex[targetSubpartition] = tierIndex;

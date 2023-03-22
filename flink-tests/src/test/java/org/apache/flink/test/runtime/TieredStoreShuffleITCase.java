@@ -29,11 +29,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.TIERED_STORE_TIERS;
 
 /** Tests for TieredStore Shuffle. */
 class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TieredStoreShuffleITCase.class);
 
     // ------------------------------------
     //        For Memory Tier
@@ -419,9 +423,10 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
     }
 
     private void setupDfsConfigurations(Configuration configuration) {
-        System.out.println("----------------remote path : " + tmp.getRoot().getAbsolutePath());
+        String homePath = tmp.getRoot().getAbsolutePath();
+        LOG.info("The home path of remote storage is " + homePath);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH,
-                tmp.getRoot().getAbsolutePath());
+                homePath);
     }
 }

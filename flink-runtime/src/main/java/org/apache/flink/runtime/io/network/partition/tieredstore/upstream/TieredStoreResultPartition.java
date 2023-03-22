@@ -102,6 +102,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private StorageTier[] tierDataGates;
 
+    private TieredStoreMode.TieredType[] tieredTypes;
+
     private TieredStoreProducer tieredStoreProducer;
 
     private boolean hasNotifiedEndOfUserRecords;
@@ -165,6 +167,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         tieredStoreProducer =
                 new TieredStoreProducerImpl(
                         tierDataGates,
+                        tieredTypes,
                         numSubpartitions,
                         networkBufferSize,
                         bufferCompressor,
@@ -284,11 +287,13 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         }
     }
 
-    private void addTierExclusiveBuffers(TieredStoreMode.TieredType... tieredTypes) {
-        for (TieredStoreMode.TieredType tieredType : tieredTypes) {
+    private void addTierExclusiveBuffers(TieredStoreMode.TieredType... newTieredTypes) {
+        tieredTypes = new TieredStoreMode.TieredType[newTieredTypes.length];
+        for (int i = 0; i < newTieredTypes.length; i++) {
             tierExclusiveBuffers.put(
-                    tieredType,
-                    checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(tieredType)));
+                    newTieredTypes[i],
+                    checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(newTieredTypes[i])));
+            tieredTypes[i] = newTieredTypes[i];
         }
         tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(
@@ -296,7 +301,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     }
 
     private MemoryTier getMemoryTier() {
-        addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_MEM);
         return new MemoryTier(
                 numSubpartitions,
                 networkBufferSize,
@@ -306,7 +310,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     }
 
     private DiskTier getDiskTier() {
-        addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_LOCAL);
         return new DiskTier(
                 numSubpartitions,
                 networkBufferSize,
@@ -321,7 +324,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     }
 
     private RemoteTier getRemoteTier() throws IOException {
-        addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_DFS);
         String baseDfsPath = storeConfiguration.getBaseDfsHomePath();
         if (StringUtils.isNullOrWhitespaceOnly(baseDfsPath)) {
             throw new IllegalArgumentException(
@@ -360,11 +362,10 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         Buffer buffer = EventSerializer.toBuffer(event, isPriorityEvent);
         try {
             ByteBuffer serializedEvent = buffer.getNioBufferReadable();
-            if (event.equals(EndOfPartitionEvent.INSTANCE)) {
-                broadcast(serializedEvent, buffer.getDataType(), true);
-            } else {
-                broadcast(serializedEvent, buffer.getDataType(), false);
-            }
+            broadcast(
+                    serializedEvent,
+                    buffer.getDataType(),
+                    event.equals(EndOfPartitionEvent.INSTANCE));
         } catch (Throwable throwable) {
             LOG.error("Failed to broadcast event.", throwable);
         } finally {
