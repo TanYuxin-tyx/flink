@@ -126,7 +126,7 @@ public class SubpartitionMemoryDataManager {
             boolean isBroadcast,
             boolean isLastBufferInSegment) {
         if (dataType.isEvent()) {
-            writeEvent(record, dataType, isBroadcast, isLastBufferInSegment);
+            writeEvent(record, dataType, isBroadcast);
         } else {
             writeRecord(record, dataType, isBroadcast, isLastBufferInSegment);
         }
@@ -171,11 +171,7 @@ public class SubpartitionMemoryDataManager {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private void writeEvent(
-            ByteBuffer event,
-            DataType dataType,
-            boolean isBroadcast,
-            boolean isLastBufferInSegment) {
+    private void writeEvent(ByteBuffer event, DataType dataType, boolean isBroadcast) {
         checkArgument(dataType.isEvent());
 
         // each Event must take an exclusive buffer
