@@ -10,7 +10,6 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteCacheBufferSpiller;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -32,10 +31,10 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.writeSegmentFinishFile;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** THe implementation of {@link PartitionFileWriter} with merged logic. */
+/** The implementation of {@link PartitionFileWriter} with merged logic. */
 public class HashPartitionFileWriter implements PartitionFileWriter {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RemoteCacheBufferSpiller.class);
+    private static final Logger LOG = LoggerFactory.getLogger(HashPartitionFileWriter.class);
 
     private final ExecutorService ioExecutor;
 
