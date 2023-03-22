@@ -104,18 +104,8 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
         } catch (Throwable throwable) {
             throw new RuntimeException("Failed to request memory segments.", throwable);
         }
-        incRequestedBufferCounter(tieredType);
+        incNumRequestedBuffer(tieredType);
         checkNeedTriggerFlushCachedBuffers();
-        return requestedBuffer;
-    }
-
-    @Override
-    public MemorySegment requestMemorySegment(TieredStoreMode.TieredType tieredType) {
-        MemorySegment requestedBuffer = bufferPool.requestMemorySegment();
-        if (requestedBuffer != null) {
-            incRequestedBufferCounter(tieredType);
-            checkNeedTriggerFlushCachedBuffers();
-        }
         return requestedBuffer;
     }
 
@@ -139,23 +129,25 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     @Override
     public void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TieredType tieredType) {
         bufferPool.recycle(memorySegment);
-        decRequestedBufferCounter(tieredType);
+        decNumRequestedBuffer(tieredType);
     }
 
     @Override
-    public void close() {}
-
-    private void incRequestedBufferCounter(TieredStoreMode.TieredType tieredType) {
+    public void incNumRequestedBuffer(TieredStoreMode.TieredType tieredType) {
         numRequestedBuffers.getAndIncrement();
         tierRequestedBuffersCounter.putIfAbsent(tieredType, new AtomicInteger(0));
         tierRequestedBuffersCounter.get(tieredType).incrementAndGet();
     }
 
-    private void decRequestedBufferCounter(TieredStoreMode.TieredType tieredType) {
+    @Override
+    public void decNumRequestedBuffer(TieredStoreMode.TieredType tieredType) {
         numRequestedBuffers.decrementAndGet();
         AtomicInteger numRequestedBuffers = tierRequestedBuffersCounter.get(tieredType);
         checkNotNull(numRequestedBuffers).decrementAndGet();
     }
+
+    @Override
+    public void close() {}
 
     private int getAvailableBuffersForCache(int numAvailableBuffers) {
         return numAvailableBuffers - numTotalExclusiveBuffers;

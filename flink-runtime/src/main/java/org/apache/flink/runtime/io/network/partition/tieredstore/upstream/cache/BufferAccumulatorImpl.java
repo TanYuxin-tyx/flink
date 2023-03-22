@@ -43,7 +43,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private static final int NUM_WRITE_BUFFER_BYTES = 4 * 1024 * 1024;
 
-    private static final int EXPECTED_WRITE_BATCH_SIZE = 64;
+    private static final int EXPECTED_WRITE_BATCH_SIZE = 128;
 
     private final int numSubpartitions;
 
@@ -186,17 +186,6 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private void requestNetworkBuffers() throws IOException {
         requestGuaranteedBuffers();
-
-        // avoid taking too many buffers in one result partition
-        //        while (freeSegments.size() < numSubpartitions + 8) {
-        //            MemorySegment segment =
-        //
-        // storeMemoryManager.requestMemorySegment(TieredStoreMode.TieredType.IN_CACHE);
-        //            if (segment == null) {
-        //                break;
-        //            }
-        //            freeSegments.add(segment);
-        //        }
 
         useHashBuffer = false;
         int numWriteBuffers = 0;

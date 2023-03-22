@@ -58,14 +58,15 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
-    public MemorySegment requestMemorySegment(TieredStoreMode.TieredType tieredType) {
-        return localBufferPool.requestMemorySegment();
-    }
-
-    @Override
     public void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TieredType tieredType) {
         localBufferPool.recycle(memorySegment);
     }
+
+    @Override
+    public void incNumRequestedBuffer(TieredStoreMode.TieredType tieredType) {}
+
+    @Override
+    public void decNumRequestedBuffer(TieredStoreMode.TieredType tieredType) {}
 
     @Override
     public int getNetworkBufferPoolAvailableBuffers() {
