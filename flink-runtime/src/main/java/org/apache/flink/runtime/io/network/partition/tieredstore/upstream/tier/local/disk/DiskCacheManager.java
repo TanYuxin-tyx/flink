@@ -232,6 +232,9 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     }
 
     private void spillBuffers(boolean changeFlushState) {
+        if (changeFlushState && !hasFlushCompleted.isDone()) {
+            return;
+        }
         List<BufferContext> bufferContexts = new ArrayList<>();
         for (int subpartitionId = 0; subpartitionId < getNumSubpartitions(); subpartitionId++) {
             bufferContexts.addAll(getBuffersInOrder(subpartitionId));
