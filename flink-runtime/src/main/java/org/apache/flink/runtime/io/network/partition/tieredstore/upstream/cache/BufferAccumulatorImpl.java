@@ -189,7 +189,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         useHashBuffer = false;
         int numWriteBuffers = 0;
         if (freeSegments.size() > numSubpartitions) {
-            useHashBuffer = true;
+            //            useHashBuffer = true;
         } else if (bufferSize >= NUM_WRITE_BUFFER_BYTES) {
             numWriteBuffers = 1;
         } else {
