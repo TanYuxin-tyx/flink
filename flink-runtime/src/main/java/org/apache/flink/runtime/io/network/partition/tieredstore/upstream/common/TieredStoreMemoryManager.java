@@ -50,5 +50,5 @@ public interface TieredStoreMemoryManager {
 
     void checkNeedTriggerFlushCachedBuffers();
 
-    void close();
+    void release();
 }

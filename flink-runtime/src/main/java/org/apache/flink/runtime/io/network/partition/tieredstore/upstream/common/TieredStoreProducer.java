@@ -23,6 +23,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultPartition;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.MemorySegmentAndChannel;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -41,8 +42,7 @@ public interface TieredStoreProducer extends ChannelStateHolder, CheckpointedRes
             throws IOException;
 
     void emitBuffers(
-            int targetSubpartition,
-            List<Buffer> finishedBuffers,
+            List<MemorySegmentAndChannel> finishedSegments,
             boolean isBroadcast,
             boolean isEndOfPartition)
             throws IOException;

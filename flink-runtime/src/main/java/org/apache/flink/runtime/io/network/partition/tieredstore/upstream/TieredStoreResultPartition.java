@@ -454,9 +454,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         if (tieredStoreProducer != null) {
             tieredStoreProducer.close();
         }
-        if (tieredStoreMemoryManager != null) {
-            tieredStoreMemoryManager.close();
-        }
         if (cacheFlushManager != null) {
             cacheFlushManager.close();
         }

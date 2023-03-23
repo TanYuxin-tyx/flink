@@ -18,20 +18,39 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache;
 
+import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
+public class MemorySegmentAndChannel {
+    private final MemorySegment buffer;
 
-public interface BufferAccumulator {
+    private final int channelIndex;
 
-    void emit(
-            ByteBuffer record,
-            int targetSubpartition,
-            Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
-            throws IOException;
+    private final Buffer.DataType dataType;
 
-    void release();
+    private final int dataSize;
+
+    public MemorySegmentAndChannel(
+            MemorySegment buffer, int channelIndex, Buffer.DataType dataType, int dataSize) {
+        this.buffer = buffer;
+        this.channelIndex = channelIndex;
+        this.dataType = dataType;
+        this.dataSize = dataSize;
+    }
+
+    public MemorySegment getBuffer() {
+        return buffer;
+    }
+
+    public int getChannelIndex() {
+        return channelIndex;
+    }
+
+    public Buffer.DataType getDataType() {
+        return dataType;
+    }
+
+    public int getDataSize() {
+        return dataSize;
+    }
 }

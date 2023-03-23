@@ -18,37 +18,27 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache;
 
-import org.apache.flink.runtime.io.network.buffer.Buffer;
-
 import java.util.List;
 
 public class CachedBufferContext {
 
-    private final int targetChannel;
-
-    private final List<Buffer> buffers;
+    private final List<MemorySegmentAndChannel> memorySegmentAndChannels;
 
     private final boolean isBroadcast;
 
     private final boolean isEndOfPartition;
 
     public CachedBufferContext(
-            int targetChannel,
-            List<Buffer> buffers,
+            List<MemorySegmentAndChannel> memorySegmentAndChannels,
             boolean isBroadcast,
             boolean isEndOfPartition) {
-        this.targetChannel = targetChannel;
-        this.buffers = buffers;
+        this.memorySegmentAndChannels = memorySegmentAndChannels;
         this.isBroadcast = isBroadcast;
         this.isEndOfPartition = isEndOfPartition;
     }
 
-    public int getTargetChannel() {
-        return targetChannel;
-    }
-
-    public List<Buffer> getBuffers() {
-        return buffers;
+    public List<MemorySegmentAndChannel> getMemorySegmentAndChannels() {
+        return memorySegmentAndChannels;
     }
 
     public boolean isBroadcast() {
