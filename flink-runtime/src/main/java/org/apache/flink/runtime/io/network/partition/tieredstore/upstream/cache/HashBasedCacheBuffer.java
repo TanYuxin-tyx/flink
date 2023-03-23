@@ -39,7 +39,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-public class HashBasedCachedBuffer implements CacheBuffer {
+public class HashBasedCacheBuffer implements CacheBuffer {
     /** A list of {@link MemorySegment}s used to store data in memory. */
     private final LinkedList<MemorySegment> freeSegments;
 
@@ -94,7 +94,7 @@ public class HashBasedCachedBuffer implements CacheBuffer {
     /** Total number of bytes already read from this sort buffer. */
     private long numTotalBytesRead;
 
-    public HashBasedCachedBuffer(
+    public HashBasedCacheBuffer(
             LinkedList<MemorySegment> freeSegments,
             BufferRecycler bufferRecycler,
             int numSubpartitions,

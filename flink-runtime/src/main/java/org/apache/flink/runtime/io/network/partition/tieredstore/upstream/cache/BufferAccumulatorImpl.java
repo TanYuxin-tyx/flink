@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.function.Consumer;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -76,6 +77,10 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
             boolean isBroadcast,
             boolean isEndOfPartition)
             throws IOException {
+        if (isEndOfPartition) {
+            flushUnicastDataBuffer();
+            flushBroadcastDataBuffer();
+        }
         CacheBuffer dataBuffer = isBroadcast ? getBroadcastDataBuffer() : getUnicastDataBuffer();
         if (!dataBuffer.append(record, targetSubpartition, dataType)) {
             if (isEndOfPartition) {
@@ -139,7 +144,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         requestNetworkBuffers();
 
         if (useHashBuffer) {
-            return new HashBasedCachedBuffer(
+            return new HashBasedCacheBuffer(
                     freeSegments,
                     this::recycleBuffer,
                     numSubpartitions,
@@ -200,6 +205,30 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         }
         dataBuffer.finish();
 
+        //        int numBuffersToWrite =
+        //                useHashBuffer
+        //                        ? EXPECTED_WRITE_BATCH_SIZE
+        //                        : Math.min(EXPECTED_WRITE_BATCH_SIZE, freeSegments.size());
+        //        List<MemorySegmentAndChannel> toWrite = new ArrayList<>(numBuffersToWrite);
+        //        do {
+        //            if (toWrite.size() >= numBuffersToWrite) {
+        //                addFinishedBuffers(toWrite, isBroadcast, isEndOfPartition);
+        //            }
+        //
+        //            MemorySegment freeSegment = useHashBuffer ? null : getFreeSegment();
+        //            MemorySegmentAndChannel bufferWithChannel =
+        // dataBuffer.getNextBuffer(freeSegment);
+        //            if (bufferWithChannel == null) {
+        //                if (freeSegment != null) {
+        //                    recycleBuffer(freeSegment);
+        //                }
+        //                addFinishedBuffers(toWrite, isBroadcast, isEndOfPartition);
+        //                break;
+        //            }
+        //
+        //            toWrite.add((bufferWithChannel));
+        //        } while (true);
+
         do {
             MemorySegment freeSegment = useHashBuffer ? null : getFreeSegment();
             MemorySegmentAndChannel memorySegmentAndChannel = dataBuffer.getNextBuffer(freeSegment);
@@ -254,7 +283,6 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     private MemorySegment getFreeSegment() {
-        //        return checkNotNull(freeSegments.poll());
         MemorySegment freeSegment = freeSegments.poll();
         if (freeSegment == null) {
             freeSegment =
@@ -268,6 +296,16 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         if (dataBuffer != null) {
             dataBuffer.release();
         }
+    }
+
+    private void addFinishedBuffers(
+            List<MemorySegmentAndChannel> bufferWithChannels,
+            boolean isBroadcast,
+            boolean isEndOfPartition) {
+        for (int i = 0; i < bufferWithChannels.size(); i++) {
+            addFinishedBuffer(bufferWithChannels.get(i), isBroadcast, isEndOfPartition);
+        }
+        bufferWithChannels.clear();
     }
 
     private void addFinishedBuffer(
