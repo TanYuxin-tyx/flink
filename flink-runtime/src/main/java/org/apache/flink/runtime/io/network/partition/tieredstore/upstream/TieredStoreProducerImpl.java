@@ -187,9 +187,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
                         isBroadcast,
                         isEndOfPartition,
                         segmentIndex);
-        if (finishedSegment.getDataType().isBuffer()) {
-            storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
-        }
+        storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(targetSubpartition);
             subpartitionWriterIndex[targetSubpartition] = tierIndex;

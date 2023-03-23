@@ -80,7 +80,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
         }
         this.partitionFileWriter =
                 partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
-        cacheFlushManager.registerCacheSpillTrigger(this::flushCacheBuffers);
+        cacheFlushManager.registerCacheSpillTrigger(this::notifyFlushCachedBuffers);
     }
 
     // ------------------------------------
@@ -190,10 +190,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
         if (hasFlushCompleted.isDone()) {
             checkFlushCacheBuffers(tieredStoreMemoryManager, this);
         }
-    }
-
-    private void flushCacheBuffers() {
-        checkFlushCacheBuffers(tieredStoreMemoryManager, this);
     }
 
     @Override
