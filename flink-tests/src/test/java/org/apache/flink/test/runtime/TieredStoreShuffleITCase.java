@@ -146,7 +146,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
 
     @Test
     void testTieredStoreDfs() throws Exception {
-        final int numRecordsToSend = 10;
+        final int numRecordsToSend = 10000;
         Configuration configuration = getConfiguration();
         configuration.set(
                 ExecutionOptions.BATCH_SHUFFLE_MODE,
