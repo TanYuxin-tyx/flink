@@ -22,10 +22,6 @@ import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
-import org.apache.flink.runtime.io.network.partition.DataBuffer;
-import org.apache.flink.runtime.io.network.partition.HashBasedDataBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
@@ -38,12 +34,13 @@ import java.util.LinkedList;
 import java.util.function.Consumer;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private static final int NUM_WRITE_BUFFER_BYTES = 4 * 1024 * 1024;
 
-    private static final int EXPECTED_WRITE_BATCH_SIZE = 128;
+    private static final int EXPECTED_WRITE_BATCH_SIZE = 256;
 
     private final int numSubpartitions;
 
@@ -59,9 +56,9 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private boolean useHashBuffer = false;
 
-    private DataBuffer broadcastDataBuffer;
+    private CacheBuffer broadcastDataBuffer;
 
-    private DataBuffer unicastDataBuffer;
+    private CacheBuffer unicastDataBuffer;
 
     private final LinkedList<MemorySegment> freeSegments = new LinkedList<>();
 
@@ -86,7 +83,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
             boolean isBroadcast,
             boolean isEndOfPartition)
             throws IOException {
-        DataBuffer dataBuffer = isBroadcast ? getBroadcastDataBuffer() : getUnicastDataBuffer();
+        CacheBuffer dataBuffer = isBroadcast ? getBroadcastDataBuffer() : getUnicastDataBuffer();
         if (!dataBuffer.append(record, targetSubpartition, dataType)) {
             if (isEndOfPartition) {
                 flushDataBuffer(dataBuffer, isBroadcast, true);
@@ -111,7 +108,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     @Override
-    public void close() {
+    public void release() {
         releaseFreeBuffers();
         // the close method will always be called by the task thread, so there is need to make
         // the sort buffer fields volatile and visible to the cancel thread intermediately
@@ -119,7 +116,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         releaseDataBuffer(broadcastDataBuffer);
     }
 
-    private DataBuffer getUnicastDataBuffer() throws IOException {
+    private CacheBuffer getUnicastDataBuffer() throws IOException {
         flushBroadcastDataBuffer();
 
         if (unicastDataBuffer != null
@@ -132,7 +129,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         return unicastDataBuffer;
     }
 
-    private DataBuffer getBroadcastDataBuffer() throws IOException {
+    private CacheBuffer getBroadcastDataBuffer() throws IOException {
         flushUnicastDataBuffer();
 
         if (broadcastDataBuffer != null
@@ -145,11 +142,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         return broadcastDataBuffer;
     }
 
-    private DataBuffer createNewDataBuffer() throws IOException {
+    private CacheBuffer createNewDataBuffer() throws IOException {
         requestNetworkBuffers();
 
         if (useHashBuffer) {
-            return new HashBasedDataBuffer(
+            return new HashBasedCachedBuffer(
                     freeSegments,
                     this::recycleBuffer,
                     numSubpartitions,
@@ -176,7 +173,9 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
                             NettyShuffleEnvironmentOptions.NETWORK_SORT_SHUFFLE_MIN_BUFFERS));
         }
 
-        while (freeSegments.size() < EXPECTED_WRITE_BATCH_SIZE) {
+        int effectiveRequiredBuffers = Math.min(EXPECTED_WRITE_BATCH_SIZE, numSubpartitions + 8);
+
+        while (freeSegments.size() < effectiveRequiredBuffers) {
             freeSegments.add(
                     checkNotNull(
                             storeMemoryManager.requestMemorySegmentBlocking(
@@ -189,7 +188,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
         useHashBuffer = false;
         int numWriteBuffers = 0;
-        if (freeSegments.size() >= numSubpartitions) {
+        if (freeSegments.size() > numSubpartitions) {
             useHashBuffer = true;
         } else if (bufferSize >= NUM_WRITE_BUFFER_BYTES) {
             numWriteBuffers = 1;
@@ -202,22 +201,26 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     private void flushDataBuffer(
-            DataBuffer dataBuffer, boolean isBroadcast, boolean isEndOfPartition) {
+            CacheBuffer dataBuffer, boolean isBroadcast, boolean isEndOfPartition) {
         if (dataBuffer == null || dataBuffer.isReleased() || !dataBuffer.hasRemaining()) {
             return;
         }
         dataBuffer.finish();
 
         do {
-            BufferWithChannel bufferWithChannel = dataBuffer.getNextBuffer(getFreeSegment());
-            if (bufferWithChannel == null) {
+            MemorySegment freeSegment = useHashBuffer ? null : getFreeSegment();
+            MemorySegmentAndChannel memorySegmentAndChannel = dataBuffer.getNextBuffer(freeSegment);
+            if (memorySegmentAndChannel == null) {
+                if (freeSegment != null) {
+                    recycleBuffer(freeSegment);
+                }
                 break;
             }
-            addFinishedBuffer(
-                    compressBufferIfPossible(bufferWithChannel), isBroadcast, isEndOfPartition);
+            addFinishedBuffer(memorySegmentAndChannel, isBroadcast, isEndOfPartition);
         } while (true);
 
         releaseFreeBuffers();
+        dataBuffer.release();
     }
 
     private void flushBroadcastDataBuffer() {
@@ -236,31 +239,21 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         }
     }
 
-    private BufferWithChannel compressBufferIfPossible(BufferWithChannel bufferWithChannel) {
-        Buffer buffer = bufferWithChannel.getBuffer();
-        if (!canBeCompressed(buffer)) {
-            return bufferWithChannel;
-        }
-
-        buffer = checkNotNull(bufferCompressor).compressToOriginalBuffer(buffer);
-        return new BufferWithChannel(buffer, bufferWithChannel.getChannelIndex());
-    }
-
     private void writeLargeRecord(
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
             boolean isBroadcast) {
 
+        checkState(dataType != Buffer.DataType.EVENT_BUFFER);
         while (record.hasRemaining()) {
             int toCopy = Math.min(record.remaining(), bufferSize);
             MemorySegment writeBuffer = checkNotNull(getFreeSegment());
             writeBuffer.put(0, record, toCopy);
 
-            NetworkBuffer buffer =
-                    new NetworkBuffer(writeBuffer, this::recycleBuffer, dataType, toCopy);
-            BufferWithChannel bufferWithChannel = new BufferWithChannel(buffer, targetSubpartition);
-            addFinishedBuffer(compressBufferIfPossible(bufferWithChannel), isBroadcast, false);
+            MemorySegmentAndChannel memorySegmentAndChannel =
+                    new MemorySegmentAndChannel(writeBuffer, targetSubpartition, dataType, toCopy);
+            addFinishedBuffer(memorySegmentAndChannel, isBroadcast, false);
         }
 
         releaseFreeBuffers();
@@ -277,28 +270,21 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         return freeSegment;
     }
 
-    private void releaseDataBuffer(DataBuffer dataBuffer) {
+    private void releaseDataBuffer(CacheBuffer dataBuffer) {
         if (dataBuffer != null) {
             dataBuffer.release();
         }
     }
 
     private void addFinishedBuffer(
-            BufferWithChannel bufferWithChannel, boolean isBroadcast, boolean isEndOfPartition) {
+            MemorySegmentAndChannel bufferWithChannel,
+            boolean isBroadcast,
+            boolean isEndOfPartition) {
         finishedBufferListener.accept(
                 new CachedBufferContext(
-                        bufferWithChannel.getChannelIndex(),
-                        Collections.singletonList(bufferWithChannel.getBuffer()),
+                        Collections.singletonList(bufferWithChannel),
                         isBroadcast,
                         isEndOfPartition));
-    }
-
-    /**
-     * Whether the buffer can be compressed or not. Note that event is not compressed because it is
-     * usually small and the size can become even larger after compression.
-     */
-    private boolean canBeCompressed(Buffer buffer) {
-        return bufferCompressor != null && buffer.isBuffer() && buffer.readableBytes() > 0;
     }
 
     private void releaseFreeBuffers() {

@@ -22,9 +22,6 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
-import org.apache.flink.runtime.io.network.partition.DataBuffer;
 import org.apache.flink.runtime.io.network.partition.SortBasedDataBuffer;
 
 import javax.annotation.Nullable;
@@ -39,7 +36,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-public class SortBasedCacheBuffer implements DataBuffer {
+public class SortBasedCacheBuffer implements CacheBuffer {
 
     /**
      * Size of an index entry: 4 bytes for record length, 4 bytes for data type and 8 bytes for
@@ -161,6 +158,7 @@ public class SortBasedCacheBuffer implements DataBuffer {
 
         // return true directly if it can not allocate enough buffers for the given record
         if (!allocateBuffersForRecord(totalBytes)) {
+            //            clearSegments();
             return true;
         }
 
@@ -266,7 +264,7 @@ public class SortBasedCacheBuffer implements DataBuffer {
     }
 
     @Override
-    public BufferWithChannel getNextBuffer(MemorySegment transitBuffer) {
+    public MemorySegmentAndChannel getNextBuffer(MemorySegment transitBuffer) {
         checkState(isFinished, "Sort buffer is not ready to be read.");
         checkState(!isReleased, "Sort buffer is already released.");
 
@@ -299,7 +297,7 @@ public class SortBasedCacheBuffer implements DataBuffer {
             sourceSegmentOffset += INDEX_ENTRY_SIZE;
 
             // allocate a temp buffer for the event if the target buffer is not big enough
-            if (bufferDataType.isEvent() && transitBuffer.size() < length) {
+            if (bufferDataType.isEvent() && transitBuffer.size() == bufferSize) {
                 bufferRecycler.recycle(transitBuffer);
                 transitBuffer = MemorySegmentFactory.allocateUnpooledSegment(length);
             }
@@ -323,9 +321,8 @@ public class SortBasedCacheBuffer implements DataBuffer {
         } while (numBytesCopied < transitBuffer.size() && bufferDataType.isBuffer());
 
         numTotalBytesRead += numBytesCopied;
-        Buffer buffer =
-                new NetworkBuffer(transitBuffer, bufferRecycler, bufferDataType, numBytesCopied);
-        return new BufferWithChannel(buffer, channelIndex);
+        return new MemorySegmentAndChannel(
+                transitBuffer, channelIndex, bufferDataType, numBytesCopied);
     }
 
     private int copyRecordOrEvent(
@@ -347,6 +344,7 @@ public class SortBasedCacheBuffer implements DataBuffer {
         int targetSegmentSize = targetSegment.size();
         int numBytesToCopy =
                 Math.min(targetSegmentSize - targetSegmentOffset, recordRemainingBytes);
+        MemorySegment sourceSegment;
         do {
             // move to next data buffer if all data of the current buffer has been copied
             if (sourceSegmentOffset == bufferSize) {
@@ -357,7 +355,7 @@ public class SortBasedCacheBuffer implements DataBuffer {
             int sourceRemainingBytes =
                     Math.min(bufferSize - sourceSegmentOffset, recordRemainingBytes);
             int numBytes = Math.min(targetSegmentSize - targetSegmentOffset, sourceRemainingBytes);
-            MemorySegment sourceSegment = segments.get(sourceSegmentIndex);
+            sourceSegment = segments.get(sourceSegmentIndex);
             sourceSegment.copyTo(sourceSegmentOffset, targetSegment, targetSegmentOffset, numBytes);
 
             recordRemainingBytes -= numBytes;
@@ -422,15 +420,18 @@ public class SortBasedCacheBuffer implements DataBuffer {
             return;
         }
         isReleased = true;
-
-        for (MemorySegment segment : segments) {
-            bufferRecycler.recycle(segment);
-        }
-        segments.clear();
+        clearSegments();
     }
 
     @Override
     public boolean isReleased() {
         return isReleased;
+    }
+
+    private void clearSegments() {
+        for (MemorySegment segment : segments) {
+            bufferRecycler.recycle(segment);
+        }
+        segments.clear();
     }
 }

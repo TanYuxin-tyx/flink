@@ -82,7 +82,7 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     public void checkNeedTriggerFlushCachedBuffers() {}
 
     @Override
-    public void close() {
+    public void release() {
         // nothing to do.
     }
 }
