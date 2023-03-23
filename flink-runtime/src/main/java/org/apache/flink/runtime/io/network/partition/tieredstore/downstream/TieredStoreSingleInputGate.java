@@ -29,11 +29,8 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
-import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
-import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.TieredStoreReader;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClientFactory;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.throughput.BufferDebloater;
 import org.apache.flink.runtime.throughput.ThroughputCalculator;
@@ -49,8 +46,6 @@ import java.util.Optional;
 public class TieredStoreSingleInputGate extends SingleInputGate {
 
     private final TieredStoreReader tieredStoreReader;
-
-    private final SingleChannelTierClientFactory clientFactory;
 
     public TieredStoreSingleInputGate(
             String owningTaskName,
@@ -85,21 +80,21 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
                 throughputCalculator,
                 bufferDebloater);
 
-        this.clientFactory =
-                new SingleChannelTierClientFactory(
+        this.tieredStoreReader =
+                new TieredStoreReaderImpl(
                         jobID,
                         resultPartitionIDs,
                         getMemorySegmentProvider(),
                         subpartitionIndexes,
-                        baseRemoteStoragePath);
-
-        this.tieredStoreReader = new TieredStoreReaderImpl(numberOfInputChannels, clientFactory);
+                        baseRemoteStoragePath,
+                        numberOfInputChannels,
+                        this::enqueueChannel);
     }
 
     @Override
     public void setup() throws IOException {
         super.setup();
-        tieredStoreReader.setup();
+        tieredStoreReader.setup(channels);
     }
 
     @Override
@@ -114,7 +109,6 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
                     return Optional.empty();
                 }
                 inputChannel = inputChannelOpt.get();
-                enqueueChannelWhenSatisfyCondition(inputChannel);
                 bufferAndAvailabilityOpt = tieredStoreReader.getNextBuffer(inputChannel);
                 if (!bufferAndAvailabilityOpt.isPresent()) {
                     checkUnavailability();
@@ -135,6 +129,8 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
                     }
                 }
                 if (bufferAndAvailability.buffer().getDataType() == Buffer.DataType.SEGMENT_EVENT) {
+                    // When the segment is finished, we must enqueue the input channel to prevent
+                    // data of other tiers from being missed.
                     bufferAndAvailability.buffer().recycleBuffer();
                     queueChannelUnsafe(inputChannel, false);
                     continue;
@@ -151,38 +147,12 @@ public class TieredStoreSingleInputGate extends SingleInputGate {
     }
 
     @Override
-    public void requestPartitions() {
-        super.requestPartitions();
-        for (InputChannel inputChannel : inputChannels.values()) {
-            if (inputChannel.getClass() == RemoteInputChannel.class) {
-                synchronized (inputChannelsWithData) {
-                    queueChannelUnsafe(inputChannel, false);
-                }
-                markAvailable();
-            }
-        }
-    }
-
-    @Override
     public void close() throws IOException {
         super.close();
         tieredStoreReader.close();
     }
 
-    // ------------------------------------
-    //           Internal Method
-    // ------------------------------------
-
-    private void enqueueChannelWhenSatisfyCondition(InputChannel inputChannel) {
-        // The input channel will be enqueued when satisfied all the following conditions:
-        // 1. The current thread has not been interrupted because of fail over.
-        // 2. The Remote Tier is enabled.
-        // 3. The InputChannel is LocalInputChannel or RemoteInputChannel.
-        if (!Thread.currentThread().isInterrupted()
-                && clientFactory.isEnableRemoteTier()
-                && (inputChannel.getClass() == LocalInputChannel.class
-                        || inputChannel.getClass() == RemoteInputChannel.class)) {
-            queueChannelUnsafe(inputChannel, false);
-        }
+    private void enqueueChannel(InputChannel inputChannel) {
+        queueChannel(inputChannel, null, false);
     }
 }

@@ -1000,7 +1000,7 @@ public class SingleInputGate extends IndexedInputGate {
                 }));
     }
 
-    private void queueChannel(
+    protected void queueChannel(
             InputChannel channel, @Nullable Integer prioritySequenceNumber, boolean forcePriority) {
         try (GateNotificationHelper notification =
                 new GateNotificationHelper(this, inputChannelsWithData)) {

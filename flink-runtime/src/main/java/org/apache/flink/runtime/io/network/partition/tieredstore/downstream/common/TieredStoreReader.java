@@ -9,7 +9,7 @@ import java.util.Optional;
 /** The interface of {@link TieredStoreReader} in Tiered Store. */
 public interface TieredStoreReader {
 
-    void setup() throws IOException;
+    void setup(InputChannel[] inputChannels);
 
     Optional<BufferAndAvailability> getNextBuffer(
             InputChannel inputChannel) throws IOException, InterruptedException;
