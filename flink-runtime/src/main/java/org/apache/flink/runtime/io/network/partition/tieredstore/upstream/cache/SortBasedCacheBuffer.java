@@ -275,6 +275,7 @@ public class SortBasedCacheBuffer implements CacheBuffer {
         int numBytesCopied = 0;
         Buffer.DataType bufferDataType = Buffer.DataType.DATA_BUFFER;
         int channelIndex = subpartitionReadOrder[readOrderIndex];
+        boolean needRecycleToLocalBufferPool = true;
 
         do {
             int sourceSegmentIndex = getSegmentIndexFromPointer(readIndexEntryAddress);
@@ -297,9 +298,10 @@ public class SortBasedCacheBuffer implements CacheBuffer {
             sourceSegmentOffset += INDEX_ENTRY_SIZE;
 
             // allocate a temp buffer for the event if the target buffer is not big enough
-            if (bufferDataType.isEvent() && transitBuffer.size() == bufferSize) {
+            if (bufferDataType.isEvent() && transitBuffer.size() < length) {
                 bufferRecycler.recycle(transitBuffer);
                 transitBuffer = MemorySegmentFactory.allocateUnpooledSegment(length);
+                needRecycleToLocalBufferPool = false;
             }
 
             numBytesCopied +=
@@ -322,7 +324,11 @@ public class SortBasedCacheBuffer implements CacheBuffer {
 
         numTotalBytesRead += numBytesCopied;
         return new MemorySegmentAndChannel(
-                transitBuffer, channelIndex, bufferDataType, numBytesCopied);
+                transitBuffer,
+                channelIndex,
+                bufferDataType,
+                numBytesCopied,
+                needRecycleToLocalBufferPool);
     }
 
     private int copyRecordOrEvent(

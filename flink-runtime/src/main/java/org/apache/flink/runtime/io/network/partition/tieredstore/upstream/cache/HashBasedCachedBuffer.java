@@ -218,7 +218,8 @@ public class HashBasedCachedBuffer implements CacheBuffer {
                                 buffer.getMemorySegment(),
                                 targetChannel,
                                 buffer.getDataType(),
-                                buffer.readableBytes());
+                                buffer.readableBytes(),
+                                buffer.isBuffer());
                 numBuffersOccupied -= buffer.isBuffer() ? 1 : 0;
                 numTotalBytesRead += buffer.readableBytes();
                 consumer.close();

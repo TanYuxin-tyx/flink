@@ -150,6 +150,12 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     @Override
     public void release() {
         checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
+        for (Map.Entry<TieredStoreMode.TieredType, AtomicInteger> tierRequestedBuffer :
+                tierRequestedBuffersCounter.entrySet()) {
+            checkState(
+                    tierRequestedBuffer.getValue().get() == 0,
+                    "Leaking buffers in tier " + tierRequestedBuffer.getKey());
+        }
     }
 
     private int getAvailableBuffersForCache(int numAvailableBuffers) {

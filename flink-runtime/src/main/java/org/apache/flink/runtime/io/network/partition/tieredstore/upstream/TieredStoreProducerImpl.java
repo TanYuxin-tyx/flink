@@ -24,6 +24,7 @@ import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulator;
@@ -101,7 +102,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
                 new BufferAccumulatorImpl(
                         numSubpartitions,
                         bufferSize,
-                        bufferCompressor,
                         storeMemoryManager,
                         this::notifyFinishedBuffer);
         this.bufferRecyclers = new BufferRecycler[storageTiers.length];
@@ -166,17 +166,18 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         }
 
         int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
-        if (finishedSegment.getDataType().isBuffer()) {
+        boolean needRecycleToLocalBufferPool = finishedSegment.needRecycleToLocalBufferPool();
+        if (needRecycleToLocalBufferPool) {
             storeMemoryManager.decNumRequestedBuffer(TieredStoreMode.TieredType.IN_CACHE);
             storeMemoryManager.incNumRequestedBuffer(tieredTypes[tierIndex]);
         }
+
         Buffer finishedBuffer =
                 new NetworkBuffer(
                         finishedSegment.getBuffer(),
-                        finishedSegment.getDataType().isBuffer()
+                        needRecycleToLocalBufferPool
                                 ? bufferRecyclers[tierIndex]
-                                : buf -> {},
-                        //                        bufferRecyclers[tierIndex],
+                                : FreeingBufferRecycler.INSTANCE::recycle,
                         finishedSegment.getDataType(),
                         finishedSegment.getDataSize());
         boolean isLastBufferInSegment =

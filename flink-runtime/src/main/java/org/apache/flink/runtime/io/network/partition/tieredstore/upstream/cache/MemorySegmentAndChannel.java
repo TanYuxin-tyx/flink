@@ -30,12 +30,19 @@ public class MemorySegmentAndChannel {
 
     private final int dataSize;
 
+    private final boolean needRecycleToLocalBufferPool;
+
     public MemorySegmentAndChannel(
-            MemorySegment buffer, int channelIndex, Buffer.DataType dataType, int dataSize) {
+            MemorySegment buffer,
+            int channelIndex,
+            Buffer.DataType dataType,
+            int dataSize,
+            boolean needRecycleToLocalBufferPool) {
         this.buffer = buffer;
         this.channelIndex = channelIndex;
         this.dataType = dataType;
         this.dataSize = dataSize;
+        this.needRecycleToLocalBufferPool = needRecycleToLocalBufferPool;
     }
 
     public MemorySegment getBuffer() {
@@ -52,5 +59,9 @@ public class MemorySegmentAndChannel {
 
     public int getDataSize() {
         return dataSize;
+    }
+
+    public boolean needRecycleToLocalBufferPool() {
+        return needRecycleToLocalBufferPool;
     }
 }

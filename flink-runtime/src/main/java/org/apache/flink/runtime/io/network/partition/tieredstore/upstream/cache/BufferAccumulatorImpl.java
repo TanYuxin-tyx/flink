@@ -21,11 +21,8 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -48,8 +45,6 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private final TieredStoreMemoryManager storeMemoryManager;
 
-    private final BufferCompressor bufferCompressor;
-
     private final Consumer<CachedBufferContext> finishedBufferListener;
 
     private int numBuffersForSort;
@@ -65,13 +60,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     public BufferAccumulatorImpl(
             int numSubpartitions,
             int bufferSize,
-            @Nullable BufferCompressor bufferCompressor,
             TieredStoreMemoryManager storeMemoryManager,
             Consumer<CachedBufferContext> finishedBufferListener) {
         this.numSubpartitions = numSubpartitions;
         this.bufferSize = bufferSize;
         this.storeMemoryManager = storeMemoryManager;
-        this.bufferCompressor = bufferCompressor;
         this.finishedBufferListener = finishedBufferListener;
     }
 
@@ -252,7 +245,8 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
             writeBuffer.put(0, record, toCopy);
 
             MemorySegmentAndChannel memorySegmentAndChannel =
-                    new MemorySegmentAndChannel(writeBuffer, targetSubpartition, dataType, toCopy);
+                    new MemorySegmentAndChannel(
+                            writeBuffer, targetSubpartition, dataType, toCopy, true);
             addFinishedBuffer(memorySegmentAndChannel, isBroadcast, false);
         }
 
