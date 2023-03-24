@@ -231,7 +231,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
         spillBuffers(false);
     }
 
-    private void spillBuffers(boolean changeFlushState) {
+    private synchronized void spillBuffers(boolean changeFlushState) {
         if (changeFlushState && !hasFlushCompleted.isDone()) {
             return;
         }

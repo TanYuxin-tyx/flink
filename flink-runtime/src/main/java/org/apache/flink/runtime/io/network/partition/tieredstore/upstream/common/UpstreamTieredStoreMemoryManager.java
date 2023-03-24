@@ -24,6 +24,9 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.Tiered
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.needFlushCacheBuffers;
@@ -47,6 +50,8 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     private final int numTotalExclusiveBuffers;
 
+    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+
     public UpstreamTieredStoreMemoryManager(
             BufferPool bufferPool,
             Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers,
@@ -59,6 +64,11 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
         this.numSubpartitions = numSubpartitions;
         this.numTotalExclusiveBuffers =
                 tierExclusiveBuffers.values().stream().mapToInt(i -> i).sum();
+        executor.scheduleAtFixedRate(
+                UpstreamTieredStoreMemoryManager.this::checkNeedTriggerFlushCachedBuffers,
+                10,
+                50,
+                TimeUnit.MILLISECONDS);
     }
 
     public BufferPool getBufferPool() {
@@ -149,6 +159,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     @Override
     public void release() {
+        executor.shutdown();
         checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
         for (Map.Entry<TieredStoreMode.TieredType, AtomicInteger> tierRequestedBuffer :
                 tierRequestedBuffersCounter.entrySet()) {
