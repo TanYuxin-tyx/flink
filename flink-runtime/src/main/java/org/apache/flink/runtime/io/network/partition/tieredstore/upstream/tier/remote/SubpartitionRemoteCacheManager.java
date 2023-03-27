@@ -34,6 +34,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
+import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
 
@@ -76,6 +77,8 @@ public class SubpartitionRemoteCacheManager {
 
     @Nullable private final BufferCompressor bufferCompressor;
 
+    private final AtomicInteger currentSegmentId = new AtomicInteger(-1);
+
     @Nullable private OutputMetrics outputMetrics;
 
     private volatile boolean isClosed;
@@ -85,7 +88,8 @@ public class SubpartitionRemoteCacheManager {
     private volatile CompletableFuture<Void> hasFlushCompleted =
             CompletableFuture.completedFuture(null);
 
-    private final AtomicInteger currentSegmentId = new AtomicInteger(-1);
+    private volatile CompletableFuture<Void> lastestFuture =
+            CompletableFuture.completedFuture(null);
 
     public SubpartitionRemoteCacheManager(
             int targetChannel,
@@ -127,12 +131,17 @@ public class SubpartitionRemoteCacheManager {
     public void finishSegment(int segmentIndex) {
         checkState(currentSegmentId.get() == segmentIndex);
         flushCachedBuffers();
-        partitionFileWriter.finishSegment(targetChannel, segmentIndex);
+        lastestFuture = partitionFileWriter.finishSegment(targetChannel, segmentIndex);
         checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
     }
 
     /** Release all buffers. */
     public void release() {
+        try {
+            lastestFuture.get();
+        } catch (Exception e) {
+            ExceptionUtils.rethrow(e, "Failed to release.");
+        }
         if (!isReleased) {
             for (BufferContext bufferContext : allBuffers) {
                 Buffer buffer = bufferContext.getBuffer();
@@ -291,7 +300,9 @@ public class SubpartitionRemoteCacheManager {
     private void flushCachedBuffers() {
         List<BufferContext> bufferContexts = generateToSpillBuffersWithId();
         if (bufferContexts.size() > 0) {
-            partitionFileWriter.spillAsync(targetChannel, currentSegmentId.get(), bufferContexts);
+            lastestFuture =
+                    partitionFileWriter.spillAsync(
+                            targetChannel, currentSegmentId.get(), bufferContexts);
         }
     }
 
@@ -320,6 +331,11 @@ public class SubpartitionRemoteCacheManager {
     }
 
     void close() {
+        try {
+            lastestFuture.get();
+        } catch (Exception e) {
+            ExceptionUtils.rethrow(e, "Failed to close.");
+        }
         isClosed = true;
         flushCachedBuffers();
         while (!unfinishedBuffers.isEmpty()) {
