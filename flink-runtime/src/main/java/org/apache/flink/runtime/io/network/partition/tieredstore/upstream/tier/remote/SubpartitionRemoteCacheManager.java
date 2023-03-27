@@ -61,8 +61,6 @@ public class SubpartitionRemoteCacheManager {
 
     private final int bufferSize;
 
-    private static final int NUM_BUFFERS_TO_FLUSH = 1;
-
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
@@ -125,7 +123,9 @@ public class SubpartitionRemoteCacheManager {
 
     public void startSegment(int segmentIndex) throws IOException {
         checkState(currentSegmentId.get() != segmentIndex);
-        currentSegmentId.set(segmentIndex);
+        synchronized (currentSegmentId) {
+            currentSegmentId.set(segmentIndex);
+        }
     }
 
     public void finishSegment(int segmentIndex) {
@@ -289,20 +289,21 @@ public class SubpartitionRemoteCacheManager {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     private void addFinishedBuffer(BufferContext bufferContext) {
-        finishedBufferIndex++;
-        allBuffers.add(bufferContext);
-        updateStatistics(bufferContext.getBuffer());
-        if (allBuffers.size() >= NUM_BUFFERS_TO_FLUSH) {
-            flushCachedBuffers();
+        synchronized (allBuffers) {
+            finishedBufferIndex++;
+            allBuffers.add(bufferContext);
+            updateStatistics(bufferContext.getBuffer());
         }
     }
 
     private void flushCachedBuffers() {
         List<BufferContext> bufferContexts = generateToSpillBuffersWithId();
         if (bufferContexts.size() > 0) {
-            lastestFuture =
-                    partitionFileWriter.spillAsync(
-                            targetChannel, currentSegmentId.get(), bufferContexts);
+            synchronized (currentSegmentId) {
+                lastestFuture =
+                        partitionFileWriter.spillAsync(
+                                targetChannel, currentSegmentId.get(), bufferContexts);
+            }
         }
     }
 
@@ -310,9 +311,12 @@ public class SubpartitionRemoteCacheManager {
         hasFlushCompleted = new CompletableFuture<>();
         List<BufferContext> bufferContexts = generateToSpillBuffersWithId();
         if (bufferContexts.size() > 0) {
-            CompletableFuture<Void> completableFuture =
-                    partitionFileWriter.spillAsync(
-                            targetChannel, currentSegmentId.get(), bufferContexts);
+            CompletableFuture<Void> completableFuture;
+            synchronized (currentSegmentId) {
+                completableFuture =
+                        partitionFileWriter.spillAsync(
+                                targetChannel, currentSegmentId.get(), bufferContexts);
+            }
             completableFuture.thenRun(() -> hasFlushCompleted.complete(null));
         }
     }
