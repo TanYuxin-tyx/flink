@@ -87,7 +87,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     @Override
     public CompletableFuture<Void> finishSegment(int subpartitionId, int segmentId) {
         CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
-        ioExecutor.execute(() -> writeFinishSegmentFile(subpartitionId, segmentId));
+        ioExecutor.execute(() -> writeFinishSegmentFile(subpartitionId, segmentId, spillSuccessNotifier));
         return spillSuccessNotifier;
     }
 
@@ -154,7 +154,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         }
     }
 
-    private void writeFinishSegmentFile(int subpartitionId, int segmentId) {
+    private void writeFinishSegmentFile(int subpartitionId, int segmentId, CompletableFuture<Void> spillSuccessNotifier) {
         String subpartitionPath = null;
         try {
             subpartitionPath =
@@ -166,6 +166,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         writeSegmentFinishFile(subpartitionPath, segmentId);
         // clear the current channel
         subpartitionChannels[subpartitionId] = null;
+        spillSuccessNotifier.complete(null);
     }
 
     @VisibleForTesting
