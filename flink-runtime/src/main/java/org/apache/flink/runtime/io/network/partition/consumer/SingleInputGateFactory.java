@@ -36,6 +36,8 @@ import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvi
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReaderImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.TieredStoreReader;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
@@ -58,6 +60,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.partition.consumer.InputGateSpecUtils.createGateBuffersSpec;
@@ -97,6 +101,10 @@ public class SingleInputGateFactory {
 
     private final BufferDebloatConfiguration debloatConfiguration;
 
+    private final Boolean enableTieredStore;
+
+    @Nullable private final String baseRemoteStoragePath;
+
     public SingleInputGateFactory(
             @Nonnull ResourceID taskExecutorResourceId,
             @Nonnull NettyShuffleEnvironmentConfiguration networkConfig,
@@ -121,6 +129,8 @@ public class SingleInputGateFactory {
         this.taskEventPublisher = taskEventPublisher;
         this.networkBufferPool = networkBufferPool;
         this.debloatConfiguration = networkConfig.getDebloatConfiguration();
+        this.enableTieredStore = networkConfig.enableTieredStoreForHybridShuffle();
+        this.baseRemoteStoragePath = networkConfig.getBaseRemoteStoragePath();
     }
 
     /** Creates an input gate and all of its input channels. */
@@ -156,6 +166,33 @@ public class SingleInputGateFactory {
         final MetricGroup networkInputGroup = owner.getInputGroup();
 
         IndexRange subpartitionIndexRange = igdd.getConsumedSubpartitionIndexRange();
+        ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
+        List<ResultPartitionID> resultPartitionIDs = new ArrayList<>();
+        List<Integer> subpartitionIndexes = new ArrayList<>();
+        for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
+            for (int subpartitionIndex = subpartitionIndexRange.getStartIndex();
+                    subpartitionIndex <= subpartitionIndexRange.getEndIndex();
+                    ++subpartitionIndex) {
+                resultPartitionIDs.add(shuffleDescriptor.getResultPartitionID());
+                subpartitionIndexes.add(subpartitionIndex);
+            }
+        }
+
+        int numberOfInputChannels =
+                calculateNumChannels(igdd.getShuffleDescriptors().length, subpartitionIndexRange);
+
+        TieredStoreReader tieredStoreReader = null;
+        if (enableTieredStore) {
+            tieredStoreReader =
+                    new TieredStoreReaderImpl(
+                            owner.getJobID(),
+                            resultPartitionIDs,
+                            networkBufferPool,
+                            subpartitionIndexes,
+                            baseRemoteStoragePath,
+                            numberOfInputChannels);
+        }
+
         SingleInputGate inputGate =
                 createInputGate(
                         owningTaskName,
@@ -163,8 +200,7 @@ public class SingleInputGateFactory {
                         igdd.getConsumedResultId(),
                         igdd.getConsumedPartitionType(),
                         subpartitionIndexRange,
-                        calculateNumChannels(
-                                igdd.getShuffleDescriptors().length, subpartitionIndexRange),
+                        numberOfInputChannels,
                         partitionProducerStateProvider,
                         bufferPoolFactory,
                         bufferDecompressor,
@@ -172,7 +208,8 @@ public class SingleInputGateFactory {
                         networkBufferSize,
                         new ThroughputCalculator(SystemClock.getInstance()),
                         maybeCreateBufferDebloater(
-                                owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)));
+                                owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)),
+                        tieredStoreReader);
 
         createInputChannels(
                 owningTaskName, igdd, inputGate, subpartitionIndexRange, gateBuffersSpec, metrics);
@@ -295,7 +332,9 @@ public class SingleInputGateFactory {
             MemorySegmentProvider memorySegmentProvider,
             int segmentSize,
             ThroughputCalculator throughputCalculator,
-            @Nullable BufferDebloater bufferDebloater) {
+            @Nullable BufferDebloater bufferDebloater,
+            @Nullable TieredStoreReader tieredStoreReader) {
+
         return new SingleInputGate(
                 owningTaskName,
                 gateIndex,
@@ -310,7 +349,7 @@ public class SingleInputGateFactory {
                 segmentSize,
                 throughputCalculator,
                 bufferDebloater,
-                null);
+                tieredStoreReader);
     }
 
     protected static int calculateNumChannels(
