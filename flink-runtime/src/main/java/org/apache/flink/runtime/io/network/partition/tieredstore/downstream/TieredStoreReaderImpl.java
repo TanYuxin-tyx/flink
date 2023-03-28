@@ -47,7 +47,7 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
     public void setup(InputChannel[] channels) {
         this.clientFactory.setup(channels, channelEnqueueReceiver);
         for (int i = 0; i < numInputChannels; ++i) {
-            singleChannelReaders[i] = new SingleChannelReaderImpl(clientFactory);
+            singleChannelReaders[i] = new SubpartitionReaderImpl(clientFactory);
             singleChannelReaders[i].setup();
         }
     }

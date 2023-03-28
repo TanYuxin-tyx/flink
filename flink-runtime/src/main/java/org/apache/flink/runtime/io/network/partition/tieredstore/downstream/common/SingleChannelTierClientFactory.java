@@ -6,8 +6,8 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.RemoteTierMonitor;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.SingleChannelLocalTierClient;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.SingleChannelRemoteTierClient;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.LocalTierClient;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.RemoteTierClient;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
 import java.util.ArrayList;
@@ -58,10 +58,10 @@ public class SingleChannelTierClientFactory {
     public List<SingleChannelTierClient> createClientList() {
         List<SingleChannelTierClient> clientList = new ArrayList<>();
         if (enableRemoteTier) {
-            clientList.add(new SingleChannelLocalTierClient());
-            clientList.add(new SingleChannelRemoteTierClient(memoryManager, remoteTierMonitor));
+            clientList.add(new LocalTierClient());
+            clientList.add(new RemoteTierClient(memoryManager, remoteTierMonitor));
         } else {
-            clientList.add(new SingleChannelLocalTierClient());
+            clientList.add(new LocalTierClient());
         }
         return clientList;
     }
