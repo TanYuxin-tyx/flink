@@ -6,6 +6,7 @@ import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -18,6 +19,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.generateNewSegmentPath;
@@ -128,6 +130,17 @@ public class RemoteTierMonitor implements Runnable {
     public FSDataInputStream getInputStream(int channelIndex) {
         synchronized (lock) {
             return inputStreams[channelIndex];
+        }
+    }
+
+    public void close() {
+        try {
+            monitorExecutor.shutdown();
+            if (!monitorExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
+                throw new TimeoutException("Shutdown spilling thread timeout.");
+            }
+        } catch (Exception e) {
+            ExceptionUtils.rethrow(e);
         }
     }
 
