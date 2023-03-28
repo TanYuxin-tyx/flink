@@ -106,9 +106,11 @@ public class SubpartitionDiskCacheManager {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     public List<BufferContext> getBuffersSatisfyStatus() {
-        List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
-        allBuffers.clear();
-        return targetBuffers;
+        synchronized (allBuffers) {
+            List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
+            allBuffers.clear();
+            return targetBuffers;
+        }
     }
 
     public void setOutputMetrics(OutputMetrics outputMetrics) {
@@ -225,9 +227,11 @@ public class SubpartitionDiskCacheManager {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     private void addFinishedBuffer(BufferContext bufferContext) {
-        finishedBufferIndex++;
-        allBuffers.add(bufferContext);
-        updateStatistics(bufferContext.getBuffer());
+        synchronized (allBuffers) {
+            finishedBufferIndex++;
+            allBuffers.add(bufferContext);
+            updateStatistics(bufferContext.getBuffer());
+        }
     }
 
     private void updateStatistics(Buffer buffer) {
