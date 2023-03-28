@@ -18,7 +18,9 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.GateBuffersSpec;
+import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.TieredStoreReader;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
@@ -60,7 +62,7 @@ public class TieredStoreSingleInputGateFactory extends SingleInputGateFactory {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
     }
 
-    private TieredStoreSingleInputGate createInputGate(
+    private SingleInputGate createInputGate(
             String owningTaskName,
             int gateIndex,
             List<Integer> subpartitionIndexes,
@@ -77,10 +79,19 @@ public class TieredStoreSingleInputGateFactory extends SingleInputGateFactory {
             @Nullable BufferDebloater bufferDebloater,
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs) {
-        return new TieredStoreSingleInputGate(
+
+        TieredStoreReader tieredStoreReader =
+                new TieredStoreReaderImpl(
+                        jobID,
+                        resultPartitionIDs,
+                        memorySegmentProvider,
+                        subpartitionIndexes,
+                        baseRemoteStoragePath,
+                        numberOfInputChannels);
+
+        return new SingleInputGate(
                 owningTaskName,
                 gateIndex,
-                subpartitionIndexes,
                 consumedResultId,
                 consumedPartitionType,
                 subpartitionIndexRange,
@@ -92,13 +103,11 @@ public class TieredStoreSingleInputGateFactory extends SingleInputGateFactory {
                 segmentSize,
                 throughputCalculator,
                 bufferDebloater,
-                jobID,
-                resultPartitionIDs,
-                baseRemoteStoragePath);
+                tieredStoreReader);
     }
 
     @Override
-    public TieredStoreSingleInputGate create(
+    public SingleInputGate create(
             @Nonnull ShuffleIOOwnerContext owner,
             int gateIndex,
             @Nonnull InputGateDeploymentDescriptor igdd,
@@ -141,7 +150,7 @@ public class TieredStoreSingleInputGateFactory extends SingleInputGateFactory {
                 subpartitionIndexes.add(subpartitionIndex);
             }
         }
-        TieredStoreSingleInputGate inputGate =
+        SingleInputGate inputGate =
                 createInputGate(
                         owningTaskName,
                         gateIndex,

@@ -41,6 +41,7 @@ import org.apache.flink.runtime.io.network.partition.PrioritizedDeque;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.TieredStoreReader;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -211,6 +212,9 @@ public class SingleInputGate extends IndexedInputGate {
 
     private final ThroughputCalculator throughputCalculator;
     private final BufferDebloater bufferDebloater;
+
+    @Nullable private final TieredStoreReader tieredStoreReader;
+
     private boolean shouldDrainOnEndOfData = true;
 
     public SingleInputGate(
@@ -226,7 +230,8 @@ public class SingleInputGate extends IndexedInputGate {
             MemorySegmentProvider memorySegmentProvider,
             int segmentSize,
             ThroughputCalculator throughputCalculator,
-            @Nullable BufferDebloater bufferDebloater) {
+            @Nullable BufferDebloater bufferDebloater,
+            @Nullable TieredStoreReader tieredStoreReader) {
 
         this.owningTaskName = checkNotNull(owningTaskName);
         Preconditions.checkArgument(0 <= gateIndex, "The gate index must be positive.");
@@ -259,6 +264,7 @@ public class SingleInputGate extends IndexedInputGate {
         this.unpooledSegment = MemorySegmentFactory.allocateUnpooledSegment(segmentSize);
         this.bufferDebloater = bufferDebloater;
         this.throughputCalculator = checkNotNull(throughputCalculator);
+        this.tieredStoreReader = tieredStoreReader;
     }
 
     protected PrioritizedDeque<InputChannel> getInputChannelsWithData() {
@@ -273,6 +279,7 @@ public class SingleInputGate extends IndexedInputGate {
 
         BufferPool bufferPool = bufferPoolFactory.get();
         setBufferPool(bufferPool);
+        tieredStoreReader.setup(channels, channel -> queueChannel(channel, null, false));
 
         setupChannels();
     }
@@ -698,6 +705,7 @@ public class SingleInputGate extends IndexedInputGate {
             synchronized (inputChannelsWithData) {
                 inputChannelsWithData.notifyAll();
             }
+            tieredStoreReader.close();
         }
     }
 
@@ -780,11 +788,13 @@ public class SingleInputGate extends IndexedInputGate {
                 if (!inputChannelOpt.isPresent()) {
                     return Optional.empty();
                 }
-
                 final InputChannel inputChannel = inputChannelOpt.get();
-                Optional<BufferAndAvailability> bufferAndAvailabilityOpt =
-                        inputChannel.getNextBuffer();
-
+                Optional<BufferAndAvailability> bufferAndAvailabilityOpt;
+                if (tieredStoreReader != null) {
+                    bufferAndAvailabilityOpt = tieredStoreReader.getNextBuffer(inputChannel);
+                } else {
+                    bufferAndAvailabilityOpt = inputChannel.getNextBuffer();
+                }
                 if (!bufferAndAvailabilityOpt.isPresent()) {
                     checkUnavailability();
                     continue;
@@ -804,6 +814,16 @@ public class SingleInputGate extends IndexedInputGate {
                     if (!morePriorityEvents) {
                         priorityAvailabilityHelper.resetUnavailable();
                     }
+                }
+
+                if (tieredStoreReader != null
+                        && bufferAndAvailability.buffer().getDataType()
+                                == Buffer.DataType.SEGMENT_EVENT) {
+                    // When the segment is finished, we must enqueue the input channel to prevent
+                    // data of other tiers from being missed.
+                    bufferAndAvailability.buffer().recycleBuffer();
+                    queueChannelUnsafe(inputChannel, false);
+                    continue;
                 }
 
                 checkUnavailability();

@@ -172,7 +172,8 @@ public class SingleInputGateBuilder {
                         segmentProvider,
                         bufferSize,
                         createThroughputCalculator.apply(bufferDebloatConfiguration),
-                        maybeCreateBufferDebloater(gateIndex));
+                        maybeCreateBufferDebloater(gateIndex),
+                        null);
         if (channelFactory != null) {
             gate.setInputChannels(
                     IntStream.range(0, numberOfChannels)
