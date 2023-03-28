@@ -18,35 +18,16 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service;
 
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-
-import javax.annotation.Nullable;
+import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 
 import java.io.IOException;
 
-/** */
+/**
+ * The {@link TieredStoreNettyService} is used to register {@link BufferAvailabilityListener} and
+ * provide buffer to netty server.
+ */
 public interface TieredStoreNettyService {
 
-    void start() throws IOException;
-
-    @Nullable
-    ResultSubpartition.BufferAndBacklog getNextBuffer() throws IOException;
-
-    ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
-            int numCreditsAvailable);
-
-    int unsynchronizedGetNumberOfQueuedBuffers();
-
-    int getNumberOfQueuedBuffers();
-
-    void forceNotifyAvailable();
-
-    void updateRequiredSegmentId(int segmentId);
-
-    boolean isClosed();
-
-    void close() throws IOException;
-
-    Throwable getFailureCause();
+    TieredStoreResultSubpartitionView register(
+            int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
 }
