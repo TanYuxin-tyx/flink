@@ -279,8 +279,9 @@ public class SingleInputGate extends IndexedInputGate {
 
         BufferPool bufferPool = bufferPoolFactory.get();
         setBufferPool(bufferPool);
-        tieredStoreReader.setup(channels, channel -> queueChannel(channel, null, false));
-
+        if (tieredStoreReader != null) {
+            tieredStoreReader.setup(channels, channel -> queueChannel(channel, null, false));
+        }
         setupChannels();
     }
 
@@ -705,7 +706,9 @@ public class SingleInputGate extends IndexedInputGate {
             synchronized (inputChannelsWithData) {
                 inputChannelsWithData.notifyAll();
             }
-            tieredStoreReader.close();
+            if (tieredStoreReader != null) {
+                tieredStoreReader.close();
+            }
         }
     }
 
