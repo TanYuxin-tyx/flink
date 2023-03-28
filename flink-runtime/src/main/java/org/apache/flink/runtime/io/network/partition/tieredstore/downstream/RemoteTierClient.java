@@ -37,7 +37,7 @@ public class RemoteTierClient implements SingleChannelTierClient {
 
     private FSDataInputStream currentInputStream;
 
-    private int lastestSegmentId = -1;
+    private int latestSegmentId = -1;
 
     public RemoteTierClient(
             TieredStoreMemoryManager memoryManager,
@@ -52,9 +52,9 @@ public class RemoteTierClient implements SingleChannelTierClient {
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
             InputChannel inputChannel, int segmentId) throws IOException {
 
-        if (segmentId != lastestSegmentId) {
+        if (segmentId != latestSegmentId) {
             remoteTierMonitor.requireSegmentId(inputChannel.getChannelIndex(), segmentId);
-            lastestSegmentId = segmentId;
+            latestSegmentId = segmentId;
         }
         if (!remoteTierMonitor.isExist(inputChannel.getChannelIndex(), segmentId)) {
             return Optional.empty();
@@ -64,7 +64,7 @@ public class RemoteTierClient implements SingleChannelTierClient {
             currentInputStream.close();
             return Optional.of(
                     new InputChannel.BufferAndAvailability(
-                            buildEndOfSegmentBuffer(lastestSegmentId + 1),
+                            buildEndOfSegmentBuffer(latestSegmentId + 1),
                             Buffer.DataType.SEGMENT_EVENT,
                             0,
                             0));
@@ -134,6 +134,6 @@ public class RemoteTierClient implements SingleChannelTierClient {
 
     @VisibleForTesting
     public int getLatestSegmentId() {
-        return lastestSegmentId;
+        return latestSegmentId;
     }
 }
