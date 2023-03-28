@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.needFlushCacheBuffers;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** Upstream tasks will get buffer from this {@link UpstreamTieredStoreMemoryManager}. */
 public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManager {
@@ -132,6 +133,18 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     @Override
     public void close() {}
+
+    @Override
+    public void release() {
+        executor.shutdown();
+        checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
+        for (Map.Entry<TieredStoreMode.TieredType, AtomicInteger> tierRequestedBuffer :
+                tierRequestedBuffersCounter.entrySet()) {
+            checkState(
+                    tierRequestedBuffer.getValue().get() == 0,
+                    "Leaking buffers in tier " + tierRequestedBuffer.getKey());
+        }
+    }
 
     private void checkNeedTriggerFlushCachedBuffers() {
         if (needFlushCacheBuffers(this)) {
