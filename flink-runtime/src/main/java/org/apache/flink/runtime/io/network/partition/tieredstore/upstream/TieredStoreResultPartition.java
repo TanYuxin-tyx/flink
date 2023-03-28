@@ -47,6 +47,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManagerImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service.TieredStoreNettyService;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service.TieredStoreNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
@@ -79,8 +81,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     public final Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers;
 
-    private final JobID jobID;
-
     private final int networkBufferSize;
 
     private final TieredStoreConfiguration storeConfiguration;
@@ -95,7 +95,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private final PartitionFileManager partitionFileManager;
 
-    private StorageTier[] tierDataGates;
+    private StorageTier[] allTiers;
 
     private TieredStoreMode.TieredType[] tieredTypes;
 
@@ -104,6 +104,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     private boolean hasNotifiedEndOfUserRecords;
 
     private TieredStoreMemoryManager tieredStoreMemoryManager;
+
+    private TieredStoreNettyService tieredStoreNettyService;
 
     public TieredStoreResultPartition(
             JobID jobID,
@@ -134,7 +136,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 bufferCompressor,
                 bufferPoolFactory);
 
-        this.jobID = jobID;
         this.networkBufferSize = networkBufferSize;
         this.dataFileBasePath = dataFileBasePath;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
@@ -165,19 +166,20 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         setupTierDataGates();
         tieredStoreProducer =
                 new TieredStoreProducerImpl(
-                        tierDataGates,
+                        allTiers,
                         tieredTypes,
                         numSubpartitions,
                         networkBufferSize,
                         bufferCompressor,
                         isBroadcast,
                         tieredStoreMemoryManager);
+        tieredStoreNettyService = new TieredStoreNettyServiceImpl(allTiers);
     }
 
     @Override
     public void setMetricGroup(TaskIOMetricGroup metrics) {
         super.setMetricGroup(metrics);
-        for (StorageTier storageTier : this.tierDataGates) {
+        for (StorageTier storageTier : this.allTiers) {
             storageTier.setOutputMetrics(new OutputMetrics(numBytesOut, numBuffersOut));
             storageTier.setTimerGauge(metrics.getHardBackPressuredTimePerSecond());
         }
@@ -193,91 +195,91 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         ResultPartitionType partitionType = getPartitionType();
         switch (tiers) {
             case MEMORY:
-                this.tierDataGates = new StorageTier[1];
+                this.allTiers = new StorageTier[1];
                 addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_MEM);
-                this.tierDataGates[0] = getMemoryTier();
-                this.tierDataGates[0].setup();
+                this.allTiers[0] = getMemoryTier();
+                this.allTiers[0].setup();
                 break;
             case LOCAL:
-                this.tierDataGates = new StorageTier[1];
+                this.allTiers = new StorageTier[1];
                 addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_LOCAL);
-                this.tierDataGates[0] = getDiskTier();
-                this.tierDataGates[0].setup();
+                this.allTiers[0] = getDiskTier();
+                this.allTiers[0].setup();
                 break;
             case DFS:
-                this.tierDataGates = new StorageTier[1];
+                this.allTiers = new StorageTier[1];
                 addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_DFS);
-                this.tierDataGates[0] = getRemoteTier();
-                this.tierDataGates[0].setup();
+                this.allTiers[0] = getRemoteTier();
+                this.allTiers[0].setup();
                 break;
             case MEMORY_LOCAL:
                 if (partitionType == HYBRID_SELECTIVE) {
-                    this.tierDataGates = new StorageTier[2];
+                    this.allTiers = new StorageTier[2];
                     addTierExclusiveBuffers(
                             TieredStoreMode.TieredType.IN_MEM, TieredStoreMode.TieredType.IN_LOCAL);
-                    this.tierDataGates[0] = getMemoryTier();
-                    this.tierDataGates[1] = getDiskTier();
-                    for (StorageTier tierDataGate : tierDataGates) {
+                    this.allTiers[0] = getMemoryTier();
+                    this.allTiers[1] = getDiskTier();
+                    for (StorageTier tierDataGate : allTiers) {
                         tierDataGate.setup();
                     }
                     break;
                 } else {
-                    this.tierDataGates = new StorageTier[1];
+                    this.allTiers = new StorageTier[1];
                     addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_LOCAL);
-                    this.tierDataGates[0] = getDiskTier();
-                    this.tierDataGates[0].setup();
+                    this.allTiers[0] = getDiskTier();
+                    this.allTiers[0].setup();
                     break;
                 }
             case MEMORY_DFS:
                 if (partitionType == HYBRID_SELECTIVE) {
-                    this.tierDataGates = new StorageTier[2];
+                    this.allTiers = new StorageTier[2];
                     addTierExclusiveBuffers(
                             TieredStoreMode.TieredType.IN_MEM, TieredStoreMode.TieredType.IN_DFS);
-                    this.tierDataGates[0] = getMemoryTier();
-                    this.tierDataGates[1] = getRemoteTier();
-                    for (StorageTier tierDataGate : tierDataGates) {
+                    this.allTiers[0] = getMemoryTier();
+                    this.allTiers[1] = getRemoteTier();
+                    for (StorageTier tierDataGate : allTiers) {
                         tierDataGate.setup();
                     }
                     break;
                 } else {
-                    this.tierDataGates = new StorageTier[1];
+                    this.allTiers = new StorageTier[1];
                     addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_DFS);
-                    this.tierDataGates[0] = getRemoteTier();
-                    this.tierDataGates[0].setup();
+                    this.allTiers[0] = getRemoteTier();
+                    this.allTiers[0].setup();
                     break;
                 }
             case MEMORY_LOCAL_DFS:
                 if (partitionType == HYBRID_SELECTIVE) {
-                    this.tierDataGates = new StorageTier[3];
+                    this.allTiers = new StorageTier[3];
                     addTierExclusiveBuffers(
                             TieredStoreMode.TieredType.IN_MEM,
                             TieredStoreMode.TieredType.IN_LOCAL,
                             TieredStoreMode.TieredType.IN_DFS);
-                    this.tierDataGates[0] = getMemoryTier();
-                    this.tierDataGates[1] = getDiskTier();
-                    this.tierDataGates[2] = getRemoteTier();
-                    for (StorageTier tierDataGate : tierDataGates) {
+                    this.allTiers[0] = getMemoryTier();
+                    this.allTiers[1] = getDiskTier();
+                    this.allTiers[2] = getRemoteTier();
+                    for (StorageTier tierDataGate : allTiers) {
                         tierDataGate.setup();
                     }
                     break;
                 } else {
-                    this.tierDataGates = new StorageTier[2];
+                    this.allTiers = new StorageTier[2];
                     addTierExclusiveBuffers(
                             TieredStoreMode.TieredType.IN_LOCAL, TieredStoreMode.TieredType.IN_DFS);
-                    this.tierDataGates[0] = getDiskTier();
-                    this.tierDataGates[1] = getRemoteTier();
-                    for (StorageTier tierDataGate : tierDataGates) {
+                    this.allTiers[0] = getDiskTier();
+                    this.allTiers[1] = getRemoteTier();
+                    for (StorageTier tierDataGate : allTiers) {
                         tierDataGate.setup();
                     }
                     break;
                 }
             case LOCAL_DFS:
-                this.tierDataGates = new StorageTier[2];
+                this.allTiers = new StorageTier[2];
                 addTierExclusiveBuffers(
                         TieredStoreMode.TieredType.IN_LOCAL, TieredStoreMode.TieredType.IN_DFS);
-                this.tierDataGates[0] = getDiskTier();
-                this.tierDataGates[1] = getRemoteTier();
-                for (StorageTier tierDataGate : tierDataGates) {
+                this.allTiers[0] = getDiskTier();
+                this.allTiers[1] = getRemoteTier();
+                for (StorageTier tierDataGate : allTiers) {
                     tierDataGate.setup();
                 }
                 break;
@@ -391,8 +393,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         checkState(!isReleased(), "ResultPartition already released.");
-        return new TieredStoreSubpartitionViewDelegate(
-                subpartitionId, availabilityListener, tierDataGates);
+        return tieredStoreNettyService.register(subpartitionId, availabilityListener);
     }
 
     @Override
@@ -502,7 +503,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     @VisibleForTesting
     public List<Path> getBaseSubpartitionPath(int subpartitionId) {
         List<Path> paths = new ArrayList<>();
-        for (StorageTier tierDataGate : tierDataGates) {
+        for (StorageTier tierDataGate : allTiers) {
             paths.add(tierDataGate.getBaseSubpartitionPath(subpartitionId));
         }
         return paths;

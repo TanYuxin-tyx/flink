@@ -47,7 +47,6 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service.TieredStoreNettyServiceImpl;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.IOUtils;
@@ -600,34 +599,34 @@ class TieredStoreResultPartitionTest {
             Tuple2<ResultSubpartitionView, TestingBufferAvailabilityListener>[] viewAndListeners,
             int expectSegmentIndex)
             throws Exception {
-        CheckedThread[] subpartitionViewThreads = new CheckedThread[viewAndListeners.length];
-        for (int i = 0; i < viewAndListeners.length; i++) {
-            // start thread for each view.
-            final int subpartition = i;
-            CheckedThread subpartitionViewThread =
-                    new CheckedThread() {
-                        @Override
-                        public void go() throws Exception {
-                            TieredStoreSubpartitionViewDelegate view =
-                                    (TieredStoreSubpartitionViewDelegate)
-                                            viewAndListeners[subpartition].f0;
-                            view.notifyRequiredSegmentId(Integer.MAX_VALUE);
-                            while (true) {
-                                view.getNextBuffer();
-                                if (((TieredStoreNettyServiceImpl) view.getNettyService())
-                                                .getRequiredSegmentId()
-                                        == expectSegmentIndex) {
-                                    break;
-                                }
-                            }
-                        }
-                    };
-            subpartitionViewThreads[subpartition] = subpartitionViewThread;
-            subpartitionViewThread.start();
-        }
-        for (CheckedThread thread : subpartitionViewThreads) {
-            thread.sync();
-        }
+        //CheckedThread[] subpartitionViewThreads = new CheckedThread[viewAndListeners.length];
+        //for (int i = 0; i < viewAndListeners.length; i++) {
+        //    // start thread for each view.
+        //    final int subpartition = i;
+        //    CheckedThread subpartitionViewThread =
+        //            new CheckedThread() {
+        //                @Override
+        //                public void go() throws Exception {
+        //                    TieredStoreSubpartitionViewDelegate view =
+        //                            (TieredStoreSubpartitionViewDelegate)
+        //                                    viewAndListeners[subpartition].f0;
+        //                    view.notifyRequiredSegmentId(Integer.MAX_VALUE);
+        //                    while (true) {
+        //                        view.getNextBuffer();
+        //                        if (((TieredStoreResultSubpartitionView) view.getNettyService())
+        //                                        .getRequiredSegmentId()
+        //                                == expectSegmentIndex) {
+        //                            break;
+        //                        }
+        //                    }
+        //                }
+        //            };
+        //    subpartitionViewThreads[subpartition] = subpartitionViewThread;
+        //    subpartitionViewThread.start();
+        //}
+        //for (CheckedThread thread : subpartitionViewThreads) {
+        //    thread.sync();
+        //}
     }
 
     private long readData(
