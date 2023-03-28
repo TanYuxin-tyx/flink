@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
@@ -47,7 +46,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final List<TierReaderView> registeredTierReaderViews;
 
-    private boolean isClosed = false;
+    private boolean isReleased = false;
 
     private int requiredSegmentId = 0;
 
@@ -84,15 +83,6 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         return bufferAndBacklog;
     }
 
-    public void updateRequiredSegmentId(int segmentId) {
-        requiredSegmentId = segmentId;
-        stopSendingData = false;
-    }
-
-    public void forceNotifyAvailable() {
-        availabilityListener.notifyDataAvailable();
-    }
-
     @Override
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable) {
@@ -105,11 +95,18 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     }
 
     @Override
+    public void notifyRequiredSegmentId(int segmentId) {
+        requiredSegmentId = segmentId;
+        stopSendingData = false;
+        availabilityListener.notifyDataAvailable();
+    }
+
+    @Override
     public void releaseAllResources() throws IOException {
-        if (isClosed) {
+        if (isReleased) {
             return;
         }
-        isClosed = true;
+        isReleased = true;
         for (TierReaderView tierReaderView : registeredTierReaderViews) {
             tierReaderView.release();
         }
@@ -117,7 +114,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     @Override
     public boolean isReleased() {
-        return isClosed;
+        return isReleased;
     }
 
     @Override
@@ -158,25 +155,13 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     @Override
     public void acknowledgeAllDataProcessed() {
-        // in case of bounded partitions there is no upstream to acknowledge, we simply ignore
-        // the ack, as there are no checkpoints
+        // nothing to do.
     }
 
     @Override
     public void notifyNewBufferSize(int newBufferSize) {
         throw new UnsupportedOperationException(
                 "Method notifyNewBufferSize should never be called.");
-    }
-
-    @Override
-    public void notifyRequiredSegmentId(int segmentId) {
-        updateRequiredSegmentId(segmentId);
-        forceNotifyAvailable();
-    }
-
-    @VisibleForTesting
-    public int getRequiredSegmentId() {
-        return requiredSegmentId;
     }
 
     // -------------------------------
@@ -187,10 +172,10 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         for (TierReaderView tierReaderView : registeredTierReaderViews) {
             tierReaderView.updateNeedNotifyStatus();
         }
-        for (int i = 0; i < registeredTiers.size(); i++) {
-            StorageTier tieredDataGate = registeredTiers.get(i);
+        for (int viewIndex = 0; viewIndex < registeredTiers.size(); viewIndex++) {
+            StorageTier tieredDataGate = registeredTiers.get(viewIndex);
             if (tieredDataGate.hasCurrentSegment(subpartitionId, requiredSegmentId)) {
-                viewIndexContainsCurrentSegment = i;
+                viewIndexContainsCurrentSegment = viewIndex;
                 return true;
             }
         }
