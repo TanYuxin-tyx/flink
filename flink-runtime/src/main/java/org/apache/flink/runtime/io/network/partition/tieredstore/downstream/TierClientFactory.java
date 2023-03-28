@@ -20,13 +20,13 @@ public class TierClientFactory {
 
     private final String baseRemoteStoragePath;
 
-    private final TieredStoreMemoryManager memoryManager;
-
     private final List<Integer> subpartitionIndexes;
 
     private final boolean enableRemoteTier;
 
     private RemoteTierMonitor remoteTierMonitor;
+
+    private TieredStoreMemoryManager memoryManager;
 
     public TierClientFactory(
             JobID jobID,
@@ -39,8 +39,11 @@ public class TierClientFactory {
         this.subpartitionIndexes = subpartitionIndexes;
         this.baseRemoteStoragePath = baseRemoteStoragePath;
         this.enableRemoteTier = baseRemoteStoragePath != null;
-        this.memoryManager =
-                new DownstreamTieredStoreMemoryManager((NetworkBufferPool) memorySegmentProvider);
+        if (enableRemoteTier) {
+            this.memoryManager =
+                    new DownstreamTieredStoreMemoryManager(
+                            (NetworkBufferPool) memorySegmentProvider);
+        }
     }
 
     public void setup(InputChannel[] channels, Consumer<InputChannel> channelEnqueueReceiver) {

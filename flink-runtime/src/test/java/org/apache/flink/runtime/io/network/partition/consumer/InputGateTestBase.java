@@ -18,12 +18,20 @@
 
 package org.apache.flink.runtime.io.network.partition.consumer;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.PullingAsyncDataInput;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
+import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReader;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReaderImpl;
 
 import org.junit.Before;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.junit.Assert.assertEquals;
@@ -102,6 +110,50 @@ public abstract class InputGateTestBase {
         if (environment != null) {
             builder = builder.setupBufferPoolFactory(environment);
         }
+
+        SingleInputGate inputGate = builder.build();
+        assertEquals(partitionType, inputGate.getConsumedPartitionType());
+        return inputGate;
+    }
+
+    protected SingleInputGate createInputGateWithTieredStoreReader(
+            NettyShuffleEnvironment environment,
+            int numberOfInputChannels,
+            ResultPartitionType partitionType,
+            String baseRemoteStoragePath) {
+        return createInputGateWithTieredStoreReader(
+                environment, numberOfInputChannels, partitionType, baseRemoteStoragePath, null);
+    }
+
+    protected SingleInputGate createInputGateWithTieredStoreReader(
+            NettyShuffleEnvironment environment,
+            int numberOfInputChannels,
+            ResultPartitionType partitionType,
+            String baseRemoteStoragePath,
+            BufferDecompressor bufferDecompressor) {
+
+        List<Integer> subpartitionIndexes = new ArrayList<>();
+        for (int index = 0; index < numberOfInputChannels; ++index) {
+            subpartitionIndexes.add(index);
+        }
+
+        TieredStoreReader tieredStoreReader =
+                new TieredStoreReaderImpl(
+                        JobID.generate(),
+                        Collections.singletonList(new ResultPartitionID()),
+                        environment.getNetworkBufferPool(),
+                        subpartitionIndexes,
+                        baseRemoteStoragePath,
+                        numberOfInputChannels);
+
+        SingleInputGateBuilder builder =
+                new SingleInputGateBuilder()
+                        .setNumberOfChannels(numberOfInputChannels)
+                        .setSingleInputGateIndex(gateIndex++)
+                        .setResultPartitionType(partitionType)
+                        .setTieredStoreReader(tieredStoreReader)
+                        .setupBufferPoolFactory(environment)
+                        .setBufferDecompressor(bufferDecompressor);
 
         SingleInputGate inputGate = builder.build();
         assertEquals(partitionType, inputGate.getConsumedPartitionType());

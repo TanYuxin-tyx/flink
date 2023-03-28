@@ -166,23 +166,21 @@ public class SingleInputGateFactory {
         final MetricGroup networkInputGroup = owner.getInputGroup();
 
         IndexRange subpartitionIndexRange = igdd.getConsumedSubpartitionIndexRange();
-        ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
-        List<ResultPartitionID> resultPartitionIDs = new ArrayList<>();
-        List<Integer> subpartitionIndexes = new ArrayList<>();
-        for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
-            for (int subpartitionIndex = subpartitionIndexRange.getStartIndex();
-                    subpartitionIndex <= subpartitionIndexRange.getEndIndex();
-                    ++subpartitionIndex) {
-                resultPartitionIDs.add(shuffleDescriptor.getResultPartitionID());
-                subpartitionIndexes.add(subpartitionIndex);
-            }
-        }
-
         int numberOfInputChannels =
                 calculateNumChannels(igdd.getShuffleDescriptors().length, subpartitionIndexRange);
-
         TieredStoreReader tieredStoreReader = null;
         if (enableTieredStore) {
+            ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
+            List<ResultPartitionID> resultPartitionIDs = new ArrayList<>();
+            List<Integer> subpartitionIndexes = new ArrayList<>();
+            for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
+                for (int subpartitionIndex = subpartitionIndexRange.getStartIndex();
+                        subpartitionIndex <= subpartitionIndexRange.getEndIndex();
+                        ++subpartitionIndex) {
+                    resultPartitionIDs.add(shuffleDescriptor.getResultPartitionID());
+                    subpartitionIndexes.add(subpartitionIndex);
+                }
+            }
             tieredStoreReader =
                     new TieredStoreReaderImpl(
                             owner.getJobID(),
