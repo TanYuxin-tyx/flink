@@ -5,9 +5,6 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelReader;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClient;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClientFactory;
 
 import java.io.IOException;
 import java.util.List;
@@ -15,16 +12,16 @@ import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The implementation of {@link SingleChannelReader} interface. */
-public class SubpartitionReaderImpl implements SingleChannelReader {
+/** The implementation of {@link SubpartitionReader} interface. */
+public class SubpartitionReaderImpl implements SubpartitionReader {
 
-    private final SingleChannelTierClientFactory clientFactory;
+    private final SubpartitionTierClientFactory clientFactory;
 
-    private List<SingleChannelTierClient> clientList;
+    private List<SubpartitionTierClient> clientList;
 
     private int currentSegmentId = 0;
 
-    public SubpartitionReaderImpl(SingleChannelTierClientFactory clientFactory) {
+    public SubpartitionReaderImpl(SubpartitionTierClientFactory clientFactory) {
         this.clientFactory = clientFactory;
     }
 
@@ -37,7 +34,7 @@ public class SubpartitionReaderImpl implements SingleChannelReader {
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException {
         Optional<BufferAndAvailability> bufferAndAvailability = Optional.empty();
-        for (SingleChannelTierClient client : clientList) {
+        for (SubpartitionTierClient client : clientList) {
             bufferAndAvailability = client.getNextBuffer(inputChannel, currentSegmentId);
             if (bufferAndAvailability.isPresent()) {
                 break;
@@ -58,7 +55,7 @@ public class SubpartitionReaderImpl implements SingleChannelReader {
 
     @Override
     public void close() throws IOException {
-        for (SingleChannelTierClient client : clientList) {
+        for (SubpartitionTierClient client : clientList) {
             client.close();
         }
     }

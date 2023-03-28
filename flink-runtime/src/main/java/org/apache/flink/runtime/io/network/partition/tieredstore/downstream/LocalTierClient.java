@@ -4,13 +4,12 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClient;
 
 import java.io.IOException;
 import java.util.Optional;
 
 /** The data client is used to fetch data from Local tier. */
-public class LocalTierClient implements SingleChannelTierClient {
+public class LocalTierClient implements SubpartitionTierClient {
 
     private int latestSegmentId = 0;
 

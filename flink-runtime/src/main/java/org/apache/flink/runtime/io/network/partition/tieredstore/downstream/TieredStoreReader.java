@@ -1,4 +1,4 @@
-package org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common;
+package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;

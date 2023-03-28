@@ -1,4 +1,4 @@
-package org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common;
+package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;

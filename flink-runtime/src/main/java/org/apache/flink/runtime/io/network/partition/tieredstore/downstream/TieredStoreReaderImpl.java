@@ -4,9 +4,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelReader;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.SingleChannelTierClientFactory;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.TieredStoreReader;
 
 import java.io.IOException;
 import java.util.List;
@@ -16,11 +13,11 @@ import java.util.function.Consumer;
 /** The implementation of {@link TieredStoreReader} interface. */
 public class TieredStoreReaderImpl implements TieredStoreReader {
 
-    private final SingleChannelReader[] singleChannelReaders;
+    private final SubpartitionReader[] subpartitionReaders;
 
     private final int numInputChannels;
 
-    private final SingleChannelTierClientFactory clientFactory;
+    private final SubpartitionTierClientFactory clientFactory;
 
     public TieredStoreReaderImpl(
             JobID jobID,
@@ -30,9 +27,9 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
             String baseRemoteStoragePath,
             int numInputChannels) {
         this.numInputChannels = numInputChannels;
-        this.singleChannelReaders = new SingleChannelReader[numInputChannels];
+        this.subpartitionReaders = new SubpartitionReader[numInputChannels];
         this.clientFactory =
-                new SingleChannelTierClientFactory(
+                new SubpartitionTierClientFactory(
                         jobID,
                         resultPartitionIDs,
                         memorySegmentProvider,
@@ -44,21 +41,21 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
     public void setup(InputChannel[] channels, Consumer<InputChannel> channelEnqueueReceiver) {
         this.clientFactory.setup(channels, channelEnqueueReceiver);
         for (int i = 0; i < numInputChannels; ++i) {
-            singleChannelReaders[i] = new SubpartitionReaderImpl(clientFactory);
-            singleChannelReaders[i].setup();
+            subpartitionReaders[i] = new SubpartitionReaderImpl(clientFactory);
+            subpartitionReaders[i].setup();
         }
     }
 
     @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException {
-        return singleChannelReaders[inputChannel.getChannelIndex()].getNextBuffer(inputChannel);
+        return subpartitionReaders[inputChannel.getChannelIndex()].getNextBuffer(inputChannel);
     }
 
     @Override
     public void close() throws IOException {
-        for (SingleChannelReader singleChannelReader : singleChannelReaders) {
-            singleChannelReader.close();
+        for (SubpartitionReader subpartitionReader : subpartitionReaders) {
+            subpartitionReader.close();
         }
     }
 }

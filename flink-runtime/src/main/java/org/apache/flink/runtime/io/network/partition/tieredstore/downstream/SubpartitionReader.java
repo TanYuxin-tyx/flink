@@ -1,4 +1,4 @@
-package org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common;
+package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
@@ -6,8 +6,8 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.Buffe
 import java.io.IOException;
 import java.util.Optional;
 
-/** The interface of {@link SingleChannelReader} in Tiered Store. */
-public interface SingleChannelReader {
+/** The interface of {@link SubpartitionReader} in Tiered Store. */
+public interface SubpartitionReader {
 
     void setup();
 

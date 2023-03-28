@@ -1,21 +1,18 @@
-package org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common;
+package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.RemoteTierMonitor;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.LocalTierClient;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.RemoteTierClient;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-/** The factory of {@link SingleChannelTierClient}. */
-public class SingleChannelTierClientFactory {
+/** The factory of {@link SubpartitionTierClient}. */
+public class SubpartitionTierClientFactory {
 
     private final JobID jobID;
 
@@ -31,7 +28,7 @@ public class SingleChannelTierClientFactory {
 
     private RemoteTierMonitor remoteTierMonitor;
 
-    public SingleChannelTierClientFactory(
+    public SubpartitionTierClientFactory(
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             MemorySegmentProvider memorySegmentProvider,
@@ -55,8 +52,8 @@ public class SingleChannelTierClientFactory {
         }
     }
 
-    public List<SingleChannelTierClient> createClientList() {
-        List<SingleChannelTierClient> clientList = new ArrayList<>();
+    public List<SubpartitionTierClient> createClientList() {
+        List<SubpartitionTierClient> clientList = new ArrayList<>();
         if (enableRemoteTier) {
             clientList.add(new LocalTierClient());
             clientList.add(new RemoteTierClient(memoryManager, remoteTierMonitor));
