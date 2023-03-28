@@ -22,7 +22,7 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
 
     private final SingleChannelTierClientFactory clientFactory;
 
-    private final Consumer<InputChannel> channelEnqueueReceiver;
+    private Consumer<InputChannel> channelEnqueueReceiver;
 
     public TieredStoreReaderImpl(
             JobID jobID,
@@ -30,8 +30,7 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
             MemorySegmentProvider memorySegmentProvider,
             List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
-            int numInputChannels,
-            Consumer<InputChannel> channelEnqueueReceiver) {
+            int numInputChannels) {
         this.numInputChannels = numInputChannels;
         this.singleChannelReaders = new SingleChannelReader[numInputChannels];
         this.clientFactory = new SingleChannelTierClientFactory(
@@ -40,12 +39,12 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
                         memorySegmentProvider,
                         subpartitionIndexes,
                         baseRemoteStoragePath);
-        this.channelEnqueueReceiver = channelEnqueueReceiver;
     }
 
     @Override
-    public void setup(InputChannel[] channels) {
+    public void setup(InputChannel[] channels, Consumer<InputChannel> channelEnqueueReceiver) {
         this.clientFactory.setup(channels, channelEnqueueReceiver);
+        this.channelEnqueueReceiver = channelEnqueueReceiver;
         for (int i = 0; i < numInputChannels; ++i) {
             singleChannelReaders[i] = new SubpartitionReaderImpl(clientFactory);
             singleChannelReaders[i].setup();

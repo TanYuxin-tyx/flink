@@ -309,7 +309,8 @@ public class SingleInputGateFactory {
                 memorySegmentProvider,
                 segmentSize,
                 throughputCalculator,
-                bufferDebloater);
+                bufferDebloater,
+                null);
     }
 
     protected static int calculateNumChannels(
