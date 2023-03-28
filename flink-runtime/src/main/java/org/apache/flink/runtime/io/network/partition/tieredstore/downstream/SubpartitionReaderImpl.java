@@ -16,7 +16,7 @@ import java.util.Optional;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The implementation of {@link SingleChannelReader} interface. */
-public class SingleChannelReaderImpl implements SingleChannelReader {
+public class SubpartitionReaderImpl implements SingleChannelReader {
 
     private final SingleChannelTierClientFactory clientFactory;
 
@@ -24,7 +24,7 @@ public class SingleChannelReaderImpl implements SingleChannelReader {
 
     private int currentSegmentId = 0;
 
-    public SingleChannelReaderImpl(SingleChannelTierClientFactory clientFactory) {
+    public SubpartitionReaderImpl(SingleChannelTierClientFactory clientFactory) {
         this.clientFactory = clientFactory;
     }
 

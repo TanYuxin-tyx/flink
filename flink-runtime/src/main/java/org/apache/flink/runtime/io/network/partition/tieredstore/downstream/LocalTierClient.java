@@ -10,7 +10,7 @@ import java.io.IOException;
 import java.util.Optional;
 
 /** The data client is used to fetch data from Local tier. */
-public class SingleChannelLocalTierClient implements SingleChannelTierClient {
+public class LocalTierClient implements SingleChannelTierClient {
 
     private int latestSegmentId = 0;
 

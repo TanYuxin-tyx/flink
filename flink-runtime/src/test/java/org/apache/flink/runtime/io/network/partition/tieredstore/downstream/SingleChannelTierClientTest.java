@@ -34,7 +34,7 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.writeSegmentFinishFile;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** The test for {@link SingleChannelLocalTierClient}. */
+/** The test for {@link LocalTierClient}. */
 public class SingleChannelTierClientTest {
 
     private static final int SEGMENT_ID = 0;
@@ -65,7 +65,7 @@ public class SingleChannelTierClientTest {
 
     @Test
     void testSingleChannelLocalTierClient() throws IOException, InterruptedException {
-        SingleChannelLocalTierClient localTierClient = new SingleChannelLocalTierClient();
+        LocalTierClient localTierClient = new LocalTierClient();
         final TieredStoreSingleInputGate inputGate = createTieredStoreSingleInputGate(2);
         InputChannel inputChannel1 =
                 new InputChannelBuilder().setChannelIndex(0).buildRemoteRecoveredChannel(inputGate);
@@ -95,8 +95,8 @@ public class SingleChannelTierClientTest {
                         Collections.singletonList(RESULT_PARTITION_ID),
                         baseRemoteStoragePath,
                         Collections.singletonList(SUBPARTITION_INDEX));
-        SingleChannelRemoteTierClient remoteTierClient =
-                new SingleChannelRemoteTierClient(
+        RemoteTierClient remoteTierClient =
+                new RemoteTierClient(
                         new DownstreamTieredStoreMemoryManager(
                                 (NetworkBufferPool) inputGate.getMemorySegmentProvider()),
                         remoteTierMonitor);
@@ -113,7 +113,7 @@ public class SingleChannelTierClientTest {
     }
 
     private void verifyLocalTierClientResult(
-            SingleChannelLocalTierClient client,
+            LocalTierClient client,
             InputChannel inputChannel,
             boolean isPresent,
             Buffer.DataType expectedDataType,
@@ -135,7 +135,7 @@ public class SingleChannelTierClientTest {
     }
 
     private void verifyRemoteTierClientResult(
-            SingleChannelRemoteTierClient client,
+            RemoteTierClient client,
             InputChannel inputChannel,
             boolean isPresent,
             Buffer.DataType expectedDataType,
