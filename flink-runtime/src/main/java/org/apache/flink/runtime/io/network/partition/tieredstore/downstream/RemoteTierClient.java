@@ -77,6 +77,7 @@ public class RemoteTierClient implements TierClient {
         if (currentInputStream != null) {
             currentInputStream.close();
         }
+        remoteTierMonitor.close();
     }
 
     // ------------------------------------
