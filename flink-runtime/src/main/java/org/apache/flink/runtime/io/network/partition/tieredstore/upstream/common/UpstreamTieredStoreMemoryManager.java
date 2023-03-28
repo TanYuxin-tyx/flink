@@ -21,12 +21,17 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
+import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FatalExitExceptionHandler;
+
+import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.needFlushCacheBuffers;
@@ -50,7 +55,12 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     private final int numTotalExclusiveBuffers;
 
-    private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService executor =
+            Executors.newSingleThreadScheduledExecutor(
+                    new ThreadFactoryBuilder()
+                            .setNameFormat("upstream tiered store memory manager notifier")
+                            .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
+                            .build());
 
     public UpstreamTieredStoreMemoryManager(
             BufferPool bufferPool,
@@ -137,6 +147,14 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     @Override
     public void release() {
         executor.shutdown();
+        try {
+            executor.shutdown();
+            if (!executor.awaitTermination(5L, TimeUnit.MINUTES)) {
+                throw new TimeoutException("Shutdown spilling thread timeout.");
+            }
+        } catch (Exception e) {
+            ExceptionUtils.rethrow(e);
+        }
         checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
         for (Map.Entry<TieredStoreMode.TieredType, AtomicInteger> tierRequestedBuffer :
                 tierRequestedBuffersCounter.entrySet()) {
