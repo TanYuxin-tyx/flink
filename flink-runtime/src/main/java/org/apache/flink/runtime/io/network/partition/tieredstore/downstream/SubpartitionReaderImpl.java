@@ -15,13 +15,13 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** The implementation of {@link SubpartitionReader} interface. */
 public class SubpartitionReaderImpl implements SubpartitionReader {
 
-    private final SubpartitionTierClientFactory clientFactory;
+    private final TierClientFactory clientFactory;
 
-    private List<SubpartitionTierClient> clientList;
+    private List<TierClient> clientList;
 
     private int currentSegmentId = 0;
 
-    public SubpartitionReaderImpl(SubpartitionTierClientFactory clientFactory) {
+    public SubpartitionReaderImpl(TierClientFactory clientFactory) {
         this.clientFactory = clientFactory;
     }
 
@@ -34,7 +34,7 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException {
         Optional<BufferAndAvailability> bufferAndAvailability = Optional.empty();
-        for (SubpartitionTierClient client : clientList) {
+        for (TierClient client : clientList) {
             bufferAndAvailability = client.getNextBuffer(inputChannel, currentSegmentId);
             if (bufferAndAvailability.isPresent()) {
                 break;
@@ -55,7 +55,7 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
 
     @Override
     public void close() throws IOException {
-        for (SubpartitionTierClient client : clientList) {
+        for (TierClient client : clientList) {
             client.close();
         }
     }

@@ -9,7 +9,7 @@ import java.io.IOException;
 import java.util.Optional;
 
 /** The data client is used to fetch data from Local tier. */
-public class LocalTierClient implements SubpartitionTierClient {
+public class LocalTierClient implements TierClient {
 
     private int latestSegmentId = 0;
 
