@@ -71,4 +71,9 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     public void close() {
         // nothing to do.
     }
+
+    @Override
+    public void release() {
+
+    }
 }

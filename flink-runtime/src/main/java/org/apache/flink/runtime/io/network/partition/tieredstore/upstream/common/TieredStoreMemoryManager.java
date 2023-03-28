@@ -43,4 +43,6 @@ public interface TieredStoreMemoryManager {
     int getNetworkBufferPoolTotalBuffers();
 
     void close();
+
+    void release();
 }

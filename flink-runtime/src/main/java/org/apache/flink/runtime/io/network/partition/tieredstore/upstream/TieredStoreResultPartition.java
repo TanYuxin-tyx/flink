@@ -463,6 +463,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
         // first release the writer
         tieredStoreProducer.release();
+        tieredStoreMemoryManager.release();
     }
 
     @Override
