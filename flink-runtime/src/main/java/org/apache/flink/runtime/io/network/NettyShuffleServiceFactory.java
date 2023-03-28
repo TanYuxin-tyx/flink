@@ -35,7 +35,6 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionFactory;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreSingleInputGateFactory;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.NettyShuffleMaster;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironmentContext;
@@ -230,22 +229,13 @@ public class NettyShuffleServiceFactory
                         config.getTieredStoreTiers());
 
         SingleInputGateFactory singleInputGateFactory =
-                config.enableTieredStoreForHybridShuffle()
-                        ? new TieredStoreSingleInputGateFactory(
-                                taskExecutorResourceId,
-                                config,
-                                connectionManager,
-                                resultPartitionManager,
-                                taskEventPublisher,
-                                networkBufferPool,
-                                config.getBaseRemoteStoragePath())
-                        : new SingleInputGateFactory(
-                                taskExecutorResourceId,
-                                config,
-                                connectionManager,
-                                resultPartitionManager,
-                                taskEventPublisher,
-                                networkBufferPool);
+                new SingleInputGateFactory(
+                        taskExecutorResourceId,
+                        config,
+                        connectionManager,
+                        resultPartitionManager,
+                        taskEventPublisher,
+                        networkBufferPool);
 
         return new NettyShuffleEnvironment(
                 taskExecutorResourceId,
