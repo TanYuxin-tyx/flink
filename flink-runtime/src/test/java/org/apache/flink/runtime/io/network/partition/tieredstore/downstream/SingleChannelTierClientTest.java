@@ -14,7 +14,7 @@
 //import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 //import org.apache.flink.runtime.io.network.partition.consumer.InputChannelBuilder;
 //import org.apache.flink.runtime.io.network.partition.consumer.TestInputChannel;
-//import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.common.DownstreamTieredStoreMemoryManager;
+//import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.DownstreamTieredStoreMemoryManager;
 //
 //import org.junit.jupiter.api.AfterEach;
 //import org.junit.jupiter.api.BeforeEach;
