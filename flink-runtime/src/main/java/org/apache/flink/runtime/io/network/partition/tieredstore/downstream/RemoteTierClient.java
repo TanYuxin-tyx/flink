@@ -26,7 +26,7 @@ import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUt
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The data client is used to fetch data from DFS tier. */
-public class RemoteTierClient implements SubpartitionTierClient {
+public class RemoteTierClient implements TierClient {
 
     private final TieredStoreMemoryManager memoryManager;
 

@@ -11,8 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-/** The factory of {@link SubpartitionTierClient}. */
-public class SubpartitionTierClientFactory {
+/** The factory of {@link TierClient}. */
+public class TierClientFactory {
 
     private final JobID jobID;
 
@@ -28,7 +28,7 @@ public class SubpartitionTierClientFactory {
 
     private RemoteTierMonitor remoteTierMonitor;
 
-    public SubpartitionTierClientFactory(
+    public TierClientFactory(
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             MemorySegmentProvider memorySegmentProvider,
@@ -52,8 +52,8 @@ public class SubpartitionTierClientFactory {
         }
     }
 
-    public List<SubpartitionTierClient> createClientList() {
-        List<SubpartitionTierClient> clientList = new ArrayList<>();
+    public List<TierClient> createClientList() {
+        List<TierClient> clientList = new ArrayList<>();
         if (enableRemoteTier) {
             clientList.add(new LocalTierClient());
             clientList.add(new RemoteTierClient(memoryManager, remoteTierMonitor));

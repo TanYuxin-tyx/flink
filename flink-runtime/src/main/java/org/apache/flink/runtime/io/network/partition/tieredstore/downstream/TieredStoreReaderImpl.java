@@ -17,7 +17,7 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
 
     private final int numInputChannels;
 
-    private final SubpartitionTierClientFactory clientFactory;
+    private final TierClientFactory clientFactory;
 
     public TieredStoreReaderImpl(
             JobID jobID,
@@ -29,7 +29,7 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
         this.numInputChannels = numInputChannels;
         this.subpartitionReaders = new SubpartitionReader[numInputChannels];
         this.clientFactory =
-                new SubpartitionTierClientFactory(
+                new TierClientFactory(
                         jobID,
                         resultPartitionIDs,
                         memorySegmentProvider,
