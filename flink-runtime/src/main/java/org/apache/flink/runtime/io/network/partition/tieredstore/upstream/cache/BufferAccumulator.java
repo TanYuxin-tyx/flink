@@ -19,41 +19,18 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public class BufferAccumulator {
-
-    private final HashBasedCachedBuffer cachedBuffer;
-
-    public BufferAccumulator(
-            int numSubpartitions,
-            int bufferSize,
-            @Nullable BufferCompressor bufferCompressor,
-            TieredStoreMemoryManager storeMemoryManager,
-            TieredStoreProducer storeProducer) {
-        this.cachedBuffer =
-                new HashBasedCachedBuffer(
-                        numSubpartitions,
-                        bufferSize,
-                        bufferCompressor,
-                        storeMemoryManager,
-                        storeProducer);
-    }
-
-    public void emitInternal(
+public interface BufferAccumulator {
+    void emit(
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
             boolean isBroadcast,
             boolean isEndOfPartition)
-            throws IOException {
-        cachedBuffer.append(record, targetSubpartition, dataType, isBroadcast, isEndOfPartition);
-    }
+            throws IOException;
+
+    void release();
 }
