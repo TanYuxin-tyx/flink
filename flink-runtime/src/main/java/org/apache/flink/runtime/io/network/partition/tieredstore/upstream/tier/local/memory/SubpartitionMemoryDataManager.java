@@ -29,13 +29,9 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.OutputMetrics;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -47,11 +43,9 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode.TieredType.IN_MEM;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -62,13 +56,9 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class SubpartitionMemoryDataManager {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionMemoryDataManager.class);
-
     private final int targetChannel;
 
     private final int bufferSize;
-
-    private final int numTotalConsumers;
 
     private final MemoryDataWriterOperation memoryDataWriterOperation;
 
@@ -84,8 +74,6 @@ public class SubpartitionMemoryDataManager {
     /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
     private final ReentrantReadWriteLock subpartitionLock = new ReentrantReadWriteLock();
 
-    private final TieredStoreMemoryManager tieredStoreMemoryManager;
-
     @GuardedBy("subpartitionLock")
     private final Map<TierReaderViewId, MemoryTierReader> consumerMap;
 
@@ -96,16 +84,12 @@ public class SubpartitionMemoryDataManager {
     public SubpartitionMemoryDataManager(
             int targetChannel,
             int bufferSize,
-            int numTotalConsumers,
             @Nullable BufferCompressor bufferCompressor,
-            MemoryDataWriterOperation memoryDataWriterOperation,
-            TieredStoreMemoryManager tieredStoreMemoryManager) {
+            MemoryDataWriterOperation memoryDataWriterOperation) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
-        this.numTotalConsumers = numTotalConsumers;
         this.memoryDataWriterOperation = memoryDataWriterOperation;
         this.bufferCompressor = bufferCompressor;
-        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.consumerMap = new HashMap<>();
     }
 
@@ -118,19 +102,9 @@ public class SubpartitionMemoryDataManager {
      *
      * @param record to be managed by this class.
      * @param dataType the type of this record. In other words, is it data or event.
-     * @param isLastBufferInSegment whether this record is the last record in a segment.
      */
-    public void append(
-            ByteBuffer record,
-            DataType dataType,
-            boolean isBroadcast,
-            boolean isLastBufferInSegment) {
-        if (dataType.isEvent()) {
-            writeEvent(record, dataType, isBroadcast, isLastBufferInSegment);
-        } else {
-            // TODO, remove the branch of non-event
-            writeRecord(record, dataType, isBroadcast, isLastBufferInSegment);
-        }
+    public void appendSegmentEvent(ByteBuffer record, DataType dataType) {
+        writeEvent(record, dataType);
     }
 
     public void setOutputMetrics(OutputMetrics outputMetrics) {
@@ -172,15 +146,11 @@ public class SubpartitionMemoryDataManager {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private void writeEvent(
-            ByteBuffer event,
-            DataType dataType,
-            boolean isBroadcast,
-            boolean isLastBufferInSegment) {
+    private void writeEvent(ByteBuffer event, DataType dataType) {
         checkArgument(dataType.isEvent());
 
         // each Event must take an exclusive buffer
-        finishCurrentWritingBufferIfNotEmpty(isBroadcast);
+        finishCurrentWritingBufferIfNotEmpty();
 
         // store Events in adhoc heap segments, for network memory efficiency
         MemorySegment data = MemorySegmentFactory.wrap(event.array());
@@ -188,63 +158,19 @@ public class SubpartitionMemoryDataManager {
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
         BufferContext bufferContext = new BufferContext(buffer, finishedBufferIndex, targetChannel);
-        addFinishedBuffer(isBroadcast, bufferContext);
+        addFinishedBuffer(bufferContext);
     }
 
-    private void writeRecord(
-            ByteBuffer record,
-            DataType dataType,
-            boolean isBroadcast,
-            boolean isLastBufferInSegment) {
-        checkArgument(!dataType.isEvent());
-
-        ensureCapacityForRecord(record);
-
-        writeRecord(record, isBroadcast, isLastBufferInSegment);
-    }
-
-    private void ensureCapacityForRecord(ByteBuffer record) {
-        final int numRecordBytes = record.remaining();
-        int availableBytes =
-                Optional.ofNullable(unfinishedBuffers.peek())
-                        .map(
-                                currentWritingBuffer ->
-                                        currentWritingBuffer.getWritableBytes()
-                                                + bufferSize * (unfinishedBuffers.size() - 1))
-                        .orElse(0);
-
-        while (availableBytes < numRecordBytes) {
-            // request unfinished buffer.
-            MemorySegment memorySegment =
-                    memoryDataWriterOperation.requestBufferFromPool(targetChannel);
-            unfinishedBuffers.add(new BufferBuilder(memorySegment, this::recycle));
-            availableBytes += bufferSize;
-        }
-    }
-
-    private void writeRecord(
-            ByteBuffer record, boolean isBroadcast, boolean isLastBufferInSegment) {
-        while (record.hasRemaining()) {
-            BufferBuilder currentWritingBuffer =
-                    checkNotNull(
-                            unfinishedBuffers.peek(), "Expect enough capacity for the record.");
-            currentWritingBuffer.append(record);
-            if (currentWritingBuffer.isFull() || !record.hasRemaining() && isLastBufferInSegment) {
-                finishCurrentWritingBuffer(isBroadcast);
-            }
-        }
-    }
-
-    private void finishCurrentWritingBufferIfNotEmpty(boolean isBroadcast) {
+    private void finishCurrentWritingBufferIfNotEmpty() {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.peek();
         if (currentWritingBuffer == null || currentWritingBuffer.getWritableBytes() == bufferSize) {
             return;
         }
 
-        finishCurrentWritingBuffer(isBroadcast);
+        finishCurrentWritingBuffer();
     }
 
-    private void finishCurrentWritingBuffer(boolean isBroadcast) {
+    private void finishCurrentWritingBuffer() {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
         if (currentWritingBuffer == null) {
             return;
@@ -257,7 +183,7 @@ public class SubpartitionMemoryDataManager {
         BufferContext bufferContext =
                 new BufferContext(
                         compressBuffersIfPossible(buffer), finishedBufferIndex, targetChannel);
-        addFinishedBuffer(isBroadcast, bufferContext);
+        addFinishedBuffer(bufferContext);
     }
 
     private Buffer compressBuffersIfPossible(Buffer buffer) {
@@ -277,13 +203,13 @@ public class SubpartitionMemoryDataManager {
 
     void addFinishedBuffer(Buffer buffer) {
         BufferContext toAddBuffer = new BufferContext(buffer, finishedBufferIndex, targetChannel);
-        addFinishedBuffer(false, toAddBuffer);
+        addFinishedBuffer(toAddBuffer);
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    private void addFinishedBuffer(boolean isBroadcast, BufferContext bufferContext) {
+    private void addFinishedBuffer(BufferContext bufferContext) {
         List<TierReaderViewId> needNotify = new ArrayList<>(consumerMap.size());
         runWithLock(
                 () -> {
@@ -291,7 +217,6 @@ public class SubpartitionMemoryDataManager {
                     if (consumerMap.size() == 0) {
                         allBuffers.add(bufferContext);
                     }
-                    retainBufferIfNeeded(isBroadcast, bufferContext);
                     for (Map.Entry<TierReaderViewId, MemoryTierReader> consumerEntry :
                             consumerMap.entrySet()) {
                         if (consumerEntry.getValue().addBuffer(bufferContext)) {
@@ -301,18 +226,6 @@ public class SubpartitionMemoryDataManager {
                     updateStatistics(bufferContext.getBuffer());
                 });
         memoryDataWriterOperation.onDataAvailable(targetChannel, needNotify);
-    }
-
-    private void retainBufferIfNeeded(boolean isBroadcast, BufferContext bufferContext) {
-        if (isBroadcast) {
-            for (int i = 0; i < numTotalConsumers - 1; i++) {
-                bufferContext.getBuffer().retainBuffer();
-            }
-        }
-    }
-
-    private void recycle(MemorySegment memorySegment) {
-        tieredStoreMemoryManager.recycleBuffer(memorySegment, IN_MEM);
     }
 
     private void updateStatistics(Buffer buffer) {
