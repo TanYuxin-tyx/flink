@@ -19,8 +19,8 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     private final AtomicInteger numRequestedBuffers = new AtomicInteger(0);
 
     public DownstreamTieredStoreMemoryManager(NetworkBufferPool networkBufferPool) {
-        int numExclusive = HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(
-                TieredStoreMode.TieredType.IN_DFS);
+        int numExclusive =
+                HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(TieredStoreMode.TieredType.IN_DFS);
         try {
             this.localBufferPool = networkBufferPool.createBufferPool(numExclusive, numExclusive);
         } catch (IOException e) {
@@ -58,6 +58,12 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
+    public void incNumRequestedBuffer(TieredStoreMode.TieredType tieredType) {}
+
+    @Override
+    public void decNumRequestedBuffer(TieredStoreMode.TieredType tieredType) {}
+
+    @Override
     public int getNetworkBufferPoolAvailableBuffers() {
         return localBufferPool.getNetworkBufferPoolAvailableBuffers();
     }
@@ -68,12 +74,13 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
+    public void checkNeedTriggerFlushCachedBuffers() {}
+
+    @Override
     public void close() {
         // nothing to do.
     }
 
     @Override
-    public void release() {
-
-    }
+    public void release() {}
 }

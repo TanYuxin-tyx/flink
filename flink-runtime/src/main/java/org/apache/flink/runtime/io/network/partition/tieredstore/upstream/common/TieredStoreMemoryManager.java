@@ -38,9 +38,15 @@ public interface TieredStoreMemoryManager {
 
     void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TieredType tieredType);
 
+    void incNumRequestedBuffer(TieredStoreMode.TieredType tieredType);
+
+    void decNumRequestedBuffer(TieredStoreMode.TieredType tieredType);
+
     int getNetworkBufferPoolAvailableBuffers();
 
     int getNetworkBufferPoolTotalBuffers();
+
+    void checkNeedTriggerFlushCachedBuffers();
 
     void close();
 

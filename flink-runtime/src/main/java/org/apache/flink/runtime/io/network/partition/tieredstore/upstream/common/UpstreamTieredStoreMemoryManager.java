@@ -117,9 +117,23 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
         } catch (Throwable throwable) {
             throw new RuntimeException("Failed to request memory segments.", throwable);
         }
-        incRequestedBufferCounter(tieredType);
+        incNumRequestedBuffer(tieredType);
         checkNeedTriggerFlushCachedBuffers();
         return requestedBuffer;
+    }
+
+    @Override
+    public void incNumRequestedBuffer(TieredStoreMode.TieredType tieredType) {
+        numRequestedBuffers.getAndIncrement();
+        tierRequestedBuffersCounter.putIfAbsent(tieredType, new AtomicInteger(0));
+        tierRequestedBuffersCounter.get(tieredType).incrementAndGet();
+    }
+
+    @Override
+    public void decNumRequestedBuffer(TieredStoreMode.TieredType tieredType) {
+        numRequestedBuffers.decrementAndGet();
+        AtomicInteger numRequestedBuffers = tierRequestedBuffersCounter.get(tieredType);
+        checkNotNull(numRequestedBuffers).decrementAndGet();
     }
 
     @Override
@@ -135,7 +149,14 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     @Override
     public void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TieredType tieredType) {
         bufferPool.recycle(memorySegment);
-        decRequestedBufferCounter(tieredType);
+        decNumRequestedBuffer(tieredType);
+    }
+
+    @Override
+    public void checkNeedTriggerFlushCachedBuffers() {
+        if (needFlushCacheBuffers(this)) {
+            cacheFlushManager.triggerFlushCachedBuffers();
+        }
     }
 
     @Override
@@ -159,24 +180,6 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
                     tierRequestedBuffer.getValue().get() == 0,
                     "Leaking buffers in tier " + tierRequestedBuffer.getKey());
         }
-    }
-
-    private void checkNeedTriggerFlushCachedBuffers() {
-        if (needFlushCacheBuffers(this)) {
-            cacheFlushManager.triggerFlushCachedBuffers();
-        }
-    }
-
-    private void incRequestedBufferCounter(TieredStoreMode.TieredType tieredType) {
-        numRequestedBuffers.getAndIncrement();
-        tierRequestedBuffersCounter.putIfAbsent(tieredType, new AtomicInteger(0));
-        tierRequestedBuffersCounter.get(tieredType).incrementAndGet();
-    }
-
-    private void decRequestedBufferCounter(TieredStoreMode.TieredType tieredType) {
-        numRequestedBuffers.decrementAndGet();
-        AtomicInteger numRequestedBuffers = tierRequestedBuffersCounter.get(tieredType);
-        checkNotNull(numRequestedBuffers).decrementAndGet();
     }
 
     private int getAvailableBuffersForCache(int numAvailableBuffers) {

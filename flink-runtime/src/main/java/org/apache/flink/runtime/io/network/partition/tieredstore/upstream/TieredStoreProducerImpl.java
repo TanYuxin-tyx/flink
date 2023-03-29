@@ -55,6 +55,10 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     private final TierWriter[] tierWriters;
 
+    private final TieredStoreMode.TieredType[] tieredTypes;
+
+    private final TieredStoreMemoryManager storeMemoryManager;
+
     // Record the newest segment index belonged to each sub partition.
     private final int[] subpartitionSegmentIndexes;
 
@@ -69,6 +73,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     public TieredStoreProducerImpl(
             StorageTier[] storageTiers,
+            TieredStoreMode.TieredType[] tieredTypes,
             int numSubpartitions,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
@@ -79,6 +84,8 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         this.subpartitionSegmentIndexes = new int[numSubpartitions];
         this.subpartitionWriterIndex = new int[numSubpartitions];
         this.tierWriters = new TierWriter[storageTiers.length];
+        this.tieredTypes = tieredTypes;
+        this.storeMemoryManager = storeMemoryManager;
         this.isBroadcastOnly = isBroadcastOnly;
         this.numSubpartitions = numSubpartitions;
         this.bufferAccumulator =
@@ -146,6 +153,8 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         }
 
         int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
+        storeMemoryManager.decNumRequestedBuffer(TieredStoreMode.TieredType.IN_CACHE);
+        storeMemoryManager.incNumRequestedBuffer(tieredTypes[tierIndex]);
         boolean isLastBufferInSegment =
                 tierWriters[tierIndex].emit(
                         targetSubpartition,
@@ -153,6 +162,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
                         isBroadcast,
                         isEndOfPartition,
                         segmentIndex);
+        storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(targetSubpartition);
             subpartitionWriterIndex[targetSubpartition] = tierIndex;

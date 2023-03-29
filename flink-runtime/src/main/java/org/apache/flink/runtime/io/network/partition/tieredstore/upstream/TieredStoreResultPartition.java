@@ -97,6 +97,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private StorageTier[] tierDataGates;
 
+    private TieredStoreMode.TieredType[] tieredTypes;
+
     private TieredStoreProducer tieredStoreProducer;
 
     private boolean hasNotifiedEndOfUserRecords;
@@ -164,6 +166,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         tieredStoreProducer =
                 new TieredStoreProducerImpl(
                         tierDataGates,
+                        tieredTypes,
                         numSubpartitions,
                         networkBufferSize,
                         bufferCompressor,
@@ -283,11 +286,14 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         }
     }
 
-    private void addTierExclusiveBuffers(TieredStoreMode.TieredType... tieredTypes) {
-        for (TieredStoreMode.TieredType tieredType : tieredTypes) {
+    private void addTierExclusiveBuffers(TieredStoreMode.TieredType... toAddTieredTypes) {
+        checkState(tieredTypes == null);
+        tieredTypes = new TieredStoreMode.TieredType[toAddTieredTypes.length];
+        for (int i = 0; i < toAddTieredTypes.length; i++) {
             tierExclusiveBuffers.put(
-                    tieredType,
-                    checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(tieredType)));
+                    toAddTieredTypes[i],
+                    checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(toAddTieredTypes[i])));
+            tieredTypes[i] = toAddTieredTypes[i];
         }
         tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(
@@ -354,11 +360,10 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         Buffer buffer = EventSerializer.toBuffer(event, isPriorityEvent);
         try {
             ByteBuffer serializedEvent = buffer.getNioBufferReadable();
-            if (event.equals(EndOfPartitionEvent.INSTANCE)) {
-                broadcast(serializedEvent, buffer.getDataType(), true);
-            } else {
-                broadcast(serializedEvent, buffer.getDataType(), false);
-            }
+            broadcast(
+                    serializedEvent,
+                    buffer.getDataType(),
+                    event.equals(EndOfPartitionEvent.INSTANCE));
         } finally {
             buffer.recycleBuffer();
         }
