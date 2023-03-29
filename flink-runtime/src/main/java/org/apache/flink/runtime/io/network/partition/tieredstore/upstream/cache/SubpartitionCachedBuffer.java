@@ -24,13 +24,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
-import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.SubpartitionDiskCacheManager;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -40,12 +33,12 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.function.Consumer;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 public class SubpartitionCachedBuffer {
-    private static final Logger LOG = LoggerFactory.getLogger(SubpartitionDiskCacheManager.class);
 
     private final int targetChannel;
 
@@ -53,23 +46,24 @@ public class SubpartitionCachedBuffer {
 
     private final CacheBufferOperation cacheBufferOperation;
 
-    private final TieredStoreProducer storeProducer;
+    private final Consumer<CachedBufferContext> finishedBufferListener;
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
+    // TODO, remove the bufferCompressor
     @Nullable private final BufferCompressor bufferCompressor;
 
     public SubpartitionCachedBuffer(
             int targetChannel,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
-            TieredStoreProducer storeProducer,
+            Consumer<CachedBufferContext> finishedBufferListener,
             CacheBufferOperation cacheBufferOperation) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
         this.cacheBufferOperation = cacheBufferOperation;
-        this.storeProducer = storeProducer;
+        this.finishedBufferListener = finishedBufferListener;
         this.bufferCompressor = bufferCompressor;
     }
 
@@ -98,8 +92,7 @@ public class SubpartitionCachedBuffer {
             ByteBuffer event,
             Buffer.DataType dataType,
             boolean isBroadcast,
-            boolean isEndOfPartition)
-            throws IOException {
+            boolean isEndOfPartition) {
         checkArgument(dataType.isEvent());
 
         // each Event must take an exclusive buffer
@@ -107,9 +100,10 @@ public class SubpartitionCachedBuffer {
 
         // store Events in adhoc heap segments, for network memory efficiency
         MemorySegment data = MemorySegmentFactory.wrap(event.array());
-        Buffer buffer =
-                new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
-        addFinishedBuffer(buffer, isBroadcast, isEndOfPartition);
+        addFinishedBuffer(
+                new MemorySegmentAndChannel(data, targetChannel, dataType, data.size()),
+                isBroadcast,
+                isEndOfPartition);
     }
 
     private void writeRecord(
@@ -117,7 +111,7 @@ public class SubpartitionCachedBuffer {
             Buffer.DataType dataType,
             boolean isBroadcast,
             boolean isEndOfPartition)
-            throws InterruptedException, IOException {
+            throws InterruptedException {
         checkArgument(!dataType.isEvent());
 
         ensureCapacityForRecord(record);
@@ -143,8 +137,7 @@ public class SubpartitionCachedBuffer {
         }
     }
 
-    private void writeRecord(ByteBuffer record, boolean isBroadcast, boolean isEndOfPartition)
-            throws IOException {
+    private void writeRecord(ByteBuffer record, boolean isBroadcast, boolean isEndOfPartition) {
         while (record.hasRemaining()) {
             BufferBuilder currentWritingBuffer =
                     checkNotNull(
@@ -156,7 +149,7 @@ public class SubpartitionCachedBuffer {
         }
     }
 
-    private void finishCurrentWritingBufferIfNotEmpty(boolean isBroadcast) throws IOException {
+    private void finishCurrentWritingBufferIfNotEmpty(boolean isBroadcast) {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.peek();
         if (currentWritingBuffer == null || currentWritingBuffer.getWritableBytes() == bufferSize) {
             return;
@@ -165,8 +158,7 @@ public class SubpartitionCachedBuffer {
         finishCurrentWritingBuffer(isBroadcast, false);
     }
 
-    private void finishCurrentWritingBuffer(boolean isBroadcast, boolean isEndOfPartition)
-            throws IOException {
+    private void finishCurrentWritingBuffer(boolean isBroadcast, boolean isEndOfPartition) {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
         if (currentWritingBuffer == null) {
             return;
@@ -176,30 +168,23 @@ public class SubpartitionCachedBuffer {
         Buffer buffer = bufferConsumer.build();
         currentWritingBuffer.close();
         bufferConsumer.close();
-        addFinishedBuffer(compressBuffersIfPossible(buffer), isBroadcast, isEndOfPartition);
-    }
-
-    private Buffer compressBuffersIfPossible(Buffer buffer) {
-        if (!canBeCompressed(buffer)) {
-            return buffer;
-        }
-        return checkNotNull(bufferCompressor).compressToOriginalBuffer(buffer);
-    }
-
-    /**
-     * Whether the buffer can be compressed or not. Note that event is not compressed because it is
-     * usually small and the size can become even larger after compression.
-     */
-    private boolean canBeCompressed(Buffer buffer) {
-        return bufferCompressor != null && buffer.isBuffer() && buffer.readableBytes() > 0;
+        addFinishedBuffer(
+                new MemorySegmentAndChannel(
+                        buffer.getMemorySegment(),
+                        targetChannel,
+                        buffer.getDataType(),
+                        buffer.getSize()),
+                isBroadcast,
+                isEndOfPartition);
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    private void addFinishedBuffer(Buffer buffer, boolean isBroadcast, boolean isEndOfPartition)
-            throws IOException {
-        storeProducer.emitBuffers(
-                targetChannel, Collections.singletonList(buffer), isBroadcast, isEndOfPartition);
+    private void addFinishedBuffer(
+            MemorySegmentAndChannel buffer, boolean isBroadcast, boolean isEndOfPartition) {
+        finishedBufferListener.accept(
+                new CachedBufferContext(
+                        Collections.singletonList(buffer), isBroadcast, isEndOfPartition));
     }
 }
