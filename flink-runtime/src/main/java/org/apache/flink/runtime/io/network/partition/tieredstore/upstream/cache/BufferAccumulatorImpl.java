@@ -19,10 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -35,16 +32,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     public BufferAccumulatorImpl(
             int numSubpartitions,
             int bufferSize,
-            @Nullable BufferCompressor bufferCompressor,
             TieredStoreMemoryManager storeMemoryManager,
             Consumer<CachedBufferContext> finishedBufferListener) {
         this.cachedBuffer =
                 new HashBasedCachedBuffer(
-                        numSubpartitions,
-                        bufferSize,
-                        bufferCompressor,
-                        storeMemoryManager,
-                        finishedBufferListener);
+                        numSubpartitions, bufferSize, storeMemoryManager, finishedBufferListener);
     }
 
     @Override
