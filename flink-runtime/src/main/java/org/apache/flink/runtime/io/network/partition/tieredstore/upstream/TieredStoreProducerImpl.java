@@ -106,7 +106,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
                 new BufferAccumulatorImpl(
                         numSubpartitions,
                         bufferSize,
-                        bufferCompressor,
                         storeMemoryManager,
                         this::notifyFinishedBuffer);
         this.bufferRecyclers = new BufferRecycler[storageTiers.length];

@@ -22,10 +22,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -51,20 +48,15 @@ public class SubpartitionCachedBuffer {
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
-    // TODO, remove the bufferCompressor
-    @Nullable private final BufferCompressor bufferCompressor;
-
     public SubpartitionCachedBuffer(
             int targetChannel,
             int bufferSize,
-            @Nullable BufferCompressor bufferCompressor,
             Consumer<CachedBufferContext> finishedBufferListener,
             CacheBufferOperation cacheBufferOperation) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
         this.cacheBufferOperation = cacheBufferOperation;
         this.finishedBufferListener = finishedBufferListener;
-        this.bufferCompressor = bufferCompressor;
     }
 
     // ------------------------------------------------------------------------
