@@ -74,7 +74,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
         this.numSubpartitions = numSubpartitions;
         this.numTotalExclusiveBuffers =
                 tierExclusiveBuffers.values().stream().mapToInt(i -> i).sum();
-        executor.scheduleAtFixedRate(
+        executor.scheduleWithFixedDelay(
                 UpstreamTieredStoreMemoryManager.this::checkNeedTriggerFlushCachedBuffers,
                 10,
                 50,
