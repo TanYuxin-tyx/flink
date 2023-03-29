@@ -145,11 +145,7 @@ public class DiskTier implements TierWriter, StorageTier {
 
     @Override
     public boolean emit(
-            int targetSubpartition,
-            Buffer finishedBuffer,
-            boolean isBroadcast,
-            boolean isEndOfPartition,
-            int segmentId)
+            int targetSubpartition, Buffer finishedBuffer, boolean isEndOfPartition, int segmentId)
             throws IOException {
         boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.readableBytes();

@@ -140,28 +140,24 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
         if (isBroadcast && !isBroadcastOnly) {
             for (int i = 0; i < numSubpartitions; ++i) {
-                // TODO, remove the useless isBroadcast argument.
-                bufferAccumulator.emit(record.duplicate(), i, dataType, false, isEndOfPartition);
+                bufferAccumulator.emit(record.duplicate(), i, dataType, isEndOfPartition);
             }
         } else {
-            bufferAccumulator.emit(record, targetSubpartition, dataType, false, isEndOfPartition);
+            bufferAccumulator.emit(record, targetSubpartition, dataType, isEndOfPartition);
         }
     }
 
     @Override
     public void emitBuffers(
-            List<MemorySegmentAndChannel> finishedSegments,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
+            List<MemorySegmentAndChannel> finishedSegments, boolean isEndOfPartition)
             throws IOException {
         for (MemorySegmentAndChannel finishedSegment : finishedSegments) {
-            emitFinishedBuffer(finishedSegment, isBroadcast, isEndOfPartition);
+            emitFinishedBuffer(finishedSegment, isEndOfPartition);
         }
     }
 
     private void emitFinishedBuffer(
-            MemorySegmentAndChannel finishedSegment, boolean isBroadcast, boolean isEndOfPartition)
-            throws IOException {
+            MemorySegmentAndChannel finishedSegment, boolean isEndOfPartition) throws IOException {
         int targetSubpartition = finishedSegment.getChannelIndex();
         int tierIndex = subpartitionWriterIndex[targetSubpartition];
         // For the first buffer
@@ -187,7 +183,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
                 tierWriters[tierIndex].emit(
                         targetSubpartition,
                         compressBufferIfPossible(finishedBuffer),
-                        isBroadcast,
                         isEndOfPartition,
                         segmentIndex);
         if (finishedSegment.getDataType().isBuffer()) {
@@ -351,9 +346,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     private void notifyFinishedBuffer(CachedBufferContext bufferContext) {
         try {
             emitBuffers(
-                    bufferContext.getMemorySegmentAndChannels(),
-                    bufferContext.isBroadcast(),
-                    bufferContext.isEndOfPartition());
+                    bufferContext.getMemorySegmentAndChannels(), bufferContext.isEndOfPartition());
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }

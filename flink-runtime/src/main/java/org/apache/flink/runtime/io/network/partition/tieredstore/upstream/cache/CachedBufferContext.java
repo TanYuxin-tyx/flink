@@ -24,25 +24,16 @@ public class CachedBufferContext {
 
     private final List<MemorySegmentAndChannel> memorySegmentAndChannels;
 
-    private final boolean isBroadcast;
-
     private final boolean isEndOfPartition;
 
     public CachedBufferContext(
-            List<MemorySegmentAndChannel> memorySegmentAndChannels,
-            boolean isBroadcast,
-            boolean isEndOfPartition) {
+            List<MemorySegmentAndChannel> memorySegmentAndChannels, boolean isEndOfPartition) {
         this.memorySegmentAndChannels = memorySegmentAndChannels;
-        this.isBroadcast = isBroadcast;
         this.isEndOfPartition = isEndOfPartition;
     }
 
     public List<MemorySegmentAndChannel> getMemorySegmentAndChannels() {
         return memorySegmentAndChannels;
-    }
-
-    public boolean isBroadcast() {
-        return isBroadcast;
     }
 
     public boolean isEndOfPartition() {

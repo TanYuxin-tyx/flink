@@ -51,12 +51,10 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
             ByteBuffer record,
             int targetChannel,
             Buffer.DataType dataType,
-            boolean isBroadcast,
             boolean isEndOfPartition)
             throws IOException {
         try {
-            getSubpartitionCachedBuffer(targetChannel)
-                    .append(record, dataType, isBroadcast, isEndOfPartition);
+            getSubpartitionCachedBuffer(targetChannel).append(record, dataType, isEndOfPartition);
         } catch (InterruptedException e) {
             throw new IOException(e);
         }

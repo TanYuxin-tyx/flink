@@ -44,10 +44,9 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
-            boolean isBroadcast,
             boolean isEndOfPartition)
             throws IOException {
-        cachedBuffer.append(record, targetSubpartition, dataType, isBroadcast, isEndOfPartition);
+        cachedBuffer.append(record, targetSubpartition, dataType, isEndOfPartition);
     }
 
     @Override

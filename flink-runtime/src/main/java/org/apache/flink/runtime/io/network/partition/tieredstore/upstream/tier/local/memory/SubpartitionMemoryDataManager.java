@@ -128,6 +128,7 @@ public class SubpartitionMemoryDataManager {
         if (dataType.isEvent()) {
             writeEvent(record, dataType, isBroadcast, isLastBufferInSegment);
         } else {
+            // TODO, remove the branch of non-event
             writeRecord(record, dataType, isBroadcast, isLastBufferInSegment);
         }
     }
@@ -274,9 +275,9 @@ public class SubpartitionMemoryDataManager {
         return bufferCompressor != null && buffer.isBuffer() && buffer.readableBytes() > 0;
     }
 
-    void addFinishedBuffer(boolean isBroadcast, Buffer buffer) {
+    void addFinishedBuffer(Buffer buffer) {
         BufferContext toAddBuffer = new BufferContext(buffer, finishedBufferIndex, targetChannel);
-        addFinishedBuffer(isBroadcast, toAddBuffer);
+        addFinishedBuffer(false, toAddBuffer);
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
