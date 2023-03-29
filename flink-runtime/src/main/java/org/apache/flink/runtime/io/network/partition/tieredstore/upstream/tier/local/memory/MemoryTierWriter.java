@@ -109,7 +109,6 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     public boolean emit(
             int targetSubpartition,
             Buffer finishedBuffer,
-            boolean isBroadcast,
             boolean isEndOfPartition,
             int segmentId) {
         boolean isLastBufferInSegment = false;
@@ -120,24 +119,23 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
         }
         subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
         if (isLastBufferInSegment && !isEndOfPartition) {
-            append(finishedBuffer, targetSubpartition, isBroadcast && isBroadcastOnly);
+            append(finishedBuffer, targetSubpartition);
             // Send the EndOfSegmentEvent
-            appendEndOfSegmentEvent(segmentId, targetSubpartition, isBroadcast && isBroadcastOnly);
+            appendEndOfSegmentEvent(segmentId, targetSubpartition);
         } else {
-            append(finishedBuffer, targetSubpartition, isBroadcast && isBroadcastOnly);
+            append(finishedBuffer, targetSubpartition);
         }
         return isLastBufferInSegment;
     }
 
-    private void appendEndOfSegmentEvent(int segmentId, int targetChannel, boolean isBroadcast) {
+    private void appendEndOfSegmentEvent(int segmentId, int targetChannel) {
         ByteBuffer endOfSegment = EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentId + 1);
         getSubpartitionMemoryDataManager(targetChannel)
-                .append(endOfSegment, SEGMENT_EVENT, isBroadcast, true);
+                .append(endOfSegment, SEGMENT_EVENT, false, true);
     }
 
-    private void append(Buffer finishedBuffer, int targetChannel, boolean isBroadcast) {
-        getSubpartitionMemoryDataManager(targetChannel)
-                .addFinishedBuffer(isBroadcast, finishedBuffer);
+    private void append(Buffer finishedBuffer, int targetChannel) {
+        getSubpartitionMemoryDataManager(targetChannel).addFinishedBuffer(finishedBuffer);
     }
 
     public TierReader registerNewConsumer(

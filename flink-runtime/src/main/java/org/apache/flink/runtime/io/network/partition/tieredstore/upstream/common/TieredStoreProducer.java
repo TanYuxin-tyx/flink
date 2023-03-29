@@ -41,10 +41,7 @@ public interface TieredStoreProducer extends ChannelStateHolder, CheckpointedRes
             boolean isEndOfPartition)
             throws IOException;
 
-    void emitBuffers(
-            List<MemorySegmentAndChannel> finishedSegments,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
+    void emitBuffers(List<MemorySegmentAndChannel> finishedSegments, boolean isEndOfPartition)
             throws IOException;
 
     void close();

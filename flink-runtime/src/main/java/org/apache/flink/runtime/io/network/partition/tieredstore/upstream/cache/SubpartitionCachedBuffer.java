@@ -63,16 +63,12 @@ public class SubpartitionCachedBuffer {
     //  Called by MemoryDataManager
     // ------------------------------------------------------------------------
 
-    public void append(
-            ByteBuffer record,
-            Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
+    public void append(ByteBuffer record, Buffer.DataType dataType, boolean isEndOfPartition)
             throws IOException, InterruptedException {
         if (dataType.isEvent()) {
-            writeEvent(record, dataType, isBroadcast, isEndOfPartition);
+            writeEvent(record, dataType, isEndOfPartition);
         } else {
-            writeRecord(record, dataType, isBroadcast, isEndOfPartition);
+            writeRecord(record, dataType, isEndOfPartition);
         }
     }
 
@@ -80,35 +76,26 @@ public class SubpartitionCachedBuffer {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private void writeEvent(
-            ByteBuffer event,
-            Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition) {
+    private void writeEvent(ByteBuffer event, Buffer.DataType dataType, boolean isEndOfPartition) {
         checkArgument(dataType.isEvent());
 
         // each Event must take an exclusive buffer
-        finishCurrentWritingBufferIfNotEmpty(isBroadcast);
+        finishCurrentWritingBufferIfNotEmpty();
 
         // store Events in adhoc heap segments, for network memory efficiency
         MemorySegment data = MemorySegmentFactory.wrap(event.array());
         addFinishedBuffer(
                 new MemorySegmentAndChannel(data, targetChannel, dataType, data.size()),
-                isBroadcast,
                 isEndOfPartition);
     }
 
-    private void writeRecord(
-            ByteBuffer record,
-            Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
+    private void writeRecord(ByteBuffer record, Buffer.DataType dataType, boolean isEndOfPartition)
             throws InterruptedException {
         checkArgument(!dataType.isEvent());
 
         ensureCapacityForRecord(record);
 
-        writeRecord(record, isBroadcast, isEndOfPartition);
+        writeRecord(record, isEndOfPartition);
     }
 
     private void ensureCapacityForRecord(ByteBuffer record) throws InterruptedException {
@@ -129,28 +116,28 @@ public class SubpartitionCachedBuffer {
         }
     }
 
-    private void writeRecord(ByteBuffer record, boolean isBroadcast, boolean isEndOfPartition) {
+    private void writeRecord(ByteBuffer record, boolean isEndOfPartition) {
         while (record.hasRemaining()) {
             BufferBuilder currentWritingBuffer =
                     checkNotNull(
                             unfinishedBuffers.peek(), "Expect enough capacity for the record.");
             currentWritingBuffer.append(record);
             if (currentWritingBuffer.isFull()) {
-                finishCurrentWritingBuffer(isBroadcast, isEndOfPartition);
+                finishCurrentWritingBuffer(isEndOfPartition);
             }
         }
     }
 
-    private void finishCurrentWritingBufferIfNotEmpty(boolean isBroadcast) {
+    private void finishCurrentWritingBufferIfNotEmpty() {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.peek();
         if (currentWritingBuffer == null || currentWritingBuffer.getWritableBytes() == bufferSize) {
             return;
         }
 
-        finishCurrentWritingBuffer(isBroadcast, false);
+        finishCurrentWritingBuffer(false);
     }
 
-    private void finishCurrentWritingBuffer(boolean isBroadcast, boolean isEndOfPartition) {
+    private void finishCurrentWritingBuffer(boolean isEndOfPartition) {
         BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
         if (currentWritingBuffer == null) {
             return;
@@ -166,17 +153,14 @@ public class SubpartitionCachedBuffer {
                         targetChannel,
                         buffer.getDataType(),
                         buffer.getSize()),
-                isBroadcast,
                 isEndOfPartition);
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    private void addFinishedBuffer(
-            MemorySegmentAndChannel buffer, boolean isBroadcast, boolean isEndOfPartition) {
+    private void addFinishedBuffer(MemorySegmentAndChannel buffer, boolean isEndOfPartition) {
         finishedBufferListener.accept(
-                new CachedBufferContext(
-                        Collections.singletonList(buffer), isBroadcast, isEndOfPartition));
+                new CachedBufferContext(Collections.singletonList(buffer), isEndOfPartition));
     }
 }

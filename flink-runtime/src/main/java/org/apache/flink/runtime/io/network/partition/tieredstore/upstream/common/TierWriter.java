@@ -30,11 +30,7 @@ public interface TierWriter {
     void setup() throws IOException;
 
     boolean emit(
-            int targetSubpartition,
-            Buffer finishedBuffer,
-            boolean isBroadcast,
-            boolean isEndOfPartition,
-            int segmentId)
+            int targetSubpartition, Buffer finishedBuffer, boolean isEndOfPartition, int segmentId)
             throws IOException;
 
     void setNumBytesInASegment(int numBytesInASegment);

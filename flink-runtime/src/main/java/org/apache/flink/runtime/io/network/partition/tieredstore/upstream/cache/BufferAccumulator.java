@@ -28,7 +28,6 @@ public interface BufferAccumulator {
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
-            boolean isBroadcast,
             boolean isEndOfPartition)
             throws IOException;
 
