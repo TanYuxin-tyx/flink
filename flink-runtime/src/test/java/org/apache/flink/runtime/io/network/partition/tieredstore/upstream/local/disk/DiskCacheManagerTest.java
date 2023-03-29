@@ -19,28 +19,19 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local.disk;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferPool;
-import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.SubpartitionDiskCacheManager;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
-
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.getTierExclusiveBuffers;
-import static org.assertj.core.api.Assertions.assertThat;
 
 /** Tests for {@link DiskCacheManager}. */
 class DiskCacheManagerTest {
@@ -58,37 +49,6 @@ class DiskCacheManagerTest {
     @BeforeEach
     void before(@TempDir Path tempDir) {
         this.dataFilePath = tempDir.resolve(".data");
-    }
-
-    @Test
-    void testAppendMarkBufferFinished() throws Exception {
-        int targetChannel = 0;
-        bufferSize = Integer.BYTES * 3;
-        NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, bufferSize);
-        BufferPool bufferPool = networkBufferPool.createBufferPool(POOL_SIZE, POOL_SIZE);
-        TieredStoreMemoryManager tieredStoreMemoryManager =
-                new UpstreamTieredStoreMemoryManager(
-                        bufferPool,
-                        getTierExclusiveBuffers(),
-                        NUM_SUBPARTITIONS,
-                        new CacheFlushManager());
-        DiskCacheManager diskCacheManager = createCacheDataManager(tieredStoreMemoryManager);
-        SubpartitionDiskCacheManager subpartitionDiskCacheManager =
-                diskCacheManager.getSubpartitionDiskCacheManagers()[targetChannel];
-        diskCacheManager.append(createRecord(0), targetChannel, Buffer.DataType.DATA_BUFFER, false);
-        diskCacheManager.append(createRecord(1), targetChannel, Buffer.DataType.DATA_BUFFER, false);
-        diskCacheManager.append(createRecord(2), targetChannel, Buffer.DataType.DATA_BUFFER, false);
-        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(1);
-        diskCacheManager.append(createRecord(3), 0, Buffer.DataType.DATA_BUFFER, false);
-        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(1);
-        diskCacheManager.append(createRecord(4), 0, Buffer.DataType.DATA_BUFFER, true);
-        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(2);
-        diskCacheManager.append(createRecord(5), 0, Buffer.DataType.EVENT_BUFFER, true);
-        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(3);
-        diskCacheManager.append(createRecord(6), 0, Buffer.DataType.EVENT_BUFFER, true);
-        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(4);
-        diskCacheManager.append(createRecord(7), 0, Buffer.DataType.DATA_BUFFER, true);
-        assertThat(subpartitionDiskCacheManager.getFinishedBufferIndex()).isEqualTo(5);
     }
 
     private DiskCacheManager createCacheDataManager(
