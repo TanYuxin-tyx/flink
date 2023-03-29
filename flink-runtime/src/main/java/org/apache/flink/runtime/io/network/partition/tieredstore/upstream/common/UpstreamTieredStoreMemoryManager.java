@@ -148,7 +148,6 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     public void release() {
         executor.shutdown();
         try {
-            executor.shutdown();
             if (!executor.awaitTermination(5L, TimeUnit.MINUTES)) {
                 throw new TimeoutException("Shutdown spilling thread timeout.");
             }
