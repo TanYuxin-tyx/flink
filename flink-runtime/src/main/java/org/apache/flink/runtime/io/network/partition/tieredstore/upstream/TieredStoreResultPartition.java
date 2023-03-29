@@ -147,7 +147,10 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                         readBufferPool,
                         readIOExecutor,
                         storeConfiguration,
-                        numSubpartitions, jobID, partitionId, storeConfiguration.getBaseDfsHomePath());
+                        numSubpartitions,
+                        jobID,
+                        partitionId,
+                        storeConfiguration.getBaseDfsHomePath());
     }
 
     // Called by task thread.
@@ -292,7 +295,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     }
 
     private MemoryTier getMemoryTier() {
-        addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_MEM);
         return new MemoryTier(
                 numSubpartitions,
                 networkBufferSize,
@@ -302,7 +304,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     }
 
     private DiskTier getDiskTier() {
-        addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_LOCAL);
         return new DiskTier(
                 numSubpartitions,
                 networkBufferSize,
@@ -317,7 +318,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     }
 
     private RemoteTier getRemoteTier() throws IOException {
-        addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_DFS);
         String baseDfsPath = storeConfiguration.getBaseDfsHomePath();
         if (StringUtils.isNullOrWhitespaceOnly(baseDfsPath)) {
             throw new IllegalArgumentException(
