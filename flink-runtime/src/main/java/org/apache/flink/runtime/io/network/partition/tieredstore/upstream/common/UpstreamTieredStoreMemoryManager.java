@@ -75,10 +75,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
         this.numTotalExclusiveBuffers =
                 tierExclusiveBuffers.values().stream().mapToInt(i -> i).sum();
         executor.scheduleWithFixedDelay(
-                UpstreamTieredStoreMemoryManager.this::checkNeedTriggerFlushCachedBuffers,
-                10,
-                50,
-                TimeUnit.MILLISECONDS);
+                this::checkNeedTriggerFlushCachedBuffers, 10, 50, TimeUnit.MILLISECONDS);
     }
 
     public BufferPool getBufferPool() {
@@ -142,10 +139,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     }
 
     @Override
-    public void close() {}
-
-    @Override
-    public void release() {
+    public void close() {
         executor.shutdown();
         try {
             if (!executor.awaitTermination(5L, TimeUnit.MINUTES)) {
@@ -154,6 +148,10 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
         } catch (Exception e) {
             ExceptionUtils.rethrow(e);
         }
+    }
+
+    @Override
+    public void release() {
         checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
         for (Map.Entry<TieredStoreMode.TieredType, AtomicInteger> tierRequestedBuffer :
                 tierRequestedBuffersCounter.entrySet()) {
