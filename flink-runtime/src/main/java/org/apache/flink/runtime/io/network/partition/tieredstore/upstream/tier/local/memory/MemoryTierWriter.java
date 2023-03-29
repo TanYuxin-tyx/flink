@@ -92,12 +92,7 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionMemoryDataManagers[subpartitionId] =
                     new SubpartitionMemoryDataManager(
-                            subpartitionId,
-                            bufferSize,
-                            numTotalConsumers,
-                            bufferCompressor,
-                            this,
-                            tieredStoreMemoryManager);
+                            subpartitionId, bufferSize, bufferCompressor, this);
             subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
         }
     }
@@ -131,7 +126,7 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     private void appendEndOfSegmentEvent(int segmentId, int targetChannel) {
         ByteBuffer endOfSegment = EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentId + 1);
         getSubpartitionMemoryDataManager(targetChannel)
-                .append(endOfSegment, SEGMENT_EVENT, false, true);
+                .appendSegmentEvent(endOfSegment, SEGMENT_EVENT);
     }
 
     private void append(Buffer finishedBuffer, int targetChannel) {
