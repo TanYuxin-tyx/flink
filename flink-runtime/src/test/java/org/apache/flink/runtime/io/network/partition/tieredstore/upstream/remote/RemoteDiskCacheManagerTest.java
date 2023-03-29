@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.remote;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -38,7 +37,6 @@ import org.junit.rules.TemporaryFolder;
 
 import java.io.IOException;
 
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.createRecord;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.getTierExclusiveBuffers;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -72,15 +70,6 @@ class RemoteDiskCacheManagerTest {
                         JobID.generate(),
                         new ResultPartitionID(),
                         tmpFolder.getRoot().getPath());
-    }
-
-    @Test
-    void testAppendMarkBufferFinished() throws Exception {
-        RemoteCacheManager cacheDataManager = createRemoteCacheDataManager();
-        cacheDataManager.append(createRecord(0), 0, Buffer.DataType.DATA_BUFFER, false);
-        cacheDataManager.append(createRecord(1), 0, Buffer.DataType.DATA_BUFFER, false);
-        cacheDataManager.append(createRecord(2), 0, Buffer.DataType.DATA_BUFFER, false);
-        cacheDataManager.append(createRecord(3), 0, Buffer.DataType.DATA_BUFFER, false);
     }
 
     @Test

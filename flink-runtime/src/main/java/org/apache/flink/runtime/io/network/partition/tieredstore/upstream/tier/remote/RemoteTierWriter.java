@@ -26,7 +26,7 @@ import java.io.IOException;
 import java.util.Arrays;
 
 /**
- * Through the {@link RemoteTierWriter}, records from {@link RemoteTier} is writen to cached
+ * Through the {@link RemoteTierWriter}, records from {@link RemoteTier} is written to cached
  * buffers.
  */
 public class RemoteTierWriter implements TierWriter {
@@ -70,7 +70,7 @@ public class RemoteTierWriter implements TierWriter {
             segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
             cacheDataManager.startSegment(targetSubpartition, segmentId);
         }
-        emitBuffer(finishedBuffer, targetSubpartition, isLastBufferInSegment);
+        emitBuffer(finishedBuffer, targetSubpartition);
         if (isLastBufferInSegment || isEndOfPartition) {
             cacheDataManager.finishSegment(targetSubpartition, segmentId);
         }
@@ -78,9 +78,8 @@ public class RemoteTierWriter implements TierWriter {
         return isLastBufferInSegment;
     }
 
-    private void emitBuffer(
-            Buffer finishedBuffer, int targetSubpartition, boolean isLastBufferInSegment) {
-        cacheDataManager.appendBuffer(finishedBuffer, targetSubpartition, isLastBufferInSegment);
+    private void emitBuffer(Buffer finishedBuffer, int targetSubpartition) {
+        cacheDataManager.appendBuffer(finishedBuffer, targetSubpartition);
     }
 
     @Override

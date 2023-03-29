@@ -32,8 +32,6 @@ import org.apache.flink.util.FatalExitExceptionHandler;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -65,19 +63,13 @@ public class RemoteCacheManager {
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
             BufferCompressor bufferCompressor,
-            PartitionFileWriter partitionFileWriter)
-            throws IOException {
+            PartitionFileWriter partitionFileWriter) {
         this.numSubpartitions = numSubpartitions;
         this.subpartitionCacheDataManagers = new SubpartitionRemoteCacheManager[numSubpartitions];
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionCacheDataManagers[subpartitionId] =
                     new SubpartitionRemoteCacheManager(
-                            subpartitionId,
-                            bufferSize,
-                            tieredStoreMemoryManager,
-                            cacheFlushManager,
-                            bufferCompressor,
-                            partitionFileWriter);
+                            subpartitionId, cacheFlushManager, partitionFileWriter);
         }
     }
 
@@ -85,26 +77,11 @@ public class RemoteCacheManager {
     //          For DfsDataManager
     // ------------------------------------
 
-    public void append(
-            ByteBuffer record,
-            int targetChannel,
-            Buffer.DataType dataType,
-            boolean isLastBufferInSegment)
-            throws IOException {
-        try {
-            getSubpartitionCacheDataManager(targetChannel)
-                    .append(record, dataType, isLastBufferInSegment);
-        } catch (InterruptedException e) {
-            throw new IOException(e);
-        }
-    }
-
-    public void appendBuffer(
-            Buffer finishedBuffer, int targetChannel, boolean isLastBufferInSegment) {
+    public void appendBuffer(Buffer finishedBuffer, int targetChannel) {
         getSubpartitionCacheDataManager(targetChannel).addFinishedBuffer(finishedBuffer);
     }
 
-    public void startSegment(int targetSubpartition, int segmentIndex) throws IOException {
+    public void startSegment(int targetSubpartition, int segmentIndex) {
         getSubpartitionCacheDataManager(targetSubpartition).startSegment(segmentIndex);
     }
 
@@ -115,7 +92,14 @@ public class RemoteCacheManager {
     /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
     public void close() {
         Arrays.stream(subpartitionCacheDataManagers).forEach(SubpartitionRemoteCacheManager::close);
-        ioExecutor.shutdown();
+        try {
+            ioExecutor.shutdown();
+            if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
+                throw new TimeoutException("Shutdown spilling thread timeout.");
+            }
+        } catch (Exception e) {
+            ExceptionUtils.rethrow(e);
+        }
     }
 
     /**
@@ -124,14 +108,6 @@ public class RemoteCacheManager {
     public void release() {
         for (int i = 0; i < numSubpartitions; i++) {
             getSubpartitionCacheDataManager(i).release();
-        }
-        try {
-            ioExecutor.shutdown();
-            if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
-                throw new TimeoutException("Shutdown spilling thread timeout.");
-            }
-        } catch (Exception e) {
-            ExceptionUtils.rethrow(e);
         }
     }
 
