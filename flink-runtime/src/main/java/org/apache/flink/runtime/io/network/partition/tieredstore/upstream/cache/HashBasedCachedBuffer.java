@@ -24,10 +24,10 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.function.Consumer;
 
 public class HashBasedCachedBuffer implements CacheBufferOperation {
     private final SubpartitionCachedBuffer[] subpartitionCachedBuffers;
@@ -39,14 +39,14 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
             int bufferSize,
             BufferCompressor bufferCompressor,
             TieredStoreMemoryManager storeMemoryManager,
-            TieredStoreProducer storeProducer) {
+            Consumer<CachedBufferContext> finishedBufferListener) {
         this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numSubpartitions];
         this.storeMemoryManager = storeMemoryManager;
 
         for (int i = 0; i < numSubpartitions; i++) {
             subpartitionCachedBuffers[i] =
                     new SubpartitionCachedBuffer(
-                            i, bufferSize, bufferCompressor, storeProducer, this);
+                            i, bufferSize, bufferCompressor, finishedBufferListener, this);
         }
     }
 
