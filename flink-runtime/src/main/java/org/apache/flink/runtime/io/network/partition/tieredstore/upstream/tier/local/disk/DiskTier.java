@@ -164,9 +164,9 @@ public class DiskTier implements TierWriter, StorageTier {
         return isLastBufferInSegment;
     }
 
-    private void emitEndOfSegmentEvent(int segmentId, int targetChannel) throws IOException {
+    private void emitEndOfSegmentEvent(int segmentId, int targetChannel) {
         ByteBuffer endOfSegment = EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentId + 1);
-        diskCacheManager.append(endOfSegment, targetChannel, SEGMENT_EVENT, true);
+        diskCacheManager.appendSegmentEvent(endOfSegment, targetChannel, SEGMENT_EVENT);
     }
 
     private void emitBuffer(

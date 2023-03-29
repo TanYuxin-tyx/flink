@@ -74,8 +74,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
         this.tierReaderViewMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionDiskCacheManagers[subpartitionId] =
-                    new SubpartitionDiskCacheManager(
-                            subpartitionId, bufferSize, bufferCompressor, this);
+                    new SubpartitionDiskCacheManager(subpartitionId, bufferSize, bufferCompressor);
             tierReaderViewMap.add(new ConcurrentHashMap<>());
         }
         this.partitionFileWriter =
@@ -93,24 +92,10 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
      * @param record to be managed by this class.
      * @param targetChannel target subpartition of this record.
      * @param dataType the type of this record. In other words, is it data or event.
-     * @param isLastBufferInSegment whether this record is the last record in a segment.
      */
-    public void append(
-            ByteBuffer record,
-            int targetChannel,
-            Buffer.DataType dataType,
-            boolean isLastBufferInSegment)
-            throws IOException {
-        try {
-            getSubpartitionCacheDataManager(targetChannel)
-                    .append(record, dataType, isLastBufferInSegment);
-        } catch (InterruptedException e) {
-            throw new IOException(e);
-        }
-        // force spill all buffers to disk.
-        if (isLastBufferInSegment) {
-            flushAndReleaseCacheBuffers();
-        }
+    public void appendSegmentEvent(ByteBuffer record, int targetChannel, Buffer.DataType dataType) {
+        getSubpartitionCacheDataManager(targetChannel).appendSegmentEvent(record, dataType);
+        flushAndReleaseCacheBuffers();
     }
 
     /**
