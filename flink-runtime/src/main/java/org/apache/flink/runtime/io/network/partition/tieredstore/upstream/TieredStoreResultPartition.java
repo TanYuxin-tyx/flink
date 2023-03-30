@@ -76,10 +76,14 @@ import static org.apache.flink.runtime.shuffle.NettyShuffleUtils.HYBRID_SHUFFLE_
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** ResultPartition for TieredStore. */
+/**
+ * {@link TieredStoreResultPartition} appends records and events to the tiered store, which supports
+ * the upstream dynamically switches storage tier for writing shuffle data, and the downstream will
+ * read data from the relevant storage tier.
+ */
 public class TieredStoreResultPartition extends ResultPartition implements ChannelStateHolder {
 
-    public final Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers;
+    public final Map<TieredStoreMode.TierType, Integer> tierExclusiveBuffers;
 
     private final int networkBufferSize;
 
@@ -97,7 +101,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private StorageTier[] allTiers;
 
-    private TieredStoreMode.TieredType[] tieredTypes;
+    private TieredStoreMode.TierType[] tierTypes;
 
     private TieredStoreProducer tieredStoreProducer;
 
@@ -167,7 +171,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         tieredStoreProducer =
                 new TieredStoreProducerImpl(
                         allTiers,
-                        tieredTypes,
+                        tierTypes,
                         numSubpartitions,
                         networkBufferSize,
                         bufferCompressor,
@@ -186,29 +190,31 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     }
 
     private void setupTierDataGates() throws IOException {
-        TieredStoreMode.Tiers tiers;
+        TieredStoreMode.SupportedTierCombinations supportedTierCombinations;
         try {
-            tiers = TieredStoreMode.Tiers.valueOf(storeConfiguration.getTieredStoreTiers());
+            supportedTierCombinations =
+                    TieredStoreMode.SupportedTierCombinations.valueOf(
+                            storeConfiguration.getTieredStoreTiers());
         } catch (Exception e) {
             throw new RuntimeException("Illegal tiers for Tiered Store.", e);
         }
         ResultPartitionType partitionType = getPartitionType();
-        switch (tiers) {
+        switch (supportedTierCombinations) {
             case MEMORY:
                 this.allTiers = new StorageTier[1];
-                addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_MEM);
+                addTierExclusiveBuffers(TieredStoreMode.TierType.IN_MEM);
                 this.allTiers[0] = getMemoryTier();
                 this.allTiers[0].setup();
                 break;
             case LOCAL:
                 this.allTiers = new StorageTier[1];
-                addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_LOCAL);
+                addTierExclusiveBuffers(TieredStoreMode.TierType.IN_LOCAL);
                 this.allTiers[0] = getDiskTier();
                 this.allTiers[0].setup();
                 break;
             case DFS:
                 this.allTiers = new StorageTier[1];
-                addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_DFS);
+                addTierExclusiveBuffers(TieredStoreMode.TierType.IN_DFS);
                 this.allTiers[0] = getRemoteTier();
                 this.allTiers[0].setup();
                 break;
@@ -216,7 +222,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 if (partitionType == HYBRID_SELECTIVE) {
                     this.allTiers = new StorageTier[2];
                     addTierExclusiveBuffers(
-                            TieredStoreMode.TieredType.IN_MEM, TieredStoreMode.TieredType.IN_LOCAL);
+                            TieredStoreMode.TierType.IN_MEM, TieredStoreMode.TierType.IN_LOCAL);
                     this.allTiers[0] = getMemoryTier();
                     this.allTiers[1] = getDiskTier();
                     for (StorageTier tierDataGate : allTiers) {
@@ -225,7 +231,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                     break;
                 } else {
                     this.allTiers = new StorageTier[1];
-                    addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_LOCAL);
+                    addTierExclusiveBuffers(TieredStoreMode.TierType.IN_LOCAL);
                     this.allTiers[0] = getDiskTier();
                     this.allTiers[0].setup();
                     break;
@@ -234,7 +240,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 if (partitionType == HYBRID_SELECTIVE) {
                     this.allTiers = new StorageTier[2];
                     addTierExclusiveBuffers(
-                            TieredStoreMode.TieredType.IN_MEM, TieredStoreMode.TieredType.IN_DFS);
+                            TieredStoreMode.TierType.IN_MEM, TieredStoreMode.TierType.IN_DFS);
                     this.allTiers[0] = getMemoryTier();
                     this.allTiers[1] = getRemoteTier();
                     for (StorageTier tierDataGate : allTiers) {
@@ -243,7 +249,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                     break;
                 } else {
                     this.allTiers = new StorageTier[1];
-                    addTierExclusiveBuffers(TieredStoreMode.TieredType.IN_DFS);
+                    addTierExclusiveBuffers(TieredStoreMode.TierType.IN_DFS);
                     this.allTiers[0] = getRemoteTier();
                     this.allTiers[0].setup();
                     break;
@@ -252,9 +258,9 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 if (partitionType == HYBRID_SELECTIVE) {
                     this.allTiers = new StorageTier[3];
                     addTierExclusiveBuffers(
-                            TieredStoreMode.TieredType.IN_MEM,
-                            TieredStoreMode.TieredType.IN_LOCAL,
-                            TieredStoreMode.TieredType.IN_DFS);
+                            TieredStoreMode.TierType.IN_MEM,
+                            TieredStoreMode.TierType.IN_LOCAL,
+                            TieredStoreMode.TierType.IN_DFS);
                     this.allTiers[0] = getMemoryTier();
                     this.allTiers[1] = getDiskTier();
                     this.allTiers[2] = getRemoteTier();
@@ -265,7 +271,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 } else {
                     this.allTiers = new StorageTier[2];
                     addTierExclusiveBuffers(
-                            TieredStoreMode.TieredType.IN_LOCAL, TieredStoreMode.TieredType.IN_DFS);
+                            TieredStoreMode.TierType.IN_LOCAL, TieredStoreMode.TierType.IN_DFS);
                     this.allTiers[0] = getDiskTier();
                     this.allTiers[1] = getRemoteTier();
                     for (StorageTier tierDataGate : allTiers) {
@@ -276,7 +282,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
             case LOCAL_DFS:
                 this.allTiers = new StorageTier[2];
                 addTierExclusiveBuffers(
-                        TieredStoreMode.TieredType.IN_LOCAL, TieredStoreMode.TieredType.IN_DFS);
+                        TieredStoreMode.TierType.IN_LOCAL, TieredStoreMode.TierType.IN_DFS);
                 this.allTiers[0] = getDiskTier();
                 this.allTiers[1] = getRemoteTier();
                 for (StorageTier tierDataGate : allTiers) {
@@ -288,14 +294,14 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         }
     }
 
-    private void addTierExclusiveBuffers(TieredStoreMode.TieredType... toAddTieredTypes) {
-        checkState(tieredTypes == null);
-        tieredTypes = new TieredStoreMode.TieredType[toAddTieredTypes.length];
-        for (int i = 0; i < toAddTieredTypes.length; i++) {
+    private void addTierExclusiveBuffers(TieredStoreMode.TierType... toAddTierTypes) {
+        checkState(tierTypes == null);
+        tierTypes = new TieredStoreMode.TierType[toAddTierTypes.length];
+        for (int i = 0; i < toAddTierTypes.length; i++) {
             tierExclusiveBuffers.put(
-                    toAddTieredTypes[i],
-                    checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(toAddTieredTypes[i])));
-            tieredTypes[i] = toAddTieredTypes[i];
+                    toAddTierTypes[i],
+                    checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(toAddTierTypes[i])));
+            tierTypes[i] = toAddTierTypes[i];
         }
         tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(

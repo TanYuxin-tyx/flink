@@ -41,13 +41,13 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class NettyShuffleUtils {
 
-    public static final Map<TieredStoreMode.TieredType, Integer>
+    public static final Map<TieredStoreMode.TierType, Integer>
             HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS = new HashMap<>();
 
     static {
-        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_MEM, 100);
-        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_LOCAL, 1);
-        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TieredType.IN_DFS, 1);
+        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TierType.IN_MEM, 100);
+        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TierType.IN_LOCAL, 1);
+        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TierType.IN_DFS, 1);
     }
 
     /**

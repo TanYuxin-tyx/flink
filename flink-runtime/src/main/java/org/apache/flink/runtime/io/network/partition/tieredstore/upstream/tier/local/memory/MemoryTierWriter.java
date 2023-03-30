@@ -188,7 +188,7 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     @Override
     public MemorySegment requestBufferFromPool(int subpartitionId) {
         return tieredStoreMemoryManager.requestMemorySegmentBlocking(
-                TieredStoreMode.TieredType.IN_MEM);
+                TieredStoreMode.TierType.IN_MEM);
     }
 
     @Override

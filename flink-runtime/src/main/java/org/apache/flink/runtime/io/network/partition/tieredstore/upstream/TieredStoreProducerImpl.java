@@ -60,7 +60,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     private final BufferRecycler[] bufferRecyclers;
 
-    private final TieredStoreMode.TieredType[] tieredTypes;
+    private final TieredStoreMode.TierType[] tierTypes;
 
     private final BufferCompressor bufferCompressor;
 
@@ -80,7 +80,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     public TieredStoreProducerImpl(
             StorageTier[] storageTiers,
-            TieredStoreMode.TieredType[] tieredTypes,
+            TieredStoreMode.TierType[] tierTypes,
             int numSubpartitions,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
@@ -91,7 +91,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         this.subpartitionSegmentIndexes = new int[numSubpartitions];
         this.subpartitionWriterIndex = new int[numSubpartitions];
         this.tierWriters = new TierWriter[storageTiers.length];
-        this.tieredTypes = tieredTypes;
+        this.tierTypes = tierTypes;
         this.bufferCompressor = bufferCompressor;
         this.storeMemoryManager = storeMemoryManager;
         this.isBroadcastOnly = isBroadcastOnly;
@@ -108,11 +108,11 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         Arrays.fill(subpartitionWriterIndex, -1);
         for (int i = 0; i < storageTiers.length; i++) {
             tierWriters[i] = storageTiers[i].createPartitionTierWriter();
-            TieredStoreMode.TieredType tieredType = tieredTypes[i];
-            bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tieredType);
+            TieredStoreMode.TierType tierType = tierTypes[i];
+            bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tierType);
         }
 
-        checkState(storageTiers.length == tieredTypes.length, "Wrong number of tiers.");
+        checkState(storageTiers.length == tierTypes.length, "Wrong number of tiers.");
     }
 
     @VisibleForTesting
@@ -162,8 +162,8 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
         int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
         if (finishedSegment.getDataType().isBuffer()) {
-            storeMemoryManager.decNumRequestedBuffer(TieredStoreMode.TieredType.IN_CACHE);
-            storeMemoryManager.incNumRequestedBuffer(tieredTypes[tierIndex]);
+            storeMemoryManager.decNumRequestedBuffer(TieredStoreMode.TierType.IN_CACHE);
+            storeMemoryManager.incNumRequestedBuffer(tierTypes[tierIndex]);
         }
         Buffer finishedBuffer =
                 new NetworkBuffer(

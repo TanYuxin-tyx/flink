@@ -86,11 +86,11 @@ public class TieredStoreTestUtils {
         return byteBuffer;
     }
 
-    public static Map<TieredStoreMode.TieredType, Integer> getTierExclusiveBuffers() {
-        Map<TieredStoreMode.TieredType, Integer> tierExclusiveBuffers = new HashMap<>();
-        tierExclusiveBuffers.put(TieredStoreMode.TieredType.IN_MEM, 0);
-        tierExclusiveBuffers.put(TieredStoreMode.TieredType.IN_LOCAL, 1);
-        tierExclusiveBuffers.put(TieredStoreMode.TieredType.IN_DFS, 1);
+    public static Map<TieredStoreMode.TierType, Integer> getTierExclusiveBuffers() {
+        Map<TieredStoreMode.TierType, Integer> tierExclusiveBuffers = new HashMap<>();
+        tierExclusiveBuffers.put(TieredStoreMode.TierType.IN_MEM, 0);
+        tierExclusiveBuffers.put(TieredStoreMode.TierType.IN_LOCAL, 1);
+        tierExclusiveBuffers.put(TieredStoreMode.TierType.IN_DFS, 1);
         return tierExclusiveBuffers;
     }
 }

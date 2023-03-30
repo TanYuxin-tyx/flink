@@ -21,14 +21,14 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream;
 /** The store mode for Tiered Store. */
 public interface TieredStoreMode {
 
-    enum TieredType implements TieredStoreMode {
+    enum TierType implements TieredStoreMode {
         IN_CACHE,
         IN_MEM,
         IN_LOCAL,
         IN_DFS,
     }
 
-    enum Tiers implements TieredStoreMode {
+    enum SupportedTierCombinations implements TieredStoreMode {
         MEMORY,
         LOCAL,
         DFS,

@@ -166,7 +166,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment =
                 tieredStoreMemoryManager.requestMemorySegmentBlocking(
-                        TieredStoreMode.TieredType.IN_LOCAL);
+                        TieredStoreMode.TierType.IN_LOCAL);
         tryCheckFlushCacheBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
     }
@@ -242,7 +242,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
     }
 
     private void recycleBuffer(MemorySegment buffer) {
-        tieredStoreMemoryManager.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_LOCAL);
+        tieredStoreMemoryManager.recycleBuffer(buffer, TieredStoreMode.TierType.IN_LOCAL);
     }
 
     @VisibleForTesting

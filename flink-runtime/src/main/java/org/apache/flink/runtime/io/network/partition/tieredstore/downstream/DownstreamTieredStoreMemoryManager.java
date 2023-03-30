@@ -20,7 +20,7 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
 
     public DownstreamTieredStoreMemoryManager(NetworkBufferPool networkBufferPool) {
         int numExclusive =
-                HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(TieredStoreMode.TieredType.IN_DFS);
+                HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(TieredStoreMode.TierType.IN_DFS);
         try {
             this.localBufferPool = networkBufferPool.createBufferPool(numExclusive, numExclusive);
         } catch (IOException e) {
@@ -29,7 +29,7 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
-    public int numAvailableBuffers(TieredStoreMode.TieredType tieredType) {
+    public int numAvailableBuffers(TieredStoreMode.TierType tierType) {
         return localBufferPool.getNumberOfAvailableMemorySegments();
     }
 
@@ -44,7 +44,7 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
-    public MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TieredType tieredType) {
+    public MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TierType tierType) {
         try {
             return localBufferPool.requestMemorySegmentBlocking();
         } catch (InterruptedException e) {
@@ -53,15 +53,15 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
-    public void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TieredType tieredType) {
+    public void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TierType tierType) {
         localBufferPool.recycle(memorySegment);
     }
 
     @Override
-    public void incNumRequestedBuffer(TieredStoreMode.TieredType tieredType) {}
+    public void incNumRequestedBuffer(TieredStoreMode.TierType tierType) {}
 
     @Override
-    public void decNumRequestedBuffer(TieredStoreMode.TieredType tieredType) {}
+    public void decNumRequestedBuffer(TieredStoreMode.TierType tierType) {}
 
     @Override
     public int getNetworkBufferPoolAvailableBuffers() {

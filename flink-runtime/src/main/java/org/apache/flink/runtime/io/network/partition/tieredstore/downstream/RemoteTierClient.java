@@ -39,8 +39,7 @@ public class RemoteTierClient implements TierClient {
     private int latestSegmentId = -1;
 
     public RemoteTierClient(
-            TieredStoreMemoryManager memoryManager,
-            RemoteTierMonitor remoteTierMonitor) {
+            TieredStoreMemoryManager memoryManager, RemoteTierMonitor remoteTierMonitor) {
         this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
         headerBuffer.order(ByteOrder.nativeOrder());
         this.memoryManager = memoryManager;
@@ -87,7 +86,7 @@ public class RemoteTierClient implements TierClient {
     private InputChannel.BufferAndAvailability getDfsBuffer(FSDataInputStream inputStream)
             throws IOException {
         MemorySegment memorySegment =
-                memoryManager.requestMemorySegmentBlocking(TieredStoreMode.TieredType.IN_DFS);
+                memoryManager.requestMemorySegmentBlocking(TieredStoreMode.TierType.IN_DFS);
         Buffer buffer = checkNotNull(readFromInputStream(memorySegment, inputStream));
         return new InputChannel.BufferAndAvailability(buffer, Buffer.DataType.DATA_BUFFER, 0, 0);
     }
@@ -129,7 +128,7 @@ public class RemoteTierClient implements TierClient {
     }
 
     private void recycle(MemorySegment memorySegment) {
-        memoryManager.recycleBuffer(memorySegment, TieredStoreMode.TieredType.IN_DFS);
+        memoryManager.recycleBuffer(memorySegment, TieredStoreMode.TierType.IN_DFS);
     }
 
     @VisibleForTesting

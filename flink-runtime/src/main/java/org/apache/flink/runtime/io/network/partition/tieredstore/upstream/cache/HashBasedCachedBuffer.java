@@ -64,13 +64,12 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
     @Override
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment =
-                storeMemoryManager.requestMemorySegmentBlocking(
-                        TieredStoreMode.TieredType.IN_CACHE);
+                storeMemoryManager.requestMemorySegmentBlocking(TieredStoreMode.TierType.IN_CACHE);
         return new BufferBuilder(segment, this::recycleBuffer);
     }
 
     private void recycleBuffer(MemorySegment buffer) {
-        storeMemoryManager.recycleBuffer(buffer, TieredStoreMode.TieredType.IN_CACHE);
+        storeMemoryManager.recycleBuffer(buffer, TieredStoreMode.TierType.IN_CACHE);
     }
 
     private SubpartitionCachedBuffer getSubpartitionCachedBuffer(int targetChannel) {

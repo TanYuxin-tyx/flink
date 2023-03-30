@@ -28,19 +28,19 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.Tiered
  */
 public interface TieredStoreMemoryManager {
 
-    int numAvailableBuffers(TieredStoreMode.TieredType tieredType);
+    int numAvailableBuffers(TieredStoreMode.TierType tierType);
 
     int numRequestedBuffers();
 
     int numTotalBuffers();
 
-    MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TieredType tieredType);
+    MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TierType tierType);
 
-    void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TieredType tieredType);
+    void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TierType tierType);
 
-    void incNumRequestedBuffer(TieredStoreMode.TieredType tieredType);
+    void incNumRequestedBuffer(TieredStoreMode.TierType tierType);
 
-    void decNumRequestedBuffer(TieredStoreMode.TieredType tieredType);
+    void decNumRequestedBuffer(TieredStoreMode.TierType tierType);
 
     int getNetworkBufferPoolAvailableBuffers();
 
