@@ -35,7 +35,7 @@ public abstract class ResultSubpartition {
     protected final ResultSubpartitionInfo subpartitionInfo;
 
     /** The parent partition this subpartition belongs to. */
-    public final ResultPartition parent;
+    protected final ResultPartition parent;
 
     // - Statistics ----------------------------------------------------------
 
@@ -51,14 +51,14 @@ public abstract class ResultSubpartition {
     /** Gets the total numbers of buffers (data buffers plus events). */
     protected abstract long getTotalNumberOfBuffersUnsafe();
 
-    public abstract long getTotalNumberOfBytesUnsafe();
+    protected abstract long getTotalNumberOfBytesUnsafe();
 
     public int getSubPartitionIndex() {
         return subpartitionInfo.getSubPartitionIdx();
     }
 
     /** Notifies the parent partition about a consumed {@link ResultSubpartitionView}. */
-    public void onConsumedSubpartition() {
+    protected void onConsumedSubpartition() {
         parent.onConsumedSubpartition(getSubPartitionIndex());
     }
 
@@ -103,7 +103,7 @@ public abstract class ResultSubpartition {
     public abstract boolean isReleased();
 
     /** Gets the number of non-event buffers in this subpartition. */
-    protected abstract int getBuffersInBacklogUnsafe();
+    abstract int getBuffersInBacklogUnsafe();
 
     /**
      * Makes a best effort to get the current size of the queue. This method must not acquire locks
@@ -125,7 +125,7 @@ public abstract class ResultSubpartition {
     public static final class BufferAndBacklog {
         private final Buffer buffer;
         private final int buffersInBacklog;
-        private Buffer.DataType nextDataType;
+        private final Buffer.DataType nextDataType;
         private int sequenceNumber;
 
         public BufferAndBacklog(
@@ -133,7 +133,7 @@ public abstract class ResultSubpartition {
                 int buffersInBacklog,
                 Buffer.DataType nextDataType,
                 int sequenceNumber) {
-            this.buffer = buffer;
+            this.buffer = checkNotNull(buffer);
             this.buffersInBacklog = buffersInBacklog;
             this.nextDataType = checkNotNull(nextDataType);
             this.sequenceNumber = sequenceNumber;
@@ -165,10 +165,6 @@ public abstract class ResultSubpartition {
 
         public void setSequenceNumber(int sequenceNumber) {
             this.sequenceNumber = sequenceNumber;
-        }
-
-        public void setNextDataType(Buffer.DataType nextDataType) {
-            this.nextDataType = nextDataType;
         }
 
         public static BufferAndBacklog fromBufferAndLookahead(
