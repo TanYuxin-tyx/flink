@@ -82,9 +82,6 @@ public interface PartitionRequestClient {
             ResultPartitionID partitionId, TaskEvent event, RemoteInputChannel inputChannel)
             throws IOException;
 
-    /**
-     * Notify the upstream remember the required segmentId.
-     */
     void notifyRequiredSegmentId(int segmentId, RemoteInputChannel inputChannel);
 
     /**
