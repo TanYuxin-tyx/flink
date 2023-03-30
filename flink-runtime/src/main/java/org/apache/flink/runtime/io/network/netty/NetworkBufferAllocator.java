@@ -47,7 +47,7 @@ class NetworkBufferAllocator {
      * @return The pooled network buffer.
      */
     @Nullable
-    Buffer allocatePooledNetworkBuffer(InputChannelID receiverId, Buffer.DataType dataType) {
+    Buffer allocatePooledNetworkBuffer(InputChannelID receiverId) {
         Buffer buffer = null;
 
         RemoteInputChannel inputChannel = networkClientHandler.getInputChannel(receiverId);
@@ -58,9 +58,7 @@ class NetworkBufferAllocator {
         if (inputChannel != null) {
             buffer = inputChannel.requestBuffer();
         }
-        if(buffer != null){
-            buffer.setDataType(dataType);
-        }
+
         return buffer;
     }
 
