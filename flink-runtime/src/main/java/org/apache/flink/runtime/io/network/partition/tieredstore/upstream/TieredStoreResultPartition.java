@@ -422,11 +422,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     }
 
     @Override
-    public void onConsumedSubpartition(int subpartitionIndex) {
-        tieredStoreProducer.onConsumedSubpartition(subpartitionIndex);
-    }
-
-    @Override
     public CompletableFuture<Void> getAllDataProcessedFuture() {
         return tieredStoreProducer.getAllDataProcessedFuture();
     }

@@ -312,13 +312,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     }
 
     @Override
-    public void onConsumedSubpartition(int subpartitionIndex) {
-        for (StorageTier storageTier : storageTiers) {
-            storageTier.onConsumedSubpartition(subpartitionIndex);
-        }
-    }
-
-    @Override
     public CompletableFuture<Void> getAllDataProcessedFuture() {
         for (StorageTier storageTier : storageTiers) {
             CompletableFuture<Void> allDataProcessedFuture =

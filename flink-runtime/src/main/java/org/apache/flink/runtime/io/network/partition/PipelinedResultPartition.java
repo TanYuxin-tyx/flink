@@ -142,7 +142,7 @@ public class PipelinedResultPartition extends BufferWritingResultPartition
      * That is because pipelined partitions cannot be consumed multiple times, or reconnect.
      */
     @Override
-    public void onConsumedSubpartition(int subpartitionIndex) {
+    void onConsumedSubpartition(int subpartitionIndex) {
         decrementNumberOfUsers(subpartitionIndex);
     }
 

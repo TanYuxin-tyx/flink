@@ -317,11 +317,6 @@ public class DiskTier implements TierWriter, StorageTier {
     }
 
     @Override
-    public void onConsumedSubpartition(int subpartitionIndex) {
-        // Batch shuffle doesn't support onConsumedSubpartition
-    }
-
-    @Override
     public CompletableFuture<Void> getAllDataProcessedFuture() {
         // Batch shuffle doesn't support getAllDataProcessedFuture
         return null;

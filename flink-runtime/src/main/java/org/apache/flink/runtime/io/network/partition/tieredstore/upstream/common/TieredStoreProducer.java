@@ -65,8 +65,6 @@ public interface TieredStoreProducer extends ChannelStateHolder, CheckpointedRes
 
     int getNumberOfQueuedBuffers(int targetSubpartition);
 
-    void onConsumedSubpartition(int subpartitionIndex);
-
     CompletableFuture<Void> getAllDataProcessedFuture();
 
     void onSubpartitionAllDataProcessed(int subpartition);

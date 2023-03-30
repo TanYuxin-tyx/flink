@@ -72,8 +72,6 @@ public interface StorageTier extends ChannelStateHolder, CheckpointedResultParti
 
     int getNumberOfQueuedBuffers(int targetSubpartition);
 
-    void onConsumedSubpartition(int subpartitionIndex);
-
     CompletableFuture<Void> getAllDataProcessedFuture();
 
     void onSubpartitionAllDataProcessed(int subpartition);
