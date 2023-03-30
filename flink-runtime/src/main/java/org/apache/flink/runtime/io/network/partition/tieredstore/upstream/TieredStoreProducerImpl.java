@@ -28,7 +28,6 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulatorImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.CachedBufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.MemorySegmentAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
@@ -37,9 +36,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.MemoryTier;
 import org.apache.flink.util.ExceptionUtils;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -57,8 +53,6 @@ import static org.apache.flink.util.Preconditions.checkState;
  * appropriate {@link TierWriter}.
  */
 public class TieredStoreProducerImpl implements TieredStoreProducer {
-
-    private static final Logger LOG = LoggerFactory.getLogger(TieredStoreProducerImpl.class);
 
     private final StorageTier[] storageTiers;
 
@@ -343,10 +337,10 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         }
     }
 
-    private void notifyFinishedBuffer(CachedBufferContext bufferContext) {
+    private void notifyFinishedBuffer(
+            List<MemorySegmentAndChannel> memorySegmentAndChannels, boolean isEndOfPartition) {
         try {
-            emitBuffers(
-                    bufferContext.getMemorySegmentAndChannels(), bufferContext.isEndOfPartition());
+            emitBuffers(memorySegmentAndChannels, isEndOfPartition);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
