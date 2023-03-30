@@ -28,9 +28,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -43,7 +44,7 @@ public class SubpartitionCachedBuffer {
 
     private final CacheBufferOperation cacheBufferOperation;
 
-    private final Consumer<CachedBufferContext> finishedBufferListener;
+    private final BiConsumer<List<MemorySegmentAndChannel>, Boolean> finishedBufferListener;
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
@@ -51,7 +52,7 @@ public class SubpartitionCachedBuffer {
     public SubpartitionCachedBuffer(
             int targetChannel,
             int bufferSize,
-            Consumer<CachedBufferContext> finishedBufferListener,
+            BiConsumer<List<MemorySegmentAndChannel>, Boolean> finishedBufferListener,
             CacheBufferOperation cacheBufferOperation) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
@@ -160,7 +161,6 @@ public class SubpartitionCachedBuffer {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     private void addFinishedBuffer(MemorySegmentAndChannel buffer, boolean isEndOfPartition) {
-        finishedBufferListener.accept(
-                new CachedBufferContext(Collections.singletonList(buffer), isEndOfPartition));
+        finishedBufferListener.accept(Collections.singletonList(buffer), isEndOfPartition);
     }
 }

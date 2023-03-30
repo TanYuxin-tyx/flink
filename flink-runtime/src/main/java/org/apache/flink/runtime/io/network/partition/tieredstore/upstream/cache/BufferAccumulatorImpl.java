@@ -23,7 +23,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.function.Consumer;
+import java.util.List;
+import java.util.function.BiConsumer;
 
 public class BufferAccumulatorImpl implements BufferAccumulator {
 
@@ -33,7 +34,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
             int numSubpartitions,
             int bufferSize,
             TieredStoreMemoryManager storeMemoryManager,
-            Consumer<CachedBufferContext> finishedBufferListener) {
+            BiConsumer<List<MemorySegmentAndChannel>, Boolean> finishedBufferListener) {
         this.cachedBuffer =
                 new HashBasedCachedBuffer(
                         numSubpartitions, bufferSize, storeMemoryManager, finishedBufferListener);
