@@ -19,9 +19,6 @@
 package org.apache.flink.runtime.io.network;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.core.fs.FileSystem;
-import org.apache.flink.core.plugin.PluginManager;
-import org.apache.flink.core.plugin.PluginUtils;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
@@ -72,13 +69,6 @@ public class NettyShuffleServiceFactory
     public NettyShuffleEnvironment createShuffleEnvironment(
             ShuffleEnvironmentContext shuffleEnvironmentContext) {
         checkNotNull(shuffleEnvironmentContext);
-
-        // initialize the oss filesystem
-        final PluginManager pluginManager =
-                PluginUtils.createPluginManagerFromRootFolder(
-                        shuffleEnvironmentContext.getConfiguration());
-        FileSystem.initialize(shuffleEnvironmentContext.getConfiguration(), pluginManager);
-
         NettyShuffleEnvironmentConfiguration networkConfig =
                 NettyShuffleEnvironmentConfiguration.fromConfiguration(
                         shuffleEnvironmentContext.getConfiguration(),

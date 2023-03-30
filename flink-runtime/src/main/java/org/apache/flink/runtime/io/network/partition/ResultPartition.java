@@ -331,7 +331,7 @@ public abstract class ResultPartition implements ResultPartitionWriter {
     // ------------------------------------------------------------------------
 
     /** Notification when a subpartition is released. */
-    void onConsumedSubpartition(int subpartitionIndex) {
+    public void onConsumedSubpartition(int subpartitionIndex) {
 
         if (isReleased.get()) {
             return;
