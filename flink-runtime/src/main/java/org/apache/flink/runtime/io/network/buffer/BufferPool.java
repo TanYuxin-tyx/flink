@@ -76,11 +76,7 @@ public interface BufferPool extends BufferProvider, BufferRecycler {
     /** Returns the number of used buffers of this buffer pool. */
     int bestEffortGetNumOfUsedBuffers();
 
-    default int getNetworkBufferPoolAvailableBuffers() {
-        return -1;
-    }
+    int getNetworkBufferPoolAvailableBuffers();
 
-    default int getNetworkBufferPoolTotalBuffers() {
-        return -1;
-    }
+    int getNetworkBufferPoolTotalBuffers();
 }
