@@ -43,11 +43,11 @@ public class GateBuffersSpec {
         this.targetTotalBuffersPerGate = targetTotalBuffersPerGate;
     }
 
-    public int getRequiredFloatingBuffers() {
+    int getRequiredFloatingBuffers() {
         return requiredFloatingBuffers;
     }
 
-    public int getTotalFloatingBuffers() {
+    int getTotalFloatingBuffers() {
         return totalFloatingBuffers;
     }
 
