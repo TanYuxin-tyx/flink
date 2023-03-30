@@ -29,9 +29,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.util.ExceptionUtils;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -53,8 +50,6 @@ import static org.apache.flink.util.Preconditions.checkState;
  * buffers.
  */
 public class BufferManager implements BufferListener, BufferRecycler {
-
-    private static final Logger LOG = LoggerFactory.getLogger(RemoteInputChannel.class);
 
     /** The available buffer queue wraps both exclusive and requested floating buffers. */
     private final AvailableBufferQueue bufferQueue = new AvailableBufferQueue();
@@ -167,7 +162,6 @@ public class BufferManager implements BufferListener, BufferRecycler {
      * register as a listener.
      */
     int requestFloatingBuffers(int numRequired) {
-        LOG.debug("%%% Buffer Manager is trying to requestFloatingBuffers, numRequired: {}", numRequired);
         int numRequestedBuffers = 0;
         synchronized (bufferQueue) {
             // Similar to notifyBufferAvailable(), make sure that we never add a buffer after
@@ -179,7 +173,6 @@ public class BufferManager implements BufferListener, BufferRecycler {
 
             numRequiredBuffers = numRequired;
             numRequestedBuffers = tryRequestBuffers();
-            LOG.debug("%%% request new buffer number {}, current available buffers {}", numRequestedBuffers, bufferQueue.getAvailableBufferSize());
         }
         return numRequestedBuffers;
     }
@@ -215,7 +208,6 @@ public class BufferManager implements BufferListener, BufferRecycler {
      */
     @Override
     public void recycle(MemorySegment segment) {
-        LOG.debug("%%% I'm recycling the segment...");
         @Nullable Buffer releasedFloatingBuffer = null;
         synchronized (bufferQueue) {
             try {
@@ -235,7 +227,7 @@ public class BufferManager implements BufferListener, BufferRecycler {
                 bufferQueue.notifyAll();
             }
         }
-        LOG.debug("%%% releasedFloatingBuffer is: {}", releasedFloatingBuffer);
+
         if (releasedFloatingBuffer != null) {
             releasedFloatingBuffer.recycleBuffer();
         } else {
@@ -433,7 +425,6 @@ public class BufferManager implements BufferListener, BufferRecycler {
         @Nullable
         Buffer addExclusiveBuffer(Buffer buffer, int numRequiredBuffers) {
             exclusiveBuffers.add(buffer);
-            LOG.debug("%%% numRequiredBuffers {}, getAvailableBufferSize {}", numRequiredBuffers, getAvailableBufferSize());
             if (getAvailableBufferSize() > numRequiredBuffers) {
                 return floatingBuffers.poll();
             }
