@@ -331,7 +331,7 @@ public abstract class ResultPartition implements ResultPartitionWriter {
     // ------------------------------------------------------------------------
 
     /** Notification when a subpartition is released. */
-    public void onConsumedSubpartition(int subpartitionIndex) {
+    void onConsumedSubpartition(int subpartitionIndex) {
 
         if (isReleased.get()) {
             return;
@@ -343,7 +343,7 @@ public abstract class ResultPartition implements ResultPartitionWriter {
 
     // ------------------------------------------------------------------------
 
-    public void checkInProduceState() throws IllegalStateException {
+    protected void checkInProduceState() throws IllegalStateException {
         checkState(!isFinished, "Partition already finished.");
     }
 
