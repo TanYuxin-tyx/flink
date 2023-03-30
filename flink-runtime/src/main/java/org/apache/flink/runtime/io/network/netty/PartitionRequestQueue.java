@@ -171,7 +171,7 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
         enqueueAvailableReader(reader);
     }
 
-    void containSegment(InputChannelID receiverId, Consumer<NetworkSequenceViewReader> operation) {
+    void notifyRequiredSegmentId(InputChannelID receiverId, Consumer<NetworkSequenceViewReader> operation) {
         if (fatalError) {
             return;
         }
