@@ -147,6 +147,7 @@ public class EventSerializer {
             ByteBuffer buf = ByteBuffer.allocate(8);
             buf.putInt(END_OF_SEGMENT);
             buf.putInt(endOfSegmentEvent.getSegmentId());
+            buf.flip();
             return buf;
         } else {
             try {
