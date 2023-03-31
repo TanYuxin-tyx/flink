@@ -13,8 +13,6 @@ public class LocalTierClient implements TierClient {
 
     private int latestSegmentId = 0;
 
-    private boolean hasRegistered = false;
-
     @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
             InputChannel inputChannel, int segmentId) throws IOException, InterruptedException {
@@ -22,15 +20,12 @@ public class LocalTierClient implements TierClient {
                 || inputChannel.getClass() == LocalRecoveredInputChannel.class) {
             return inputChannel.getNextBuffer();
         }
-        if (segmentId > 0L && (segmentId != latestSegmentId || !hasRegistered)) {
+        if (segmentId > 0L && (segmentId != latestSegmentId)) {
             latestSegmentId = segmentId;
             inputChannel.notifyRequiredSegmentId(segmentId);
         }
         Optional<InputChannel.BufferAndAvailability> buffer;
         buffer = inputChannel.getNextBuffer();
-        if (!hasRegistered && buffer.isPresent()) {
-            hasRegistered = true;
-        }
         return buffer;
     }
 
@@ -42,10 +37,5 @@ public class LocalTierClient implements TierClient {
     @VisibleForTesting
     public int getLatestSegmentId() {
         return latestSegmentId;
-    }
-
-    @VisibleForTesting
-    public boolean hasRegistered() {
-        return hasRegistered;
     }
 }
