@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * This is a common entrypoint of the emitted records. These records will be transferred to the
@@ -80,7 +79,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     public TieredStoreProducerImpl(
             StorageTier[] storageTiers,
-            TieredStoreMode.TierType[] tierTypes,
             int numSubpartitions,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
@@ -91,28 +89,27 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         this.subpartitionSegmentIndexes = new int[numSubpartitions];
         this.subpartitionWriterIndex = new int[numSubpartitions];
         this.tierWriters = new TierWriter[storageTiers.length];
-        this.tierTypes = tierTypes;
         this.bufferCompressor = bufferCompressor;
         this.storeMemoryManager = storeMemoryManager;
         this.isBroadcastOnly = isBroadcastOnly;
         this.numSubpartitions = numSubpartitions;
+        this.bufferRecyclers = new BufferRecycler[storageTiers.length];
+        this.tierTypes = new TieredStoreMode.TierType[storageTiers.length];
         this.bufferAccumulator =
                 new BufferAccumulatorImpl(
                         numSubpartitions,
                         bufferSize,
                         storeMemoryManager,
                         this::notifyFinishedBuffer);
-        this.bufferRecyclers = new BufferRecycler[storageTiers.length];
 
-        Arrays.fill(subpartitionSegmentIndexes, 0);
-        Arrays.fill(subpartitionWriterIndex, -1);
         for (int i = 0; i < storageTiers.length; i++) {
             tierWriters[i] = storageTiers[i].createPartitionTierWriter();
+            tierTypes[i] = storageTiers[i].getTierType();
             TieredStoreMode.TierType tierType = tierTypes[i];
             bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tierType);
         }
-
-        checkState(storageTiers.length == tierTypes.length, "Wrong number of tiers.");
+        Arrays.fill(subpartitionSegmentIndexes, 0);
+        Arrays.fill(subpartitionWriterIndex, -1);
     }
 
     @VisibleForTesting

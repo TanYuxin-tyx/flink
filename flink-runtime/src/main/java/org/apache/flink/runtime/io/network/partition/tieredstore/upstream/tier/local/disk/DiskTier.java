@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
@@ -227,6 +228,11 @@ public class DiskTier implements TierWriter, StorageTier {
     @Override
     public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
         return segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentIndex);
+    }
+
+    @Override
+    public TieredStoreMode.TierType getTierType() {
+        return TieredStoreMode.TierType.IN_DISK;
     }
 
     @Override

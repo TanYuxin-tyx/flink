@@ -182,6 +182,11 @@ public class MemoryTier implements StorageTier {
     }
 
     @Override
+    public TieredStoreMode.TierType getTierType() {
+        return TieredStoreMode.TierType.IN_MEM;
+    }
+
+    @Override
     public void setTimerGauge(TimerGauge timerGauge) {
         // nothing to do
     }

@@ -23,6 +23,7 @@ import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
 import org.apache.flink.runtime.io.network.partition.CheckpointedResultPartition;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.metrics.TimerGauge;
 
 import java.io.IOException;
@@ -48,6 +49,8 @@ public interface StorageTier extends ChannelStateHolder, CheckpointedResultParti
     void setOutputMetrics(OutputMetrics tieredStoreOutputMetrics);
 
     void setTimerGauge(TimerGauge timerGauge);
+
+    TieredStoreMode.TierType getTierType();
 
     void close();
 

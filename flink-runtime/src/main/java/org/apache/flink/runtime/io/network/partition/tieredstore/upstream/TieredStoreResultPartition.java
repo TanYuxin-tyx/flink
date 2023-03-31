@@ -101,8 +101,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private StorageTier[] allTiers;
 
-    private TieredStoreMode.TierType[] tierTypes;
-
     private TieredStoreProducer tieredStoreProducer;
 
     private boolean hasNotifiedEndOfUserRecords;
@@ -171,7 +169,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         tieredStoreProducer =
                 new TieredStoreProducerImpl(
                         allTiers,
-                        tierTypes,
                         numSubpartitions,
                         networkBufferSize,
                         bufferCompressor,
@@ -295,13 +292,10 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     }
 
     private void addTierExclusiveBuffers(TieredStoreMode.TierType... toAddTierTypes) {
-        checkState(tierTypes == null);
-        tierTypes = new TieredStoreMode.TierType[toAddTierTypes.length];
-        for (int i = 0; i < toAddTierTypes.length; i++) {
+        for (TieredStoreMode.TierType toAddTierType : toAddTierTypes) {
             tierExclusiveBuffers.put(
-                    toAddTierTypes[i],
-                    checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(toAddTierTypes[i])));
-            tierTypes[i] = toAddTierTypes[i];
+                    toAddTierType,
+                    checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(toAddTierType)));
         }
         tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(
