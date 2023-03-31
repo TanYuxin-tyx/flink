@@ -309,7 +309,7 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
 
         @Override
         Object buildMessage() {
-            return new NettyMessage.SegmentIdMessage(segmentId, inputChannel.getInputChannelId());
+            return new NettyMessage.SegmentId(segmentId, inputChannel.getInputChannelId());
         }
     }
 

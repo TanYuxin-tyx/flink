@@ -240,8 +240,8 @@ public abstract class NettyMessage {
                     case NewBufferSize.ID:
                         decodedMsg = NewBufferSize.readFrom(msg);
                         break;
-                    case SegmentIdMessage.ID:
-                        decodedMsg = SegmentIdMessage.readFrom(msg);
+                    case SegmentId.ID:
+                        decodedMsg = SegmentId.readFrom(msg);
                         break;
                     default:
                         throw new ProtocolException(
@@ -899,7 +899,7 @@ public abstract class NettyMessage {
     }
 
     /** Ask if the upstream contains the Segment. */
-    static class SegmentIdMessage extends NettyMessage {
+    static class SegmentId extends NettyMessage {
 
         private static final byte ID = 11;
 
@@ -907,7 +907,7 @@ public abstract class NettyMessage {
 
         final InputChannelID receiverId;
 
-        SegmentIdMessage(int segmentId, InputChannelID receiverId) {
+        SegmentId(int segmentId, InputChannelID receiverId) {
             checkArgument(segmentId > 0L, "The segmentId should be greater than 0");
             this.segmentId = segmentId;
             this.receiverId = receiverId;
@@ -931,11 +931,11 @@ public abstract class NettyMessage {
             }
         }
 
-        static SegmentIdMessage readFrom(ByteBuf buffer) {
+        static SegmentId readFrom(ByteBuf buffer) {
             int segmentId = buffer.readInt();
             InputChannelID receiverId = InputChannelID.fromByteBuf(buffer);
 
-            return new SegmentIdMessage(segmentId, receiverId);
+            return new SegmentId(segmentId, receiverId);
         }
 
         @Override
