@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.MemorySegmentAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
 import java.io.IOException;
