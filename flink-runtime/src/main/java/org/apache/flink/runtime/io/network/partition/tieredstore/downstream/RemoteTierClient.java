@@ -11,6 +11,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
@@ -49,7 +51,14 @@ public class RemoteTierClient implements TierClient {
     @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
             InputChannel inputChannel, int segmentId) throws IOException {
-
+        try {
+            if (inputChannel.getClass() == LocalRecoveredInputChannel.class
+                    || inputChannel.getClass() == RemoteRecoveredInputChannel.class) {
+                return inputChannel.getNextBuffer();
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         if (segmentId != latestSegmentId) {
             remoteTierMonitor.requireSegmentId(inputChannel.getChannelIndex(), segmentId);
             latestSegmentId = segmentId;

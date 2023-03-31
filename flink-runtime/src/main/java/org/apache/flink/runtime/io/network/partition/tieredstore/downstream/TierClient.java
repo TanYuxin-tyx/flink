@@ -8,8 +8,6 @@ import java.util.Optional;
 /** The interface of {@link TierClient} in Tiered Store. */
 public interface TierClient {
 
-    //boolean hasSegmentId(InputChannel inputChannel, int segmentId) throws IOException;
-
     Optional<InputChannel.BufferAndAvailability> getNextBuffer(
             InputChannel inputChannel, int segmentId) throws IOException, InterruptedException;
 
