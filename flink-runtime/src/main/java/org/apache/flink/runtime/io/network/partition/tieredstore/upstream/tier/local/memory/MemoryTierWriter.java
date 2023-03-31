@@ -157,7 +157,6 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
         for (int i = 0; i < numSubpartitions; i++) {
             getSubpartitionMemoryDataManager(i).release();
         }
-        subpartitionViewOperationsMap.clear();
     }
 
     public void setOutputMetrics(OutputMetrics metrics) {
