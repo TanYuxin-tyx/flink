@@ -110,6 +110,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         for (TierReaderView tierReaderView : registeredTierReaderViews) {
             tierReaderView.release();
         }
+        registeredTierReaderViews.clear();
+        registeredTiers.clear();
     }
 
     @Override
