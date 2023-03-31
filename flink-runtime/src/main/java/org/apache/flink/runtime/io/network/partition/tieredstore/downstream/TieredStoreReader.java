@@ -10,7 +10,7 @@ import java.util.function.Consumer;
 /** The interface of {@link TieredStoreReader} in Tiered Store. */
 public interface TieredStoreReader {
 
-    void setup(InputChannel[] inputChannels, Consumer<InputChannel> channelEnqueueReceiver);
+    void setup(InputChannel[] inputChannels, Consumer<InputChannel> channelEnqueuer);
 
     Optional<BufferAndAvailability> getNextBuffer(
             InputChannel inputChannel) throws IOException, InterruptedException;
