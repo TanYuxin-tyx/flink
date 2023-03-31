@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 
 import javax.annotation.Nullable;
 

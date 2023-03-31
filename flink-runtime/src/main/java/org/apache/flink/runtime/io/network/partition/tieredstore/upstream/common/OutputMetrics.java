@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk;
+package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreResultPartition;
