@@ -426,7 +426,7 @@ public class NettyShuffleEnvironmentOptions {
     public static final ConfigOption<String> TIERED_STORE_TIERS =
             key("tiered.store.tiers")
                     .stringType()
-                    .defaultValue("MEMORY_LOCAL")
+                    .defaultValue("MEMORY_DISK")
                     .withDescription("The tiers of Tiered Store");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
