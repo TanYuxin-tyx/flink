@@ -95,11 +95,11 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
     }
 
     // ------------------------------------
-    //        For Local Tier
+    //        For Disk Tier
     // ------------------------------------
 
     @Test
-    void testTieredStoreLocal() throws Exception {
+    void testTieredStoreDisk() throws Exception {
         final int numRecordsToSend = 10000;
         Configuration configuration = getConfiguration();
         configuration.set(
@@ -107,13 +107,13 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "LOCAL");
+        configuration.set(TIERED_STORE_TIERS, "DISK");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
     @Test
-    void testTieredStoreLocalBroadcast() throws Exception {
+    void testTieredStoreDiskBroadcast() throws Exception {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
@@ -121,13 +121,13 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "LOCAL");
+        configuration.set(TIERED_STORE_TIERS, "DISK");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
         executeJob(jobGraph, configuration, numRecordsToSend, true);
     }
 
     @Test
-    void testTieredStoreLocalRestart() throws Exception {
+    void testTieredStoreDiskRestart() throws Exception {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
@@ -135,17 +135,17 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "LOCAL");
+        configuration.set(TIERED_STORE_TIERS, "DISK");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
     // ------------------------------------
-    //        For Dfs Tier
+    //        For Remote Tier
     // ------------------------------------
 
     @Test
-    void testTieredStoreDfs() throws Exception {
+    void testTieredStoreRemote() throws Exception {
         final int numRecordsToSend = 10000;
         Configuration configuration = getConfiguration();
         configuration.set(
@@ -154,13 +154,13 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         setupDfsConfigurations(configuration);
-        configuration.set(TIERED_STORE_TIERS, "DFS");
+        configuration.set(TIERED_STORE_TIERS, "REMOTE");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, false, configuration, 1);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
     @Test
-    void testTieredStoreDfsBroadcast() throws Exception {
+    void testTieredStoreRemoteBroadcast() throws Exception {
         final int numRecordsToSend = 10;
         Configuration configuration = getConfiguration();
         configuration.set(
@@ -169,13 +169,13 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         setupDfsConfigurations(configuration);
-        configuration.set(TIERED_STORE_TIERS, "DFS");
+        configuration.set(TIERED_STORE_TIERS, "REMOTE");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, false, configuration, 4, true);
         executeJob(jobGraph, configuration, numRecordsToSend, true);
     }
 
     @Test
-    void testTieredStoreDfsRestart() throws Exception {
+    void testTieredStoreRemoteRestart() throws Exception {
         final int numRecordsToSend = 10;
         Configuration configuration = getConfiguration();
         configuration.set(
@@ -184,17 +184,17 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         setupDfsConfigurations(configuration);
-        configuration.set(TIERED_STORE_TIERS, "DFS");
+        configuration.set(TIERED_STORE_TIERS, "REMOTE");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, false, configuration, 4);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
     // ------------------------------------
-    //        For Memory,Local Tier
+    //        For Memory,Disk Tier
     // ------------------------------------
 
     @Test
-    void testTieredStoreMemoryLocalSelective() throws Exception {
+    void testTieredStoreMemoryDiskSelective() throws Exception {
         final int numRecordsToSend = 10000;
         Configuration configuration = getConfiguration();
         configuration.set(
@@ -202,13 +202,13 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL");
+        configuration.set(TIERED_STORE_TIERS, "MEMORY_DISK");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
     @Test
-    void testTieredStoreMemoryLocalSelectiveBroadcast() throws Exception {
+    void testTieredStoreMemoryDiskSelectiveBroadcast() throws Exception {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
@@ -216,13 +216,13 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL");
+        configuration.set(TIERED_STORE_TIERS, "MEMORY_DISK");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
         executeJob(jobGraph, configuration, numRecordsToSend, true);
     }
 
     @Test
-    void testTieredStoreMemoryLocalSelectiveRestart() throws Exception {
+    void testTieredStoreMemoryDiskSelectiveRestart() throws Exception {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
@@ -230,56 +230,56 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL");
+        configuration.set(TIERED_STORE_TIERS, "MEMORY_DISK");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
     @Test
-    void testTieredStoreMemoryLocalFull() throws Exception {
+    void testTieredStoreMemoryDiskFull() throws Exception {
         final int numRecordsToSend = 10000;
         Configuration configuration = getConfiguration();
         configuration.set(
                 ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL");
+        configuration.set(TIERED_STORE_TIERS, "MEMORY_DISK");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
     @Test
-    void testTieredStoreMemoryLocalFullBroadcast() throws Exception {
+    void testTieredStoreMemoryDiskFullBroadcast() throws Exception {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
                 ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL");
+        configuration.set(TIERED_STORE_TIERS, "MEMORY_DISK");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
         executeJob(jobGraph, configuration, numRecordsToSend, true);
     }
 
     @Test
-    void testTieredStoreMemoryLocalFullRestart() throws Exception {
+    void testTieredStoreMemoryDiskFullRestart() throws Exception {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
                 ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL");
+        configuration.set(TIERED_STORE_TIERS, "MEMORY_DISK");
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
     // ------------------------------------
-    //        For Memory,Dfs Tier
+    //        For Memory,Remote Tier
     // ------------------------------------
 
     @Test
-    void testTieredStoreMemoryDfsSelective() throws Exception {
+    void testTieredStoreMemoryRemoteSelective() throws Exception {
         final int numRecordsToSend = 10000;
         Configuration configuration = getConfiguration();
         configuration.set(
@@ -287,14 +287,14 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY_DFS");
+        configuration.set(TIERED_STORE_TIERS, "MEMORY_REMOTE");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
     @Test
-    void testTieredStoreMemoryDfsSelectiveBroadcast() throws Exception {
+    void testTieredStoreMemoryRemoteSelectiveBroadcast() throws Exception {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
@@ -302,14 +302,14 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY_DFS");
+        configuration.set(TIERED_STORE_TIERS, "MEMORY_REMOTE");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
         executeJob(jobGraph, configuration, numRecordsToSend, true);
     }
 
     @Test
-    void testTieredStoreMemoryDfsSelectiveRestart() throws Exception {
+    void testTieredStoreMemoryRemoteSelectiveRestart() throws Exception {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
@@ -317,102 +317,102 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY_DFS");
-        setupDfsConfigurations(configuration);
-        JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
-        executeJob(jobGraph, configuration, numRecordsToSend);
-    }
-
-    // ------------------------------------
-    //        For Memory,Local,Dfs Tier
-    // ------------------------------------
-
-    @Test
-    void testTieredStoreMemoryLocalDfsSelective() throws Exception {
-        final int numRecordsToSend = 10000;
-        Configuration configuration = getConfiguration();
-        configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE,
-                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
-        configuration.set(
-                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL_DFS");
-        setupDfsConfigurations(configuration);
-        JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
-        executeJob(jobGraph, configuration, numRecordsToSend);
-    }
-
-    @Test
-    void testTieredStoreMemoryLocalDfsSelectiveBroadcast() throws Exception {
-        final int numRecordsToSend = 1000;
-        Configuration configuration = getConfiguration();
-        configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE,
-                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
-        configuration.set(
-                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL_DFS");
-        setupDfsConfigurations(configuration);
-        JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
-        executeJob(jobGraph, configuration, numRecordsToSend, true);
-    }
-
-    @Test
-    void testTieredStoreMemoryLocalDfsSelectiveRestart() throws Exception {
-        final int numRecordsToSend = 1000;
-        Configuration configuration = getConfiguration();
-        configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE,
-                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
-        configuration.set(
-                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY_LOCAL_DFS");
+        configuration.set(TIERED_STORE_TIERS, "MEMORY_REMOTE");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
     // ------------------------------------
-    //        For Local,Dfs Tier
+    //        For Memory,Disk,Remote Tier
     // ------------------------------------
 
     @Test
-    void testTieredStoreLocalDfsFull() throws Exception {
+    void testTieredStoreMemoryDiskRemoteSelective() throws Exception {
         final int numRecordsToSend = 10000;
         Configuration configuration = getConfiguration();
         configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
+                ExecutionOptions.BATCH_SHUFFLE_MODE,
+                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "LOCAL_DFS");
+        configuration.set(TIERED_STORE_TIERS, "MEMORY_DISK_REMOTE");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 
     @Test
-    void testTieredStoreLocalDfsFullBroadcast() throws Exception {
+    void testTieredStoreMemoryDiskRemoteSelectiveBroadcast() throws Exception {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
+                ExecutionOptions.BATCH_SHUFFLE_MODE,
+                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "LOCAL_DFS");
+        configuration.set(TIERED_STORE_TIERS, "MEMORY_DISK_REMOTE");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
         executeJob(jobGraph, configuration, numRecordsToSend, true);
     }
 
     @Test
-    void testTieredStoreLocalDfsFullRestart() throws Exception {
+    void testTieredStoreMemoryDiskRemoteSelectiveRestart() throws Exception {
+        final int numRecordsToSend = 1000;
+        Configuration configuration = getConfiguration();
+        configuration.set(
+                ExecutionOptions.BATCH_SHUFFLE_MODE,
+                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+        configuration.set(
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
+        configuration.set(TIERED_STORE_TIERS, "MEMORY_DISK_REMOTE");
+        setupDfsConfigurations(configuration);
+        JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
+        executeJob(jobGraph, configuration, numRecordsToSend);
+    }
+
+    // ------------------------------------
+    //        For Disk,Remote Tier
+    // ------------------------------------
+
+    @Test
+    void testTieredStoreDiskRemoteFull() throws Exception {
+        final int numRecordsToSend = 10000;
+        Configuration configuration = getConfiguration();
+        configuration.set(
+                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
+        configuration.set(
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
+        configuration.set(TIERED_STORE_TIERS, "DISK_REMOTE");
+        setupDfsConfigurations(configuration);
+        JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
+        executeJob(jobGraph, configuration, numRecordsToSend);
+    }
+
+    @Test
+    void testTieredStoreDiskRemoteFullBroadcast() throws Exception {
         final int numRecordsToSend = 1000;
         Configuration configuration = getConfiguration();
         configuration.set(
                 ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
         configuration.set(
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "LOCAL_DFS");
+        configuration.set(TIERED_STORE_TIERS, "DISK_REMOTE");
+        setupDfsConfigurations(configuration);
+        JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
+        executeJob(jobGraph, configuration, numRecordsToSend, true);
+    }
+
+    @Test
+    void testTieredStoreDiskRemoteFullRestart() throws Exception {
+        final int numRecordsToSend = 1000;
+        Configuration configuration = getConfiguration();
+        configuration.set(
+                ExecutionOptions.BATCH_SHUFFLE_MODE, BatchShuffleMode.ALL_EXCHANGES_HYBRID_FULL);
+        configuration.set(
+                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
+        configuration.set(TIERED_STORE_TIERS, "DISK_REMOTE");
         setupDfsConfigurations(configuration);
         JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
         executeJob(jobGraph, configuration, numRecordsToSend);

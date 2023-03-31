@@ -90,9 +90,9 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
                 return getAvailableBuffersForCache(numTotalBuffers);
             case IN_MEM:
                 return getAvailableBuffersForMemory(numTotalBuffers);
-            case IN_LOCAL:
+            case IN_DISK:
                 return getAvailableBuffersForDisk(numTotalBuffers);
-            case IN_DFS:
+            case IN_REMOTE:
                 return getAvailableBuffersForRemote(numTotalBuffers);
             default:
                 throw new RuntimeException("Unsupported tiered type " + tierType);
@@ -203,13 +203,13 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     // numExclusiveBuffersInDisk - numRequestedFromDisk + (Available - (numExclusiveBuffersInMem -
     // numRequestedFromMem))
     private int getAvailableBuffersForDisk(int numAvailableBuffers) {
-        return getAvailableBuffers(numAvailableBuffers, TieredStoreMode.TierType.IN_LOCAL);
+        return getAvailableBuffers(numAvailableBuffers, TieredStoreMode.TierType.IN_DISK);
     }
 
     // numExclusiveBuffersInRemote - numRequestedFromRemote + (Available - (numExclusiveBuffersInMem
     // - numRequestedFromMem))
     private int getAvailableBuffersForRemote(int numAvailableBuffers) {
-        return getAvailableBuffers(numAvailableBuffers, TieredStoreMode.TierType.IN_DFS);
+        return getAvailableBuffers(numAvailableBuffers, TieredStoreMode.TierType.IN_REMOTE);
     }
 
     private int getAvailableBuffers(int numAvailableBuffers, TieredStoreMode.TierType tierType) {

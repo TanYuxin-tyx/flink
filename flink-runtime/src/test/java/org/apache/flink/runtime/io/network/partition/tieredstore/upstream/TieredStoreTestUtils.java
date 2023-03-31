@@ -89,8 +89,8 @@ public class TieredStoreTestUtils {
     public static Map<TieredStoreMode.TierType, Integer> getTierExclusiveBuffers() {
         Map<TieredStoreMode.TierType, Integer> tierExclusiveBuffers = new HashMap<>();
         tierExclusiveBuffers.put(TieredStoreMode.TierType.IN_MEM, 0);
-        tierExclusiveBuffers.put(TieredStoreMode.TierType.IN_LOCAL, 1);
-        tierExclusiveBuffers.put(TieredStoreMode.TierType.IN_DFS, 1);
+        tierExclusiveBuffers.put(TieredStoreMode.TierType.IN_DISK, 1);
+        tierExclusiveBuffers.put(TieredStoreMode.TierType.IN_REMOTE, 1);
         return tierExclusiveBuffers;
     }
 }

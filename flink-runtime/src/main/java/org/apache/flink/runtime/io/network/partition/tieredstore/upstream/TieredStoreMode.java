@@ -24,17 +24,17 @@ public interface TieredStoreMode {
     enum TierType implements TieredStoreMode {
         IN_CACHE,
         IN_MEM,
-        IN_LOCAL,
-        IN_DFS,
+        IN_DISK,
+        IN_REMOTE,
     }
 
     enum SupportedTierCombinations implements TieredStoreMode {
         MEMORY,
-        LOCAL,
-        DFS,
-        MEMORY_LOCAL,
-        MEMORY_DFS,
-        MEMORY_LOCAL_DFS,
-        LOCAL_DFS
+        DISK,
+        REMOTE,
+        MEMORY_DISK,
+        MEMORY_REMOTE,
+        MEMORY_DISK_REMOTE,
+        DISK_REMOTE
     }
 }

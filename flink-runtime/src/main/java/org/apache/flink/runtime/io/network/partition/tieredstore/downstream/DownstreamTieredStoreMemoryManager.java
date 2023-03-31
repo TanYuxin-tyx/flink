@@ -20,7 +20,7 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
 
     public DownstreamTieredStoreMemoryManager(NetworkBufferPool networkBufferPool) {
         int numExclusive =
-                HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(TieredStoreMode.TierType.IN_DFS);
+                HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(TieredStoreMode.TierType.IN_REMOTE);
         try {
             this.localBufferPool = networkBufferPool.createBufferPool(numExclusive, numExclusive);
         } catch (IOException e) {

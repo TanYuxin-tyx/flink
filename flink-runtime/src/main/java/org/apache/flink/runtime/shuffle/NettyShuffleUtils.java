@@ -46,8 +46,8 @@ public class NettyShuffleUtils {
 
     static {
         HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TierType.IN_MEM, 100);
-        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TierType.IN_LOCAL, 1);
-        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TierType.IN_DFS, 1);
+        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TierType.IN_DISK, 1);
+        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TieredStoreMode.TierType.IN_REMOTE, 1);
     }
 
     /**

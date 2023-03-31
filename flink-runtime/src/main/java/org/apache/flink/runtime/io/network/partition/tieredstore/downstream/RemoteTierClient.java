@@ -86,7 +86,7 @@ public class RemoteTierClient implements TierClient {
     private InputChannel.BufferAndAvailability getDfsBuffer(FSDataInputStream inputStream)
             throws IOException {
         MemorySegment memorySegment =
-                memoryManager.requestMemorySegmentBlocking(TieredStoreMode.TierType.IN_DFS);
+                memoryManager.requestMemorySegmentBlocking(TieredStoreMode.TierType.IN_REMOTE);
         Buffer buffer = checkNotNull(readFromInputStream(memorySegment, inputStream));
         return new InputChannel.BufferAndAvailability(buffer, Buffer.DataType.DATA_BUFFER, 0, 0);
     }
@@ -128,7 +128,7 @@ public class RemoteTierClient implements TierClient {
     }
 
     private void recycle(MemorySegment memorySegment) {
-        memoryManager.recycleBuffer(memorySegment, TieredStoreMode.TierType.IN_DFS);
+        memoryManager.recycleBuffer(memorySegment, TieredStoreMode.TierType.IN_REMOTE);
     }
 
     @VisibleForTesting
