@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 
 import java.io.IOException;
@@ -42,7 +41,4 @@ public interface TieredStoreProducer {
     void close();
 
     void release();
-
-    @VisibleForTesting
-    void setNumBytesInASegment(int numBytesInASegment);
 }

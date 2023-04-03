@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
@@ -106,14 +105,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         }
         Arrays.fill(subpartitionSegmentIndexes, 0);
         Arrays.fill(subpartitionWriterIndex, -1);
-    }
-
-    @VisibleForTesting
-    @Override
-    public void setNumBytesInASegment(int numBytesInASegment) {
-        for (TierWriter tierWriter : tierWriters) {
-            tierWriter.setNumBytesInASegment(numBytesInASegment);
-        }
     }
 
     @Override

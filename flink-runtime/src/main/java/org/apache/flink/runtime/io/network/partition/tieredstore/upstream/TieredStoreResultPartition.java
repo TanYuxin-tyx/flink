@@ -492,11 +492,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     }
 
     @VisibleForTesting
-    public void setNumBytesInASegment(int numBytesInASegment) {
-        this.tieredStoreProducer.setNumBytesInASegment(numBytesInASegment);
-    }
-
-    @VisibleForTesting
     public List<Path> getBaseSubpartitionPath(int subpartitionId) {
         List<Path> paths = new ArrayList<>();
         for (StorageTier tierDataGate : allTiers) {

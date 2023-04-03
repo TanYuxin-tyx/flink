@@ -175,11 +175,6 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
         return numConsumers > 0;
     }
 
-    @Override
-    public void setNumBytesInASegment(int numBytesInASegment) {
-        this.numBytesInASegment = numBytesInASegment;
-    }
-
     // ------------------------------------
     //      Callback for subpartition
     // ------------------------------------

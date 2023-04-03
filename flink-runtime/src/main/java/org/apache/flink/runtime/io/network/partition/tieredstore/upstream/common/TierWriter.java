@@ -33,8 +33,6 @@ public interface TierWriter {
             int targetSubpartition, Buffer finishedBuffer, boolean isEndOfPartition, int segmentId)
             throws IOException;
 
-    void setNumBytesInASegment(int numBytesInASegment);
-
     void release();
 
     void close();

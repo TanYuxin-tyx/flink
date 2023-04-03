@@ -216,11 +216,6 @@ public class DiskTier implements TierWriter, StorageTier {
     }
 
     @Override
-    public void setNumBytesInASegment(int numBytesInASegment) {
-        this.numBytesInASegment = numBytesInASegment;
-    }
-
-    @Override
     public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
         return segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentIndex);
     }

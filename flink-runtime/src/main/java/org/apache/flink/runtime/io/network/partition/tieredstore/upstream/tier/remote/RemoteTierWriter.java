@@ -92,9 +92,4 @@ public class RemoteTierWriter implements TierWriter {
     public void close() {
         cacheDataManager.close();
     }
-
-    @Override
-    public void setNumBytesInASegment(int numBytesInASegment) {
-        this.numBytesInASegment = numBytesInASegment;
-    }
 }
