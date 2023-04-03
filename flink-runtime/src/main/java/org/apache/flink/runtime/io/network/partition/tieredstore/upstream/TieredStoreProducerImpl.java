@@ -20,9 +20,9 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 
@@ -32,18 +32,16 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
- * This is a common entrypoint of the emitted records. These records will be transferred to the
- * appropriate {@link TierWriter}.
+ * This is a common entrypoint of the emitted records. These records will be emitted to the {@link
+ * BufferAccumulator} to accumulate and transform into finished buffers.
  */
 public class TieredStoreProducerImpl implements TieredStoreProducer {
-
-    private final StorageTier[] storageTiers;
 
     private final boolean isBroadcastOnly;
 
     private final int numSubpartitions;
 
-    private final BufferAccumulatorImpl bufferAccumulator;
+    private final BufferAccumulator bufferAccumulator;
 
     public TieredStoreProducerImpl(
             StorageTier[] storageTiers,
@@ -52,7 +50,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
             boolean isBroadcastOnly,
             TieredStoreMemoryManager storeMemoryManager,
             @Nullable BufferCompressor bufferCompressor) {
-        this.storageTiers = storageTiers;
         this.isBroadcastOnly = isBroadcastOnly;
         this.numSubpartitions = numSubpartitions;
 
