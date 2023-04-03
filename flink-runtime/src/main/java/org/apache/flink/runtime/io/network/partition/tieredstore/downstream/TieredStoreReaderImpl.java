@@ -41,7 +41,7 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
     public void setup(InputChannel[] channels, Consumer<InputChannel> channelEnqueuer) {
         this.clientFactory.setup(channels, channelEnqueuer);
         for (int i = 0; i < numInputChannels; ++i) {
-            subpartitionReaders[i] = new SubpartitionReaderImpl(clientFactory);
+            subpartitionReaders[i] = new SubpartitionReaderImpl(clientFactory, channelEnqueuer);
             subpartitionReaders[i].setup();
         }
     }

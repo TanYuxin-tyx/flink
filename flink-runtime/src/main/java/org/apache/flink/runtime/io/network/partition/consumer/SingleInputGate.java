@@ -819,16 +819,6 @@ public class SingleInputGate extends IndexedInputGate {
                     }
                 }
 
-                if (tieredStoreReader != null
-                        && bufferAndAvailability.buffer().getDataType()
-                                == Buffer.DataType.SEGMENT_EVENT) {
-                    // When the segment is finished, we must enqueue the input channel to prevent
-                    // data of other tiers from being missed.
-                    bufferAndAvailability.buffer().recycleBuffer();
-                    queueChannelUnsafe(inputChannel, false);
-                    continue;
-                }
-
                 checkUnavailability();
 
                 return Optional.of(

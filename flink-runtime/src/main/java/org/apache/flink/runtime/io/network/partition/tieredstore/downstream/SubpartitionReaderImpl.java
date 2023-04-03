@@ -5,11 +5,14 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
+import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
+import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The implementation of {@link SubpartitionReader} interface. */
@@ -17,12 +20,16 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
 
     private final TierClientFactory clientFactory;
 
+    private final Consumer<InputChannel> queueChannelReceiver;
+
     private List<TierClient> clientList;
 
     private int currentSegmentId = 0;
 
-    public SubpartitionReaderImpl(TierClientFactory clientFactory) {
+    public SubpartitionReaderImpl(
+            TierClientFactory clientFactory, Consumer<InputChannel> queueChannelReceiver) {
         this.clientFactory = clientFactory;
+        this.queueChannelReceiver = queueChannelReceiver;
     }
 
     @Override
@@ -31,8 +38,7 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
     }
 
     @Override
-    public Optional<InputChannel.BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
-            throws IOException, InterruptedException {
+    public Optional<BufferAndAvailability> getNextBuffer(InputChannel inputChannel) throws IOException, InterruptedException {
         Optional<BufferAndAvailability> bufferAndAvailability = Optional.empty();
         for (TierClient client : clientList) {
             bufferAndAvailability = client.getNextBuffer(inputChannel, currentSegmentId);
@@ -47,8 +53,11 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
         if (bufferData.buffer().getDataType() == Buffer.DataType.SEGMENT_EVENT) {
             checkState(
                     getSegmentId(bufferData) == (currentSegmentId + 1),
-                    "Received illegal segmentId");
+                    "Received illegal segmentId.");
             currentSegmentId++;
+            bufferData.buffer().recycleBuffer();
+            queueChannelReceiver.accept(inputChannel);
+            return getNextBuffer(inputChannel);
         }
         return Optional.of(bufferData);
     }
@@ -64,11 +73,17 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
     //           Internal Method
     // ------------------------------------
 
-    private int getSegmentId(BufferAndAvailability bufferData) throws IOException {
-        return ((EndOfSegmentEvent)
-                        EventSerializer.fromSerializedEvent(
-                                bufferData.buffer().getNioBufferReadable(),
-                                Thread.currentThread().getContextClassLoader()))
-                .getSegmentId();
+    private int getSegmentId(BufferAndAvailability bufferData) {
+        EndOfSegmentEvent endOfSegmentEvent = null;
+        try {
+            endOfSegmentEvent =
+                    ((EndOfSegmentEvent)
+                            EventSerializer.fromSerializedEvent(
+                                    bufferData.buffer().getNioBufferReadable(),
+                                    Thread.currentThread().getContextClassLoader()));
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to deserialize the EndOfSegmentEvent.");
+        }
+        return checkNotNull(endOfSegmentEvent).getSegmentId();
     }
 }
