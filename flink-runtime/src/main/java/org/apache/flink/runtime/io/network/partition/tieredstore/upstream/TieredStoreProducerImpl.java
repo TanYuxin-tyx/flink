@@ -20,27 +20,16 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulatorImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.MemorySegmentAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.MemoryTier;
-import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
-import java.util.List;
-
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * This is a common entrypoint of the emitted records. These records will be transferred to the
@@ -49,22 +38,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     private final StorageTier[] storageTiers;
-
-    private final TierWriter[] tierWriters;
-
-    private final BufferRecycler[] bufferRecyclers;
-
-    private final TieredStoreMode.TierType[] tierTypes;
-
-    private final BufferCompressor bufferCompressor;
-
-    private final TieredStoreMemoryManager storeMemoryManager;
-
-    // Record the newest segment index belonged to each sub partition.
-    private final int[] subpartitionSegmentIndexes;
-
-    // Record the index of writer currently used by each sub partition.
-    private final int[] subpartitionWriterIndex;
 
     private final boolean isBroadcastOnly;
 
@@ -76,35 +49,21 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
             StorageTier[] storageTiers,
             int numSubpartitions,
             int bufferSize,
-            @Nullable BufferCompressor bufferCompressor,
             boolean isBroadcastOnly,
-            TieredStoreMemoryManager storeMemoryManager)
-            throws IOException {
+            TieredStoreMemoryManager storeMemoryManager,
+            @Nullable BufferCompressor bufferCompressor) {
         this.storageTiers = storageTiers;
-        this.subpartitionSegmentIndexes = new int[numSubpartitions];
-        this.subpartitionWriterIndex = new int[numSubpartitions];
-        this.tierWriters = new TierWriter[storageTiers.length];
-        this.bufferCompressor = bufferCompressor;
-        this.storeMemoryManager = storeMemoryManager;
         this.isBroadcastOnly = isBroadcastOnly;
         this.numSubpartitions = numSubpartitions;
-        this.bufferRecyclers = new BufferRecycler[storageTiers.length];
-        this.tierTypes = new TieredStoreMode.TierType[storageTiers.length];
+
         this.bufferAccumulator =
                 new BufferAccumulatorImpl(
+                        storageTiers,
                         numSubpartitions,
                         bufferSize,
+                        isBroadcastOnly,
                         storeMemoryManager,
-                        this::notifyFinishedBuffer);
-
-        for (int i = 0; i < storageTiers.length; i++) {
-            tierWriters[i] = storageTiers[i].createPartitionTierWriter();
-            tierTypes[i] = storageTiers[i].getTierType();
-            TieredStoreMode.TierType tierType = tierTypes[i];
-            bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tierType);
-        }
-        Arrays.fill(subpartitionSegmentIndexes, 0);
-        Arrays.fill(subpartitionWriterIndex, -1);
+                        bufferCompressor);
     }
 
     @Override
@@ -118,118 +77,18 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
         if (isBroadcast && !isBroadcastOnly) {
             for (int i = 0; i < numSubpartitions; ++i) {
-                bufferAccumulator.emit(record.duplicate(), i, dataType, isEndOfPartition);
+                bufferAccumulator.receive(record.duplicate(), i, dataType, isEndOfPartition);
             }
         } else {
-            bufferAccumulator.emit(record, targetSubpartition, dataType, isEndOfPartition);
+            bufferAccumulator.receive(record, targetSubpartition, dataType, isEndOfPartition);
         }
-    }
-
-    @Override
-    public void emitBuffers(
-            List<MemorySegmentAndChannel> finishedSegments, boolean isEndOfPartition)
-            throws IOException {
-        for (MemorySegmentAndChannel finishedSegment : finishedSegments) {
-            emitFinishedBuffer(finishedSegment, isEndOfPartition);
-        }
-    }
-
-    private void emitFinishedBuffer(
-            MemorySegmentAndChannel finishedSegment, boolean isEndOfPartition) throws IOException {
-        int targetSubpartition = finishedSegment.getChannelIndex();
-        int tierIndex = subpartitionWriterIndex[targetSubpartition];
-        // For the first buffer
-        if (tierIndex == -1) {
-            tierIndex = chooseStorageTierIndex(targetSubpartition);
-            subpartitionWriterIndex[targetSubpartition] = tierIndex;
-        }
-
-        int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
-        if (finishedSegment.getDataType().isBuffer()) {
-            storeMemoryManager.decNumRequestedBuffer(TieredStoreMode.TierType.IN_CACHE);
-            storeMemoryManager.incNumRequestedBuffer(tierTypes[tierIndex]);
-        }
-        Buffer finishedBuffer =
-                new NetworkBuffer(
-                        finishedSegment.getBuffer(),
-                        finishedSegment.getDataType().isBuffer()
-                                ? bufferRecyclers[tierIndex]
-                                : FreeingBufferRecycler.INSTANCE,
-                        finishedSegment.getDataType(),
-                        finishedSegment.getDataSize());
-        boolean isLastBufferInSegment =
-                tierWriters[tierIndex].emit(
-                        targetSubpartition,
-                        compressBufferIfPossible(finishedBuffer),
-                        isEndOfPartition,
-                        segmentIndex);
-        if (finishedSegment.getDataType().isBuffer()) {
-            storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
-        }
-        if (isLastBufferInSegment) {
-            tierIndex = chooseStorageTierIndex(targetSubpartition);
-            subpartitionWriterIndex[targetSubpartition] = tierIndex;
-            subpartitionSegmentIndexes[targetSubpartition] = (segmentIndex + 1);
-        }
-    }
-
-    private int chooseStorageTierIndex(int targetSubpartition) throws IOException {
-        if (storageTiers.length == 1) {
-            return 0;
-        }
-        // only for test case Memory and Disk
-        if (storageTiers.length == 2
-                && storageTiers[0] instanceof MemoryTier
-                && storageTiers[1] instanceof DiskTier) {
-            if (!isBroadcastOnly && storageTiers[0].canStoreNextSegment(targetSubpartition)) {
-                return 0;
-            }
-            return 1;
-        }
-        for (int tierIndex = 0; tierIndex < storageTiers.length; ++tierIndex) {
-            StorageTier storageTier = storageTiers[tierIndex];
-            if (isBroadcastOnly && storageTier instanceof MemoryTier) {
-                continue;
-            }
-            if (storageTiers[tierIndex].canStoreNextSegment(targetSubpartition)) {
-                return tierIndex;
-            }
-        }
-        throw new IOException("All gates are full, cannot select the writer of gate");
-    }
-
-    public void release() {
-        Arrays.stream(tierWriters).forEach(TierWriter::release);
-        Arrays.stream(storageTiers).forEach(StorageTier::release);
     }
 
     public void close() {
-        Arrays.stream(tierWriters).forEach(TierWriter::close);
-        Arrays.stream(storageTiers).forEach(StorageTier::close);
+        bufferAccumulator.close();
     }
 
-    private void notifyFinishedBuffer(
-            List<MemorySegmentAndChannel> memorySegmentAndChannels, boolean isEndOfPartition) {
-        try {
-            emitBuffers(memorySegmentAndChannels, isEndOfPartition);
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e);
-        }
-    }
-
-    private Buffer compressBufferIfPossible(Buffer buffer) {
-        if (!canBeCompressed(buffer)) {
-            return buffer;
-        }
-
-        return checkNotNull(bufferCompressor).compressToOriginalBuffer(buffer);
-    }
-
-    /**
-     * Whether the buffer can be compressed or not. Note that event is not compressed because it is
-     * usually small and the size can become even larger after compression.
-     */
-    private boolean canBeCompressed(Buffer buffer) {
-        return bufferCompressor != null && buffer.isBuffer() && buffer.readableBytes() > 0;
+    public void release() {
+        bufferAccumulator.release();
     }
 }

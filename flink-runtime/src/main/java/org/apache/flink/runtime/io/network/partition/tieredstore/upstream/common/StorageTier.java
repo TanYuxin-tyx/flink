@@ -32,7 +32,7 @@ public interface StorageTier {
 
     void setup() throws IOException;
 
-    TierWriter createPartitionTierWriter() throws IOException;
+    TierWriter createPartitionTierWriter();
 
     TierReaderView createTierReaderView(
             int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
@@ -41,6 +41,7 @@ public interface StorageTier {
 
     boolean hasCurrentSegment(int subpartitionId, int segmentIndex);
 
+    /** Sets the metric group. */
     void setOutputMetrics(OutputMetrics tieredStoreOutputMetrics);
 
     TieredStoreMode.TierType getTierType();

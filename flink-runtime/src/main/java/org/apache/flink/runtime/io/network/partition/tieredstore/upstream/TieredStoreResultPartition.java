@@ -172,9 +172,9 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                         allTiers,
                         numSubpartitions,
                         networkBufferSize,
-                        bufferCompressor,
                         isBroadcast,
-                        tieredStoreMemoryManager);
+                        tieredStoreMemoryManager,
+                        bufferCompressor);
         tieredStoreNettyService = new TieredStoreNettyServiceImpl(allTiers);
     }
 

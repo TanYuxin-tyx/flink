@@ -22,7 +22,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
 
 /** The producer interface of Tiered Store, data can be written to different store tiers. */
 public interface TieredStoreProducer {
@@ -33,9 +32,6 @@ public interface TieredStoreProducer {
             Buffer.DataType dataType,
             boolean isBroadcast,
             boolean isEndOfPartition)
-            throws IOException;
-
-    void emitBuffers(List<MemorySegmentAndChannel> finishedSegments, boolean isEndOfPartition)
             throws IOException;
 
     void close();

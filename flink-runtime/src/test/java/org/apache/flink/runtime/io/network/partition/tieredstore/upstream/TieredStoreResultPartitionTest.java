@@ -436,7 +436,7 @@ class TieredStoreResultPartitionTest {
                 createTieredStoreResultPartition(1, bufferPool, false, "MEMORY");
 
         partition.close();
-        // emit data to closed partition will throw exception.
+        // receive data to closed partition will throw exception.
         assertThatThrownBy(() -> partition.emitRecord(ByteBuffer.allocate(bufferSize), 0));
     }
 

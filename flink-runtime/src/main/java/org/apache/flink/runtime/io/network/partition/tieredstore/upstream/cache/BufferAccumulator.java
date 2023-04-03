@@ -19,17 +19,35 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.MemorySegmentAndChannel;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 
 public interface BufferAccumulator {
-    void emit(
+
+    /**
+     * Receives the records from {@link TieredStoreProducer}, these records will be accumulated and
+     * transformed into finished {@link MemorySegmentAndChannel}s.
+     */
+    void receive(
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
             boolean isEndOfPartition)
             throws IOException;
+
+    /**
+     * The finished {@link MemorySegmentAndChannel}s will be emitted to corresponding tiers. Before
+     * emitting the finished buffers, the {@link BufferAccumulator} will firstly choose an
+     * appreciate tier, then emit the buffers to this chosen tier.
+     */
+    void emitFinishedBuffer(
+            List<MemorySegmentAndChannel> memorySegmentAndChannels, boolean isEndOfPartition);
+
+    void close();
 
     void release();
 }
