@@ -19,21 +19,16 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
-import org.apache.flink.runtime.io.network.partition.CheckpointedResultPartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
-import org.apache.flink.runtime.metrics.TimerGauge;
 
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * The gate for a single tiered data. The gate is used to create {@link TierWriter} and {@link
  * TierReaderView}. The writing and reading data processes happen in the writer and reader.
  */
-public interface StorageTier extends ChannelStateHolder, CheckpointedResultPartition {
+public interface StorageTier {
 
     void setup() throws IOException;
 
@@ -48,33 +43,11 @@ public interface StorageTier extends ChannelStateHolder, CheckpointedResultParti
 
     void setOutputMetrics(OutputMetrics tieredStoreOutputMetrics);
 
-    void setTimerGauge(TimerGauge timerGauge);
-
     TieredStoreMode.TierType getTierType();
+
+    Path getBaseSubpartitionPath(int subpartitionId);
 
     void close();
 
     void release();
-
-    default Path getBaseSubpartitionPath(int subpartitionId) {
-        return null;
-    }
-
-    void alignedBarrierTimeout(long checkpointId) throws IOException;
-
-    void abortCheckpoint(long checkpointId, CheckpointException cause);
-
-    void flushAll();
-
-    void flush(int subpartitionIndex);
-
-    int getNumberOfQueuedBuffers();
-
-    long getSizeOfQueuedBuffersUnsafe();
-
-    int getNumberOfQueuedBuffers(int targetSubpartition);
-
-    CompletableFuture<Void> getAllDataProcessedFuture();
-
-    void onSubpartitionAllDataProcessed(int subpartition);
 }

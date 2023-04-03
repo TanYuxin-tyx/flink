@@ -19,14 +19,11 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.runtime.checkpoint.CheckpointException;
-import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.MemorySegmentAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
@@ -43,7 +40,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -219,112 +215,6 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     public void close() {
         Arrays.stream(tierWriters).forEach(TierWriter::close);
         Arrays.stream(storageTiers).forEach(StorageTier::close);
-    }
-
-    @Override
-    public void alignedBarrierTimeout(long checkpointId) throws IOException {
-        for (StorageTier storageTier : storageTiers) {
-            storageTier.alignedBarrierTimeout(checkpointId);
-        }
-    }
-
-    @Override
-    public void abortCheckpoint(long checkpointId, CheckpointException cause) {
-        for (StorageTier storageTier : storageTiers) {
-            storageTier.abortCheckpoint(checkpointId, cause);
-        }
-    }
-
-    @Override
-    public void flushAll() {
-        for (StorageTier storageTier : storageTiers) {
-            storageTier.flushAll();
-        }
-    }
-
-    @Override
-    public void flush(int subpartitionIndex) {
-        for (StorageTier storageTier : storageTiers) {
-            storageTier.flush(subpartitionIndex);
-        }
-    }
-
-    @Override
-    public int getNumberOfQueuedBuffers() {
-        for (StorageTier storageTier : storageTiers) {
-            int numberOfQueuedBuffers = storageTier.getNumberOfQueuedBuffers();
-            if (numberOfQueuedBuffers != Integer.MIN_VALUE) {
-                return numberOfQueuedBuffers;
-            }
-        }
-        return 0;
-    }
-
-    @Override
-    public long getSizeOfQueuedBuffersUnsafe() {
-        for (StorageTier storageTier : storageTiers) {
-            long sizeOfQueuedBuffersUnsafe = storageTier.getSizeOfQueuedBuffersUnsafe();
-            if (sizeOfQueuedBuffersUnsafe != Integer.MIN_VALUE) {
-                return sizeOfQueuedBuffersUnsafe;
-            }
-        }
-        return 0;
-    }
-
-    @Override
-    public int getNumberOfQueuedBuffers(int targetSubpartition) {
-        for (StorageTier storageTier : storageTiers) {
-            int numberOfQueuedBuffers = storageTier.getNumberOfQueuedBuffers(targetSubpartition);
-            if (numberOfQueuedBuffers != Integer.MIN_VALUE) {
-                return numberOfQueuedBuffers;
-            }
-        }
-        return 0;
-    }
-
-    @Override
-    public void setChannelStateWriter(ChannelStateWriter channelStateWriter) {
-        for (StorageTier storageTier : storageTiers) {
-            storageTier.setChannelStateWriter(channelStateWriter);
-        }
-    }
-
-    @Override
-    public CheckpointedResultSubpartition getCheckpointedSubpartition(int subpartitionIndex) {
-        for (StorageTier storageTier : storageTiers) {
-            CheckpointedResultSubpartition checkpointedSubpartition =
-                    storageTier.getCheckpointedSubpartition(subpartitionIndex);
-            if (checkpointedSubpartition != null) {
-                return checkpointedSubpartition;
-            }
-        }
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void finishReadRecoveredState(boolean notifyAndBlockOnCompletion) throws IOException {
-        for (StorageTier storageTier : storageTiers) {
-            storageTier.finishReadRecoveredState(notifyAndBlockOnCompletion);
-        }
-    }
-
-    @Override
-    public CompletableFuture<Void> getAllDataProcessedFuture() {
-        for (StorageTier storageTier : storageTiers) {
-            CompletableFuture<Void> allDataProcessedFuture =
-                    storageTier.getAllDataProcessedFuture();
-            if (allDataProcessedFuture != null) {
-                return allDataProcessedFuture;
-            }
-        }
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void onSubpartitionAllDataProcessed(int subpartition) {
-        for (StorageTier storageTier : storageTiers) {
-            storageTier.onSubpartitionAllDataProcessed(subpartition);
-        }
     }
 
     private void notifyFinishedBuffer(

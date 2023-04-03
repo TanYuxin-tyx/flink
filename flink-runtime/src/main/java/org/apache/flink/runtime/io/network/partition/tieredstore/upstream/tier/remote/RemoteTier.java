@@ -18,13 +18,9 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.checkpoint.CheckpointException;
-import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.CheckpointedResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
@@ -36,12 +32,10 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileType;
-import org.apache.flink.runtime.metrics.TimerGauge;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
 
 /** The DataManager of DFS. */
 public class RemoteTier implements StorageTier {
@@ -62,8 +56,7 @@ public class RemoteTier implements StorageTier {
             CacheFlushManager cacheFlushManager,
             boolean isBroadcastOnly,
             @Nullable BufferCompressor bufferCompressor,
-            PartitionFileManager partitionFileManager)
-            throws IOException {
+            PartitionFileManager partitionFileManager) {
         this.numSubpartitions = numSubpartitions;
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
@@ -82,15 +75,14 @@ public class RemoteTier implements StorageTier {
     public void setup() throws IOException {}
 
     @Override
-    public TierWriter createPartitionTierWriter() throws IOException {
+    public TierWriter createPartitionTierWriter() {
         return new RemoteTierWriter(
                 numSubpartitions, segmentIndexTracker, remoteCacheManager, numBytesInASegment);
     }
 
     @Override
     public TierReaderView createTierReaderView(
-            int subpartitionId, BufferAvailabilityListener availabilityListener)
-            throws IOException {
+            int subpartitionId, BufferAvailabilityListener availabilityListener) {
         // nothing to do
         return null;
     }
@@ -116,8 +108,8 @@ public class RemoteTier implements StorageTier {
     }
 
     @Override
-    public void setTimerGauge(TimerGauge timerGauge) {
-        // nothing to do
+    public Path getBaseSubpartitionPath(int subpartitionId) {
+        return remoteCacheManager.getBaseSubpartitionPath(subpartitionId);
     }
 
     @Override
@@ -126,76 +118,5 @@ public class RemoteTier implements StorageTier {
     @Override
     public void release() {
         segmentIndexTracker.release();
-    }
-
-    @VisibleForTesting
-    @Override
-    public Path getBaseSubpartitionPath(int subpartitionId) {
-        return remoteCacheManager.getBaseSubpartitionPath(subpartitionId);
-    }
-
-    @Override
-    public void alignedBarrierTimeout(long checkpointId) throws IOException {
-        // Nothing to do
-    }
-
-    @Override
-    public void abortCheckpoint(long checkpointId, CheckpointException cause) {
-        // Nothing to do
-    }
-
-    @Override
-    public void flushAll() {
-        // Nothing to do
-    }
-
-    @Override
-    public void flush(int subpartitionIndex) {
-        // Nothing to do
-    }
-
-    @Override
-    public int getNumberOfQueuedBuffers() {
-        // Batch shuffle does not need to provide QueuedBuffers information
-        return Integer.MIN_VALUE;
-    }
-
-    @Override
-    public long getSizeOfQueuedBuffersUnsafe() {
-        // Batch shuffle does not need to provide QueuedBuffers information
-        return Integer.MIN_VALUE;
-    }
-
-    @Override
-    public int getNumberOfQueuedBuffers(int targetSubpartition) {
-        // Batch shuffle does not need to provide QueuedBuffers information
-        return Integer.MIN_VALUE;
-    }
-
-    @Override
-    public void setChannelStateWriter(ChannelStateWriter channelStateWriter) {
-        // Batch shuffle doesn't support to set channel state writer
-    }
-
-    @Override
-    public CheckpointedResultSubpartition getCheckpointedSubpartition(int subpartitionIndex) {
-        // Batch shuffle doesn't support checkpoint
-        return null;
-    }
-
-    @Override
-    public void finishReadRecoveredState(boolean notifyAndBlockOnCompletion) throws IOException {
-        // Batch shuffle doesn't support state
-    }
-
-    @Override
-    public CompletableFuture<Void> getAllDataProcessedFuture() {
-        // Batch shuffle doesn't support getAllDataProcessedFuture
-        return null;
-    }
-
-    @Override
-    public void onSubpartitionAllDataProcessed(int subpartition) {
-        // Batch shuffle doesn't support onSubpartitionAllDataProcessed
     }
 }

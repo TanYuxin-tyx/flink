@@ -56,6 +56,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.l
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTier;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.StringUtils;
+import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.util.function.SupplierWithException;
 
 import javax.annotation.Nullable;
@@ -182,7 +183,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         super.setMetricGroup(metrics);
         for (StorageTier storageTier : this.allTiers) {
             storageTier.setOutputMetrics(new OutputMetrics(numBytesOut, numBuffersOut));
-            storageTier.setTimerGauge(metrics.getHardBackPressuredTimePerSecond());
         }
     }
 
@@ -225,14 +225,13 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                     for (StorageTier tierDataGate : allTiers) {
                         tierDataGate.setup();
                     }
-                    break;
                 } else {
                     this.allTiers = new StorageTier[1];
                     addTierExclusiveBuffers(TieredStoreMode.TierType.IN_DISK);
                     this.allTiers[0] = getDiskTier();
                     this.allTiers[0].setup();
-                    break;
                 }
+                break;
             case MEMORY_REMOTE:
                 if (partitionType == HYBRID_SELECTIVE) {
                     this.allTiers = new StorageTier[2];
@@ -243,14 +242,13 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                     for (StorageTier tierDataGate : allTiers) {
                         tierDataGate.setup();
                     }
-                    break;
                 } else {
                     this.allTiers = new StorageTier[1];
                     addTierExclusiveBuffers(TieredStoreMode.TierType.IN_REMOTE);
                     this.allTiers[0] = getRemoteTier();
                     this.allTiers[0].setup();
-                    break;
                 }
+                break;
             case MEMORY_DISK_REMOTE:
                 if (partitionType == HYBRID_SELECTIVE) {
                     this.allTiers = new StorageTier[3];
@@ -264,7 +262,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                     for (StorageTier tierDataGate : allTiers) {
                         tierDataGate.setup();
                     }
-                    break;
                 } else {
                     this.allTiers = new StorageTier[2];
                     addTierExclusiveBuffers(
@@ -274,8 +271,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                     for (StorageTier tierDataGate : allTiers) {
                         tierDataGate.setup();
                     }
-                    break;
                 }
+                break;
             case DISK_REMOTE:
                 this.allTiers = new StorageTier[2];
                 addTierExclusiveBuffers(
@@ -325,7 +322,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
                 partitionFileManager);
     }
 
-    private RemoteTier getRemoteTier() throws IOException {
+    private RemoteTier getRemoteTier() {
         String baseDfsPath = storeConfiguration.getBaseDfsHomePath();
         if (StringUtils.isNullOrWhitespaceOnly(baseDfsPath)) {
             throw new IllegalArgumentException(
@@ -397,41 +394,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     }
 
     @Override
-    public void alignedBarrierTimeout(long checkpointId) throws IOException {
-        tieredStoreProducer.alignedBarrierTimeout(checkpointId);
-    }
-
-    @Override
-    public void abortCheckpoint(long checkpointId, CheckpointException cause) {
-        tieredStoreProducer.abortCheckpoint(checkpointId, cause);
-    }
-
-    @Override
-    public void flushAll() {
-        tieredStoreProducer.flushAll();
-    }
-
-    @Override
-    public void flush(int subpartitionIndex) {
-        tieredStoreProducer.flush(subpartitionIndex);
-    }
-
-    @Override
-    public void setChannelStateWriter(ChannelStateWriter channelStateWriter) {
-        tieredStoreProducer.setChannelStateWriter(channelStateWriter);
-    }
-
-    @Override
-    public CompletableFuture<Void> getAllDataProcessedFuture() {
-        return tieredStoreProducer.getAllDataProcessedFuture();
-    }
-
-    @Override
-    public void onSubpartitionAllDataProcessed(int subpartition) {
-        tieredStoreProducer.onSubpartitionAllDataProcessed(subpartition);
-    }
-
-    @Override
     public void finish() throws IOException {
         broadcastEvent(EndOfPartitionEvent.INSTANCE, false);
         checkState(!isReleased(), "Result partition is already released.");
@@ -468,18 +430,57 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     }
 
     @Override
+    public void alignedBarrierTimeout(long checkpointId) throws IOException {
+        // Nothing to do.
+    }
+
+    @Override
+    public void abortCheckpoint(long checkpointId, CheckpointException cause) {
+        // Nothing to do.
+    }
+
+    @Override
+    public void flushAll() {
+        // Nothing to do.
+    }
+
+    @Override
+    public void flush(int subpartitionIndex) {
+        // Nothing to do.
+    }
+
+    @Override
+    public void setChannelStateWriter(ChannelStateWriter channelStateWriter) {
+        // Nothing to do.
+    }
+
+    @Override
+    public CompletableFuture<Void> getAllDataProcessedFuture() {
+        // Nothing to do.
+        return FutureUtils.completedVoidFuture();
+    }
+
+    @Override
+    public void onSubpartitionAllDataProcessed(int subpartition) {
+        // Nothing to do.
+    }
+
+    @Override
     public int getNumberOfQueuedBuffers() {
-        return tieredStoreProducer.getNumberOfQueuedBuffers();
+        // Nothing to do.
+        return 0;
     }
 
     @Override
     public long getSizeOfQueuedBuffersUnsafe() {
-        return tieredStoreProducer.getSizeOfQueuedBuffersUnsafe();
+        // Nothing to do.
+        return 0;
     }
 
     @Override
     public int getNumberOfQueuedBuffers(int targetSubpartition) {
-        return tieredStoreProducer.getNumberOfQueuedBuffers(targetSubpartition);
+        // Nothing to do.
+        return 0;
     }
 
     @Override

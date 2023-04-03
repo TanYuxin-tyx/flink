@@ -19,18 +19,14 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
-import org.apache.flink.runtime.io.network.partition.CheckpointedResultPartition;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /** The producer interface of Tiered Store, data can be written to different store tiers. */
-public interface TieredStoreProducer extends ChannelStateHolder, CheckpointedResultPartition {
+public interface TieredStoreProducer {
 
     void emit(
             ByteBuffer record,
@@ -49,22 +45,4 @@ public interface TieredStoreProducer extends ChannelStateHolder, CheckpointedRes
 
     @VisibleForTesting
     void setNumBytesInASegment(int numBytesInASegment);
-
-    void alignedBarrierTimeout(long checkpointId) throws IOException;
-
-    void abortCheckpoint(long checkpointId, CheckpointException cause);
-
-    void flushAll();
-
-    void flush(int subpartitionIndex);
-
-    int getNumberOfQueuedBuffers();
-
-    long getSizeOfQueuedBuffersUnsafe();
-
-    int getNumberOfQueuedBuffers(int targetSubpartition);
-
-    CompletableFuture<Void> getAllDataProcessedFuture();
-
-    void onSubpartitionAllDataProcessed(int subpartition);
 }
