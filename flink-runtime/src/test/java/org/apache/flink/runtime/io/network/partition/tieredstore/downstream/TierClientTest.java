@@ -78,7 +78,7 @@ public class TierClientTest {
         inputChannel3.readBuffer();
         verifyLocalTierClientResult(
                 localTierClient, inputChannel3, true, DATA_BUFFER, SEGMENT_ID, true);
-        inputChannel3.readSegmentInfo(1);
+        inputChannel3.readSegmentInfo();
         verifyLocalTierClientResult(
                 localTierClient, inputChannel3, true, SEGMENT_EVENT, SEGMENT_ID, true);
         inputChannel3.readBuffer();

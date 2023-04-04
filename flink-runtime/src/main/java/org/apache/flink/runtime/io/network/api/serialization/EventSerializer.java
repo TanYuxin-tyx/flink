@@ -143,12 +143,7 @@ public class EventSerializer {
             buf.flip();
             return buf;
         } else if (eventClass == EndOfSegmentEvent.class) {
-            EndOfSegmentEvent endOfSegmentEvent = (EndOfSegmentEvent) event;
-            ByteBuffer buf = ByteBuffer.allocate(8);
-            buf.putInt(END_OF_SEGMENT);
-            buf.putInt(endOfSegmentEvent.getSegmentId());
-            buf.flip();
-            return buf;
+            return ByteBuffer.wrap(new byte[] {0, 0, 0, END_OF_SEGMENT});
         } else {
             try {
                 final DataOutputSerializer serializer = new DataOutputSerializer(128);
@@ -194,7 +189,7 @@ public class EventSerializer {
             } else if (type == VIRTUAL_CHANNEL_SELECTOR_EVENT) {
                 return new SubtaskConnectionDescriptor(buffer.getInt(), buffer.getInt());
             } else if (type == END_OF_SEGMENT){
-                return deserializeEndOfSegment(buffer);
+                return EndOfSegmentEvent.INSTANCE;
             } else if (type == OTHER_EVENT) {
                 try {
                     final DataInputDeserializer deserializer = new DataInputDeserializer(buffer);
@@ -339,11 +334,6 @@ public class EventSerializer {
                 timestamp,
                 new CheckpointOptions(
                         snapshotType, locationRef, alignmentType, alignedCheckpointTimeout));
-    }
-
-    private static EndOfSegmentEvent deserializeEndOfSegment(ByteBuffer buffer) {
-        final int segmentId = buffer.getInt();
-        return new EndOfSegmentEvent(segmentId);
     }
 
     private static SavepointType decodeSavepointType(byte checkpointTypeCode, ByteBuffer buffer)

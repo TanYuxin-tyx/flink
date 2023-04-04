@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk;
 
+import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
+import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
@@ -25,7 +27,6 @@ import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTrackerImpl;
@@ -38,12 +39,12 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileType;
+import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -161,8 +162,14 @@ public class DiskTier implements TierWriter, StorageTier {
     }
 
     private void emitEndOfSegmentEvent(int segmentId, int targetChannel) {
-        ByteBuffer endOfSegment = EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentId + 1);
-        diskCacheManager.appendSegmentEvent(endOfSegment, targetChannel, SEGMENT_EVENT);
+        try {
+            diskCacheManager.appendSegmentEvent(
+                    EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE),
+                    targetChannel,
+                    SEGMENT_EVENT);
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to emitEndOfSegmentEvent");
+        }
     }
 
     private void emitBuffer(

@@ -130,7 +130,7 @@ public class RemoteTierClient implements TierClient {
     private Buffer buildEndOfSegmentBuffer(int segmentId) throws IOException {
         MemorySegment data =
                 MemorySegmentFactory.wrap(
-                        EventSerializer.toSerializedEvent(new EndOfSegmentEvent(segmentId))
+                        EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE)
                                 .array());
         return new NetworkBuffer(
                 data, FreeingBufferRecycler.INSTANCE, Buffer.DataType.SEGMENT_EVENT, data.size());

@@ -19,20 +19,21 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory;
 
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
+import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -123,9 +124,14 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     }
 
     private void appendEndOfSegmentEvent(int segmentId, int targetChannel) {
-        ByteBuffer endOfSegment = EndOfSegmentEventBuilder.buildEndOfSegmentEvent(segmentId + 1);
-        getSubpartitionMemoryDataManager(targetChannel)
-                .appendSegmentEvent(endOfSegment, SEGMENT_EVENT);
+        try {
+            getSubpartitionMemoryDataManager(targetChannel)
+                    .appendSegmentEvent(
+                            EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE),
+                            SEGMENT_EVENT);
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to append end of segment event,");
+        }
     }
 
     private void append(Buffer finishedBuffer, int targetChannel) {
