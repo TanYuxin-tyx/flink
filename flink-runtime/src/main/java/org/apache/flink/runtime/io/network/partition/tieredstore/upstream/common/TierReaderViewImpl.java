@@ -35,41 +35,49 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** The implementation of {@link TierReaderView}. */
 public class TierReaderViewImpl implements TierReaderView {
 
-    private final Object lock = new Object();
+    private final Object viewLock = new Object();
 
     private final BufferAvailabilityListener availabilityListener;
 
-    @GuardedBy("lock")
+    @GuardedBy("viewLock")
     private int consumingOffset = -1;
 
-    @GuardedBy("lock")
+    @GuardedBy("viewLock")
     private boolean needNotify = true;
 
     @Nullable
-    @GuardedBy("lock")
+    @GuardedBy("viewLock")
     private Buffer.DataType cachedNextDataType = null;
 
     @Nullable
-    @GuardedBy("lock")
+    @GuardedBy("viewLock")
     private Throwable failureCause = null;
 
-    @GuardedBy("lock")
+    @GuardedBy("viewLock")
     private boolean isReleased = false;
 
     @Nullable
-    @GuardedBy("lock")
+    @GuardedBy("viewLock")
     private TierReader tierReader;
 
     public TierReaderViewImpl(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 
+    @Override
+    public void setTierReader(TierReader tierReader) {
+        synchronized (viewLock) {
+            checkState(this.tierReader == null, "Repeatedly set tier reader is not allowed.");
+            this.tierReader = tierReader;
+        }
+    }
+
     @Nullable
     @Override
     public BufferAndBacklog getNextBuffer() throws IOException {
         try {
-            synchronized (lock) {
-                checkNotNull(tierReader, "TierReader must be not null.");
+            synchronized (viewLock) {
+                checkNotNull(tierReader, "Tier reader must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume =
                         tierReader.consumeBuffer(consumingOffset + 1);
                 updateConsumingStatus(bufferToConsume);
@@ -77,14 +85,14 @@ public class TierReaderViewImpl implements TierReaderView {
             }
         } catch (Throwable cause) {
             releaseInternal(cause);
-            throw new IOException("Failed to get next buffer from TierReader.", cause);
+            throw new IOException("Failed to get next buffer from tier reader.", cause);
         }
     }
 
     @Override
     public void notifyDataAvailable() {
         boolean notifyDownStream = false;
-        synchronized (lock) {
+        synchronized (viewLock) {
             if (isReleased) {
                 return;
             }
@@ -93,7 +101,6 @@ public class TierReaderViewImpl implements TierReaderView {
                 needNotify = false;
             }
         }
-        // notify outside of lock to avoid deadlock
         if (notifyDownStream) {
             availabilityListener.notifyDataAvailable();
         }
@@ -102,7 +109,7 @@ public class TierReaderViewImpl implements TierReaderView {
     @Override
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable) {
-        synchronized (lock) {
+        synchronized (viewLock) {
             boolean availability = numCreditsAvailable > 0;
             if (numCreditsAvailable <= 0
                     && cachedNextDataType != null
@@ -119,7 +126,7 @@ public class TierReaderViewImpl implements TierReaderView {
 
     @Override
     public void updateNeedNotifyStatus() {
-        synchronized (lock) {
+        synchronized (viewLock) {
             if (getSubpartitionBacklog() == 0) {
                 needNotify = true;
             }
@@ -133,7 +140,7 @@ public class TierReaderViewImpl implements TierReaderView {
 
     @Override
     public boolean isReleased() {
-        synchronized (lock) {
+        synchronized (viewLock) {
             return isReleased;
         }
     }
@@ -143,23 +150,15 @@ public class TierReaderViewImpl implements TierReaderView {
         if (!withLock) {
             return consumingOffset;
         }
-        synchronized (lock) {
+        synchronized (viewLock) {
             return consumingOffset;
         }
     }
 
     @Override
     public Throwable getFailureCause() {
-        synchronized (lock) {
+        synchronized (viewLock) {
             return failureCause;
-        }
-    }
-
-    @Override
-    public void setTierReader(TierReader tierReader) {
-        synchronized (lock) {
-            checkState(this.tierReader == null, "repeatedly set disk data view is not allowed.");
-            this.tierReader = tierReader;
         }
     }
 
@@ -170,7 +169,7 @@ public class TierReaderViewImpl implements TierReaderView {
 
     @Override
     public int getNumberOfQueuedBuffers() {
-        synchronized (lock) {
+        synchronized (viewLock) {
             return getSubpartitionBacklog();
         }
     }
@@ -190,17 +189,17 @@ public class TierReaderViewImpl implements TierReaderView {
     private BufferAndBacklog handleBacklog(BufferAndBacklog bufferToConsume) {
         return bufferToConsume.buffersInBacklog() == 0
                 ? new BufferAndBacklog(
-                        bufferToConsume.buffer(),
-                        getSubpartitionBacklog(),
-                        bufferToConsume.getNextDataType(),
-                        bufferToConsume.getSequenceNumber())
+                bufferToConsume.buffer(),
+                getSubpartitionBacklog(),
+                bufferToConsume.getNextDataType(),
+                bufferToConsume.getSequenceNumber())
                 : bufferToConsume;
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @GuardedBy("lock")
+    @GuardedBy("viewLock")
     private void updateConsumingStatus(Optional<BufferAndBacklog> bufferAndBacklog) {
-        assert Thread.holdsLock(lock);
+        assert Thread.holdsLock(viewLock);
         // if consumed, update and check consume offset
         if (bufferAndBacklog.isPresent()) {
             ++consumingOffset;
@@ -217,7 +216,7 @@ public class TierReaderViewImpl implements TierReaderView {
 
     private void releaseInternal(@Nullable Throwable throwable) {
         boolean releaseTierReader;
-        synchronized (lock) {
+        synchronized (viewLock) {
             if (isReleased) {
                 return;
             }
