@@ -128,14 +128,4 @@ public class NoOpBufferPool implements BufferPool {
     public CompletableFuture<?> getAvailableFuture() {
         return AVAILABLE;
     }
-
-    @Override
-    public int getNetworkBufferPoolAvailableBuffers() {
-        return 0;
-    }
-
-    @Override
-    public int getNetworkBufferPoolTotalBuffers() {
-        return 0;
-    }
 }

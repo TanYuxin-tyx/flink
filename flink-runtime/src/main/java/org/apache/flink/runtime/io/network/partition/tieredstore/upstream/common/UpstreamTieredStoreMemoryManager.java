@@ -137,16 +137,6 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     }
 
     @Override
-    public int getNetworkBufferPoolAvailableBuffers() {
-        return bufferPool.getNetworkBufferPoolAvailableBuffers();
-    }
-
-    @Override
-    public int getNetworkBufferPoolTotalBuffers() {
-        return bufferPool.getNetworkBufferPoolTotalBuffers();
-    }
-
-    @Override
     public void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TierType tierType) {
         bufferPool.recycle(memorySegment);
         decNumRequestedBuffer(tierType);

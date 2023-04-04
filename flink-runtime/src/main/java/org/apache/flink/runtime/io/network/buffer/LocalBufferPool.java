@@ -694,16 +694,6 @@ public class LocalBufferPool implements BufferPool {
     }
 
     @Override
-    public int getNetworkBufferPoolAvailableBuffers() {
-        return networkBufferPool.getNumberOfAvailableMemorySegments();
-    }
-
-    @Override
-    public int getNetworkBufferPoolTotalBuffers() {
-        return networkBufferPool.getTotalNumberOfMemorySegments();
-    }
-
-    @Override
     public String toString() {
         synchronized (availableMemorySegments) {
             return String.format(

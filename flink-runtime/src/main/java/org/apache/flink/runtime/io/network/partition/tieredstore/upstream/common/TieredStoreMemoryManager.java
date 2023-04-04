@@ -42,10 +42,6 @@ public interface TieredStoreMemoryManager {
 
     void decNumRequestedBuffer(TieredStoreMode.TierType tierType);
 
-    int getNetworkBufferPoolAvailableBuffers();
-
-    int getNetworkBufferPoolTotalBuffers();
-
     void checkNeedTriggerFlushCachedBuffers();
 
     void close();

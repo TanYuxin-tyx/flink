@@ -64,16 +64,6 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     public void decNumRequestedBuffer(TieredStoreMode.TierType tierType) {}
 
     @Override
-    public int getNetworkBufferPoolAvailableBuffers() {
-        return localBufferPool.getNetworkBufferPoolAvailableBuffers();
-    }
-
-    @Override
-    public int getNetworkBufferPoolTotalBuffers() {
-        return localBufferPool.getNetworkBufferPoolTotalBuffers();
-    }
-
-    @Override
     public void checkNeedTriggerFlushCachedBuffers() {}
 
     @Override
