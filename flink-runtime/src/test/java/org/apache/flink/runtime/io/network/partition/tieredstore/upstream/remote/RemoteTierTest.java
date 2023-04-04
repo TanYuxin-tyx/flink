@@ -44,6 +44,8 @@ class RemoteTierTest {
 
     private static final int NUM_SUBPARTITIONS = 3;
 
+    private static final float NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
+
     private static final int BUFFER_SIZE = Integer.BYTES * 3;
 
     private TemporaryFolder tmpFolder;
@@ -68,6 +70,7 @@ class RemoteTierTest {
                         bufferPool,
                         getTierExclusiveBuffers(),
                         NUM_SUBPARTITIONS,
+                        NUM_BUFFERS_TRIGGER_FLUSH_RATIO,
                         new CacheFlushManager());
 
         return new RemoteTier(

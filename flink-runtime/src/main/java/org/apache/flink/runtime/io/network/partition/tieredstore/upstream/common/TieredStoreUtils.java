@@ -45,10 +45,6 @@ public class TieredStoreUtils {
 
     private static final String SEGMENT_FINISH_FILE_SUFFIX = ".FINISH";
 
-    private static final float LOCAL_BUFFER_POOL_TRIGGER_FLUSH_RATIO = 0.6f;
-
-    private static final float NETWORK_BUFFER_POOL_TRIGGER_FLUSH_RATIO = 0.6f;
-
     public static ByteBuffer[] generateBufferWithHeaders(List<BufferContext> bufferContexts) {
         ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * bufferContexts.size()];
 
@@ -90,7 +86,8 @@ public class TieredStoreUtils {
         int numTotal = tieredStoreMemoryManager.numTotalBuffers();
         int numRequested = tieredStoreMemoryManager.numRequestedBuffers();
         return numRequested >= numTotal
-                || (numRequested * 1.0 / numTotal) >= LOCAL_BUFFER_POOL_TRIGGER_FLUSH_RATIO;
+                || (numRequested * 1.0 / numTotal)
+                        >= tieredStoreMemoryManager.numBuffersTriggerFlushRatio();
     }
 
     public static String createBaseSubpartitionPath(

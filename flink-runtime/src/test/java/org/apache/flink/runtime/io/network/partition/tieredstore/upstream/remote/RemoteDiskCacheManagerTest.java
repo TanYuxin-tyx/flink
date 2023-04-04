@@ -47,6 +47,8 @@ class RemoteDiskCacheManagerTest {
 
     private static final int NUM_SUBPARTITIONS = 3;
 
+    private static final float NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
+
     private static final int BUFFER_SIZE = Integer.BYTES * 3;
 
     private static final int POOL_SIZE = 10;
@@ -96,6 +98,7 @@ class RemoteDiskCacheManagerTest {
                         localBufferPool,
                         getTierExclusiveBuffers(),
                         NUM_SUBPARTITIONS,
+                        NUM_BUFFERS_TRIGGER_FLUSH_RATIO,
                         new CacheFlushManager());
         RemoteCacheManager cacheDataManager =
                 new RemoteCacheManager(

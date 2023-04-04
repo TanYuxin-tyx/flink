@@ -44,6 +44,11 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
+    public float numBuffersTriggerFlushRatio() {
+        return 0;
+    }
+
+    @Override
     public MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TierType tierType) {
         try {
             return localBufferPool.requestMemorySegmentBlocking();

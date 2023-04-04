@@ -34,6 +34,8 @@ public interface TieredStoreMemoryManager {
 
     int numTotalBuffers();
 
+    float numBuffersTriggerFlushRatio();
+
     MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TierType tierType);
 
     void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TierType tierType);

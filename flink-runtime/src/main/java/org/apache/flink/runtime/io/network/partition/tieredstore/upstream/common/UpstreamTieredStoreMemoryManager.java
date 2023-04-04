@@ -55,6 +55,8 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     private final int numTotalExclusiveBuffers;
 
+    private final float numBuffersTriggerFlushRatio;
+
     private final ScheduledExecutorService executor =
             Executors.newSingleThreadScheduledExecutor(
                     new ThreadFactoryBuilder()
@@ -66,12 +68,14 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
             BufferPool bufferPool,
             Map<TieredStoreMode.TierType, Integer> tierExclusiveBuffers,
             int numSubpartitions,
+            float numBuffersTriggerFlushRatio,
             CacheFlushManager cacheFlushManager) {
         this.bufferPool = bufferPool;
         this.tierExclusiveBuffers = tierExclusiveBuffers;
         this.tierRequestedBuffersCounter = new HashMap<>();
         this.cacheFlushManager = cacheFlushManager;
         this.numSubpartitions = numSubpartitions;
+        this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
         this.numTotalExclusiveBuffers =
                 tierExclusiveBuffers.values().stream().mapToInt(i -> i).sum();
         executor.scheduleWithFixedDelay(
@@ -107,6 +111,11 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     @Override
     public int numRequestedBuffers() {
         return numRequestedBuffers.get();
+    }
+
+    @Override
+    public float numBuffersTriggerFlushRatio() {
+        return numBuffersTriggerFlushRatio;
     }
 
     @Override

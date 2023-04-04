@@ -46,6 +46,8 @@ public class TieredStoreConfiguration {
 
     private static final float DEFAULT_TIERED_STORE_TRIGGER_FLUSH_RATIO = 0.8f;
 
+    private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
+
     private static final long DEFAULT_BUFFER_POLL_SIZE_CHECK_INTERVAL_MS = 1000;
 
     private final int maxBuffersReadAhead;
@@ -79,6 +81,8 @@ public class TieredStoreConfiguration {
 
     private final float tieredStoreTriggerFlushRatio;
 
+    private final float numBuffersTriggerFlushRatio;
+
     private final long bufferPoolSizeCheckIntervalMs;
 
     // For Tiered Store
@@ -99,6 +103,7 @@ public class TieredStoreConfiguration {
             float tieredStoreBufferInMemoryRatio,
             float tieredStoreFlushBufferRatio,
             float tieredStoreTriggerFlushRatio,
+            float numBuffersTriggerFlushRatio,
             long bufferPoolSizeCheckIntervalMs,
             String baseDfsHomePath,
             int configuredNetworkBuffersPerChannel,
@@ -115,6 +120,7 @@ public class TieredStoreConfiguration {
         this.tieredStoreBufferInMemoryRatio = tieredStoreBufferInMemoryRatio;
         this.tieredStoreFlushBufferRatio = tieredStoreFlushBufferRatio;
         this.tieredStoreTriggerFlushRatio = tieredStoreTriggerFlushRatio;
+        this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
         this.bufferPoolSizeCheckIntervalMs = bufferPoolSizeCheckIntervalMs;
         this.baseDfsHomePath = baseDfsHomePath;
         this.configuredNetworkBuffersPerChannel = configuredNetworkBuffersPerChannel;
@@ -192,6 +198,10 @@ public class TieredStoreConfiguration {
         return tieredStoreTriggerFlushRatio;
     }
 
+    public float getNumBuffersTriggerFlushRatio() {
+        return numBuffersTriggerFlushRatio;
+    }
+
     /** Check interval of buffer pool's size. */
     public long getBufferPoolSizeCheckIntervalMs() {
         return bufferPoolSizeCheckIntervalMs;
@@ -232,6 +242,8 @@ public class TieredStoreConfiguration {
         private float tieredStoreFlushBufferRatio = DEFAULT_TIERED_STORE_FLUSH_BUFFER_RATIO;
 
         private float tieredStoreTriggerFlushRatio = DEFAULT_TIERED_STORE_TRIGGER_FLUSH_RATIO;
+
+        private float numBuffersTriggerFlushRatio = DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO;
 
         private long bufferPoolSizeCheckIntervalMs = DEFAULT_BUFFER_POLL_SIZE_CHECK_INTERVAL_MS;
 
@@ -312,6 +324,12 @@ public class TieredStoreConfiguration {
             return this;
         }
 
+        public TieredStoreConfiguration.Builder setNumBuffersTriggerFlushRatio(
+                float numBuffersTriggerFlushRatio) {
+            this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
+            return this;
+        }
+
         public TieredStoreConfiguration.Builder setBufferPoolSizeCheckIntervalMs(
                 long bufferPoolSizeCheckIntervalMs) {
             this.bufferPoolSizeCheckIntervalMs = bufferPoolSizeCheckIntervalMs;
@@ -347,6 +365,7 @@ public class TieredStoreConfiguration {
                     tieredStoreBufferInMemoryRatio,
                     tieredStoreFlushBufferRatio,
                     tieredStoreTriggerFlushRatio,
+                    numBuffersTriggerFlushRatio,
                     bufferPoolSizeCheckIntervalMs,
                     baseDfsHomePath,
                     configuredNetworkBuffersPerChannel,

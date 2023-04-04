@@ -94,6 +94,8 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     private final float minReservedDiskSpaceFraction;
 
+    private final float numBuffersTriggerFlushRatio;
+
     private final boolean isBroadcast;
 
     private final CacheFlushManager cacheFlushManager;
@@ -144,6 +146,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.isBroadcast = isBroadcast;
         this.storeConfiguration = storeConfiguration;
+        this.numBuffersTriggerFlushRatio = storeConfiguration.getNumBuffersTriggerFlushRatio();
         this.tierExclusiveBuffers = new HashMap<>();
         this.cacheFlushManager = new CacheFlushManager();
         this.partitionFileManager =
@@ -296,7 +299,11 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
         }
         tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(
-                        bufferPool, tierExclusiveBuffers, numSubpartitions, cacheFlushManager);
+                        bufferPool,
+                        tierExclusiveBuffers,
+                        numSubpartitions,
+                        numBuffersTriggerFlushRatio,
+                        cacheFlushManager);
     }
 
     private MemoryTier getMemoryTier() {
