@@ -115,7 +115,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
                     new RegionBufferIndexTracker.SpilledBuffer(
-                            bufferWithIdentity.getBufferIndexAndChannel().getChannel(),
+                            bufferWithIdentity.getBufferIndexAndChannel().getSubpartitionId(),
                             bufferWithIdentity.getBufferIndexAndChannel().getBufferIndex(),
                             totalBytesWritten + expectedBytes));
             expectedBytes += numBytes;

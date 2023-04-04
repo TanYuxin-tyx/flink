@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 
 import java.nio.ByteBuffer;
@@ -42,24 +42,24 @@ public class TieredStoreTestUtils {
 
     public static final int MEMORY_SEGMENT_SIZE = 128;
 
-    public static List<BufferIndexAndChannel> createBufferIndexAndChannelsList(
+    public static List<BufferIndexAndSubpartitionId> createBufferIndexAndChannelsList(
             int subpartitionId, int... bufferIndexes) {
-        List<BufferIndexAndChannel> bufferIndexAndChannels = new ArrayList<>();
+        List<BufferIndexAndSubpartitionId> bufferIndexAndSubpartitionIds = new ArrayList<>();
         for (int bufferIndex : bufferIndexes) {
             MemorySegment segment =
                     MemorySegmentFactory.allocateUnpooledSegment(MEMORY_SEGMENT_SIZE);
-            bufferIndexAndChannels.add(new BufferIndexAndChannel(bufferIndex, subpartitionId));
+            bufferIndexAndSubpartitionIds.add(new BufferIndexAndSubpartitionId(bufferIndex, subpartitionId));
         }
-        return bufferIndexAndChannels;
+        return bufferIndexAndSubpartitionIds;
     }
 
-    public static Deque<BufferIndexAndChannel> createBufferIndexAndChannelsDeque(
+    public static Deque<BufferIndexAndSubpartitionId> createBufferIndexAndChannelsDeque(
             int subpartitionId, int... bufferIndexes) {
-        Deque<BufferIndexAndChannel> bufferIndexAndChannels = new ArrayDeque<>();
+        Deque<BufferIndexAndSubpartitionId> bufferIndexAndSubpartitionIds = new ArrayDeque<>();
         for (int bufferIndex : bufferIndexes) {
-            bufferIndexAndChannels.add(new BufferIndexAndChannel(bufferIndex, subpartitionId));
+            bufferIndexAndSubpartitionIds.add(new BufferIndexAndSubpartitionId(bufferIndex, subpartitionId));
         }
-        return bufferIndexAndChannels;
+        return bufferIndexAndSubpartitionIds;
     }
 
     public static Buffer createBuffer(int bufferSize, boolean isEvent) {

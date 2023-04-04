@@ -25,11 +25,11 @@ public class BufferContext {
 
     private final Buffer buffer;
 
-    private final BufferIndexAndChannel bufferIndexAndChannel;
+    private final BufferIndexAndSubpartitionId bufferIndexAndSubpartitionId;
 
     public BufferContext(
             Buffer buffer, int bufferIndex, int subpartitionId) {
-        this.bufferIndexAndChannel = new BufferIndexAndChannel(bufferIndex, subpartitionId);
+        this.bufferIndexAndSubpartitionId = new BufferIndexAndSubpartitionId(bufferIndex, subpartitionId);
         this.buffer = buffer;
     }
 
@@ -37,7 +37,7 @@ public class BufferContext {
         return buffer;
     }
 
-    public BufferIndexAndChannel getBufferIndexAndChannel() {
-        return bufferIndexAndChannel;
+    public BufferIndexAndSubpartitionId getBufferIndexAndChannel() {
+        return bufferIndexAndSubpartitionId;
     }
 }

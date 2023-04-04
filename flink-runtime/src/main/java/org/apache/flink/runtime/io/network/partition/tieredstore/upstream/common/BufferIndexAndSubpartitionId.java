@@ -19,21 +19,21 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
 /** Integrate the buffer index and the channel id which it belongs. */
-public class BufferIndexAndChannel {
+public class BufferIndexAndSubpartitionId {
     private final int bufferIndex;
 
-    private final int channel;
+    private final int subpartitionId;
 
-    public BufferIndexAndChannel(int bufferIndex, int channel) {
+    public BufferIndexAndSubpartitionId(int bufferIndex, int subpartitionId) {
         this.bufferIndex = bufferIndex;
-        this.channel = channel;
+        this.subpartitionId = subpartitionId;
     }
 
     public int getBufferIndex() {
         return bufferIndex;
     }
 
-    public int getChannel() {
-        return channel;
+    public int getSubpartitionId() {
+        return subpartitionId;
     }
 }

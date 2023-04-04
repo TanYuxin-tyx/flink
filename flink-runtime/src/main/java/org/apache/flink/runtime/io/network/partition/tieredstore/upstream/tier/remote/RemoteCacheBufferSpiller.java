@@ -186,7 +186,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
                     new RegionBufferIndexTracker.SpilledBuffer(
-                            bufferContext.getBufferIndexAndChannel().getChannel(),
+                            bufferContext.getBufferIndexAndChannel().getSubpartitionId(),
                             bufferContext.getBufferIndexAndChannel().getBufferIndex(),
                             totalBytesWritten + expectedBytes));
             expectedBytes += numBytes;

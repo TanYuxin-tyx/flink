@@ -135,7 +135,7 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
                     new RegionBufferIndexTracker.SpilledBuffer(
-                            bufferWithIdentity.getBufferIndexAndChannel().getChannel(),
+                            bufferWithIdentity.getBufferIndexAndChannel().getSubpartitionId(),
                             bufferWithIdentity.getBufferIndexAndChannel().getBufferIndex(),
                             totalBytesWritten + expectedBytes));
             expectedBytes += numBytes;
