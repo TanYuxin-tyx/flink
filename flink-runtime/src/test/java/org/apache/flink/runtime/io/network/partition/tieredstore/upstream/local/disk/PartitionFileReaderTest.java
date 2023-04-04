@@ -345,8 +345,8 @@ class PartitionFileReaderTest {
         }
 
         @Override
-        public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(
-                int nextBufferToConsume) {
+        public Optional<ResultSubpartition.BufferAndBacklog> getNextBuffer(
+                int bufferIndex) {
             return Optional.empty();
         }
 

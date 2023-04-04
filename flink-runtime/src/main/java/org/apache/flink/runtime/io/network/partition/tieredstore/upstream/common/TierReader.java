@@ -25,7 +25,7 @@ import java.util.Optional;
 /** The {@link TierReader} is used to consume data from different tiers. */
 public interface TierReader {
 
-    Optional<BufferAndBacklog> consumeBuffer(int nextBufferToConsume) throws Throwable;
+    Optional<BufferAndBacklog> getNextBuffer(int bufferIndex) throws Throwable;
 
     int getBacklog();
 

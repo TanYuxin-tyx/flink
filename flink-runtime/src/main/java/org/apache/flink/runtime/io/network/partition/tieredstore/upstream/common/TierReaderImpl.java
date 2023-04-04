@@ -52,7 +52,7 @@ public abstract class TierReaderImpl implements TierReader {
     }
 
     @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(int toConsumeIndex) {
+    public Optional<ResultSubpartition.BufferAndBacklog> getNextBuffer(int bufferIndex) {
         Optional<Tuple2<BufferContext, Buffer.DataType>> bufferAndNextDataType =
                 callWithLock(
                         () -> {
@@ -63,7 +63,7 @@ public abstract class TierReaderImpl implements TierReader {
                                     checkNotNull(unConsumedBuffers.pollFirst());
                             checkState(
                                     bufferContext.getBufferIndexAndChannel().getBufferIndex()
-                                            == toConsumeIndex);
+                                            == bufferIndex);
                             Buffer.DataType nextDataType =
                                     unConsumedBuffers.isEmpty()
                                             ? Buffer.DataType.NONE
@@ -78,7 +78,7 @@ public abstract class TierReaderImpl implements TierReader {
                                 tuple.f0.getBuffer().readOnlySlice(),
                                 getBacklog(),
                                 tuple.f1,
-                                toConsumeIndex));
+                                bufferIndex));
     }
 
     @Override

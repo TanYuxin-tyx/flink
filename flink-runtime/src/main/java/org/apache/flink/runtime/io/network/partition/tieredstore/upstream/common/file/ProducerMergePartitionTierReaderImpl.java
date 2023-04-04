@@ -140,7 +140,7 @@ public class ProducerMergePartitionTierReaderImpl implements ProducerMergePartit
     }
 
     @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(int nextBufferToConsume)
+    public Optional<ResultSubpartition.BufferAndBacklog> getNextBuffer(int nextBufferToConsume)
             throws Throwable {
         if (!checkAndGetFirstBufferIndexOrError(nextBufferToConsume).isPresent()) {
             return Optional.empty();

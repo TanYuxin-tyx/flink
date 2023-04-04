@@ -79,7 +79,7 @@ public class TierReaderViewImpl implements TierReaderView {
             synchronized (viewLock) {
                 checkNotNull(tierReader, "Tier reader must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume =
-                        tierReader.consumeBuffer(consumingOffset + 1);
+                        tierReader.getNextBuffer(consumingOffset + 1);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.map(this::handleBacklog).orElse(null);
             }

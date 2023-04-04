@@ -52,9 +52,9 @@ public class TestingTierReader implements TierReader {
     }
 
     @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> consumeBuffer(int nextBufferToConsume)
+    public Optional<ResultSubpartition.BufferAndBacklog> getNextBuffer(int bufferIndex)
             throws Throwable {
-        return consumeBufferFunction.apply(nextBufferToConsume);
+        return consumeBufferFunction.apply(bufferIndex);
     }
 
     @Override
