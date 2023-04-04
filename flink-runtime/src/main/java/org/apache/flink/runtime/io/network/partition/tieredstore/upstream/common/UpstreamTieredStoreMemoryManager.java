@@ -38,7 +38,11 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** Upstream tasks will get buffer from this {@link UpstreamTieredStoreMemoryManager}. */
+/**
+ * Upstream tasks will get buffer from the {@link UpstreamTieredStoreMemoryManager}. The buffers are
+ * managed by tiers. When the cached buffers reach the ratio limit of flushing buffers, the {@link
+ * CacheFlushManager} will trigger the listeners to flush cached buffers.
+ */
 public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManager {
 
     private final BufferPool bufferPool;
@@ -60,7 +64,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     private final ScheduledExecutorService executor =
             Executors.newSingleThreadScheduledExecutor(
                     new ThreadFactoryBuilder()
-                            .setNameFormat("upstream tiered store memory manager notifier")
+                            .setNameFormat("upstream tiered store memory manager executor")
                             .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
                             .build());
 
@@ -99,7 +103,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
             case IN_REMOTE:
                 return getAvailableBuffersForRemote(numTotalBuffers);
             default:
-                throw new RuntimeException("Unsupported tiered type " + tierType);
+                throw new RuntimeException("Unsupported tier type " + tierType);
         }
     }
 
@@ -185,7 +189,11 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
         return numAvailableBuffers - numTotalExclusiveBuffers;
     }
 
-    // Available - numSubpartitions + numExclusiveBuffersInMem - numRequestedFromMem
+    /**
+     * The available buffers of memory tier is (Available - numSubpartitions +
+     * numExclusiveBuffersInMem - numRequestedFromMem) because the memory tier should not use
+     * numSubpartitions buffers.
+     */
     private int getAvailableBuffersForMemory(int numAvailableBuffers) {
         AtomicInteger numRequestedBuffersInteger =
                 tierRequestedBuffersCounter.get(TieredStoreMode.TierType.IN_MEM);
@@ -199,14 +207,20 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
                 0);
     }
 
-    // numExclusiveBuffersInDisk - numRequestedFromDisk + (Available - (numExclusiveBuffersInMem -
-    // numRequestedFromMem))
+    /**
+     * The available buffers of disk tier is (numExclusiveBuffersInDisk - numRequestedFromDisk +
+     * (Available - (numExclusiveBuffersInMem - numRequestedFromMem))). because the buffers in
+     * memory tier can not be shared by the disk or remote tier.
+     */
     private int getAvailableBuffersForDisk(int numAvailableBuffers) {
         return getAvailableBuffers(numAvailableBuffers, TieredStoreMode.TierType.IN_DISK);
     }
 
-    // numExclusiveBuffersInRemote - numRequestedFromRemote + (Available - (numExclusiveBuffersInMem
-    // - numRequestedFromMem))
+    /**
+     * The available buffers of remote tier is (numExclusiveBuffersInRemote - numRequestedFromRemote
+     * + (Available - (numExclusiveBuffersInMem - numRequestedFromMem))) because the buffers in
+     * memory tier can not be shared by the disk or remote tier.
+     */
     private int getAvailableBuffersForRemote(int numAvailableBuffers) {
         return getAvailableBuffers(numAvailableBuffers, TieredStoreMode.TierType.IN_REMOTE);
     }
