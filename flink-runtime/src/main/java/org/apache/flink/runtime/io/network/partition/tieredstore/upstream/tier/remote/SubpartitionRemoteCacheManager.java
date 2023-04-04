@@ -74,7 +74,7 @@ public class SubpartitionRemoteCacheManager {
             CacheFlushManager cacheFlushManager,
             PartitionFileWriter partitionFileWriter) {
         this.targetChannel = targetChannel;
-        cacheFlushManager.registerCacheSpillTrigger(this::flushCachedBuffers);
+        cacheFlushManager.registerCacheBufferFlushTrigger(this::flushCachedBuffers);
         this.partitionFileWriter = partitionFileWriter;
     }
 

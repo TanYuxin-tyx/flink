@@ -76,9 +76,9 @@ public class TieredStoreUtils {
 
     public static void checkFlushCacheBuffers(
             TieredStoreMemoryManager tieredStoreMemoryManager,
-            CacheBufferSpillTrigger cacheBufferSpillTrigger) {
+            CacheBufferFlushTrigger cacheBufferFlushTrigger) {
         if (needFlushCacheBuffers(tieredStoreMemoryManager)) {
-            cacheBufferSpillTrigger.notifyFlushCachedBuffers();
+            cacheBufferFlushTrigger.notifyFlushCachedBuffers();
         }
     }
 

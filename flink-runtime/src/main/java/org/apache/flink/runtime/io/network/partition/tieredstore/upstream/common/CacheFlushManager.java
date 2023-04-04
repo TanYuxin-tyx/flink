@@ -21,21 +21,26 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 import java.util.ArrayList;
 import java.util.List;
 
-/** A scheduled service to check whether the cached buffers need to be flushed. */
+/**
+ * A service to check whether the cached buffers need to be flushed. When initializing the tier
+ * manager, it will register a {@link CacheBufferFlushTrigger}, as a listener to flush cached
+ * buffers. When the buffers should be flushed, the {@link CacheFlushManager} will tell the
+ * listeners to trigger flushing process.
+ */
 public class CacheFlushManager {
 
-    private final List<CacheBufferSpillTrigger> spillTriggers;
+    private final List<CacheBufferFlushTrigger> spillTriggers;
 
     public CacheFlushManager() {
         this.spillTriggers = new ArrayList<>();
     }
 
-    public void registerCacheSpillTrigger(CacheBufferSpillTrigger cacheBufferSpillTrigger) {
-        spillTriggers.add(cacheBufferSpillTrigger);
+    public void registerCacheBufferFlushTrigger(CacheBufferFlushTrigger cacheBufferFlushTrigger) {
+        spillTriggers.add(cacheBufferFlushTrigger);
     }
 
     public void triggerFlushCachedBuffers() {
-        spillTriggers.forEach(CacheBufferSpillTrigger::notifyFlushCachedBuffers);
+        spillTriggers.forEach(CacheBufferFlushTrigger::notifyFlushCachedBuffers);
     }
 
     public void close() {

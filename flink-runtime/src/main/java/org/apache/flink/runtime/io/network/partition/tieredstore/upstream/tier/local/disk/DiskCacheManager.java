@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferSpillTrigger;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
@@ -47,7 +47,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.checkFlushCacheBuffers;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
-public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferSpillTrigger {
+public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferFlushTrigger {
 
     private final int numSubpartitions;
 
@@ -80,7 +80,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferS
         }
         this.partitionFileWriter =
                 partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
-        cacheFlushManager.registerCacheSpillTrigger(this::flushCacheBuffers);
+        cacheFlushManager.registerCacheBufferFlushTrigger(this::flushCacheBuffers);
     }
 
     // ------------------------------------
