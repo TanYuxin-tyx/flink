@@ -167,9 +167,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
                         compressBufferIfPossible(finishedBuffer),
                         isEndOfPartition,
                         segmentIndex);
-        if (finishedSegment.getDataType().isBuffer()) {
-            storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
-        }
+        storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(targetSubpartition);
             subpartitionWriterIndex[targetSubpartition] = tierIndex;
