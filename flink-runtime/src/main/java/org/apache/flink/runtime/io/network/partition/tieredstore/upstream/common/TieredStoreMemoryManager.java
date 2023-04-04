@@ -24,18 +24,23 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.Tiered
 
 /**
  * The helper allocating and recycling buffer from {@link LocalBufferPool} to different tiers,
- * including Local Memory, Local Disk, Dfs.
+ * including local memory, disk, remote storage, etc.
  */
 public interface TieredStoreMemoryManager {
 
+    /** Returns the available buffers for this {@link TieredStoreMode.TierType}. */
     int numAvailableBuffers(TieredStoreMode.TierType tierType);
 
+    /** Returns the total requested buffers. */
     int numRequestedBuffers();
 
+    /** Returns the total buffers of this {@link LocalBufferPool}. */
     int numTotalBuffers();
 
+    /** Returns the ratio to trigger flush the cached buffers. */
     float numBuffersTriggerFlushRatio();
 
+    /** Requests a {@link MemorySegment} instance from {@link LocalBufferPool}. */
     MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TierType tierType);
 
     void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TierType tierType);
@@ -44,6 +49,7 @@ public interface TieredStoreMemoryManager {
 
     void decNumRequestedBuffer(TieredStoreMode.TierType tierType);
 
+    /** Checks whether the cached buffers should be flushed. */
     void checkNeedTriggerFlushCachedBuffers();
 
     void close();
