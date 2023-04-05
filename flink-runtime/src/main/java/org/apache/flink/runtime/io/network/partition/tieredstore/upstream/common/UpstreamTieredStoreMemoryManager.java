@@ -186,7 +186,11 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     }
 
     private int getAvailableBuffersForCache(int numAvailableBuffers) {
-        return numAvailableBuffers - numTotalExclusiveBuffers;
+        AtomicInteger numRequestedFromCacheInteger =
+                tierRequestedBuffersCounter.get(TieredStoreMode.TierType.IN_CACHE);
+        return numAvailableBuffers
+                - numTotalExclusiveBuffers
+                - (numRequestedFromCacheInteger == null ? 0 : numRequestedFromCacheInteger.get());
     }
 
     /**
