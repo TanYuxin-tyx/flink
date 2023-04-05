@@ -103,7 +103,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
             case IN_REMOTE:
                 return getAvailableBuffersForRemote(numTotalBuffers);
             default:
-                throw new RuntimeException("Unsupported tier type " + tierType);
+                throw new IllegalArgumentException("Unsupported tier type " + tierType);
         }
     }
 
@@ -124,11 +124,11 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     @Override
     public MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TierType tierType) {
-        MemorySegment requestedBuffer;
+        MemorySegment requestedBuffer = null;
         try {
             requestedBuffer = bufferPool.requestMemorySegmentBlocking();
         } catch (Throwable throwable) {
-            throw new RuntimeException("Failed to request memory segments.", throwable);
+            ExceptionUtils.rethrow(throwable, "Failed to request memory segments.");
         }
         incNumRequestedBuffer(tierType);
         checkNeedTriggerFlushCachedBuffers();
@@ -176,13 +176,13 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     @Override
     public void release() {
-        checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
         for (Map.Entry<TieredStoreMode.TierType, AtomicInteger> tierRequestedBuffer :
                 tierRequestedBuffersCounter.entrySet()) {
             checkState(
                     tierRequestedBuffer.getValue().get() == 0,
                     "Leaking buffers in tier " + tierRequestedBuffer.getKey());
         }
+        checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
     }
 
     private int getAvailableBuffersForCache(int numAvailableBuffers) {
