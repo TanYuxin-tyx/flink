@@ -23,7 +23,6 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskCacheManager;
@@ -108,14 +107,6 @@ public class RemoteCacheManager {
     public void release() {
         for (int i = 0; i < numSubpartitions; i++) {
             getSubpartitionCacheDataManager(i).release();
-        }
-    }
-
-    public void setOutputMetrics(OutputMetrics metrics) {
-        // HsOutputMetrics is not thread-safe. It can be shared by all the subpartitions because it
-        // is expected always updated from the producer task's mailbox thread.
-        for (int i = 0; i < numSubpartitions; i++) {
-            getSubpartitionCacheDataManager(i).setOutputMetrics(metrics);
         }
     }
 

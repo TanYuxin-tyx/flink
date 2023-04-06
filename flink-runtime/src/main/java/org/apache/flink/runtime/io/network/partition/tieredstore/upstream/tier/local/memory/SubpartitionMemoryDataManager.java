@@ -107,10 +107,6 @@ public class SubpartitionMemoryDataManager {
         writeEvent(record, dataType);
     }
 
-    public void setOutputMetrics(OutputMetrics outputMetrics) {
-        this.outputMetrics = checkNotNull(outputMetrics);
-    }
-
     public void release() {
         for (BufferContext bufferContext : allBuffers) {
             if (!bufferContext.getBuffer().isRecycled()) {
@@ -223,14 +219,8 @@ public class SubpartitionMemoryDataManager {
                             needNotify.add(consumerEntry.getKey());
                         }
                     }
-                    updateStatistics(bufferContext.getBuffer());
                 });
         memoryDataWriterOperation.onDataAvailable(targetChannel, needNotify);
-    }
-
-    private void updateStatistics(Buffer buffer) {
-        checkNotNull(outputMetrics).getNumBuffersOut().inc();
-        checkNotNull(outputMetrics).getNumBytesOut().inc(buffer.readableBytes());
     }
 
     private <E extends Exception> void runWithLock(ThrowingRunnable<E> runnable) throws E {

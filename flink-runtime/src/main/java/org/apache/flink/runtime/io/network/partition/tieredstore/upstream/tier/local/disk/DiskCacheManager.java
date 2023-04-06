@@ -27,7 +27,6 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.Tiered
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
@@ -132,14 +131,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
             getSubpartitionCacheDataManager(i).release();
         }
         partitionFileWriter.release();
-    }
-
-    public void setOutputMetrics(OutputMetrics metrics) {
-        // HsOutputMetrics is not thread-safe. It can be shared by all the subpartitions because it
-        // is expected always updated from the producer task's mailbox thread.
-        for (int i = 0; i < numSubpartitions; i++) {
-            getSubpartitionCacheDataManager(i).setOutputMetrics(metrics);
-        }
     }
 
     // ------------------------------------

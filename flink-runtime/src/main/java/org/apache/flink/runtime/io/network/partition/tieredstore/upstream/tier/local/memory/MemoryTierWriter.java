@@ -23,7 +23,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
@@ -156,14 +155,6 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     public void release() {
         for (int i = 0; i < numSubpartitions; i++) {
             getSubpartitionMemoryDataManager(i).release();
-        }
-    }
-
-    public void setOutputMetrics(OutputMetrics metrics) {
-        // HsOutputMetrics is not thread-safe. It can be shared by all the subpartitions because it
-        // is expected always updated from the producer task's mailbox thread.
-        for (int i = 0; i < numSubpartitions; i++) {
-            getSubpartitionMemoryDataManager(i).setOutputMetrics(metrics);
         }
     }
 

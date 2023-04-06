@@ -34,6 +34,8 @@ public interface TieredStoreProducer {
             boolean isEndOfPartition)
             throws IOException;
 
+    void setMetricGroup(OutputMetrics metrics);
+
     void close();
 
     void release();

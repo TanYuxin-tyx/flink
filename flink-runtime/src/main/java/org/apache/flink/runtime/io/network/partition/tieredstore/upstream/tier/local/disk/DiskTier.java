@@ -26,7 +26,6 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTrackerImpl;
@@ -252,10 +251,5 @@ public class DiskTier implements TierWriter, StorageTier {
             segmentIndexTracker.release();
             isReleased = true;
         }
-    }
-
-    @Override
-    public void setOutputMetrics(OutputMetrics tieredStoreOutputMetrics) {
-        checkNotNull(diskCacheManager).setOutputMetrics(tieredStoreOutputMetrics);
     }
 }

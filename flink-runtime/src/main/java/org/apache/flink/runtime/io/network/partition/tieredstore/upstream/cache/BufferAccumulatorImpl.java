@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.MemorySegmentAndChannel;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
@@ -64,6 +65,8 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     /** Record the index of tier writer currently used by each subpartition. */
     private final int[] subpartitionWriterIndex;
+
+    @Nullable private OutputMetrics outputMetrics;
 
     public BufferAccumulatorImpl(
             StorageTier[] storageTiers,
@@ -121,6 +124,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         }
     }
 
+    @Override
+    public void setMetricGroup(OutputMetrics metrics) {
+        this.outputMetrics = checkNotNull(metrics);
+    }
+
     public void close() {
         Arrays.stream(tierWriters).forEach(TierWriter::close);
         Arrays.stream(storageTiers).forEach(StorageTier::close);
@@ -161,12 +169,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
                                 : FreeingBufferRecycler.INSTANCE,
                         finishedSegment.getDataType(),
                         finishedSegment.getDataSize());
+        Buffer compressedBuffer = compressBufferIfPossible(finishedBuffer);
+        updateStatistics(compressedBuffer);
         boolean isLastBufferInSegment =
                 tierWriters[tierIndex].emit(
-                        targetSubpartition,
-                        compressBufferIfPossible(finishedBuffer),
-                        isEndOfPartition,
-                        segmentIndex);
+                        targetSubpartition, compressedBuffer, isEndOfPartition, segmentIndex);
         storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(targetSubpartition);
@@ -214,5 +221,10 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
      */
     private boolean canBeCompressed(Buffer buffer) {
         return bufferCompressor != null && buffer.isBuffer() && buffer.readableBytes() > 0;
+    }
+
+    private void updateStatistics(Buffer buffer) {
+        checkNotNull(outputMetrics).getNumBuffersOut().inc();
+        checkNotNull(outputMetrics).getNumBytesOut().inc(buffer.readableBytes());
     }
 }

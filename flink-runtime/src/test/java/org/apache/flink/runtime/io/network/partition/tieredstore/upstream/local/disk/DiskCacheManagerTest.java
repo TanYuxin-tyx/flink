@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.local
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManagerImpl;
@@ -70,7 +69,6 @@ class DiskCacheManagerTest {
                                 JobID.generate(),
                                 new ResultPartitionID(),
                                 null));
-        diskCacheManager.setOutputMetrics(TieredStoreTestUtils.createTestingOutputMetrics());
         return diskCacheManager;
     }
 

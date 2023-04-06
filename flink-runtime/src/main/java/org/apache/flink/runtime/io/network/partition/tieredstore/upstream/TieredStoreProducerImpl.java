@@ -22,6 +22,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulatorImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
@@ -81,10 +82,17 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
         }
     }
 
+    @Override
+    public void setMetricGroup(OutputMetrics metrics) {
+        bufferAccumulator.setMetricGroup(metrics);
+    }
+
+    @Override
     public void close() {
         bufferAccumulator.close();
     }
 
+    @Override
     public void release() {
         bufferAccumulator.release();
     }

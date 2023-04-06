@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.MemorySegmentAndChannel;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 
 import java.io.IOException;
@@ -46,6 +47,8 @@ public interface BufferAccumulator {
      */
     void emitFinishedBuffer(
             List<MemorySegmentAndChannel> memorySegmentAndChannels, boolean isEndOfPartition);
+
+    void setMetricGroup(OutputMetrics metrics);
 
     void close();
 

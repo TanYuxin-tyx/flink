@@ -27,8 +27,6 @@ import javax.annotation.Nullable;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
-import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.createTestingOutputMetrics;
-
 /** Tests for {@link SubpartitionDiskCacheManager}. */
 class SubpartitionDiskCacheManagerTest {
 
@@ -48,7 +46,6 @@ class SubpartitionDiskCacheManagerTest {
             @Nullable BufferCompressor bufferCompressor) {
         SubpartitionDiskCacheManager subpartitionDiskCacheManager =
                 new SubpartitionDiskCacheManager(SUBPARTITION_ID, bufferSize, bufferCompressor);
-        subpartitionDiskCacheManager.setOutputMetrics(createTestingOutputMetrics());
         return subpartitionDiskCacheManager;
     }
 

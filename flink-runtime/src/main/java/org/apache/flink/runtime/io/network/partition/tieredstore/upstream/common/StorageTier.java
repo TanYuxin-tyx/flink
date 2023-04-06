@@ -41,9 +41,6 @@ public interface StorageTier {
 
     boolean hasCurrentSegment(int subpartitionId, int segmentIndex);
 
-    /** Sets the metric group. */
-    void setOutputMetrics(OutputMetrics tieredStoreOutputMetrics);
-
     TieredStoreMode.TierType getTierType();
 
     Path getBaseSubpartitionPath(int subpartitionId);

@@ -184,9 +184,7 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
     @Override
     public void setMetricGroup(TaskIOMetricGroup metrics) {
         super.setMetricGroup(metrics);
-        for (StorageTier storageTier : this.allTiers) {
-            storageTier.setOutputMetrics(new OutputMetrics(numBytesOut, numBuffersOut));
-        }
+        tieredStoreProducer.setMetricGroup(new OutputMetrics(numBytesOut, numBuffersOut));
     }
 
     private void setupTierDataGates() throws IOException {

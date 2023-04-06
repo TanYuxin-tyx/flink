@@ -28,7 +28,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 
 import javax.annotation.Nullable;
 
@@ -63,8 +62,6 @@ public class SubpartitionDiskCacheManager {
 
     @Nullable private final BufferCompressor bufferCompressor;
 
-    @Nullable private OutputMetrics outputMetrics;
-
     public SubpartitionDiskCacheManager(
             int targetChannel, int bufferSize, @Nullable BufferCompressor bufferCompressor) {
         this.targetChannel = targetChannel;
@@ -94,10 +91,6 @@ public class SubpartitionDiskCacheManager {
             allBuffers.clear();
             return targetBuffers;
         }
-    }
-
-    public void setOutputMetrics(OutputMetrics outputMetrics) {
-        this.outputMetrics = checkNotNull(outputMetrics);
     }
 
     Set<Integer> getLastBufferIndexOfSegments() {
@@ -174,12 +167,6 @@ public class SubpartitionDiskCacheManager {
         synchronized (allBuffers) {
             finishedBufferIndex++;
             allBuffers.add(bufferContext);
-            updateStatistics(bufferContext.getBuffer());
         }
-    }
-
-    private void updateStatistics(Buffer buffer) {
-        checkNotNull(outputMetrics).getNumBuffersOut().inc();
-        checkNotNull(outputMetrics).getNumBytesOut().inc(buffer.readableBytes());
     }
 }

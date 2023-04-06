@@ -24,14 +24,11 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileWriter;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.Deque;
@@ -41,7 +38,6 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** This class is responsible for managing the data in a single subpartition. */
@@ -63,8 +59,6 @@ public class SubpartitionRemoteCacheManager {
 
     private final AtomicInteger currentSegmentId = new AtomicInteger(-1);
 
-    @Nullable private OutputMetrics outputMetrics;
-
     private volatile boolean isReleased;
 
     private CompletableFuture<Void> lastSpillFuture = CompletableFuture.completedFuture(null);
@@ -81,10 +75,6 @@ public class SubpartitionRemoteCacheManager {
     // ------------------------------------------------------------------------
     //  Called by DfsCacheDataManager
     // ------------------------------------------------------------------------
-
-    public void setOutputMetrics(OutputMetrics outputMetrics) {
-        this.outputMetrics = checkNotNull(outputMetrics);
-    }
 
     public void startSegment(int segmentIndex) {
         checkState(currentSegmentId.get() != segmentIndex);
@@ -136,7 +126,6 @@ public class SubpartitionRemoteCacheManager {
         synchronized (allBuffers) {
             finishedBufferIndex++;
             allBuffers.add(bufferContext);
-            updateStatistics(bufferContext.getBuffer());
         }
     }
 
@@ -157,11 +146,6 @@ public class SubpartitionRemoteCacheManager {
             allBuffers.clear();
             return targetBuffers;
         }
-    }
-
-    private void updateStatistics(Buffer buffer) {
-        checkNotNull(outputMetrics).getNumBuffersOut().inc();
-        checkNotNull(outputMetrics).getNumBytesOut().inc(buffer.readableBytes());
     }
 
     void close() {
