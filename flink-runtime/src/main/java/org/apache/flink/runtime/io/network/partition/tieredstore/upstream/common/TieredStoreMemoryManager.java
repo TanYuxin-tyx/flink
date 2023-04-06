@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
 
 /**
  * The helper allocating and recycling buffer from {@link LocalBufferPool} to different tiers,

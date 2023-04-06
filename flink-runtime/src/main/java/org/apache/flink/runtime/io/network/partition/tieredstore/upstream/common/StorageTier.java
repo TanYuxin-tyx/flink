@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
 
 import java.io.IOException;
 

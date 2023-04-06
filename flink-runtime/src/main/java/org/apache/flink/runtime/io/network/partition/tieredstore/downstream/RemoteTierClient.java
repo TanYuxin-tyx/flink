@@ -13,7 +13,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
 import java.io.IOException;

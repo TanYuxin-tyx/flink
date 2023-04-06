@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 

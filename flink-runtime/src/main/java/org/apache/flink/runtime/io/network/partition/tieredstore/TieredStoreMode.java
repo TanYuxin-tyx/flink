@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.tieredstore.upstream;
+package org.apache.flink.runtime.io.network.partition.tieredstore;
 
 /** The store mode for Tiered Store. */
 public interface TieredStoreMode {
