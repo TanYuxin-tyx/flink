@@ -24,12 +24,12 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.MemorySegmentAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.MemoryTier;
 import org.apache.flink.util.ExceptionUtils;
@@ -43,6 +43,12 @@ import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
+/**
+ * The implementation of the {@link BufferAccumulator}. The {@link BufferAccumulator} receives the
+ * records from {@link TieredStoreProducer} and the records will accumulate and transform to
+ * finished {@link * MemorySegment}s. The finished memory segments will be transferred to the
+ * corresponding tier dynamically.
+ */
 public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private final StorageTier[] storageTiers;
