@@ -23,7 +23,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.EndOfSegmentEventBuilder;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
@@ -220,8 +220,8 @@ public class DiskTier implements TierWriter, StorageTier {
     }
 
     @Override
-    public TieredStoreMode.TierType getTierType() {
-        return TieredStoreMode.TierType.IN_DISK;
+    public TierType getTierType() {
+        return TierType.IN_DISK;
     }
 
     @Override

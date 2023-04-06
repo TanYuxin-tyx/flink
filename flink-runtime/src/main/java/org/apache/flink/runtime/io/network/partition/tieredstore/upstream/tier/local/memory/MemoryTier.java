@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTrackerImpl;
@@ -135,7 +135,7 @@ public class MemoryTier implements StorageTier {
 
     @Override
     public boolean canStoreNextSegment(int subpartitionId) {
-        return tieredStoreMemoryManager.numAvailableBuffers(TieredStoreMode.TierType.IN_MEM)
+        return tieredStoreMemoryManager.numAvailableBuffers(TierType.IN_MEM)
                         > bufferNumberInSegment
                 && memoryWriter.isConsumerRegistered(subpartitionId);
     }
@@ -171,8 +171,8 @@ public class MemoryTier implements StorageTier {
     }
 
     @Override
-    public TieredStoreMode.TierType getTierType() {
-        return TieredStoreMode.TierType.IN_MEM;
+    public TierType getTierType() {
+        return TierType.IN_MEM;
     }
 
     private static void checkMultipleConsumerIsAllowed(TierReaderViewId lastTierReaderViewId) {

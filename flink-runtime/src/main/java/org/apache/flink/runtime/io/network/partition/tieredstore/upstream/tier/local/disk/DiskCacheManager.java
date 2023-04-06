@@ -23,7 +23,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
@@ -158,7 +158,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment =
                 tieredStoreMemoryManager.requestMemorySegmentBlocking(
-                        TieredStoreMode.TierType.IN_DISK);
+                        TierType.IN_DISK);
         tryCheckFlushCacheBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
     }
@@ -234,7 +234,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
     }
 
     private void recycleBuffer(MemorySegment buffer) {
-        tieredStoreMemoryManager.recycleBuffer(buffer, TieredStoreMode.TierType.IN_DISK);
+        tieredStoreMemoryManager.recycleBuffer(buffer, TierType.IN_DISK);
     }
 
     @VisibleForTesting

@@ -19,22 +19,9 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore;
 
 /** The store mode for Tiered Store. */
-public interface TieredStoreMode {
-
-    enum TierType implements TieredStoreMode {
-        IN_CACHE,
-        IN_MEM,
-        IN_DISK,
-        IN_REMOTE,
-    }
-
-    enum SupportedTierCombinations implements TieredStoreMode {
-        MEMORY,
-        DISK,
-        REMOTE,
-        MEMORY_DISK,
-        MEMORY_REMOTE,
-        MEMORY_DISK_REMOTE,
-        DISK_REMOTE
-    }
+public enum TierType {
+    IN_CACHE,
+    IN_MEM,
+    IN_DISK,
+    IN_REMOTE,
 }

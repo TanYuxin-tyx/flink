@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 
 import java.io.IOException;
 
@@ -41,7 +41,7 @@ public interface StorageTier {
 
     boolean hasCurrentSegment(int subpartitionId, int segmentIndex);
 
-    TieredStoreMode.TierType getTierType();
+    TierType getTierType();
 
     Path getBaseSubpartitionPath(int subpartitionId);
 

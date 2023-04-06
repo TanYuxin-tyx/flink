@@ -23,7 +23,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.MemorySegmentAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
@@ -48,7 +49,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private final TierWriter[] tierWriters;
 
-    private final TieredStoreMode.TierType[] tierTypes;
+    private final TierType[] tierTypes;
 
     private final boolean isBroadcastOnly;
 
@@ -83,7 +84,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         this.subpartitionSegmentIndexes = new int[numSubpartitions];
         this.subpartitionWriterIndex = new int[numSubpartitions];
         this.bufferRecyclers = new BufferRecycler[storageTiers.length];
-        this.tierTypes = new TieredStoreMode.TierType[storageTiers.length];
+        this.tierTypes = new TierType[storageTiers.length];
 
         for (int i = 0; i < storageTiers.length; i++) {
             tierWriters[i] = storageTiers[i].createPartitionTierWriter();
@@ -92,7 +93,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         for (int i = 0; i < storageTiers.length; i++) {
             tierWriters[i] = storageTiers[i].createPartitionTierWriter();
             tierTypes[i] = storageTiers[i].getTierType();
-            TieredStoreMode.TierType tierType = tierTypes[i];
+            TierType tierType = tierTypes[i];
             bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tierType);
         }
 
@@ -158,7 +159,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
         int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
         if (finishedSegment.getDataType().isBuffer()) {
-            storeMemoryManager.decNumRequestedBuffer(TieredStoreMode.TierType.IN_CACHE);
+            storeMemoryManager.decNumRequestedBuffer(TierType.IN_CACHE);
             storeMemoryManager.incNumRequestedBuffer(tierTypes[tierIndex]);
         }
         Buffer finishedBuffer =

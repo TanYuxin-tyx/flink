@@ -13,7 +13,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
 import java.io.IOException;
@@ -95,7 +95,7 @@ public class RemoteTierClient implements TierClient {
     private InputChannel.BufferAndAvailability getDfsBuffer(FSDataInputStream inputStream)
             throws IOException {
         MemorySegment memorySegment =
-                memoryManager.requestMemorySegmentBlocking(TieredStoreMode.TierType.IN_REMOTE);
+                memoryManager.requestMemorySegmentBlocking(TierType.IN_REMOTE);
         Buffer buffer = checkNotNull(readFromInputStream(memorySegment, inputStream));
         return new InputChannel.BufferAndAvailability(buffer, Buffer.DataType.DATA_BUFFER, 0, 0);
     }
@@ -137,7 +137,7 @@ public class RemoteTierClient implements TierClient {
     }
 
     private void recycle(MemorySegment memorySegment) {
-        memoryManager.recycleBuffer(memorySegment, TieredStoreMode.TierType.IN_REMOTE);
+        memoryManager.recycleBuffer(memorySegment, TierType.IN_REMOTE);
     }
 
     @VisibleForTesting

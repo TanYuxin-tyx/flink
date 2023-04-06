@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 
 /**
  * The helper allocating and recycling buffer from {@link LocalBufferPool} to different tiers,
@@ -28,8 +28,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode
  */
 public interface TieredStoreMemoryManager {
 
-    /** Returns the available buffers for this {@link TieredStoreMode.TierType}. */
-    int numAvailableBuffers(TieredStoreMode.TierType tierType);
+    /** Returns the available buffers for this {@link TierType}. */
+    int numAvailableBuffers(TierType tierType);
 
     /** Returns the total requested buffers. */
     int numRequestedBuffers();
@@ -41,13 +41,13 @@ public interface TieredStoreMemoryManager {
     float numBuffersTriggerFlushRatio();
 
     /** Requests a {@link MemorySegment} instance from {@link LocalBufferPool}. */
-    MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TierType tierType);
+    MemorySegment requestMemorySegmentBlocking(TierType tierType);
 
-    void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TierType tierType);
+    void recycleBuffer(MemorySegment memorySegment, TierType tierType);
 
-    void incNumRequestedBuffer(TieredStoreMode.TierType tierType);
+    void incNumRequestedBuffer(TierType tierType);
 
-    void decNumRequestedBuffer(TieredStoreMode.TierType tierType);
+    void decNumRequestedBuffer(TierType tierType);
 
     /** Checks whether the cached buffers should be flushed. */
     void checkNeedTriggerFlushCachedBuffers();

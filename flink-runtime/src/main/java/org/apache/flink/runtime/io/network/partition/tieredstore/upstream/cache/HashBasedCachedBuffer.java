@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.MemorySegmentAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
@@ -65,12 +65,12 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
     @Override
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment =
-                storeMemoryManager.requestMemorySegmentBlocking(TieredStoreMode.TierType.IN_CACHE);
+                storeMemoryManager.requestMemorySegmentBlocking(TierType.IN_CACHE);
         return new BufferBuilder(segment, this::recycleBuffer);
     }
 
     private void recycleBuffer(MemorySegment buffer) {
-        storeMemoryManager.recycleBuffer(buffer, TieredStoreMode.TierType.IN_CACHE);
+        storeMemoryManager.recycleBuffer(buffer, TierType.IN_CACHE);
     }
 
     private SubpartitionCachedBuffer getSubpartitionCachedBuffer(int targetChannel) {

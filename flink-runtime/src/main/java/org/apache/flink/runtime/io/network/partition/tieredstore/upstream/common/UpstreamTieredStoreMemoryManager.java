@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
@@ -47,9 +47,9 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     private final BufferPool bufferPool;
 
-    private final Map<TieredStoreMode.TierType, Integer> tierExclusiveBuffers;
+    private final Map<TierType, Integer> tierExclusiveBuffers;
 
-    private final Map<TieredStoreMode.TierType, AtomicInteger> tierRequestedBuffersCounter;
+    private final Map<TierType, AtomicInteger> tierRequestedBuffersCounter;
 
     private final CacheFlushManager cacheFlushManager;
 
@@ -70,7 +70,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     public UpstreamTieredStoreMemoryManager(
             BufferPool bufferPool,
-            Map<TieredStoreMode.TierType, Integer> tierExclusiveBuffers,
+            Map<TierType, Integer> tierExclusiveBuffers,
             int numSubpartitions,
             float numBuffersTriggerFlushRatio,
             CacheFlushManager cacheFlushManager) {
@@ -91,7 +91,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     }
 
     @Override
-    public int numAvailableBuffers(TieredStoreMode.TierType tierType) {
+    public int numAvailableBuffers(TierType tierType) {
         int numTotalBuffers = bufferPool.getNumBuffers();
         switch (tierType) {
             case IN_CACHE:
@@ -123,7 +123,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     }
 
     @Override
-    public MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TierType tierType) {
+    public MemorySegment requestMemorySegmentBlocking(TierType tierType) {
         MemorySegment requestedBuffer = null;
         try {
             requestedBuffer = bufferPool.requestMemorySegmentBlocking();
@@ -136,21 +136,21 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     }
 
     @Override
-    public void incNumRequestedBuffer(TieredStoreMode.TierType tierType) {
+    public void incNumRequestedBuffer(TierType tierType) {
         numRequestedBuffers.getAndIncrement();
         tierRequestedBuffersCounter.putIfAbsent(tierType, new AtomicInteger(0));
         tierRequestedBuffersCounter.get(tierType).incrementAndGet();
     }
 
     @Override
-    public void decNumRequestedBuffer(TieredStoreMode.TierType tierType) {
+    public void decNumRequestedBuffer(TierType tierType) {
         numRequestedBuffers.decrementAndGet();
         AtomicInteger numRequestedBuffers = tierRequestedBuffersCounter.get(tierType);
         checkNotNull(numRequestedBuffers).decrementAndGet();
     }
 
     @Override
-    public void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TierType tierType) {
+    public void recycleBuffer(MemorySegment memorySegment, TierType tierType) {
         bufferPool.recycle(memorySegment);
         decNumRequestedBuffer(tierType);
     }
@@ -176,7 +176,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     @Override
     public void release() {
-        for (Map.Entry<TieredStoreMode.TierType, AtomicInteger> tierRequestedBuffer :
+        for (Map.Entry<TierType, AtomicInteger> tierRequestedBuffer :
                 tierRequestedBuffersCounter.entrySet()) {
             checkState(
                     tierRequestedBuffer.getValue().get() == 0,
@@ -187,7 +187,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     private int getAvailableBuffersForCache(int numAvailableBuffers) {
         AtomicInteger numRequestedFromCacheInteger =
-                tierRequestedBuffersCounter.get(TieredStoreMode.TierType.IN_CACHE);
+                tierRequestedBuffersCounter.get(TierType.IN_CACHE);
         return numAvailableBuffers
                 - numTotalExclusiveBuffers
                 - (numRequestedFromCacheInteger == null ? 0 : numRequestedFromCacheInteger.get());
@@ -200,13 +200,13 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
      */
     private int getAvailableBuffersForMemory(int numAvailableBuffers) {
         AtomicInteger numRequestedBuffersInteger =
-                tierRequestedBuffersCounter.get(TieredStoreMode.TierType.IN_MEM);
+                tierRequestedBuffersCounter.get(TierType.IN_MEM);
         int numRequestedBuffers =
                 numRequestedBuffersInteger == null ? 0 : numRequestedBuffersInteger.get();
         return Math.max(
                 numAvailableBuffers
                         - numSubpartitions
-                        + checkNotNull(tierExclusiveBuffers.get(TieredStoreMode.TierType.IN_MEM))
+                        + checkNotNull(tierExclusiveBuffers.get(TierType.IN_MEM))
                         - numRequestedBuffers,
                 0);
     }
@@ -217,7 +217,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
      * memory tier can not be shared by the disk or remote tier.
      */
     private int getAvailableBuffersForDisk(int numAvailableBuffers) {
-        return getAvailableBuffers(numAvailableBuffers, TieredStoreMode.TierType.IN_DISK);
+        return getAvailableBuffers(numAvailableBuffers, TierType.IN_DISK);
     }
 
     /**
@@ -226,15 +226,15 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
      * memory tier can not be shared by the disk or remote tier.
      */
     private int getAvailableBuffersForRemote(int numAvailableBuffers) {
-        return getAvailableBuffers(numAvailableBuffers, TieredStoreMode.TierType.IN_REMOTE);
+        return getAvailableBuffers(numAvailableBuffers, TierType.IN_REMOTE);
     }
 
-    private int getAvailableBuffers(int numAvailableBuffers, TieredStoreMode.TierType tierType) {
+    private int getAvailableBuffers(int numAvailableBuffers, TierType tierType) {
         int numExclusive = checkNotNull(tierExclusiveBuffers.get(tierType));
         int numExclusiveForMemory =
-                checkNotNull(tierExclusiveBuffers.get(TieredStoreMode.TierType.IN_MEM));
+                checkNotNull(tierExclusiveBuffers.get(TierType.IN_MEM));
         AtomicInteger numRequestedFromMemInteger =
-                tierRequestedBuffersCounter.get(TieredStoreMode.TierType.IN_MEM);
+                tierRequestedBuffersCounter.get(TierType.IN_MEM);
         int numRequestedFromMemory =
                 numRequestedFromMemInteger == null ? 0 : numRequestedFromMemInteger.get();
         AtomicInteger numRequestedInteger = tierRequestedBuffersCounter.get(tierType);

@@ -38,7 +38,8 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.SupportedTierCombinations;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
@@ -83,7 +84,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class TieredStoreResultPartition extends ResultPartition {
 
-    public final Map<TieredStoreMode.TierType, Integer> tierExclusiveBuffers;
+    public final Map<TierType, Integer> tierExclusiveBuffers;
 
     private final int networkBufferSize;
 
@@ -187,11 +188,10 @@ public class TieredStoreResultPartition extends ResultPartition {
     }
 
     private void setupTierDataGates() throws IOException {
-        TieredStoreMode.SupportedTierCombinations supportedTierCombinations;
+        SupportedTierCombinations supportedTierCombinations;
         try {
             supportedTierCombinations =
-                    TieredStoreMode.SupportedTierCombinations.valueOf(
-                            storeConfiguration.getTieredStoreTiers());
+                    SupportedTierCombinations.valueOf(storeConfiguration.getTieredStoreTiers());
         } catch (Exception e) {
             throw new RuntimeException("Illegal tiers for Tiered Store.", e);
         }
@@ -199,27 +199,26 @@ public class TieredStoreResultPartition extends ResultPartition {
         switch (supportedTierCombinations) {
             case MEMORY:
                 this.allTiers = new StorageTier[1];
-                addTierExclusiveBuffers(TieredStoreMode.TierType.IN_MEM);
+                addTierExclusiveBuffers(TierType.IN_MEM);
                 this.allTiers[0] = getMemoryTier();
                 this.allTiers[0].setup();
                 break;
             case DISK:
                 this.allTiers = new StorageTier[1];
-                addTierExclusiveBuffers(TieredStoreMode.TierType.IN_DISK);
+                addTierExclusiveBuffers(TierType.IN_DISK);
                 this.allTiers[0] = getDiskTier();
                 this.allTiers[0].setup();
                 break;
             case REMOTE:
                 this.allTiers = new StorageTier[1];
-                addTierExclusiveBuffers(TieredStoreMode.TierType.IN_REMOTE);
+                addTierExclusiveBuffers(TierType.IN_REMOTE);
                 this.allTiers[0] = getRemoteTier();
                 this.allTiers[0].setup();
                 break;
             case MEMORY_DISK:
                 if (partitionType == HYBRID_SELECTIVE) {
                     this.allTiers = new StorageTier[2];
-                    addTierExclusiveBuffers(
-                            TieredStoreMode.TierType.IN_MEM, TieredStoreMode.TierType.IN_DISK);
+                    addTierExclusiveBuffers(TierType.IN_MEM, TierType.IN_DISK);
                     this.allTiers[0] = getMemoryTier();
                     this.allTiers[1] = getDiskTier();
                     for (StorageTier tierDataGate : allTiers) {
@@ -227,7 +226,7 @@ public class TieredStoreResultPartition extends ResultPartition {
                     }
                 } else {
                     this.allTiers = new StorageTier[1];
-                    addTierExclusiveBuffers(TieredStoreMode.TierType.IN_DISK);
+                    addTierExclusiveBuffers(TierType.IN_DISK);
                     this.allTiers[0] = getDiskTier();
                     this.allTiers[0].setup();
                 }
@@ -235,8 +234,7 @@ public class TieredStoreResultPartition extends ResultPartition {
             case MEMORY_REMOTE:
                 if (partitionType == HYBRID_SELECTIVE) {
                     this.allTiers = new StorageTier[2];
-                    addTierExclusiveBuffers(
-                            TieredStoreMode.TierType.IN_MEM, TieredStoreMode.TierType.IN_REMOTE);
+                    addTierExclusiveBuffers(TierType.IN_MEM, TierType.IN_REMOTE);
                     this.allTiers[0] = getMemoryTier();
                     this.allTiers[1] = getRemoteTier();
                     for (StorageTier tierDataGate : allTiers) {
@@ -244,7 +242,7 @@ public class TieredStoreResultPartition extends ResultPartition {
                     }
                 } else {
                     this.allTiers = new StorageTier[1];
-                    addTierExclusiveBuffers(TieredStoreMode.TierType.IN_REMOTE);
+                    addTierExclusiveBuffers(TierType.IN_REMOTE);
                     this.allTiers[0] = getRemoteTier();
                     this.allTiers[0].setup();
                 }
@@ -252,10 +250,7 @@ public class TieredStoreResultPartition extends ResultPartition {
             case MEMORY_DISK_REMOTE:
                 if (partitionType == HYBRID_SELECTIVE) {
                     this.allTiers = new StorageTier[3];
-                    addTierExclusiveBuffers(
-                            TieredStoreMode.TierType.IN_MEM,
-                            TieredStoreMode.TierType.IN_DISK,
-                            TieredStoreMode.TierType.IN_REMOTE);
+                    addTierExclusiveBuffers(TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE);
                     this.allTiers[0] = getMemoryTier();
                     this.allTiers[1] = getDiskTier();
                     this.allTiers[2] = getRemoteTier();
@@ -264,8 +259,7 @@ public class TieredStoreResultPartition extends ResultPartition {
                     }
                 } else {
                     this.allTiers = new StorageTier[2];
-                    addTierExclusiveBuffers(
-                            TieredStoreMode.TierType.IN_DISK, TieredStoreMode.TierType.IN_REMOTE);
+                    addTierExclusiveBuffers(TierType.IN_DISK, TierType.IN_REMOTE);
                     this.allTiers[0] = getDiskTier();
                     this.allTiers[1] = getRemoteTier();
                     for (StorageTier tierDataGate : allTiers) {
@@ -275,8 +269,7 @@ public class TieredStoreResultPartition extends ResultPartition {
                 break;
             case DISK_REMOTE:
                 this.allTiers = new StorageTier[2];
-                addTierExclusiveBuffers(
-                        TieredStoreMode.TierType.IN_DISK, TieredStoreMode.TierType.IN_REMOTE);
+                addTierExclusiveBuffers(TierType.IN_DISK, TierType.IN_REMOTE);
                 this.allTiers[0] = getDiskTier();
                 this.allTiers[1] = getRemoteTier();
                 for (StorageTier tierDataGate : allTiers) {
@@ -288,8 +281,8 @@ public class TieredStoreResultPartition extends ResultPartition {
         }
     }
 
-    private void addTierExclusiveBuffers(TieredStoreMode.TierType... toAddTierTypes) {
-        for (TieredStoreMode.TierType toAddTierType : toAddTierTypes) {
+    private void addTierExclusiveBuffers(TierType... toAddTierTypes) {
+        for (TierType toAddTierType : toAddTierTypes) {
             tierExclusiveBuffers.put(
                     toAddTierType,
                     checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(toAddTierType)));

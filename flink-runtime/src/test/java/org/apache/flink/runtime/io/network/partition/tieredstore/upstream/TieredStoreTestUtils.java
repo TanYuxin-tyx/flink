@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexAndChannel;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
 
@@ -87,11 +87,11 @@ public class TieredStoreTestUtils {
         return byteBuffer;
     }
 
-    public static Map<TieredStoreMode.TierType, Integer> getTierExclusiveBuffers() {
-        Map<TieredStoreMode.TierType, Integer> tierExclusiveBuffers = new HashMap<>();
-        tierExclusiveBuffers.put(TieredStoreMode.TierType.IN_MEM, 0);
-        tierExclusiveBuffers.put(TieredStoreMode.TierType.IN_DISK, 1);
-        tierExclusiveBuffers.put(TieredStoreMode.TierType.IN_REMOTE, 1);
+    public static Map<TierType, Integer> getTierExclusiveBuffers() {
+        Map<TierType, Integer> tierExclusiveBuffers = new HashMap<>();
+        tierExclusiveBuffers.put(TierType.IN_MEM, 0);
+        tierExclusiveBuffers.put(TierType.IN_DISK, 1);
+        tierExclusiveBuffers.put(TierType.IN_REMOTE, 1);
         return tierExclusiveBuffers;
     }
 }

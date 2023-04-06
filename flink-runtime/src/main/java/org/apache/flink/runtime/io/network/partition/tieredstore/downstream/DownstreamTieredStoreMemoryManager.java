@@ -3,7 +3,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreMode;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
 import java.io.IOException;
@@ -20,7 +20,7 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
 
     public DownstreamTieredStoreMemoryManager(NetworkBufferPool networkBufferPool) {
         int numExclusive =
-                HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(TieredStoreMode.TierType.IN_REMOTE);
+                HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(TierType.IN_REMOTE);
         try {
             this.localBufferPool = networkBufferPool.createBufferPool(numExclusive, numExclusive);
         } catch (IOException e) {
@@ -29,7 +29,7 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
-    public int numAvailableBuffers(TieredStoreMode.TierType tierType) {
+    public int numAvailableBuffers(TierType tierType) {
         return localBufferPool.getNumberOfAvailableMemorySegments();
     }
 
@@ -49,7 +49,7 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
-    public MemorySegment requestMemorySegmentBlocking(TieredStoreMode.TierType tierType) {
+    public MemorySegment requestMemorySegmentBlocking(TierType tierType) {
         try {
             return localBufferPool.requestMemorySegmentBlocking();
         } catch (InterruptedException e) {
@@ -58,15 +58,15 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
-    public void recycleBuffer(MemorySegment memorySegment, TieredStoreMode.TierType tierType) {
+    public void recycleBuffer(MemorySegment memorySegment, TierType tierType) {
         localBufferPool.recycle(memorySegment);
     }
 
     @Override
-    public void incNumRequestedBuffer(TieredStoreMode.TierType tierType) {}
+    public void incNumRequestedBuffer(TierType tierType) {}
 
     @Override
-    public void decNumRequestedBuffer(TieredStoreMode.TierType tierType) {}
+    public void decNumRequestedBuffer(TierType tierType) {}
 
     @Override
     public void checkNeedTriggerFlushCachedBuffers() {}
