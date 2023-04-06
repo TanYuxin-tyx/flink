@@ -23,7 +23,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
-import org.apache.flink.runtime.checkpoint.channel.ChannelStateWriter;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.api.EndOfData;
@@ -34,7 +33,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
 import org.apache.flink.runtime.io.network.partition.ResultPartition;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
@@ -82,7 +80,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * the upstream dynamically switches storage tier for writing shuffle data, and the downstream will
  * read data from the relevant storage tier.
  */
-public class TieredStoreResultPartition extends ResultPartition implements ChannelStateHolder {
+public class TieredStoreResultPartition extends ResultPartition {
 
     public final Map<TieredStoreMode.TierType, Integer> tierExclusiveBuffers;
 
@@ -451,11 +449,6 @@ public class TieredStoreResultPartition extends ResultPartition implements Chann
 
     @Override
     public void flush(int subpartitionIndex) {
-        // Nothing to do.
-    }
-
-    @Override
-    public void setChannelStateWriter(ChannelStateWriter channelStateWriter) {
         // Nothing to do.
     }
 
