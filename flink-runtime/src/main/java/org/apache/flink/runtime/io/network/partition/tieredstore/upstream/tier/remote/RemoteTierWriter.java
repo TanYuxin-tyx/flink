@@ -18,78 +18,99 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote;
 
-import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierContainer;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileType;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.Arrays;
 
-/**
- * Through the {@link RemoteTierWriter}, records from {@link RemoteTier} is written to cached
- * buffers.
- */
-public class RemoteTierWriter implements TierWriter {
+/** The DataManager of DFS. */
+public class RemoteTierWriter implements StorageTier {
 
-    // Record the byte number currently written to each sub partition.
-    private final int[] numSubpartitionEmitBytes;
+    private final int numSubpartitions;
 
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
 
-    private final RemoteCacheManager cacheDataManager;
+    private final RemoteCacheManager remoteCacheManager;
 
-    private int numBytesInASegment;
+    // TODO, Make this configurable.
+    private int numBytesInASegment = 4 * 1024; // 4 M
 
     public RemoteTierWriter(
             int numSubpartitions,
-            SubpartitionSegmentIndexTracker segmentIndexTracker,
-            RemoteCacheManager remoteCacheManager,
-            int numBytesInASegment) {
-        this.segmentIndexTracker = segmentIndexTracker;
-        this.cacheDataManager = remoteCacheManager;
-        this.numSubpartitionEmitBytes = new int[numSubpartitions];
-        Arrays.fill(numSubpartitionEmitBytes, 0);
-        this.numBytesInASegment = numBytesInASegment;
+            int networkBufferSize,
+            TieredStoreMemoryManager tieredStoreMemoryManager,
+            CacheFlushManager cacheFlushManager,
+            boolean isBroadcastOnly,
+            @Nullable BufferCompressor bufferCompressor,
+            PartitionFileManager partitionFileManager) {
+        this.numSubpartitions = numSubpartitions;
+        this.segmentIndexTracker =
+                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
+        this.remoteCacheManager =
+                new RemoteCacheManager(
+                        isBroadcastOnly ? 1 : numSubpartitions,
+                        networkBufferSize,
+                        tieredStoreMemoryManager,
+                        cacheFlushManager,
+                        bufferCompressor,
+                        partitionFileManager.createPartitionFileWriter(
+                                PartitionFileType.PRODUCER_HASH));
     }
 
     @Override
     public void setup() throws IOException {}
 
     @Override
-    public boolean emit(
-            int targetSubpartition, Buffer finishedBuffer, boolean isEndOfPartition, int segmentId)
-            throws IOException {
-        boolean isLastBufferInSegment = false;
-        numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.readableBytes();
-        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
-            isLastBufferInSegment = true;
-            numSubpartitionEmitBytes[targetSubpartition] = 0;
-        }
-
-        if (!segmentIndexTracker.hasCurrentSegment(targetSubpartition, segmentId)) {
-            segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
-            cacheDataManager.startSegment(targetSubpartition, segmentId);
-        }
-        emitBuffer(finishedBuffer, targetSubpartition);
-        if (isLastBufferInSegment || isEndOfPartition) {
-            cacheDataManager.finishSegment(targetSubpartition, segmentId);
-        }
-
-        return isLastBufferInSegment;
+    public TierContainer createPartitionTierWriter() {
+        return new RemoteTierContainer(
+                numSubpartitions, segmentIndexTracker, remoteCacheManager, numBytesInASegment);
     }
 
-    private void emitBuffer(Buffer finishedBuffer, int targetSubpartition) {
-        cacheDataManager.appendBuffer(finishedBuffer, targetSubpartition);
+    @Override
+    public TierReaderView createTierReaderView(
+            int subpartitionId, BufferAvailabilityListener availabilityListener) {
+        // nothing to do
+        return null;
     }
+
+    @Override
+    public boolean canStoreNextSegment(int subpartitionId) {
+        return true;
+    }
+
+    @Override
+    public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
+        return segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentIndex);
+    }
+
+    @Override
+    public TierType getTierType() {
+        return TierType.IN_REMOTE;
+    }
+
+    @Override
+    public Path getBaseSubpartitionPath(int subpartitionId) {
+        return remoteCacheManager.getBaseSubpartitionPath(subpartitionId);
+    }
+
+    @Override
+    public void close() {}
 
     @Override
     public void release() {
-        cacheDataManager.release();
         segmentIndexTracker.release();
-    }
-
-    @Override
-    public void close() {
-        cacheDataManager.close();
     }
 }

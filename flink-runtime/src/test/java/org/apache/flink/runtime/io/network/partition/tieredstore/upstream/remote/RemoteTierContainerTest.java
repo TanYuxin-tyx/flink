@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManagerImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTier;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTierWriter;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,8 +37,8 @@ import java.io.IOException;
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreTestUtils.getTierExclusiveBuffers;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Tests for {@link RemoteTier}. */
-class RemoteTierTest {
+/** Tests for {@link RemoteTierWriter}. */
+class RemoteTierContainerTest {
 
     private static final int NUM_BUFFERS = 10;
 
@@ -58,11 +58,11 @@ class RemoteTierTest {
 
     @Test
     void testDataManagerStoreSegment() throws Exception {
-        RemoteTier dataManager = createRemoteTier();
+        RemoteTierWriter dataManager = createRemoteTier();
         assertThat(dataManager.canStoreNextSegment(0)).isTrue();
     }
 
-    private RemoteTier createRemoteTier() throws IOException {
+    private RemoteTierWriter createRemoteTier() throws IOException {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, BUFFER_SIZE);
         BufferPool bufferPool = networkBufferPool.createBufferPool(NUM_BUFFERS, NUM_BUFFERS);
         TieredStoreMemoryManager tieredStoreMemoryManager =
@@ -73,7 +73,7 @@ class RemoteTierTest {
                         new CacheFlushManager());
         tieredStoreMemoryManager.setBufferPool(bufferPool);
 
-        return new RemoteTier(
+        return new RemoteTierWriter(
                 NUM_SUBPARTITIONS,
                 1024,
                 tieredStoreMemoryManager,

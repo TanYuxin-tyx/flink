@@ -30,10 +30,10 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManagerImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.MemoryTier;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTier;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.MemoryTierWriter;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTierWriter;
 import org.apache.flink.util.StringUtils;
 
 import javax.annotation.Nullable;
@@ -143,16 +143,16 @@ public class StorageTierWriterFactory {
         StorageTier storageTier;
         switch (tierType) {
             case IN_MEM:
-                storageTier = getMemoryTier();
+                storageTier = getMemoryTierWriter();
                 break;
             case IN_DISK:
-                storageTier = getDiskTier();
+                storageTier = getDiskTierWriter();
                 break;
             case IN_REMOTE:
-                storageTier = getRemoteTier();
+                storageTier = getRemoteTierWriter();
                 break;
             default:
-                throw new IllegalArgumentException("No such tier type " + tierType);
+                throw new IllegalArgumentException("Illegal tier type " + tierType);
         }
         storageTier.setup();
         return storageTier;
@@ -172,8 +172,8 @@ public class StorageTierWriterFactory {
                         cacheFlushManager);
     }
 
-    private MemoryTier getMemoryTier() {
-        return new MemoryTier(
+    private MemoryTierWriter getMemoryTierWriter() {
+        return new MemoryTierWriter(
                 numSubpartitions,
                 bufferSize,
                 tieredStoreMemoryManager,
@@ -181,8 +181,8 @@ public class StorageTierWriterFactory {
                 bufferCompressor);
     }
 
-    private DiskTier getDiskTier() {
-        return new DiskTier(
+    private DiskTierWriter getDiskTierWriter() {
+        return new DiskTierWriter(
                 numSubpartitions,
                 bufferSize,
                 resultPartitionID,
@@ -195,7 +195,7 @@ public class StorageTierWriterFactory {
                 partitionFileManager);
     }
 
-    private RemoteTier getRemoteTier() {
+    private RemoteTierWriter getRemoteTierWriter() {
         if (StringUtils.isNullOrWhitespaceOnly(baseRemoteStoragePath)) {
             throw new IllegalArgumentException(
                     String.format(
@@ -204,7 +204,7 @@ public class StorageTierWriterFactory {
                                     .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH
                                     .key()));
         }
-        return new RemoteTier(
+        return new RemoteTierWriter(
                 numSubpartitions,
                 bufferSize,
                 tieredStoreMemoryManager,

@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.event.AbstractEvent;
@@ -48,12 +47,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service.TieredStoreNettyService;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service.TieredStoreNettyServiceImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.DiskTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory.MemoryTier;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.remote.RemoteTier;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
-import org.apache.flink.util.StringUtils;
 import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.util.function.SupplierWithException;
 
@@ -70,7 +65,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.DATA_FILE_SUFFIX;
-import static org.apache.flink.runtime.shuffle.NettyShuffleUtils.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -185,57 +179,6 @@ public class TieredStoreResultPartition extends ResultPartition {
     public void setMetricGroup(TaskIOMetricGroup metrics) {
         super.setMetricGroup(metrics);
         tieredStoreProducer.setMetricGroup(new OutputMetrics(numBytesOut, numBuffersOut));
-    }
-
-    private void addTierExclusiveBuffers(TierType... toAddTierTypes) {
-        for (TierType toAddTierType : toAddTierTypes) {
-            tierExclusiveBuffers.put(
-                    toAddTierType,
-                    checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(toAddTierType)));
-        }
-    }
-
-    private MemoryTier getMemoryTier() {
-        return new MemoryTier(
-                numSubpartitions,
-                networkBufferSize,
-                tieredStoreMemoryManager,
-                isBroadcast,
-                bufferCompressor);
-    }
-
-    private DiskTier getDiskTier() {
-        return new DiskTier(
-                numSubpartitions,
-                networkBufferSize,
-                getPartitionId(),
-                tieredStoreMemoryManager,
-                cacheFlushManager,
-                dataFileBasePath,
-                minReservedDiskSpaceFraction,
-                isBroadcast,
-                bufferCompressor,
-                partitionFileManager);
-    }
-
-    private RemoteTier getRemoteTier() {
-        String baseDfsPath = storeConfiguration.getBaseDfsHomePath();
-        if (StringUtils.isNullOrWhitespaceOnly(baseDfsPath)) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Must specify DFS home path by %s when using DFS in Tiered Store.",
-                            NettyShuffleEnvironmentOptions
-                                    .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH
-                                    .key()));
-        }
-        return new RemoteTier(
-                numSubpartitions,
-                networkBufferSize,
-                tieredStoreMemoryManager,
-                cacheFlushManager,
-                isBroadcast,
-                bufferCompressor,
-                partitionFileManager);
     }
 
     @Override
