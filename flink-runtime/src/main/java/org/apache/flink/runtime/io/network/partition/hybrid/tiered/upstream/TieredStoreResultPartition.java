@@ -19,11 +19,9 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.event.AbstractEvent;
-import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.api.EndOfData;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.StopMode;
@@ -43,11 +41,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.comm
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreProducer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service.TieredStoreNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service.TieredStoreNettyServiceImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.util.function.SupplierWithException;
@@ -56,15 +51,12 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreUtils.DATA_FILE_SUFFIX;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -79,19 +71,9 @@ public class TieredStoreResultPartition extends ResultPartition {
 
     private final int networkBufferSize;
 
-    private final TieredStoreConfiguration storeConfiguration;
-
-    private final String dataFileBasePath;
-
-    private final float minReservedDiskSpaceFraction;
-
-    private final float numBuffersTriggerFlushRatio;
-
     private final boolean isBroadcast;
 
     private final CacheFlushManager cacheFlushManager;
-
-    private final PartitionFileManager partitionFileManager;
 
     private final TierWriter[] allTiers;
 
@@ -104,21 +86,15 @@ public class TieredStoreResultPartition extends ResultPartition {
     private TieredStoreNettyService tieredStoreNettyService;
 
     public TieredStoreResultPartition(
-            JobID jobID,
             String owningTaskName,
             int partitionIndex,
             ResultPartitionID partitionId,
             ResultPartitionType partitionType,
             int numSubpartitions,
             int numTargetKeyGroups,
-            BatchShuffleReadBufferPool readBufferPool,
-            ScheduledExecutorService readIOExecutor,
             ResultPartitionManager partitionManager,
             int networkBufferSize,
-            String dataFileBasePath,
-            float minReservedDiskSpaceFraction,
             boolean isBroadcast,
-            TieredStoreConfiguration storeConfiguration,
             TierWriter[] tierWriters,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             @Nullable BufferCompressor bufferCompressor,
@@ -135,26 +111,11 @@ public class TieredStoreResultPartition extends ResultPartition {
                 bufferPoolFactory);
 
         this.networkBufferSize = networkBufferSize;
-        this.dataFileBasePath = dataFileBasePath;
-        this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.isBroadcast = isBroadcast;
-        this.storeConfiguration = storeConfiguration;
         this.allTiers = tierWriters;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
-        this.numBuffersTriggerFlushRatio = storeConfiguration.getNumBuffersTriggerFlushRatio();
         this.tierExclusiveBuffers = new HashMap<>();
         this.cacheFlushManager = new CacheFlushManager();
-        this.partitionFileManager =
-                new PartitionFileManagerImpl(
-                        Paths.get(dataFileBasePath + DATA_FILE_SUFFIX),
-                        new RegionBufferIndexTrackerImpl(isBroadcast ? 1 : numSubpartitions),
-                        readBufferPool,
-                        readIOExecutor,
-                        storeConfiguration,
-                        numSubpartitions,
-                        jobID,
-                        partitionId,
-                        storeConfiguration.getBaseDfsHomePath());
     }
 
     // Called by task thread.

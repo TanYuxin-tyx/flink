@@ -273,26 +273,19 @@ public class ResultPartitionFactory {
                                 storeConfiguration);
                 partition =
                         new TieredStoreResultPartition(
-                                jobID,
                                 taskNameWithSubtaskAndId,
                                 partitionIndex,
                                 id,
                                 type,
                                 subpartitions.length,
                                 maxParallelism,
-                                batchShuffleReadBufferPool,
-                                batchShuffleReadIOExecutor,
                                 partitionManager,
                                 networkBufferSize,
-                                channelManager.createChannel().getPath(),
-                                minReservedDiskSpaceFraction,
                                 isBroadcast,
-                                storeConfiguration,
                                 tierWriterFactory.getStorageTierWriters(),
                                 tierWriterFactory.getTieredStoreMemoryManager(),
                                 bufferCompressor,
                                 bufferPoolFactory);
-
             } else {
                 partition =
                         new HsResultPartition(

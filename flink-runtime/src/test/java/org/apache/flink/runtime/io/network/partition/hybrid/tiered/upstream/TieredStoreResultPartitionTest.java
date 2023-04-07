@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FSDataInputStream;
 import org.apache.flink.core.fs.Path;
@@ -695,26 +694,15 @@ class TieredStoreResultPartitionTest {
             throws IOException {
         TieredStoreResultPartition tieredStoreResultPartition =
                 new TieredStoreResultPartition(
-                        new JobID(),
                         "TieredStoreResultPartitionTest",
                         0,
                         new ResultPartitionID(),
                         ResultPartitionType.HYBRID_SELECTIVE,
                         numSubpartitions,
                         numSubpartitions,
-                        readBufferPool,
-                        readIOExecutor,
                         new ResultPartitionManager(),
                         bufferSize,
-                        fileChannelManager.createChannel().getPath(),
-                        0,
                         isBroadcastOnly,
-                        TieredStoreConfiguration.builder(
-                                        numSubpartitions, readBufferPool.getNumBuffersPerRequest())
-                                .setTierTypes(
-                                        tieredStoreTiers, ResultPartitionType.HYBRID_SELECTIVE)
-                                .setBaseDfsHomePath(tempDataPath.toString())
-                                .build(),
                         new TierWriter[0],
                         new TestingTieredStoreMemoryManager(),
                         new BufferCompressor(bufferSize, "LZ4"),
