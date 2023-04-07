@@ -21,8 +21,8 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.servi
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreConsumerFailureCause;
 
 import javax.annotation.Nullable;
@@ -42,7 +42,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final int subpartitionId;
 
-    private final List<StorageTier> registeredTiers;
+    private final List<TierWriter> registeredTiers;
 
     private final List<TierReaderView> registeredTierReaderViews;
 
@@ -59,7 +59,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     public TieredStoreResultSubpartitionView(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            List<StorageTier> registeredTiers,
+            List<TierWriter> registeredTiers,
             List<TierReaderView> registeredTierReaderViews) {
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
@@ -175,7 +175,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             tierReaderView.updateNeedNotifyStatus();
         }
         for (int viewIndex = 0; viewIndex < registeredTiers.size(); viewIndex++) {
-            StorageTier tieredDataGate = registeredTiers.get(viewIndex);
+            TierWriter tieredDataGate = registeredTiers.get(viewIndex);
             if (tieredDataGate.hasCurrentSegment(subpartitionId, requiredSegmentId)) {
                 viewIndexContainsCurrentSegment = viewIndex;
                 return true;

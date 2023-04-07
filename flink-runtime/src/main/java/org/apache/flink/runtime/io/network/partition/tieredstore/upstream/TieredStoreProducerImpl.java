@@ -23,7 +23,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.cache.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 
@@ -45,7 +45,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     private final BufferAccumulator bufferAccumulator;
 
     public TieredStoreProducerImpl(
-            StorageTier[] storageTiers,
+            TierWriter[] tierWriters,
             int numSubpartitions,
             int bufferSize,
             boolean isBroadcastOnly,
@@ -56,7 +56,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
         this.bufferAccumulator =
                 new BufferAccumulatorImpl(
-                        storageTiers,
+                        tierWriters,
                         numSubpartitions,
                         bufferSize,
                         isBroadcastOnly,

@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManager;
@@ -70,7 +70,7 @@ public class StorageTierWriterFactory {
 
     private final String baseRemoteStoragePath;
 
-    private final StorageTier[] storageTiers;
+    private final TierWriter[] tierWriters;
 
     public final Map<TierType, Integer> tierExclusiveBuffers;
 
@@ -106,7 +106,7 @@ public class StorageTierWriterFactory {
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.dataFileBasePath = dataFileBasePath;
         this.baseRemoteStoragePath = baseRemoteStoragePath;
-        this.storageTiers = new StorageTier[tierTypes.length];
+        this.tierWriters = new TierWriter[tierTypes.length];
         this.tierExclusiveBuffers = new HashMap<>();
         this.cacheFlushManager = new CacheFlushManager();
         this.partitionFileManager =
@@ -124,8 +124,8 @@ public class StorageTierWriterFactory {
         setupTierDataWriters();
     }
 
-    public StorageTier[] getStorageTierWriters() {
-        return storageTiers;
+    public TierWriter[] getStorageTierWriters() {
+        return tierWriters;
     }
 
     public TieredStoreMemoryManager getTieredStoreMemoryManager() {
@@ -135,27 +135,27 @@ public class StorageTierWriterFactory {
     private void setupTierDataWriters() throws IOException {
         addTierExclusiveBuffers(tierTypes);
         for (int i = 0; i < tierTypes.length; i++) {
-            storageTiers[i] = createStorageTier(tierTypes[i]);
+            tierWriters[i] = createStorageTier(tierTypes[i]);
         }
     }
 
-    private StorageTier createStorageTier(TierType tierType) throws IOException {
-        StorageTier storageTier;
+    private TierWriter createStorageTier(TierType tierType) throws IOException {
+        TierWriter tierWriter;
         switch (tierType) {
             case IN_MEM:
-                storageTier = getMemoryTierWriter();
+                tierWriter = getMemoryTierWriter();
                 break;
             case IN_DISK:
-                storageTier = getDiskTierWriter();
+                tierWriter = getDiskTierWriter();
                 break;
             case IN_REMOTE:
-                storageTier = getRemoteTierWriter();
+                tierWriter = getRemoteTierWriter();
                 break;
             default:
                 throw new IllegalArgumentException("Illegal tier type " + tierType);
         }
-        storageTier.setup();
-        return storageTier;
+        tierWriter.setup();
+        return tierWriter;
     }
 
     private void addTierExclusiveBuffers(TierType... toAddTierTypes) {

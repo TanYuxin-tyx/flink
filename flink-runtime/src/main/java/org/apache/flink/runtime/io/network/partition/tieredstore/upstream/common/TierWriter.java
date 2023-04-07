@@ -28,7 +28,7 @@ import java.io.IOException;
  * The gate for a single tiered data. The gate is used to create {@link TierContainer} and {@link
  * TierReaderView}. The writing and reading data processes happen in the writer and reader.
  */
-public interface StorageTier {
+public interface TierWriter {
 
     void setup() throws IOException;
 

@@ -47,8 +47,8 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TestingTieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.IOUtils;
@@ -715,7 +715,7 @@ class TieredStoreResultPartitionTest {
                                         tieredStoreTiers, ResultPartitionType.HYBRID_SELECTIVE)
                                 .setBaseDfsHomePath(tempDataPath.toString())
                                 .build(),
-                        new StorageTier[0],
+                        new TierWriter[0],
                         new TestingTieredStoreMemoryManager(),
                         new BufferCompressor(bufferSize, "LZ4"),
                         () -> bufferPool);

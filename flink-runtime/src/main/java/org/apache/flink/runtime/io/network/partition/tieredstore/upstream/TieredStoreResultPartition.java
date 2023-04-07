@@ -40,7 +40,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreProducer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManager;
@@ -93,7 +93,7 @@ public class TieredStoreResultPartition extends ResultPartition {
 
     private final PartitionFileManager partitionFileManager;
 
-    private final StorageTier[] allTiers;
+    private final TierWriter[] allTiers;
 
     private TieredStoreProducer tieredStoreProducer;
 
@@ -119,7 +119,7 @@ public class TieredStoreResultPartition extends ResultPartition {
             float minReservedDiskSpaceFraction,
             boolean isBroadcast,
             TieredStoreConfiguration storeConfiguration,
-            StorageTier[] storageTiers,
+            TierWriter[] tierWriters,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             @Nullable BufferCompressor bufferCompressor,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory) {
@@ -139,7 +139,7 @@ public class TieredStoreResultPartition extends ResultPartition {
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.isBroadcast = isBroadcast;
         this.storeConfiguration = storeConfiguration;
-        this.allTiers = storageTiers;
+        this.allTiers = tierWriters;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.numBuffersTriggerFlushRatio = storeConfiguration.getNumBuffersTriggerFlushRatio();
         this.tierExclusiveBuffers = new HashMap<>();
@@ -328,7 +328,7 @@ public class TieredStoreResultPartition extends ResultPartition {
     @VisibleForTesting
     public List<Path> getBaseSubpartitionPath(int subpartitionId) {
         List<Path> paths = new ArrayList<>();
-        for (StorageTier tierDataGate : allTiers) {
+        for (TierWriter tierDataGate : allTiers) {
             paths.add(tierDataGate.getBaseSubpartitionPath(subpartitionId));
         }
         return paths;

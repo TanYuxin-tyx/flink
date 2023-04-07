@@ -1,8 +1,8 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service;
 
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.StorageTier;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -15,9 +15,9 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  */
 public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
 
-    private final StorageTier[] allTiers;
+    private final TierWriter[] allTiers;
 
-    public TieredStoreNettyServiceImpl(StorageTier[] allTiers) {
+    public TieredStoreNettyServiceImpl(TierWriter[] allTiers) {
         checkArgument(allTiers.length > 0, "The number of StorageTier must be larger than 0.");
         this.allTiers = allTiers;
     }
@@ -26,9 +26,9 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     public TieredStoreResultSubpartitionView register(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
-        List<StorageTier> registeredTiers = new ArrayList<>();
+        List<TierWriter> registeredTiers = new ArrayList<>();
         List<TierReaderView> registeredTierReaderViews = new ArrayList<>();
-        for (StorageTier tier : allTiers) {
+        for (TierWriter tier : allTiers) {
             TierReaderView tierReaderView =
                     tier.createTierReaderView(subpartitionId, availabilityListener);
             if (tierReaderView != null) {
