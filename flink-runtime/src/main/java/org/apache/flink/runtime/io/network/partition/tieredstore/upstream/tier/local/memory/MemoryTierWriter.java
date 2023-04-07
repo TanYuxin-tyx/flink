@@ -28,8 +28,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerViewProvider;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierContainer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
@@ -58,7 +58,7 @@ public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewP
     /** Record the last assigned consumerId for each subpartition. */
     private final TierReaderViewId[] lastTierReaderViewIds;
 
-    private MemoryTierContainer memoryWriter;
+    private MemoryTierStorage memoryWriter;
 
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
 
@@ -90,7 +90,7 @@ public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewP
     @Override
     public void setup() throws IOException {
         this.memoryWriter =
-                new MemoryTierContainer(
+                new MemoryTierStorage(
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
                         tieredStoreMemoryManager,
@@ -107,7 +107,7 @@ public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewP
      * and the subpartitionId is not used. So return directly.
      */
     @Override
-    public TierContainer createPartitionTierWriter() {
+    public TierStorage createPartitionTierWriter() {
         return memoryWriter;
     }
 

@@ -27,8 +27,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierContainer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
-public class MemoryTierContainer implements TierContainer, MemoryDataWriterOperation {
+public class MemoryTierStorage implements TierStorage, MemoryDataWriterOperation {
 
     private final int numSubpartitions;
 
@@ -70,7 +70,7 @@ public class MemoryTierContainer implements TierContainer, MemoryDataWriterOpera
 
     private int numBytesInASegment;
 
-    public MemoryTierContainer(
+    public MemoryTierStorage(
             int numSubpartitions,
             int bufferSize,
             TieredStoreMemoryManager tieredStoreMemoryManager,
@@ -153,13 +153,12 @@ public class MemoryTierContainer implements TierContainer, MemoryDataWriterOpera
                 .registerNewConsumer(tierReaderViewId);
     }
 
-    /** Close this {@link MemoryTierContainer}, it means no data will be appended to memory. */
+    /** Close this {@link MemoryTierStorage}, it means no data will be appended to memory. */
     @Override
     public void close() {}
 
     /**
-     * Release this {@link MemoryTierContainer}, it means all memory taken by this class will
-     * recycle.
+     * Release this {@link MemoryTierStorage}, it means all memory taken by this class will recycle.
      */
     @Override
     public void release() {

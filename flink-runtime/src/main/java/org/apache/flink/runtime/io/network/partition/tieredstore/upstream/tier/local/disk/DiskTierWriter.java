@@ -33,8 +33,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerViewProvider;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierContainer;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManager;
@@ -56,8 +56,7 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */
-public class DiskTierWriter
-        implements TierContainer, TierWriter, NettyBasedTierConsumerViewProvider {
+public class DiskTierWriter implements TierStorage, TierWriter, NettyBasedTierConsumerViewProvider {
 
     public static final int BROADCAST_CHANNEL = 0;
 
@@ -185,7 +184,7 @@ public class DiskTierWriter
      * and the subpartitionId is not used. So return directly.
      */
     @Override
-    public TierContainer createPartitionTierWriter() {
+    public TierStorage createPartitionTierWriter() {
         return this;
     }
 

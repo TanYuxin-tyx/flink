@@ -38,7 +38,7 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Tests for {@link RemoteTierWriter}. */
-class RemoteTierContainerTest {
+class RemoteTierWriterTest {
 
     private static final int NUM_BUFFERS = 10;
 

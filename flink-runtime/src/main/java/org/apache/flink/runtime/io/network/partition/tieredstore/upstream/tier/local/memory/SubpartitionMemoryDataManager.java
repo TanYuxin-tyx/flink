@@ -52,7 +52,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * This class is responsible for managing the data in a single subpartition. One {@link
- * MemoryTierContainer} will hold multiple {@link MemoryTierConsumer}.
+ * MemoryTierStorage} will hold multiple {@link MemoryTierConsumer}.
  */
 public class SubpartitionMemoryDataManager {
 
