@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-/** The factory of {@link StorageTierReaderClient}. */
+/** The factory of {@link TierReader}. */
 public class StorageTierReaderFactory {
 
     private final JobID jobID;
@@ -55,13 +55,13 @@ public class StorageTierReaderFactory {
         }
     }
 
-    public List<StorageTierReaderClient> createClientList() {
-        List<StorageTierReaderClient> clientList = new ArrayList<>();
+    public List<TierReader> createClientList() {
+        List<TierReader> clientList = new ArrayList<>();
         if (enableRemoteTier) {
-            clientList.add(new LocalStorageTierReaderClient());
-            clientList.add(new RemoteStorageTierReaderClient(memoryManager, remoteTierMonitor));
+            clientList.add(new LocalTierReader());
+            clientList.add(new RemoteTierReader(memoryManager, remoteTierMonitor));
         } else {
-            clientList.add(new LocalStorageTierReaderClient());
+            clientList.add(new LocalTierReader());
         }
         return clientList;
     }

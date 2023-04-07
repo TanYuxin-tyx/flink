@@ -34,8 +34,8 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.writeSegmentFinishFile;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** The test for {@link LocalStorageTierReaderClient}. */
-public class StorageTierReaderClientTest {
+/** The test for {@link LocalTierReader}. */
+public class TierReaderTest {
 
     private static final int SEGMENT_ID = 0;
 
@@ -65,7 +65,7 @@ public class StorageTierReaderClientTest {
 
     @Test
     void testSingleChannelLocalTierClient() throws IOException, InterruptedException {
-        LocalStorageTierReaderClient localTierClient = new LocalStorageTierReaderClient();
+        LocalTierReader localTierClient = new LocalTierReader();
         final SingleInputGate inputGate = createSingleInputGate(2);
         InputChannel inputChannel1 =
                 new InputChannelBuilder().setChannelIndex(0).buildRemoteRecoveredChannel(inputGate);
@@ -95,8 +95,8 @@ public class StorageTierReaderClientTest {
                         Collections.singletonList(RESULT_PARTITION_ID),
                         baseRemoteStoragePath,
                         Collections.singletonList(SUBPARTITION_INDEX));
-        RemoteStorageTierReaderClient remoteTierClient =
-                new RemoteStorageTierReaderClient(
+        RemoteTierReader remoteTierClient =
+                new RemoteTierReader(
                         new DownstreamTieredStoreMemoryManager(new NetworkBufferPool(1, 1)),
                         remoteTierMonitor);
         InputChannel targetInputChannel =
@@ -113,7 +113,7 @@ public class StorageTierReaderClientTest {
     }
 
     private void verifyLocalTierClientResult(
-            LocalStorageTierReaderClient client,
+            LocalTierReader client,
             InputChannel inputChannel,
             boolean isPresent,
             Buffer.DataType expectedDataType,
@@ -135,7 +135,7 @@ public class StorageTierReaderClientTest {
     }
 
     private void verifyRemoteTierClientResult(
-            RemoteStorageTierReaderClient client,
+            RemoteTierReader client,
             InputChannel inputChannel,
             boolean isPresent,
             Buffer.DataType expectedDataType,
