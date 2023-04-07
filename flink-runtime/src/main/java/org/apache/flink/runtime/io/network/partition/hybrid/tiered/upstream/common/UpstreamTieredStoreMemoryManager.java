@@ -48,6 +48,8 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     private final Map<TierType, AtomicInteger> tierRequestedBuffersCounter;
 
+    private final AtomicInteger numRequestedBuffersInAccumulator;
+
     private final CacheFlushManager cacheFlushManager;
 
     private final AtomicInteger numRequestedBuffers = new AtomicInteger(0);
@@ -74,6 +76,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
             CacheFlushManager cacheFlushManager) {
         this.tierExclusiveBuffers = tierExclusiveBuffers;
         this.tierRequestedBuffersCounter = new HashMap<>();
+        this.numRequestedBuffersInAccumulator = new AtomicInteger(0);
         this.cacheFlushManager = cacheFlushManager;
         this.numSubpartitions = numSubpartitions;
         this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
@@ -96,8 +99,6 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     public int numAvailableBuffers(TierType tierType) {
         int numTotalBuffers = bufferPool.getNumBuffers();
         switch (tierType) {
-            case IN_CACHE:
-                return getAvailableBuffersForCache(numTotalBuffers);
             case IN_MEM:
                 return getAvailableBuffersForMemory(numTotalBuffers);
             case IN_DISK:
@@ -138,10 +139,29 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     }
 
     @Override
+    public MemorySegment requestMemorySegmentInAccumulatorBlocking() {
+        MemorySegment requestedBuffer = null;
+        try {
+            requestedBuffer = bufferPool.requestMemorySegmentBlocking();
+        } catch (Throwable throwable) {
+            ExceptionUtils.rethrow(throwable, "Failed to request memory segments.");
+        }
+        incNumRequestedBufferInAccumulator();
+        checkNeedTriggerFlushCachedBuffers();
+        return requestedBuffer;
+    }
+
+    @Override
     public void incNumRequestedBuffer(TierType tierType) {
         numRequestedBuffers.getAndIncrement();
         tierRequestedBuffersCounter.putIfAbsent(tierType, new AtomicInteger(0));
         tierRequestedBuffersCounter.get(tierType).incrementAndGet();
+    }
+
+    @Override
+    public void incNumRequestedBufferInAccumulator() {
+        numRequestedBuffers.getAndIncrement();
+        numRequestedBuffersInAccumulator.getAndIncrement();
     }
 
     @Override
@@ -152,9 +172,21 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
     }
 
     @Override
+    public void decRequestedBufferInAccumulator() {
+        numRequestedBuffers.decrementAndGet();
+        numRequestedBuffersInAccumulator.decrementAndGet();
+    }
+
+    @Override
     public void recycleBuffer(MemorySegment memorySegment, TierType tierType) {
         bufferPool.recycle(memorySegment);
         decNumRequestedBuffer(tierType);
+    }
+
+    @Override
+    public void recycleBufferInAccumulator(MemorySegment memorySegment) {
+        bufferPool.recycle(memorySegment);
+        decRequestedBufferInAccumulator();
     }
 
     @Override
@@ -184,15 +216,10 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
                     tierRequestedBuffer.getValue().get() == 0,
                     "Leaking buffers in tier " + tierRequestedBuffer.getKey());
         }
+        checkState(
+                numRequestedBuffersInAccumulator.get() == 0,
+                "Leaking buffers in buffer accumulator.");
         checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
-    }
-
-    private int getAvailableBuffersForCache(int numAvailableBuffers) {
-        AtomicInteger numRequestedFromCacheInteger =
-                tierRequestedBuffersCounter.get(TierType.IN_CACHE);
-        return numAvailableBuffers
-                - numTotalExclusiveBuffers
-                - (numRequestedFromCacheInteger == null ? 0 : numRequestedFromCacheInteger.get());
     }
 
     /**

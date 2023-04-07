@@ -60,15 +60,29 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     }
 
     @Override
+    public MemorySegment requestMemorySegmentInAccumulatorBlocking() {
+        return null;
+    }
+
+    @Override
     public void recycleBuffer(MemorySegment memorySegment, TierType tierType) {
         localBufferPool.recycle(memorySegment);
     }
 
     @Override
+    public void recycleBufferInAccumulator(MemorySegment memorySegment) {}
+
+    @Override
     public void incNumRequestedBuffer(TierType tierType) {}
 
     @Override
+    public void incNumRequestedBufferInAccumulator() {}
+
+    @Override
     public void decNumRequestedBuffer(TierType tierType) {}
+
+    @Override
+    public void decRequestedBufferInAccumulator() {}
 
     @Override
     public void checkNeedTriggerFlushCachedBuffers() {}

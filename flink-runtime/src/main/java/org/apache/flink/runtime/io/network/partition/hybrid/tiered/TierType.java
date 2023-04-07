@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 
 /** The store mode for Tiered Store. */
 public enum TierType {
-    IN_CACHE,
     IN_MEM,
     IN_DISK,
     IN_REMOTE,

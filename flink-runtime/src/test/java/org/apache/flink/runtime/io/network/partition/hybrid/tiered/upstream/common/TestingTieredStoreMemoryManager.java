@@ -53,6 +53,20 @@ public class TestingTieredStoreMemoryManager implements TieredStoreMemoryManager
     }
 
     @Override
+    public MemorySegment requestMemorySegmentInAccumulatorBlocking() {
+        return null;
+    }
+
+    @Override
+    public void recycleBufferInAccumulator(MemorySegment memorySegment) {}
+
+    @Override
+    public void incNumRequestedBufferInAccumulator() {}
+
+    @Override
+    public void decRequestedBufferInAccumulator() {}
+
+    @Override
     public void recycleBuffer(MemorySegment memorySegment, TierType tierType) {}
 
     @Override

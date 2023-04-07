@@ -46,11 +46,19 @@ public interface TieredStoreMemoryManager {
     /** Requests a {@link MemorySegment} instance from {@link LocalBufferPool}. */
     MemorySegment requestMemorySegmentBlocking(TierType tierType);
 
+    MemorySegment requestMemorySegmentInAccumulatorBlocking();
+
     void recycleBuffer(MemorySegment memorySegment, TierType tierType);
+
+    void recycleBufferInAccumulator(MemorySegment memorySegment);
 
     void incNumRequestedBuffer(TierType tierType);
 
+    void incNumRequestedBufferInAccumulator();
+
     void decNumRequestedBuffer(TierType tierType);
+
+    void decRequestedBufferInAccumulator();
 
     /** Checks whether the cached buffers should be flushed. */
     void checkNeedTriggerFlushCachedBuffers();

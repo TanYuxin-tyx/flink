@@ -165,7 +165,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
         int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
         if (finishedSegment.getDataType().isBuffer()) {
-            storeMemoryManager.decNumRequestedBuffer(TierType.IN_CACHE);
+            storeMemoryManager.decRequestedBufferInAccumulator();
             storeMemoryManager.incNumRequestedBuffer(tierTypes[tierIndex]);
         }
         Buffer finishedBuffer =
