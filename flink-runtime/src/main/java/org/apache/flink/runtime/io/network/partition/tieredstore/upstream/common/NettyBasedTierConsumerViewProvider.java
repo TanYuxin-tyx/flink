@@ -18,30 +18,12 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
-import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
+import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 
 import java.io.IOException;
 
-/**
- * The gate for a single tiered data. The gate is used to create {@link TierContainer} and {@link
- * TierReaderView}. The writing and reading data processes happen in the writer and reader.
- */
-public interface TierWriter {
+public interface NettyBasedTierConsumerViewProvider {
 
-    void setup() throws IOException;
-
-    TierContainer createPartitionTierWriter();
-
-    boolean canStoreNextSegment(int subpartitionId);
-
-    boolean hasCurrentSegment(int subpartitionId, int segmentIndex);
-
-    TierType getTierType();
-
-    Path getBaseSubpartitionPath(int subpartitionId);
-
-    void close();
-
-    void release();
+    TierReaderView createTierReaderView(
+            int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
 }

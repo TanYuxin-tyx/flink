@@ -22,6 +22,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerViewProvider;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierContainer;
@@ -40,7 +41,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
-public class MemoryTierWriter implements TierWriter {
+public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewProvider {
 
     public static final int BROADCAST_CHANNEL = 0;
 

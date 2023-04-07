@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerViewProvider;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierContainer;
@@ -55,7 +56,8 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */
-public class DiskTierWriter implements TierContainer, TierWriter {
+public class DiskTierWriter
+        implements TierContainer, TierWriter, NettyBasedTierConsumerViewProvider {
 
     public static final int BROADCAST_CHANNEL = 0;
 
