@@ -32,6 +32,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfigu
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStoreShuffleEnvironment;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreResultPartition;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriterFactory;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.ExceptionUtils;
@@ -271,6 +273,14 @@ public class ResultPartitionFactory {
                                 batchShuffleReadIOExecutor,
                                 bufferCompressor,
                                 storeConfiguration);
+                BufferAccumulator bufferAccumulator =
+                        new BufferAccumulatorImpl(
+                                tierWriterFactory.getStorageTierWriters(),
+                                subpartitions.length,
+                                networkBufferSize,
+                                isBroadcast,
+                                tierWriterFactory.getTieredStoreMemoryManager(),
+                                bufferCompressor);
                 partition =
                         new TieredStoreResultPartition(
                                 taskNameWithSubtaskAndId,
@@ -280,11 +290,11 @@ public class ResultPartitionFactory {
                                 subpartitions.length,
                                 maxParallelism,
                                 partitionManager,
-                                networkBufferSize,
                                 isBroadcast,
                                 tierWriterFactory.getStorageTierWriters(),
                                 tierWriterFactory.getTieredStoreMemoryManager(),
                                 bufferCompressor,
+                                bufferAccumulator,
                                 bufferPoolFactory);
             } else {
                 partition =

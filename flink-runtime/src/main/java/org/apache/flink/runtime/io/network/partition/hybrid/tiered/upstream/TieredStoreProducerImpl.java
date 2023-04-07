@@ -19,15 +19,9 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulator;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreProducer;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -45,23 +39,10 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
     private final BufferAccumulator bufferAccumulator;
 
     public TieredStoreProducerImpl(
-            TierWriter[] tierWriters,
-            int numSubpartitions,
-            int bufferSize,
-            boolean isBroadcastOnly,
-            TieredStoreMemoryManager storeMemoryManager,
-            @Nullable BufferCompressor bufferCompressor) {
+            int numSubpartitions, boolean isBroadcastOnly, BufferAccumulator bufferAccumulator) {
         this.isBroadcastOnly = isBroadcastOnly;
         this.numSubpartitions = numSubpartitions;
-
-        this.bufferAccumulator =
-                new BufferAccumulatorImpl(
-                        tierWriters,
-                        numSubpartitions,
-                        bufferSize,
-                        isBroadcastOnly,
-                        storeMemoryManager,
-                        bufferCompressor);
+        this.bufferAccumulator = bufferAccumulator;
     }
 
     @Override
