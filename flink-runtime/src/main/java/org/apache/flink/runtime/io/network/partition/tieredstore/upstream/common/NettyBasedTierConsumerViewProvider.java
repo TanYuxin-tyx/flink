@@ -24,6 +24,6 @@ import java.io.IOException;
 
 public interface NettyBasedTierConsumerViewProvider {
 
-    TierReaderView createTierReaderView(
+    NettyBasedTierConsumerView createTierReaderView(
             int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
 }

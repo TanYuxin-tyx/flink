@@ -24,10 +24,10 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumer;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierContainer;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.util.ExceptionUtils;
@@ -56,7 +56,8 @@ public class MemoryTierContainer implements TierContainer, MemoryDataWriterOpera
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderViewId, TierReaderView>> subpartitionViewOperationsMap;
+    private final List<Map<TierReaderViewId, NettyBasedTierConsumerView>>
+            subpartitionViewOperationsMap;
 
     // Record the byte number currently written to each sub partition.
     private final int[] numSubpartitionEmitBytes;
@@ -138,9 +139,11 @@ public class MemoryTierContainer implements TierContainer, MemoryDataWriterOpera
         getSubpartitionMemoryDataManager(targetChannel).addFinishedBuffer(finishedBuffer);
     }
 
-    public TierReader registerNewConsumer(
-            int subpartitionId, TierReaderViewId tierReaderViewId, TierReaderView viewOperations) {
-        TierReaderView oldView =
+    public NettyBasedTierConsumer registerNewConsumer(
+            int subpartitionId,
+            TierReaderViewId tierReaderViewId,
+            NettyBasedTierConsumerView viewOperations) {
+        NettyBasedTierConsumerView oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
                         .put(tierReaderViewId, viewOperations);
@@ -185,13 +188,14 @@ public class MemoryTierContainer implements TierContainer, MemoryDataWriterOpera
     @Override
     public void onDataAvailable(
             int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, TierReaderView> consumerViewMap =
+        Map<TierReaderViewId, NettyBasedTierConsumerView> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
         tierReaderViewIds.forEach(
                 consumerId -> {
-                    TierReaderView tierReaderView = consumerViewMap.get(consumerId);
-                    if (tierReaderView != null) {
-                        tierReaderView.notifyDataAvailable();
+                    NettyBasedTierConsumerView nettyBasedTierConsumerView =
+                            consumerViewMap.get(consumerId);
+                    if (nettyBasedTierConsumerView != null) {
+                        nettyBasedTierConsumerView.notifyDataAvailable();
                     }
                 });
     }

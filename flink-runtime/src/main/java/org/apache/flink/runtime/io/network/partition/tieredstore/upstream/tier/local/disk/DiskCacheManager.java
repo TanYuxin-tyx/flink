@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.file.PartitionFileManager;
@@ -54,7 +54,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
 
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
-    private final List<Map<TierReaderViewId, TierReaderView>> tierReaderViewMap;
+    private final List<Map<TierReaderViewId, NettyBasedTierConsumerView>> tierReaderViewMap;
 
     private volatile CompletableFuture<Void> hasFlushCompleted =
             CompletableFuture.completedFuture(null);
@@ -157,8 +157,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
     @Override
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment =
-                tieredStoreMemoryManager.requestMemorySegmentBlocking(
-                        TierType.IN_DISK);
+                tieredStoreMemoryManager.requestMemorySegmentBlocking(TierType.IN_DISK);
         tryCheckFlushCacheBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
     }
@@ -176,11 +175,11 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
     @Override
     public void onDataAvailable(
             int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, TierReaderView> consumerViewMap =
+        Map<TierReaderViewId, NettyBasedTierConsumerView> consumerViewMap =
                 tierReaderViewMap.get(subpartitionId);
         tierReaderViewIds.forEach(
                 consumerId -> {
-                    TierReaderView consumerView = consumerViewMap.get(consumerId);
+                    NettyBasedTierConsumerView consumerView = consumerViewMap.get(consumerId);
                     if (consumerView != null) {
                         consumerView.notifyDataAvailable();
                     }

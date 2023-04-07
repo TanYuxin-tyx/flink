@@ -22,8 +22,8 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAn
 
 import java.util.Optional;
 
-/** The {@link TierReader} is used to consume data from different tiers. */
-public interface TierReader {
+/** The {@link NettyBasedTierConsumer} is used to consume data from different tiers. */
+public interface NettyBasedTierConsumer {
 
     Optional<BufferAndBacklog> getNextBuffer(int bufferIndex) throws Throwable;
 

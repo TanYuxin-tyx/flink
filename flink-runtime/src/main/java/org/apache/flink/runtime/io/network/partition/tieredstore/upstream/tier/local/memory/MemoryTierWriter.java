@@ -22,14 +22,14 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumer;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerView;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerViewImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerViewProvider;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierContainer;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreMemoryManager;
 
@@ -112,13 +112,14 @@ public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewP
     }
 
     @Override
-    public TierReaderView createTierReaderView(
+    public NettyBasedTierConsumerView createTierReaderView(
             int subpartitionId, BufferAvailabilityListener availabilityListener) {
         // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        TierReaderViewImpl memoryReaderView = new TierReaderViewImpl(availabilityListener);
+        NettyBasedTierConsumerViewImpl memoryReaderView =
+                new NettyBasedTierConsumerViewImpl(availabilityListener);
         TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
         checkMultipleConsumerIsAllowed(lastTierReaderViewId);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
@@ -126,7 +127,7 @@ public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewP
         TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
         lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
 
-        TierReader memoryReader =
+        NettyBasedTierConsumer memoryReader =
                 checkNotNull(memoryWriter)
                         .registerNewConsumer(subpartitionId, tierReaderViewId, memoryReaderView);
 

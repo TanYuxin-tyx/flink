@@ -1,8 +1,8 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.service;
 
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerViewProvider;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 
 import java.io.IOException;
@@ -29,20 +29,20 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         List<TierWriter> registeredTiers = new ArrayList<>();
-        List<TierReaderView> registeredTierReaderViews = new ArrayList<>();
+        List<NettyBasedTierConsumerView> registeredTierConsumerViews = new ArrayList<>();
         for (TierWriter tierWriter : tierWriters) {
             if (tierWriter instanceof NettyBasedTierConsumerViewProvider) {
-                NettyBasedTierConsumerViewProvider nettyBasedTierConsumerViewProvider =
+                NettyBasedTierConsumerViewProvider tierConsumerViewProvider =
                         (NettyBasedTierConsumerViewProvider) tierWriter;
-                TierReaderView tierReaderView =
+                NettyBasedTierConsumerView nettyBasedTierConsumerView =
                         checkNotNull(
-                                nettyBasedTierConsumerViewProvider.createTierReaderView(
+                                tierConsumerViewProvider.createTierReaderView(
                                         subpartitionId, availabilityListener));
                 registeredTiers.add(tierWriter);
-                registeredTierReaderViews.add(tierReaderView);
+                registeredTierConsumerViews.add(nettyBasedTierConsumerView);
             }
         }
         return new TieredStoreResultSubpartitionView(
-                subpartitionId, availabilityListener, registeredTiers, registeredTierReaderViews);
+                subpartitionId, availabilityListener, registeredTiers, registeredTierConsumerViews);
     }
 }

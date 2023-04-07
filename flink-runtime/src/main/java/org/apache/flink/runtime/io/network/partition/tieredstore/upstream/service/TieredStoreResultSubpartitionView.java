@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.servi
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreConsumerFailureCause;
 
@@ -44,7 +44,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final List<TierWriter> registeredTiers;
 
-    private final List<TierReaderView> registeredTierReaderViews;
+    private final List<NettyBasedTierConsumerView> registeredTierConsumerViews;
 
     private boolean isReleased = false;
 
@@ -60,11 +60,11 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
             List<TierWriter> registeredTiers,
-            List<TierReaderView> registeredTierReaderViews) {
+            List<NettyBasedTierConsumerView> registeredTierConsumerViews) {
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
         this.registeredTiers = registeredTiers;
-        this.registeredTierReaderViews = registeredTierReaderViews;
+        this.registeredTierConsumerViews = registeredTierConsumerViews;
     }
 
     @Nullable
@@ -74,7 +74,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return null;
         }
         BufferAndBacklog bufferAndBacklog =
-                registeredTierReaderViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
+                registeredTierConsumerViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
         if (bufferAndBacklog != null) {
             stopSendingData = bufferAndBacklog.buffer().getDataType() == SEGMENT_EVENT;
             bufferAndBacklog.setSequenceNumber(currentSequenceNumber);
@@ -87,7 +87,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable) {
         if (findTierReaderViewIndex()) {
-            return registeredTierReaderViews
+            return registeredTierConsumerViews
                     .get(viewIndexContainsCurrentSegment)
                     .getAvailabilityAndBacklog(numCreditsAvailable);
         }
@@ -107,10 +107,10 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return;
         }
         isReleased = true;
-        for (TierReaderView tierReaderView : registeredTierReaderViews) {
-            tierReaderView.release();
+        for (NettyBasedTierConsumerView nettyBasedTierConsumerView : registeredTierConsumerViews) {
+            nettyBasedTierConsumerView.release();
         }
-        registeredTierReaderViews.clear();
+        registeredTierConsumerViews.clear();
         registeredTiers.clear();
     }
 
@@ -122,8 +122,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     @Override
     public Throwable getFailureCause() {
         TieredStoreConsumerFailureCause failureCause = new TieredStoreConsumerFailureCause();
-        for (TierReaderView tierReaderView : registeredTierReaderViews) {
-            failureCause.appendException(tierReaderView.getFailureCause());
+        for (NettyBasedTierConsumerView nettyBasedTierConsumerView : registeredTierConsumerViews) {
+            failureCause.appendException(nettyBasedTierConsumerView.getFailureCause());
         }
         return failureCause.isEmpty() ? null : failureCause;
     }
@@ -131,7 +131,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
         findTierReaderViewIndex();
-        return registeredTierReaderViews
+        return registeredTierConsumerViews
                 .get(viewIndexContainsCurrentSegment)
                 .unsynchronizedGetNumberOfQueuedBuffers();
     }
@@ -139,7 +139,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     @Override
     public int getNumberOfQueuedBuffers() {
         findTierReaderViewIndex();
-        return registeredTierReaderViews
+        return registeredTierConsumerViews
                 .get(viewIndexContainsCurrentSegment)
                 .getNumberOfQueuedBuffers();
     }
@@ -171,8 +171,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     // -------------------------------
 
     private boolean findTierReaderViewIndex() {
-        for (TierReaderView tierReaderView : registeredTierReaderViews) {
-            tierReaderView.updateNeedNotifyStatus();
+        for (NettyBasedTierConsumerView nettyBasedTierConsumerView : registeredTierConsumerViews) {
+            nettyBasedTierConsumerView.updateNeedNotifyStatus();
         }
         for (int viewIndex = 0; viewIndex < registeredTiers.size(); viewIndex++) {
             TierWriter tieredDataGate = registeredTiers.get(viewIndex);

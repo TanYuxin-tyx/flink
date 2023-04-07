@@ -20,8 +20,8 @@ package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.commo
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReader;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumer;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 
@@ -31,28 +31,35 @@ import java.nio.channels.FileChannel;
 import java.util.Queue;
 import java.util.function.Consumer;
 
-/** The {@link ProducerMergePartitionTierReader} is used to consume shuffle data that's merged by producer. */
-public interface ProducerMergePartitionTierReader extends Comparable<ProducerMergePartitionTierReader>, TierReader {
+/**
+ * The {@link ProducerMergePartitionTierConsumer} is used to consume shuffle data that's merged by
+ * producer.
+ */
+public interface ProducerMergePartitionTierConsumer
+        extends Comparable<ProducerMergePartitionTierConsumer>, NettyBasedTierConsumer {
 
-    /** Do prep work before this {@link ProducerMergePartitionTierReader} is scheduled to read data. */
+    /**
+     * Do prep work before this {@link ProducerMergePartitionTierConsumer} is scheduled to read
+     * data.
+     */
     void prepareForScheduling();
 
     /** Read data from disk. */
     void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler) throws IOException;
 
-    /** Fail this {@link ProducerMergePartitionTierReader} caused by failureCause. */
+    /** Fail this {@link ProducerMergePartitionTierConsumer} caused by failureCause. */
     void fail(Throwable failureCause);
 
-    /** Factory to create {@link ProducerMergePartitionTierReader}. */
+    /** Factory to create {@link ProducerMergePartitionTierConsumer}. */
     interface Factory {
-        ProducerMergePartitionTierReader createFileReader(
+        ProducerMergePartitionTierConsumer createFileReader(
                 int subpartitionId,
                 TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
-                TierReaderView tierReaderView,
+                NettyBasedTierConsumerView tierConsumerView,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
-                Consumer<ProducerMergePartitionTierReader> fileReaderReleaser,
+                Consumer<ProducerMergePartitionTierConsumer> fileReaderReleaser,
                 ByteBuffer headerBuffer);
     }
 }

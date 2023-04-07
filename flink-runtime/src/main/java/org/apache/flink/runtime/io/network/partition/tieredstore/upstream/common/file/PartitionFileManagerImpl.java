@@ -61,8 +61,8 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
     public PartitionFileWriter createPartitionFileWriter(PartitionFileType partitionFileType) {
         switch (partitionFileType) {
             case PRODUCER_MERGE:
-                return new ProducerMergePartitionFileWriter(producerMergeShuffleFilePath,
-                        producerMergeIndex);
+                return new ProducerMergePartitionFileWriter(
+                        producerMergeShuffleFilePath, producerMergeIndex);
             case PRODUCER_HASH:
                 return new HashPartitionFileWriter(
                         jobID, numSubpartitions, resultPartitionID, hashShuffleDataPath);
@@ -81,7 +81,7 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
                         readIOExecutor,
                         producerMergeIndex,
                         producerMergeShuffleFilePath,
-                        ProducerMergePartitionTierReaderImpl.Factory.INSTANCE,
+                        ProducerMergePartitionTierConsumerImpl.Factory.INSTANCE,
                         storeConfiguration);
         }
         throw new UnsupportedOperationException(

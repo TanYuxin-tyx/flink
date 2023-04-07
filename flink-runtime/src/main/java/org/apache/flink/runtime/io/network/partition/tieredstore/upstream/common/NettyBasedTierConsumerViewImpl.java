@@ -32,8 +32,8 @@ import java.util.Optional;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The implementation of {@link TierReaderView}. */
-public class TierReaderViewImpl implements TierReaderView {
+/** The implementation of {@link NettyBasedTierConsumerView}. */
+public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerView {
 
     private final Object viewLock = new Object();
 
@@ -58,17 +58,19 @@ public class TierReaderViewImpl implements TierReaderView {
 
     @Nullable
     @GuardedBy("viewLock")
-    private TierReader tierReader;
+    private NettyBasedTierConsumer nettyBasedTierConsumer;
 
-    public TierReaderViewImpl(BufferAvailabilityListener availabilityListener) {
+    public NettyBasedTierConsumerViewImpl(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 
     @Override
-    public void setTierReader(TierReader tierReader) {
+    public void setTierReader(NettyBasedTierConsumer nettyBasedTierConsumer) {
         synchronized (viewLock) {
-            checkState(this.tierReader == null, "Repeatedly set tier reader is not allowed.");
-            this.tierReader = tierReader;
+            checkState(
+                    this.nettyBasedTierConsumer == null,
+                    "Repeatedly set tier reader is not allowed.");
+            this.nettyBasedTierConsumer = nettyBasedTierConsumer;
         }
     }
 
@@ -77,9 +79,9 @@ public class TierReaderViewImpl implements TierReaderView {
     public BufferAndBacklog getNextBuffer() throws IOException {
         try {
             synchronized (viewLock) {
-                checkNotNull(tierReader, "Tier reader must be not null.");
+                checkNotNull(nettyBasedTierConsumer, "Tier reader must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume =
-                        tierReader.getNextBuffer(consumingOffset + 1);
+                        nettyBasedTierConsumer.getNextBuffer(consumingOffset + 1);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.map(this::handleBacklog).orElse(null);
             }
@@ -180,19 +182,19 @@ public class TierReaderViewImpl implements TierReaderView {
 
     @SuppressWarnings("FieldAccessNotGuarded")
     private int getSubpartitionBacklog() {
-        if (tierReader == null) {
+        if (nettyBasedTierConsumer == null) {
             return 0;
         }
-        return tierReader.getBacklog();
+        return nettyBasedTierConsumer.getBacklog();
     }
 
     private BufferAndBacklog handleBacklog(BufferAndBacklog bufferToConsume) {
         return bufferToConsume.buffersInBacklog() == 0
                 ? new BufferAndBacklog(
-                bufferToConsume.buffer(),
-                getSubpartitionBacklog(),
-                bufferToConsume.getNextDataType(),
-                bufferToConsume.getSequenceNumber())
+                        bufferToConsume.buffer(),
+                        getSubpartitionBacklog(),
+                        bufferToConsume.getNextDataType(),
+                        bufferToConsume.getSequenceNumber())
                 : bufferToConsume;
     }
 
@@ -222,10 +224,10 @@ public class TierReaderViewImpl implements TierReaderView {
             }
             isReleased = true;
             failureCause = throwable;
-            releaseTierReader = tierReader != null;
+            releaseTierReader = nettyBasedTierConsumer != null;
         }
         if (releaseTierReader) {
-            tierReader.release();
+            nettyBasedTierConsumer.release();
         }
     }
 }

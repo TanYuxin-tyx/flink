@@ -36,34 +36,34 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Tests for {@link TierReaderView}. */
-class TierReaderViewTest {
+/** Tests for {@link NettyBasedTierConsumerView}. */
+class NettyBasedTierConsumerViewTest {
 
     @Test
     void testGetNextBuffer() throws IOException {
-        TierReaderView tierReaderView = createTierReaderView();
+        NettyBasedTierConsumerView nettyBasedTierConsumerView = createTierReaderView();
         BufferAndBacklog bufferAndBacklog = createBufferAndBacklog(1, DataType.DATA_BUFFER, 0);
-        TestingTierReader testingTierReader =
-                TestingTierReader.builder()
+        TestingNettyBasedTierConsumer testingTierReader =
+                TestingNettyBasedTierConsumer.builder()
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(bufferAndBacklog))
                         .build();
-        tierReaderView.setTierReader(testingTierReader);
-        BufferAndBacklog nextBuffer = tierReaderView.getNextBuffer();
+        nettyBasedTierConsumerView.setTierReader(testingTierReader);
+        BufferAndBacklog nextBuffer = nettyBasedTierConsumerView.getNextBuffer();
         assertThat(nextBuffer).isSameAs(bufferAndBacklog);
     }
 
     @Test
     void testGetNextDataTypeIsNone() throws IOException {
-        TierReaderView tierReaderView = createTierReaderView();
+        NettyBasedTierConsumerView nettyBasedTierConsumerView = createTierReaderView();
         BufferAndBacklog bufferAndBacklog = createBufferAndBacklog(0, DataType.NONE, 0);
-        TestingTierReader testingTierReader =
-                TestingTierReader.builder()
+        TestingNettyBasedTierConsumer testingTierReader =
+                TestingNettyBasedTierConsumer.builder()
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(bufferAndBacklog))
                         .build();
-        tierReaderView.setTierReader(testingTierReader);
-        BufferAndBacklog nextBuffer = tierReaderView.getNextBuffer();
+        nettyBasedTierConsumerView.setTierReader(testingTierReader);
+        BufferAndBacklog nextBuffer = nettyBasedTierConsumerView.getNextBuffer();
         assertThat(nextBuffer).isNotNull();
         assertThat(nextBuffer.buffer()).isSameAs(bufferAndBacklog.buffer());
         assertThat(nextBuffer.buffersInBacklog()).isEqualTo(bufferAndBacklog.buffersInBacklog());
@@ -73,32 +73,32 @@ class TierReaderViewTest {
 
     @Test
     void testGetNextBufferThrowException() {
-        TierReaderView tierReaderView = createTierReaderView();
-        TestingTierReader testingTierReader =
-                TestingTierReader.builder()
+        NettyBasedTierConsumerView nettyBasedTierConsumerView = createTierReaderView();
+        TestingNettyBasedTierConsumer testingTierReader =
+                TestingNettyBasedTierConsumer.builder()
                         .setConsumeBufferFunction(
                                 (nextToConsume) -> {
                                     throw new RuntimeException("expected exception.");
                                 })
                         .build();
-        tierReaderView.setTierReader(testingTierReader);
-        assertThatThrownBy(tierReaderView::getNextBuffer)
+        nettyBasedTierConsumerView.setTierReader(testingTierReader);
+        assertThatThrownBy(nettyBasedTierConsumerView::getNextBuffer)
                 .hasStackTraceContaining("expected exception.");
     }
 
     @Test
     void testGetNextBufferZeroBacklog() throws IOException {
-        TierReaderView tierReaderView = createTierReaderView();
+        NettyBasedTierConsumerView nettyBasedTierConsumerView = createTierReaderView();
         int backlog = 0;
         BufferAndBacklog targetBufferAndBacklog =
                 createBufferAndBacklog(backlog, DataType.DATA_BUFFER, 0);
-        TestingTierReader testingTierReader =
-                TestingTierReader.builder()
+        TestingNettyBasedTierConsumer testingTierReader =
+                TestingNettyBasedTierConsumer.builder()
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(targetBufferAndBacklog))
                         .build();
-        tierReaderView.setTierReader(testingTierReader);
-        assertThat(tierReaderView.getNextBuffer())
+        nettyBasedTierConsumerView.setTierReader(testingTierReader);
+        assertThat(nettyBasedTierConsumerView.getNextBuffer())
                 .satisfies(
                         (bufferAndBacklog -> {
                             // backlog is reset to maximum backlog of memory and disk.
@@ -116,48 +116,50 @@ class TierReaderViewTest {
     @Test
     void testNotifyDataAvailableNeedNotify() throws IOException {
         CompletableFuture<Void> notifyAvailableFuture = new CompletableFuture<>();
-        TierReaderView tierReaderView =
+        NettyBasedTierConsumerView nettyBasedTierConsumerView =
                 createTierReaderView(() -> notifyAvailableFuture.complete(null));
-        tierReaderView.setTierReader(TestingTierReader.NO_OP);
-        tierReaderView.getNextBuffer();
-        tierReaderView.notifyDataAvailable();
+        nettyBasedTierConsumerView.setTierReader(TestingNettyBasedTierConsumer.NO_OP);
+        nettyBasedTierConsumerView.getNextBuffer();
+        nettyBasedTierConsumerView.notifyDataAvailable();
         assertThat(notifyAvailableFuture).isCompleted();
     }
 
     @Test
     void testNotifyDataAvailableNotNeedNotify() throws IOException {
         CompletableFuture<Void> notifyAvailableFuture = new CompletableFuture<>();
-        TierReaderView tierReaderView =
+        NettyBasedTierConsumerView nettyBasedTierConsumerView =
                 createTierReaderView(() -> notifyAvailableFuture.complete(null));
-        tierReaderView.setTierReader(TestingTierReader.NO_OP);
-        tierReaderView.getNextBuffer();
-        tierReaderView.notifyDataAvailable();
+        nettyBasedTierConsumerView.setTierReader(TestingNettyBasedTierConsumer.NO_OP);
+        nettyBasedTierConsumerView.getNextBuffer();
+        nettyBasedTierConsumerView.notifyDataAvailable();
         assertThat(notifyAvailableFuture).isCompleted();
     }
 
     @Test
     void testGetZeroBacklogNeedNotify() {
         CompletableFuture<Void> notifyAvailableFuture = new CompletableFuture<>();
-        TierReaderView tierReaderView =
+        NettyBasedTierConsumerView nettyBasedTierConsumerView =
                 createTierReaderView(() -> notifyAvailableFuture.complete(null));
-        tierReaderView.setTierReader(
-                TestingTierReader.builder().setGetBacklogSupplier(() -> 0).build());
+        nettyBasedTierConsumerView.setTierReader(
+                TestingNettyBasedTierConsumer.builder().setGetBacklogSupplier(() -> 0).build());
         AvailabilityWithBacklog availabilityAndBacklog =
-                tierReaderView.getAvailabilityAndBacklog(0);
+                nettyBasedTierConsumerView.getAvailabilityAndBacklog(0);
         assertThat(availabilityAndBacklog.getBacklog()).isZero();
         assertThat(notifyAvailableFuture).isNotCompleted();
-        tierReaderView.notifyDataAvailable();
+        nettyBasedTierConsumerView.notifyDataAvailable();
         assertThat(notifyAvailableFuture).isCompleted();
     }
 
     @Test
     void testGetAvailabilityAndBacklogPositiveCredit() {
-        TierReaderView tierReaderView = createTierReaderView();
+        NettyBasedTierConsumerView nettyBasedTierConsumerView = createTierReaderView();
         int backlog = 2;
-        tierReaderView.setTierReader(
-                TestingTierReader.builder().setGetBacklogSupplier(() -> backlog).build());
+        nettyBasedTierConsumerView.setTierReader(
+                TestingNettyBasedTierConsumer.builder()
+                        .setGetBacklogSupplier(() -> backlog)
+                        .build());
         AvailabilityWithBacklog availabilityAndBacklog =
-                tierReaderView.getAvailabilityAndBacklog(1);
+                nettyBasedTierConsumerView.getAvailabilityAndBacklog(1);
         assertThat(availabilityAndBacklog.getBacklog()).isEqualTo(backlog);
         // positive credit always available.
         assertThat(availabilityAndBacklog.isAvailable()).isTrue();
@@ -166,12 +168,14 @@ class TierReaderViewTest {
     @Test
     void testGetAvailabilityAndBacklogNonPositiveCreditNextIsData() throws IOException {
         int backlog = 2;
-        TierReaderView tierReaderView = createTierReaderView();
-        tierReaderView.setTierReader(
-                TestingTierReader.builder().setGetBacklogSupplier(() -> backlog).build());
-        tierReaderView.getNextBuffer();
+        NettyBasedTierConsumerView nettyBasedTierConsumerView = createTierReaderView();
+        nettyBasedTierConsumerView.setTierReader(
+                TestingNettyBasedTierConsumer.builder()
+                        .setGetBacklogSupplier(() -> backlog)
+                        .build());
+        nettyBasedTierConsumerView.getNextBuffer();
         AvailabilityWithBacklog availabilityAndBacklog =
-                tierReaderView.getAvailabilityAndBacklog(0);
+                nettyBasedTierConsumerView.getAvailabilityAndBacklog(0);
         assertThat(availabilityAndBacklog.getBacklog()).isEqualTo(backlog);
         // if credit is non-positive, only event can be available.
         assertThat(availabilityAndBacklog.isAvailable()).isFalse();
@@ -180,36 +184,38 @@ class TierReaderViewTest {
     @Test
     void testGetAvailabilityAndBacklogNonPositiveCreditNextIsEvent() throws IOException {
         int backlog = 2;
-        TierReaderView tierReaderView = createTierReaderView();
-        tierReaderView.setTierReader(
-                TestingTierReader.builder().setGetBacklogSupplier(() -> backlog).build());
-        tierReaderView.getNextBuffer();
+        NettyBasedTierConsumerView nettyBasedTierConsumerView = createTierReaderView();
+        nettyBasedTierConsumerView.setTierReader(
+                TestingNettyBasedTierConsumer.builder()
+                        .setGetBacklogSupplier(() -> backlog)
+                        .build());
+        nettyBasedTierConsumerView.getNextBuffer();
         AvailabilityWithBacklog availabilityAndBacklog =
-                tierReaderView.getAvailabilityAndBacklog(0);
+                nettyBasedTierConsumerView.getAvailabilityAndBacklog(0);
         assertThat(availabilityAndBacklog.getBacklog()).isEqualTo(backlog);
         assertThat(availabilityAndBacklog.isAvailable()).isFalse();
     }
 
     @Test
     void testRelease() throws Exception {
-        TierReaderView tierReaderView = createTierReaderView();
+        NettyBasedTierConsumerView nettyBasedTierConsumerView = createTierReaderView();
         CompletableFuture<Void> releaseFuture = new CompletableFuture<>();
-        TestingTierReader testingTierReader =
-                TestingTierReader.builder()
+        TestingNettyBasedTierConsumer testingTierReader =
+                TestingNettyBasedTierConsumer.builder()
                         .setReleaseDataViewRunnable(() -> releaseFuture.complete(null))
                         .build();
-        tierReaderView.setTierReader(testingTierReader);
-        tierReaderView.release();
-        assertThat(tierReaderView.isReleased()).isTrue();
+        nettyBasedTierConsumerView.setTierReader(testingTierReader);
+        nettyBasedTierConsumerView.release();
+        assertThat(nettyBasedTierConsumerView.isReleased()).isTrue();
         assertThat(releaseFuture).isCompleted();
     }
 
     @Test
     void testGetConsumingOffset() throws IOException {
         AtomicInteger nextBufferIndex = new AtomicInteger(0);
-        TierReaderView tierReaderView = createTierReaderView();
-        TestingTierReader testingTierReader =
-                TestingTierReader.builder()
+        NettyBasedTierConsumerView nettyBasedTierConsumerView = createTierReaderView();
+        TestingNettyBasedTierConsumer testingTierReader =
+                TestingNettyBasedTierConsumer.builder()
                         .setConsumeBufferFunction(
                                 (toConsumeBuffer) ->
                                         Optional.of(
@@ -218,21 +224,21 @@ class TierReaderViewTest {
                                                         DataType.DATA_BUFFER,
                                                         nextBufferIndex.getAndIncrement())))
                         .build();
-        tierReaderView.setTierReader(testingTierReader);
-        assertThat(tierReaderView.getConsumingOffset(true)).isEqualTo(-1);
-        tierReaderView.getNextBuffer();
-        assertThat(tierReaderView.getConsumingOffset(true)).isEqualTo(0);
-        tierReaderView.getNextBuffer();
-        assertThat(tierReaderView.getConsumingOffset(true)).isEqualTo(1);
+        nettyBasedTierConsumerView.setTierReader(testingTierReader);
+        assertThat(nettyBasedTierConsumerView.getConsumingOffset(true)).isEqualTo(-1);
+        nettyBasedTierConsumerView.getNextBuffer();
+        assertThat(nettyBasedTierConsumerView.getConsumingOffset(true)).isEqualTo(0);
+        nettyBasedTierConsumerView.getNextBuffer();
+        assertThat(nettyBasedTierConsumerView.getConsumingOffset(true)).isEqualTo(1);
     }
 
-    private static TierReaderView createTierReaderView() {
-        return new TierReaderViewImpl(new NoOpBufferAvailablityListener());
+    private static NettyBasedTierConsumerView createTierReaderView() {
+        return new NettyBasedTierConsumerViewImpl(new NoOpBufferAvailablityListener());
     }
 
-    private static TierReaderView createTierReaderView(
+    private static NettyBasedTierConsumerView createTierReaderView(
             BufferAvailabilityListener bufferAvailabilityListener) {
-        return new TierReaderViewImpl(bufferAvailabilityListener);
+        return new NettyBasedTierConsumerViewImpl(bufferAvailabilityListener);
     }
 
     private static BufferAndBacklog createBufferAndBacklog(

@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Tests for {@link TierReaderViewId}. */
-class TierReaderViewIdTest {
+class NettyBasedTierConsumerViewIdTest {
 
     @Test
     void testNewIdFromNull() {

@@ -35,7 +35,7 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** The test for {@link LocalTierReader}. */
-public class TierReaderTest {
+public class NettyBasedTierConsumerTest {
 
     private static final int SEGMENT_ID = 0;
 

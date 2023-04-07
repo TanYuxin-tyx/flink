@@ -24,10 +24,14 @@ import org.apache.flink.util.function.FunctionWithException;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-/** The {@link TestingTierReader} is used to mock the implementation of {@link TierReader}. */
-public class TestingTierReader implements TierReader {
+/**
+ * The {@link TestingNettyBasedTierConsumer} is used to mock the implementation of {@link
+ * NettyBasedTierConsumer}.
+ */
+public class TestingNettyBasedTierConsumer implements NettyBasedTierConsumer {
 
-    public static final TestingTierReader NO_OP = TestingTierReader.builder().build();
+    public static final TestingNettyBasedTierConsumer NO_OP =
+            TestingNettyBasedTierConsumer.builder().build();
 
     private final FunctionWithException<
                     Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
@@ -37,7 +41,7 @@ public class TestingTierReader implements TierReader {
 
     private final Runnable releaseRunnable;
 
-    private TestingTierReader(
+    private TestingNettyBasedTierConsumer(
             FunctionWithException<Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
                     consumeBufferFunction,
             Supplier<Integer> getBacklogSupplier,
@@ -67,7 +71,7 @@ public class TestingTierReader implements TierReader {
         releaseRunnable.run();
     }
 
-    /** Builder for {@link TestingTierReader}. */
+    /** Builder for {@link TestingNettyBasedTierConsumer}. */
     public static class Builder {
 
         private FunctionWithException<
@@ -98,8 +102,8 @@ public class TestingTierReader implements TierReader {
             return this;
         }
 
-        public TestingTierReader build() {
-            return new TestingTierReader(
+        public TestingNettyBasedTierConsumer build() {
+            return new TestingNettyBasedTierConsumer(
                     consumeBufferFunction, getBacklogSupplier, releaseRunnable);
         }
     }

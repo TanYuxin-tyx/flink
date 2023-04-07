@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.BufferIndexOrError;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderView;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.disk.RegionBufferIndexTracker;
 
@@ -46,11 +46,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * Default implementation of {@link ProducerMergePartitionTierReader}.
+ * Default implementation of {@link ProducerMergePartitionTierConsumer}.
  *
  * <p>Note: This class is not thread safe.
  */
-public class ProducerMergePartitionTierReaderImpl implements ProducerMergePartitionTierReader {
+public class ProducerMergePartitionTierConsumerImpl implements ProducerMergePartitionTierConsumer {
 
     private final ByteBuffer headerBuf;
 
@@ -60,7 +60,7 @@ public class ProducerMergePartitionTierReaderImpl implements ProducerMergePartit
 
     private final FileChannel dataFileChannel;
 
-    private final TierReaderView tierReaderView;
+    private final NettyBasedTierConsumerView tierConsumerView;
 
     private final CachedRegionManager cachedRegionManager;
 
@@ -68,23 +68,23 @@ public class ProducerMergePartitionTierReaderImpl implements ProducerMergePartit
 
     private final Deque<BufferIndexOrError> loadedBuffers = new LinkedBlockingDeque<>();
 
-    private final Consumer<ProducerMergePartitionTierReader> diskTierReaderReleaser;
+    private final Consumer<ProducerMergePartitionTierConsumer> diskTierReaderReleaser;
 
     private volatile boolean isFailed;
 
-    public ProducerMergePartitionTierReaderImpl(
+    public ProducerMergePartitionTierConsumerImpl(
             int subpartitionId,
             TierReaderViewId tierReaderViewId,
             FileChannel dataFileChannel,
-            TierReaderView tierReaderView,
+            NettyBasedTierConsumerView tierConsumerView,
             RegionBufferIndexTracker dataIndex,
             int maxBufferReadAhead,
-            Consumer<ProducerMergePartitionTierReader> diskTierReaderReleaser,
+            Consumer<ProducerMergePartitionTierConsumer> diskTierReaderReleaser,
             ByteBuffer headerBuf) {
         this.subpartitionId = subpartitionId;
         this.tierReaderViewId = tierReaderViewId;
         this.dataFileChannel = dataFileChannel;
-        this.tierReaderView = tierReaderView;
+        this.tierConsumerView = tierConsumerView;
         this.headerBuf = headerBuf;
         this.bufferIndexManager = new BufferIndexManager(maxBufferReadAhead);
         this.cachedRegionManager = new CachedRegionManager(subpartitionId, dataIndex);
@@ -135,7 +135,7 @@ public class ProducerMergePartitionTierReaderImpl implements ProducerMergePartit
             ++numLoaded;
         }
         if (loadedBuffers.size() <= numLoaded) {
-            tierReaderView.notifyDataAvailable();
+            tierConsumerView.notifyDataAvailable();
         }
     }
 
@@ -179,7 +179,7 @@ public class ProducerMergePartitionTierReaderImpl implements ProducerMergePartit
             }
         }
         loadedBuffers.add(BufferIndexOrError.newError(failureCause));
-        tierReaderView.notifyDataAvailable();
+        tierConsumerView.notifyDataAvailable();
     }
 
     @Override
@@ -197,7 +197,7 @@ public class ProducerMergePartitionTierReaderImpl implements ProducerMergePartit
     public void prepareForScheduling() {
         // Access the consuming offset with lock, to prevent loading any buffer released from the
         // memory data manager that is already consumed.
-        int consumingOffset = tierReaderView.getConsumingOffset(true);
+        int consumingOffset = tierConsumerView.getConsumingOffset(true);
         bufferIndexManager.updateLastConsumed(consumingOffset);
         cachedRegionManager.updateConsumingOffset(consumingOffset);
     }
@@ -210,7 +210,7 @@ public class ProducerMergePartitionTierReaderImpl implements ProducerMergePartit
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ProducerMergePartitionTierReaderImpl that = (ProducerMergePartitionTierReaderImpl) o;
+        ProducerMergePartitionTierConsumerImpl that = (ProducerMergePartitionTierConsumerImpl) o;
         return subpartitionId == that.subpartitionId
                 && Objects.equals(tierReaderViewId, that.tierReaderViewId);
     }
@@ -221,10 +221,11 @@ public class ProducerMergePartitionTierReaderImpl implements ProducerMergePartit
     }
 
     @Override
-    public int compareTo(ProducerMergePartitionTierReader that) {
-        checkArgument(that instanceof ProducerMergePartitionTierReaderImpl);
+    public int compareTo(ProducerMergePartitionTierConsumer that) {
+        checkArgument(that instanceof ProducerMergePartitionTierConsumerImpl);
         return Long.compare(
-                getNextOffsetToLoad(), ((ProducerMergePartitionTierReaderImpl) that).getNextOffsetToLoad());
+                getNextOffsetToLoad(),
+                ((ProducerMergePartitionTierConsumerImpl) that).getNextOffsetToLoad());
     }
 
     @Override
@@ -396,28 +397,28 @@ public class ProducerMergePartitionTierReaderImpl implements ProducerMergePartit
         }
     }
 
-    /** Factory of {@link ProducerMergePartitionTierReader}. */
-    public static class Factory implements ProducerMergePartitionTierReader.Factory {
+    /** Factory of {@link ProducerMergePartitionTierConsumer}. */
+    public static class Factory implements ProducerMergePartitionTierConsumer.Factory {
 
         public static final Factory INSTANCE = new Factory();
 
         private Factory() {}
 
         @Override
-        public ProducerMergePartitionTierReader createFileReader(
+        public ProducerMergePartitionTierConsumer createFileReader(
                 int subpartitionId,
                 TierReaderViewId tierReaderViewId,
                 FileChannel dataFileChannel,
-                TierReaderView tierReaderView,
+                NettyBasedTierConsumerView tierConsumerView,
                 RegionBufferIndexTracker dataIndex,
                 int maxBuffersReadAhead,
-                Consumer<ProducerMergePartitionTierReader> fileReaderReleaser,
+                Consumer<ProducerMergePartitionTierConsumer> fileReaderReleaser,
                 ByteBuffer headerBuffer) {
-            return new ProducerMergePartitionTierReaderImpl(
+            return new ProducerMergePartitionTierConsumerImpl(
                     subpartitionId,
                     tierReaderViewId,
                     dataFileChannel,
-                    tierReaderView,
+                    tierConsumerView,
                     dataIndex,
                     maxBuffersReadAhead,
                     fileReaderReleaser,

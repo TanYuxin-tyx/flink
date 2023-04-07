@@ -18,13 +18,13 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.tier.local.memory;
 
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.NettyBasedTierConsumerImpl;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierReaderViewId;
 
 import java.util.concurrent.locks.Lock;
 
-/** The {@link MemoryTierReader} is used to consume data from Memory Tier. */
-public class MemoryTierReader extends TierReaderImpl {
+/** The {@link MemoryTierConsumer} is used to consume data from Memory Tier. */
+public class MemoryTierConsumer extends NettyBasedTierConsumerImpl {
 
     private final TierReaderViewId tierReaderViewId;
 
@@ -32,7 +32,7 @@ public class MemoryTierReader extends TierReaderImpl {
 
     private final MemoryDataWriterOperation memoryDataWriterOperation;
 
-    public MemoryTierReader(
+    public MemoryTierConsumer(
             Lock consumerLock,
             int subpartitionId,
             TierReaderViewId tierReaderViewId,

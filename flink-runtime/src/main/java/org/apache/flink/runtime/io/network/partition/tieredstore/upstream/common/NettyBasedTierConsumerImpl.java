@@ -31,14 +31,17 @@ import java.util.concurrent.locks.Lock;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The {@link TierReaderImpl} is the default implementation of {@link TierReader}. */
-public abstract class TierReaderImpl implements TierReader {
+/**
+ * The {@link NettyBasedTierConsumerImpl} is the default implementation of {@link
+ * NettyBasedTierConsumer}.
+ */
+public abstract class NettyBasedTierConsumerImpl implements NettyBasedTierConsumer {
 
     protected final Deque<BufferContext> unConsumedBuffers = new LinkedList<>();
 
     private final Lock readerLock;
 
-    public TierReaderImpl(Lock readerLock) {
+    public NettyBasedTierConsumerImpl(Lock readerLock) {
         this.readerLock = readerLock;
     }
 

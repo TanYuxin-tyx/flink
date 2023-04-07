@@ -25,8 +25,8 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-/** The {@link TierReaderView} is the view of {@link TierReader}. */
-public interface TierReaderView {
+/** The {@link NettyBasedTierConsumerView} is the view of {@link NettyBasedTierConsumer}. */
+public interface NettyBasedTierConsumerView {
 
     @Nullable
     ResultSubpartition.BufferAndBacklog getNextBuffer() throws IOException;
@@ -34,7 +34,7 @@ public interface TierReaderView {
     ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable);
 
-    void setTierReader(TierReader tierReader);
+    void setTierReader(NettyBasedTierConsumer nettyBasedTierConsumer);
 
     void updateNeedNotifyStatus();
 
