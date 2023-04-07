@@ -18,8 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream;
 
-import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.network.api.EndOfData;
@@ -51,9 +49,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
@@ -75,7 +71,7 @@ public class TieredStoreResultPartition extends ResultPartition {
 
     private final CacheFlushManager cacheFlushManager;
 
-    private final TierWriter[] allTiers;
+    private final TierWriter[] tierWriters;
 
     private TieredStoreProducer tieredStoreProducer;
 
@@ -112,7 +108,7 @@ public class TieredStoreResultPartition extends ResultPartition {
 
         this.networkBufferSize = networkBufferSize;
         this.isBroadcast = isBroadcast;
-        this.allTiers = tierWriters;
+        this.tierWriters = tierWriters;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.tierExclusiveBuffers = new HashMap<>();
         this.cacheFlushManager = new CacheFlushManager();
@@ -127,13 +123,13 @@ public class TieredStoreResultPartition extends ResultPartition {
         tieredStoreMemoryManager.setBufferPool(bufferPool);
         tieredStoreProducer =
                 new TieredStoreProducerImpl(
-                        allTiers,
+                        tierWriters,
                         numSubpartitions,
                         networkBufferSize,
                         isBroadcast,
                         tieredStoreMemoryManager,
                         bufferCompressor);
-        tieredStoreNettyService = new TieredStoreNettyServiceImpl(allTiers);
+        tieredStoreNettyService = new TieredStoreNettyServiceImpl(tierWriters);
     }
 
     @Override
@@ -284,14 +280,5 @@ public class TieredStoreResultPartition extends ResultPartition {
             broadcastEvent(new EndOfData(mode), false);
             hasNotifiedEndOfUserRecords = true;
         }
-    }
-
-    @VisibleForTesting
-    public List<Path> getBaseSubpartitionPath(int subpartitionId) {
-        List<Path> paths = new ArrayList<>();
-        for (TierWriter tierDataGate : allTiers) {
-            paths.add(tierDataGate.getBaseSubpartitionPath(subpartitionId));
-        }
-        return paths;
     }
 }
