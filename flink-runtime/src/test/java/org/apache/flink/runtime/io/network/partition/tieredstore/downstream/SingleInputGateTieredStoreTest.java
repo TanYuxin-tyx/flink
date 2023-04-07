@@ -78,6 +78,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateBui
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
 import org.apache.flink.runtime.io.network.partition.consumer.TestInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.UnknownInputChannel;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreShuffleEnvironment;
 import org.apache.flink.runtime.io.network.util.TestTaskEvent;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -1170,13 +1171,18 @@ public class SingleInputGateTieredStoreTest extends InputGateTestBase {
         final int numInputChannels = 3;
 
         for (int i = 0; i < numSingleInputGates; i++) {
+            TieredStoreShuffleEnvironment storeShuffleEnvironment =
+                    new TieredStoreShuffleEnvironment(null, null);
+            StorageTierReaderFactory storageTierReaderFactory =
+                    storeShuffleEnvironment.createStorageTierReaderFactory(null, null, null);
+
             final SingleInputGate gate =
                     new SingleInputGateBuilder()
                             .setSingleInputGateIndex(i)
                             .setNumberOfChannels(numInputChannels)
                             .setTieredStoreReader(
                                     new TieredStoreReaderImpl(
-                                            null, null, null, null, null, numInputChannels))
+                                            numInputChannels, storageTierReaderFactory))
                             .build();
 
             int channelCounter = 0;
@@ -1293,7 +1299,8 @@ public class SingleInputGateTieredStoreTest extends InputGateTestBase {
                                 InputGateSpecUtils.DEFAULT_MAX_REQUIRED_BUFFERS_PER_GATE_FOR_BATCH);
         nettyShuffleEnvironmentBuilder.setMaxRequiredBuffersPerGate(
                 expectMaxRequiredBuffersPerGate);
-        NettyShuffleEnvironment netEnv = nettyShuffleEnvironmentBuilder.setUsingTieredStore(true).build();
+        NettyShuffleEnvironment netEnv =
+                nettyShuffleEnvironmentBuilder.setUsingTieredStore(true).build();
 
         SingleInputGate gate =
                 createSingleInputGate(

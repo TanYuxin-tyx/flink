@@ -1,12 +1,8 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.downstream;
 
-import org.apache.flink.api.common.JobID;
-import org.apache.flink.core.memory.MemorySegmentProvider;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -17,24 +13,13 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
 
     private final int numInputChannels;
 
-    private final TierClientFactory clientFactory;
+    private final StorageTierReaderFactory clientFactory;
 
     public TieredStoreReaderImpl(
-            JobID jobID,
-            List<ResultPartitionID> resultPartitionIDs,
-            MemorySegmentProvider memorySegmentProvider,
-            List<Integer> subpartitionIndexes,
-            String baseRemoteStoragePath,
-            int numInputChannels) {
+            int numInputChannels, StorageTierReaderFactory storageTierReaderFactory) {
         this.numInputChannels = numInputChannels;
         this.subpartitionReaders = new SubpartitionReader[numInputChannels];
-        this.clientFactory =
-                new TierClientFactory(
-                        jobID,
-                        resultPartitionIDs,
-                        memorySegmentProvider,
-                        subpartitionIndexes,
-                        baseRemoteStoragePath);
+        this.clientFactory = storageTierReaderFactory;
     }
 
     @Override

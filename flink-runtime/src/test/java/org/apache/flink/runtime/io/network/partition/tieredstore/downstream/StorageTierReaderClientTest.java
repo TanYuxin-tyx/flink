@@ -34,8 +34,8 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TieredStoreUtils.writeSegmentFinishFile;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** The test for {@link LocalTierClient}. */
-public class TierClientTest {
+/** The test for {@link LocalStorageTierReaderClient}. */
+public class StorageTierReaderClientTest {
 
     private static final int SEGMENT_ID = 0;
 
@@ -65,7 +65,7 @@ public class TierClientTest {
 
     @Test
     void testSingleChannelLocalTierClient() throws IOException, InterruptedException {
-        LocalTierClient localTierClient = new LocalTierClient();
+        LocalStorageTierReaderClient localTierClient = new LocalStorageTierReaderClient();
         final SingleInputGate inputGate = createSingleInputGate(2);
         InputChannel inputChannel1 =
                 new InputChannelBuilder().setChannelIndex(0).buildRemoteRecoveredChannel(inputGate);
@@ -95,8 +95,8 @@ public class TierClientTest {
                         Collections.singletonList(RESULT_PARTITION_ID),
                         baseRemoteStoragePath,
                         Collections.singletonList(SUBPARTITION_INDEX));
-        RemoteTierClient remoteTierClient =
-                new RemoteTierClient(
+        RemoteStorageTierReaderClient remoteTierClient =
+                new RemoteStorageTierReaderClient(
                         new DownstreamTieredStoreMemoryManager(new NetworkBufferPool(1, 1)),
                         remoteTierMonitor);
         InputChannel targetInputChannel =
@@ -113,7 +113,7 @@ public class TierClientTest {
     }
 
     private void verifyLocalTierClientResult(
-            LocalTierClient client,
+            LocalStorageTierReaderClient client,
             InputChannel inputChannel,
             boolean isPresent,
             Buffer.DataType expectedDataType,
@@ -125,17 +125,17 @@ public class TierClientTest {
         if (buffer.isPresent()) {
             assertThat(buffer.get().buffer().getDataType()).isEqualTo(expectedDataType);
             assertThat(client.getLatestSegmentId()).isEqualTo(segmentId);
-            //assertThat(client.hasRegistered()).isEqualTo(hasRegistered);
+            // assertThat(client.hasRegistered()).isEqualTo(hasRegistered);
             buffer.get().buffer().recycleBuffer();
         } else {
             assertThat(isPresent).isFalse();
             assertThat(client.getLatestSegmentId()).isEqualTo(segmentId);
-            //assertThat(client.hasRegistered()).isEqualTo(hasRegistered);
+            // assertThat(client.hasRegistered()).isEqualTo(hasRegistered);
         }
     }
 
     private void verifyRemoteTierClientResult(
-            RemoteTierClient client,
+            RemoteStorageTierReaderClient client,
             InputChannel inputChannel,
             boolean isPresent,
             Buffer.DataType expectedDataType,

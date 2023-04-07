@@ -94,11 +94,11 @@ class RemoteDiskCacheManagerTest {
                         .createBufferPool(POOL_SIZE, POOL_SIZE);
         TieredStoreMemoryManager tieredStoreMemoryManager =
                 new UpstreamTieredStoreMemoryManager(
-                        localBufferPool,
                         getTierExclusiveBuffers(),
                         NUM_SUBPARTITIONS,
                         NUM_BUFFERS_TRIGGER_FLUSH_RATIO,
                         new CacheFlushManager());
+        tieredStoreMemoryManager.setBufferPool(localBufferPool);
         RemoteCacheManager cacheDataManager =
                 new RemoteCacheManager(
                         NUM_SUBPARTITIONS,

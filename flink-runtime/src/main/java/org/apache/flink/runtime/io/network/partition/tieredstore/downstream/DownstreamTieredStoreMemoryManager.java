@@ -19,14 +19,16 @@ public class DownstreamTieredStoreMemoryManager implements TieredStoreMemoryMana
     private final AtomicInteger numRequestedBuffers = new AtomicInteger(0);
 
     public DownstreamTieredStoreMemoryManager(NetworkBufferPool networkBufferPool) {
-        int numExclusive =
-                HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(TierType.IN_REMOTE);
+        int numExclusive = HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(TierType.IN_REMOTE);
         try {
             this.localBufferPool = networkBufferPool.createBufferPool(numExclusive, numExclusive);
         } catch (IOException e) {
             throw new RuntimeException("Failed to create localBufferPool", e);
         }
     }
+
+    @Override
+    public void setBufferPool(BufferPool bufferPool) {}
 
     @Override
     public int numAvailableBuffers(TierType tierType) {

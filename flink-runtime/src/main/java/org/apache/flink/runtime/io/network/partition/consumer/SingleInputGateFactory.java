@@ -36,8 +36,10 @@ import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvi
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReaderImpl;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreShuffleEnvironment;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.StorageTierReaderFactory;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReader;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReaderImpl;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
@@ -181,14 +183,14 @@ public class SingleInputGateFactory {
                     subpartitionIndexes.add(subpartitionIndex);
                 }
             }
+
+            TieredStoreShuffleEnvironment storeShuffleEnvironment =
+                    new TieredStoreShuffleEnvironment(owner.getJobID(), baseRemoteStoragePath);
+            StorageTierReaderFactory storageTierReaderFactory =
+                    storeShuffleEnvironment.createStorageTierReaderFactory(
+                            resultPartitionIDs, networkBufferPool, subpartitionIndexes);
             tieredStoreReader =
-                    new TieredStoreReaderImpl(
-                            owner.getJobID(),
-                            resultPartitionIDs,
-                            networkBufferPool,
-                            subpartitionIndexes,
-                            baseRemoteStoragePath,
-                            numberOfInputChannels);
+                    new TieredStoreReaderImpl(numberOfInputChannels, storageTierReaderFactory);
         }
 
         SingleInputGate inputGate =

@@ -24,6 +24,8 @@ import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreShuffleEnvironment;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.StorageTierReaderFactory;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReader;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReaderImpl;
 
@@ -137,14 +139,16 @@ public abstract class InputGateTestBase {
             subpartitionIndexes.add(index);
         }
 
-        TieredStoreReader tieredStoreReader =
-                new TieredStoreReaderImpl(
-                        JobID.generate(),
+        TieredStoreShuffleEnvironment storeShuffleEnvironment =
+                new TieredStoreShuffleEnvironment(JobID.generate(), baseRemoteStoragePath);
+        StorageTierReaderFactory storageTierReaderFactory =
+                storeShuffleEnvironment.createStorageTierReaderFactory(
                         Collections.singletonList(new ResultPartitionID()),
                         environment.getNetworkBufferPool(),
-                        subpartitionIndexes,
-                        baseRemoteStoragePath,
-                        numberOfInputChannels);
+                        subpartitionIndexes);
+
+        TieredStoreReader tieredStoreReader =
+                new TieredStoreReaderImpl(numberOfInputChannels, storageTierReaderFactory);
 
         SingleInputGateBuilder builder =
                 new SingleInputGateBuilder()

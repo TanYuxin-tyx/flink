@@ -45,8 +45,6 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManager {
 
-    private final BufferPool bufferPool;
-
     private final Map<TierType, Integer> tierExclusiveBuffers;
 
     private final Map<TierType, AtomicInteger> tierRequestedBuffersCounter;
@@ -61,6 +59,8 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     private final float numBuffersTriggerFlushRatio;
 
+    private BufferPool bufferPool;
+
     private final ScheduledExecutorService executor =
             Executors.newSingleThreadScheduledExecutor(
                     new ThreadFactoryBuilder()
@@ -69,12 +69,10 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
                             .build());
 
     public UpstreamTieredStoreMemoryManager(
-            BufferPool bufferPool,
             Map<TierType, Integer> tierExclusiveBuffers,
             int numSubpartitions,
             float numBuffersTriggerFlushRatio,
             CacheFlushManager cacheFlushManager) {
-        this.bufferPool = bufferPool;
         this.tierExclusiveBuffers = tierExclusiveBuffers;
         this.tierRequestedBuffersCounter = new HashMap<>();
         this.cacheFlushManager = cacheFlushManager;
@@ -88,6 +86,11 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     public BufferPool getBufferPool() {
         return bufferPool;
+    }
+
+    @Override
+    public void setBufferPool(BufferPool bufferPool) {
+        this.bufferPool = bufferPool;
     }
 
     @Override
@@ -199,8 +202,7 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
      * numSubpartitions buffers.
      */
     private int getAvailableBuffersForMemory(int numAvailableBuffers) {
-        AtomicInteger numRequestedBuffersInteger =
-                tierRequestedBuffersCounter.get(TierType.IN_MEM);
+        AtomicInteger numRequestedBuffersInteger = tierRequestedBuffersCounter.get(TierType.IN_MEM);
         int numRequestedBuffers =
                 numRequestedBuffersInteger == null ? 0 : numRequestedBuffersInteger.get();
         return Math.max(
@@ -231,10 +233,8 @@ public class UpstreamTieredStoreMemoryManager implements TieredStoreMemoryManage
 
     private int getAvailableBuffers(int numAvailableBuffers, TierType tierType) {
         int numExclusive = checkNotNull(tierExclusiveBuffers.get(tierType));
-        int numExclusiveForMemory =
-                checkNotNull(tierExclusiveBuffers.get(TierType.IN_MEM));
-        AtomicInteger numRequestedFromMemInteger =
-                tierRequestedBuffersCounter.get(TierType.IN_MEM);
+        int numExclusiveForMemory = checkNotNull(tierExclusiveBuffers.get(TierType.IN_MEM));
+        AtomicInteger numRequestedFromMemInteger = tierRequestedBuffersCounter.get(TierType.IN_MEM);
         int numRequestedFromMemory =
                 numRequestedFromMemInteger == null ? 0 : numRequestedFromMemInteger.get();
         AtomicInteger numRequestedInteger = tierRequestedBuffersCounter.get(tierType);

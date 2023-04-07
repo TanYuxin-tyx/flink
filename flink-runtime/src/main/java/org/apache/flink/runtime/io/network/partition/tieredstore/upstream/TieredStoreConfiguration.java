@@ -18,10 +18,14 @@
 
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream;
 
+import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsFullSpillingStrategy;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsSelectiveSpillingStrategy;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 
 import java.time.Duration;
+
+import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.HYBRID_SELECTIVE;
 
 /** The configuration for TieredStore. */
 public class TieredStoreConfiguration {
@@ -49,6 +53,14 @@ public class TieredStoreConfiguration {
     private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
 
     private static final long DEFAULT_BUFFER_POLL_SIZE_CHECK_INTERVAL_MS = 1000;
+
+    private static final TierType[] MEMORY_ONLY_TIER_TYPE = new TierType[] {TierType.IN_MEM};
+
+    private static final TierType[] MEMORY_DISK_TIER_TYPES =
+            new TierType[] {TierType.IN_MEM, TierType.IN_DISK};
+
+    private static final TierType[] MEMORY_DISK_REMOTE_TIER_TYPES =
+            new TierType[] {TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE};
 
     private final int maxBuffersReadAhead;
 
@@ -85,11 +97,9 @@ public class TieredStoreConfiguration {
 
     private final long bufferPoolSizeCheckIntervalMs;
 
-    // For Tiered Store
-
     private final String baseDfsHomePath;
 
-    private final String tieredStoreTiers;
+    private final TierType[] tierTypes;
 
     private TieredStoreConfiguration(
             int maxBuffersReadAhead,
@@ -107,7 +117,7 @@ public class TieredStoreConfiguration {
             long bufferPoolSizeCheckIntervalMs,
             String baseDfsHomePath,
             int configuredNetworkBuffersPerChannel,
-            String tieredStoreTiers) {
+            TierType[] tierTypes) {
         this.maxBuffersReadAhead = maxBuffersReadAhead;
         this.bufferRequestTimeout = bufferRequestTimeout;
         this.maxRequestedBuffers = maxRequestedBuffers;
@@ -124,7 +134,7 @@ public class TieredStoreConfiguration {
         this.bufferPoolSizeCheckIntervalMs = bufferPoolSizeCheckIntervalMs;
         this.baseDfsHomePath = baseDfsHomePath;
         this.configuredNetworkBuffersPerChannel = configuredNetworkBuffersPerChannel;
-        this.tieredStoreTiers = tieredStoreTiers;
+        this.tierTypes = tierTypes;
     }
 
     public static TieredStoreConfiguration.Builder builder(
@@ -215,8 +225,20 @@ public class TieredStoreConfiguration {
         return configuredNetworkBuffersPerChannel;
     }
 
-    public String getTieredStoreTiers() {
-        return tieredStoreTiers;
+    public TierType[] getTierTypes() {
+        return tierTypes;
+    }
+
+    public static TierType[] memoryOnlyTierType() {
+        return MEMORY_ONLY_TIER_TYPE;
+    }
+
+    public static TierType[] memoryDiskTierTypes() {
+        return MEMORY_DISK_TIER_TYPES;
+    }
+
+    public static TierType[] memoryDiskRemoteTierTypes() {
+        return MEMORY_DISK_REMOTE_TIER_TYPES;
     }
 
     /** Builder for {@link TieredStoreConfiguration}. */
@@ -251,7 +273,7 @@ public class TieredStoreConfiguration {
 
         private int configuredNetworkBuffersPerChannel;
 
-        private String tieredStoreTiers;
+        private TierType[] tierTypes;
 
         private String tieredStoreSpillingType;
 
@@ -347,9 +369,44 @@ public class TieredStoreConfiguration {
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setTieredStoreTiers(String tieredStoreTiers) {
-            this.tieredStoreTiers = tieredStoreTiers;
+        public TieredStoreConfiguration.Builder setTierTypes(
+                String configuredStoreTiers, ResultPartitionType partitionType) {
+            this.tierTypes = getConfiguredTierTypes(configuredStoreTiers, partitionType);
             return this;
+        }
+
+        private TierType[] getConfiguredTierTypes(
+                String configuredStoreTiers, ResultPartitionType partitionType) {
+            switch (configuredStoreTiers) {
+                case "MEMORY":
+                    return createTierTypes(TierType.IN_MEM);
+                case "DISK":
+                    return createTierTypes(TierType.IN_DISK);
+                case "REMOTE":
+                    return createTierTypes(TierType.IN_REMOTE);
+                case "MEMORY_DISK":
+                    return partitionType == HYBRID_SELECTIVE
+                            ? createTierTypes(TierType.IN_MEM, TierType.IN_DISK)
+                            : createTierTypes(TierType.IN_DISK);
+                case "MEMORY_REMOTE":
+                    return partitionType == HYBRID_SELECTIVE
+                            ? createTierTypes(TierType.IN_MEM, TierType.IN_REMOTE)
+                            : createTierTypes(TierType.IN_REMOTE);
+                case "MEMORY_DISK_REMOTE":
+                    return partitionType == HYBRID_SELECTIVE
+                            ? createTierTypes(TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE)
+                            : createTierTypes(TierType.IN_DISK, TierType.IN_REMOTE);
+
+                case "DISK_REMOTE":
+                    return createTierTypes(TierType.IN_DISK, TierType.IN_REMOTE);
+                default:
+                    throw new IllegalArgumentException(
+                            "Illegal tiers combinations for tiered store.");
+            }
+        }
+
+        private TierType[] createTierTypes(TierType... tierTypes) {
+            return tierTypes;
         }
 
         public TieredStoreConfiguration build() {
@@ -369,7 +426,7 @@ public class TieredStoreConfiguration {
                     bufferPoolSizeCheckIntervalMs,
                     baseDfsHomePath,
                     configuredNetworkBuffersPerChannel,
-                    tieredStoreTiers);
+                    tierTypes);
         }
     }
 }

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common;
 
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
 
@@ -27,6 +28,8 @@ import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
  * including local memory, disk, remote storage, etc.
  */
 public interface TieredStoreMemoryManager {
+
+    void setBufferPool(BufferPool bufferPool);
 
     /** Returns the available buffers for this {@link TierType}. */
     int numAvailableBuffers(TierType tierType);

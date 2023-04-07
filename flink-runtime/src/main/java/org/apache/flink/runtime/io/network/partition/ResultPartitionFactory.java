@@ -29,6 +29,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
+import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreShuffleEnvironment;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.StorageTierWriterFactory;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreResultPartition;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
@@ -86,7 +88,7 @@ public class ResultPartitionFactory {
 
     private final int maxOverdraftBuffersPerGate;
 
-    private final String baseDfsHomePath;
+    private final String baseRemoteStorageHomePath;
 
     private final float minReservedDiskSpaceFraction;
 
@@ -113,7 +115,7 @@ public class ResultPartitionFactory {
             int maxOverdraftBuffersPerGate,
             int hybridShuffleSpilledIndexSegmentSize,
             long hybridShuffleNumRetainedInMemoryRegionsMax,
-            String baseDfsHomePath,
+            String baseRemoteStorageHomePath,
             float minReservedDiskSpaceFraction,
             boolean enableTieredStoreForHybridShuffle,
             String tieredStoreTiers) {
@@ -137,7 +139,7 @@ public class ResultPartitionFactory {
         this.hybridShuffleSpilledIndexSegmentSize = hybridShuffleSpilledIndexSegmentSize;
         this.hybridShuffleNumRetainedInMemoryRegionsMax =
                 hybridShuffleNumRetainedInMemoryRegionsMax;
-        this.baseDfsHomePath = baseDfsHomePath;
+        this.baseRemoteStorageHomePath = baseRemoteStorageHomePath;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.tieredStoreTiers = tieredStoreTiers;
         this.enableTieredStoreForHybridShuffle = enableTieredStoreForHybridShuffle;
@@ -252,7 +254,23 @@ public class ResultPartitionFactory {
 
             if (enableTieredStoreForHybridShuffle) {
                 TieredStoreConfiguration storeConfiguration =
-                        getStoreConfiguration(numberOfSubpartitions);
+                        getStoreConfiguration(numberOfSubpartitions, type);
+                TieredStoreShuffleEnvironment storeShuffleEnvironment =
+                        new TieredStoreShuffleEnvironment(jobID, baseRemoteStorageHomePath);
+                StorageTierWriterFactory storageTierWriterFactory =
+                        storeShuffleEnvironment.createStorageTierWriterFactory(
+                                storeConfiguration.getTierTypes(),
+                                id,
+                                subpartitions.length,
+                                networkBufferSize,
+                                storeConfiguration.getNumBuffersTriggerFlushRatio(),
+                                minReservedDiskSpaceFraction,
+                                channelManager.createChannel().getPath(),
+                                isBroadcast,
+                                batchShuffleReadBufferPool,
+                                batchShuffleReadIOExecutor,
+                                bufferCompressor,
+                                storeConfiguration);
                 partition =
                         new TieredStoreResultPartition(
                                 jobID,
@@ -270,6 +288,8 @@ public class ResultPartitionFactory {
                                 minReservedDiskSpaceFraction,
                                 isBroadcast,
                                 storeConfiguration,
+                                storageTierWriterFactory.getStorageTierWriters(),
+                                storageTierWriterFactory.getTieredStoreMemoryManager(),
                                 bufferCompressor,
                                 bufferPoolFactory);
 
@@ -315,11 +335,13 @@ public class ResultPartitionFactory {
                 .build();
     }
 
-    private TieredStoreConfiguration getStoreConfiguration(int numberOfSubpartitions) {
+    private TieredStoreConfiguration getStoreConfiguration(
+            int numberOfSubpartitions, ResultPartitionType type) {
+
         return TieredStoreConfiguration.builder(
                         numberOfSubpartitions, batchShuffleReadBufferPool.getNumBuffersPerRequest())
-                .setTieredStoreTiers(tieredStoreTiers)
-                .setBaseDfsHomePath(baseDfsHomePath)
+                .setTierTypes(tieredStoreTiers, type)
+                .setBaseDfsHomePath(baseRemoteStorageHomePath)
                 .setConfiguredNetworkBuffersPerChannel(configuredNetworkBuffersPerChannel)
                 .build();
     }

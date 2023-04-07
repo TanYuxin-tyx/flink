@@ -12,16 +12,16 @@ import java.util.function.Consumer;
 /** The implementation of {@link SubpartitionReader} interface. */
 public class SubpartitionReaderImpl implements SubpartitionReader {
 
-    private final TierClientFactory clientFactory;
+    private final StorageTierReaderFactory clientFactory;
 
     private final Consumer<InputChannel> queueChannelReceiver;
 
-    private List<TierClient> clientList;
+    private List<StorageTierReaderClient> clientList;
 
     private int currentSegmentId = 0;
 
     public SubpartitionReaderImpl(
-            TierClientFactory clientFactory, Consumer<InputChannel> queueChannelReceiver) {
+            StorageTierReaderFactory clientFactory, Consumer<InputChannel> queueChannelReceiver) {
         this.clientFactory = clientFactory;
         this.queueChannelReceiver = queueChannelReceiver;
     }
@@ -32,9 +32,10 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
     }
 
     @Override
-    public Optional<BufferAndAvailability> getNextBuffer(InputChannel inputChannel) throws IOException, InterruptedException {
+    public Optional<BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
+            throws IOException, InterruptedException {
         Optional<BufferAndAvailability> bufferAndAvailability = Optional.empty();
-        for (TierClient client : clientList) {
+        for (StorageTierReaderClient client : clientList) {
             bufferAndAvailability = client.getNextBuffer(inputChannel, currentSegmentId);
             if (bufferAndAvailability.isPresent()) {
                 break;
@@ -55,7 +56,7 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
 
     @Override
     public void close() throws IOException {
-        for (TierClient client : clientList) {
+        for (StorageTierReaderClient client : clientList) {
             client.close();
         }
     }
