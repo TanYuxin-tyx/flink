@@ -30,7 +30,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
 import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreShuffleEnvironment;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.StorageTierWriterFactory;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TierWriterFactory;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreResultPartition;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
@@ -257,7 +257,7 @@ public class ResultPartitionFactory {
                         getStoreConfiguration(numberOfSubpartitions, type);
                 TieredStoreShuffleEnvironment storeShuffleEnvironment =
                         new TieredStoreShuffleEnvironment(jobID, baseRemoteStorageHomePath);
-                StorageTierWriterFactory storageTierWriterFactory =
+                TierWriterFactory tierWriterFactory =
                         storeShuffleEnvironment.createStorageTierWriterFactory(
                                 storeConfiguration.getTierTypes(),
                                 id,
@@ -288,8 +288,8 @@ public class ResultPartitionFactory {
                                 minReservedDiskSpaceFraction,
                                 isBroadcast,
                                 storeConfiguration,
-                                storageTierWriterFactory.getStorageTierWriters(),
-                                storageTierWriterFactory.getTieredStoreMemoryManager(),
+                                tierWriterFactory.getStorageTierWriters(),
+                                tierWriterFactory.getTieredStoreMemoryManager(),
                                 bufferCompressor,
                                 bufferPoolFactory);
 

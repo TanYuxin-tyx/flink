@@ -12,7 +12,7 @@ import java.util.function.Consumer;
 /** The implementation of {@link SubpartitionReader} interface. */
 public class SubpartitionReaderImpl implements SubpartitionReader {
 
-    private final StorageTierReaderFactory clientFactory;
+    private final TierReaderFactory clientFactory;
 
     private final Consumer<InputChannel> queueChannelReceiver;
 
@@ -21,7 +21,7 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
     private int currentSegmentId = 0;
 
     public SubpartitionReaderImpl(
-            StorageTierReaderFactory clientFactory, Consumer<InputChannel> queueChannelReceiver) {
+            TierReaderFactory clientFactory, Consumer<InputChannel> queueChannelReceiver) {
         this.clientFactory = clientFactory;
         this.queueChannelReceiver = queueChannelReceiver;
     }

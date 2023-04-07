@@ -48,7 +48,7 @@ import static org.apache.flink.runtime.io.network.partition.tieredstore.upstream
 import static org.apache.flink.runtime.shuffle.NettyShuffleUtils.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-public class StorageTierWriterFactory {
+public class TierWriterFactory {
 
     private final TierType[] tierTypes;
 
@@ -80,7 +80,7 @@ public class StorageTierWriterFactory {
 
     private TieredStoreMemoryManager tieredStoreMemoryManager;
 
-    public StorageTierWriterFactory(
+    public TierWriterFactory(
             JobID jobID,
             TierType[] tierTypes,
             ResultPartitionID resultPartitionID,

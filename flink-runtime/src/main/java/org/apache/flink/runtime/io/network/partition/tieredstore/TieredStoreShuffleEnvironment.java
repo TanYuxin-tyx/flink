@@ -23,8 +23,8 @@ import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.StorageTierReaderFactory;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.StorageTierWriterFactory;
+import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TierReaderFactory;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TierWriterFactory;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -45,7 +45,7 @@ public class TieredStoreShuffleEnvironment {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
     }
 
-    public StorageTierWriterFactory createStorageTierWriterFactory(
+    public TierWriterFactory createStorageTierWriterFactory(
             TierType[] tierTypes,
             ResultPartitionID resultPartitionID,
             int numSubpartitions,
@@ -58,10 +58,10 @@ public class TieredStoreShuffleEnvironment {
             ScheduledExecutorService readIOExecutor,
             @Nullable BufferCompressor bufferCompressor,
             TieredStoreConfiguration storeConfiguration) {
-        StorageTierWriterFactory storageTierWriterFactory = null;
+        TierWriterFactory tierWriterFactory = null;
         try {
-            storageTierWriterFactory =
-                    new StorageTierWriterFactory(
+            tierWriterFactory =
+                    new TierWriterFactory(
                             jobID,
                             tierTypes,
                             resultPartitionID,
@@ -79,14 +79,14 @@ public class TieredStoreShuffleEnvironment {
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
-        return storageTierWriterFactory;
+        return tierWriterFactory;
     }
 
-    public StorageTierReaderFactory createStorageTierReaderFactory(
+    public TierReaderFactory createStorageTierReaderFactory(
             List<ResultPartitionID> resultPartitionIDs,
             MemorySegmentProvider memorySegmentProvider,
             List<Integer> subpartitionIndexes) {
-        return new StorageTierReaderFactory(
+        return new TierReaderFactory(
                 jobID,
                 resultPartitionIDs,
                 memorySegmentProvider,

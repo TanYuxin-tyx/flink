@@ -13,13 +13,12 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
 
     private final int numInputChannels;
 
-    private final StorageTierReaderFactory clientFactory;
+    private final TierReaderFactory clientFactory;
 
-    public TieredStoreReaderImpl(
-            int numInputChannels, StorageTierReaderFactory storageTierReaderFactory) {
+    public TieredStoreReaderImpl(int numInputChannels, TierReaderFactory tierReaderFactory) {
         this.numInputChannels = numInputChannels;
         this.subpartitionReaders = new SubpartitionReader[numInputChannels];
-        this.clientFactory = storageTierReaderFactory;
+        this.clientFactory = tierReaderFactory;
     }
 
     @Override

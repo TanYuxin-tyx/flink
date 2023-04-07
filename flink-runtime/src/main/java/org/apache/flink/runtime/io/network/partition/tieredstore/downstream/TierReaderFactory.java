@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 /** The factory of {@link TierReader}. */
-public class StorageTierReaderFactory {
+public class TierReaderFactory {
 
     private final JobID jobID;
 
@@ -28,7 +28,7 @@ public class StorageTierReaderFactory {
 
     private TieredStoreMemoryManager memoryManager;
 
-    public StorageTierReaderFactory(
+    public TierReaderFactory(
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             MemorySegmentProvider memorySegmentProvider,
