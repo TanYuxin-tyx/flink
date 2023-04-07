@@ -184,7 +184,7 @@ public class DiskTierWriter implements TierStorage, TierWriter, NettyBasedTierCo
      * and the subpartitionId is not used. So return directly.
      */
     @Override
-    public TierStorage createPartitionTierWriter() {
+    public TierStorage createPartitionTierStorage() {
         return this;
     }
 

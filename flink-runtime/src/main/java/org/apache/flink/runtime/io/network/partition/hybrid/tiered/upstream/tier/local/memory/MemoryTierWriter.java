@@ -107,7 +107,7 @@ public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewP
      * and the subpartitionId is not used. So return directly.
      */
     @Override
-    public TierStorage createPartitionTierWriter() {
+    public TierStorage createPartitionTierStorage() {
         return memoryWriter;
     }
 

@@ -31,7 +31,7 @@ public interface TierWriter {
 
     void setup() throws IOException;
 
-    TierStorage createPartitionTierWriter();
+    TierStorage createPartitionTierStorage();
 
     boolean canStoreNextSegment(int subpartitionId);
 

@@ -72,7 +72,7 @@ public class RemoteTierWriter implements TierWriter {
     public void setup() throws IOException {}
 
     @Override
-    public TierStorage createPartitionTierWriter() {
+    public TierStorage createPartitionTierStorage() {
         return new RemoteTierStorage(
                 numSubpartitions, segmentIndexTracker, remoteCacheManager, numBytesInASegment);
     }
