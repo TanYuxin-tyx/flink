@@ -24,8 +24,8 @@ import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TierReaderFactory;
-import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TierWriterFactory;
 import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.TieredStoreConfiguration;
+import org.apache.flink.runtime.io.network.partition.tieredstore.upstream.common.TierWriterFactory;
 import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
