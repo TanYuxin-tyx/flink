@@ -29,7 +29,7 @@ import org.apache.flink.runtime.io.network.buffer.NoOpBufferPool;
 import org.apache.flink.runtime.io.network.partition.InputChannelTestUtils;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreReader;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.taskmanager.NettyShuffleEnvironmentConfiguration;
 import org.apache.flink.runtime.throughput.BufferDebloatConfiguration;
@@ -160,7 +160,8 @@ public class SingleInputGateBuilder {
         return this;
     }
 
-    public SingleInputGateBuilder setTieredStoreReader(@Nullable TieredStoreReader tieredStoreReader) {
+    public SingleInputGateBuilder setTieredStoreReader(
+            @Nullable TieredStoreReader tieredStoreReader) {
         this.tieredStoreReader = tieredStoreReader;
         return this;
     }

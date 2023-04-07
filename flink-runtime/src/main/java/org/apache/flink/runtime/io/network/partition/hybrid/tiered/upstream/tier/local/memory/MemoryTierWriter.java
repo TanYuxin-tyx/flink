@@ -1,0 +1,182 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.memory;
+
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
+
+import javax.annotation.Nullable;
+
+import java.io.IOException;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
+
+/** The DataManager of LOCAL file. */
+public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewProvider {
+
+    public static final int BROADCAST_CHANNEL = 0;
+
+    private final int numSubpartitions;
+
+    private final int networkBufferSize;
+
+    private final TieredStoreMemoryManager tieredStoreMemoryManager;
+
+    private final boolean isBroadcastOnly;
+
+    private final BufferCompressor bufferCompressor;
+
+    /** Record the last assigned consumerId for each subpartition. */
+    private final TierReaderViewId[] lastTierReaderViewIds;
+
+    private MemoryTierStorage memoryWriter;
+
+    private final SubpartitionSegmentIndexTracker segmentIndexTracker;
+
+    private int numBytesInASegment = 10 * 32 * 1024;
+
+    private final int bufferNumberInSegment = numBytesInASegment / 32 / 1024;
+
+    private volatile boolean isReleased;
+
+    private volatile boolean isClosed;
+
+    public MemoryTierWriter(
+            int numSubpartitions,
+            int networkBufferSize,
+            TieredStoreMemoryManager tieredStoreMemoryManager,
+            boolean isBroadcastOnly,
+            @Nullable BufferCompressor bufferCompressor) {
+        this.numSubpartitions = numSubpartitions;
+        this.networkBufferSize = networkBufferSize;
+        this.isBroadcastOnly = isBroadcastOnly;
+        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
+        this.bufferCompressor = bufferCompressor;
+        checkNotNull(bufferCompressor);
+        this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
+        this.segmentIndexTracker =
+                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
+    }
+
+    @Override
+    public void setup() throws IOException {
+        this.memoryWriter =
+                new MemoryTierStorage(
+                        isBroadcastOnly ? 1 : numSubpartitions,
+                        networkBufferSize,
+                        tieredStoreMemoryManager,
+                        bufferCompressor,
+                        segmentIndexTracker,
+                        isBroadcastOnly,
+                        numSubpartitions,
+                        numBytesInASegment);
+        this.memoryWriter.setup();
+    }
+
+    /**
+     * In the local tier, only one memory data manager and only one file disk data manager are used,
+     * and the subpartitionId is not used. So return directly.
+     */
+    @Override
+    public TierStorage createPartitionTierWriter() {
+        return memoryWriter;
+    }
+
+    @Override
+    public NettyBasedTierConsumerView createTierReaderView(
+            int subpartitionId, BufferAvailabilityListener availabilityListener) {
+        // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
+        // channel.
+        subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
+
+        NettyBasedTierConsumerViewImpl memoryReaderView =
+                new NettyBasedTierConsumerViewImpl(availabilityListener);
+        TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
+        checkMultipleConsumerIsAllowed(lastTierReaderViewId);
+        // assign a unique id for each consumer, now it is guaranteed by the value that is one
+        // higher than the last consumerId's id field.
+        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
+        lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
+
+        NettyBasedTierConsumer memoryReader =
+                checkNotNull(memoryWriter)
+                        .registerNewConsumer(subpartitionId, tierReaderViewId, memoryReaderView);
+
+        memoryReaderView.setTierReader(memoryReader);
+        return memoryReaderView;
+    }
+
+    @Override
+    public boolean canStoreNextSegment(int subpartitionId) {
+        return tieredStoreMemoryManager.numAvailableBuffers(TierType.IN_MEM) > bufferNumberInSegment
+                && memoryWriter.isConsumerRegistered(subpartitionId);
+    }
+
+    @Override
+    public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
+        return segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentIndex);
+    }
+
+    @Override
+    public Path getBaseSubpartitionPath(int subpartitionId) {
+        return null;
+    }
+
+    @Override
+    public void close() {
+        if (!isClosed) {
+            isClosed = true;
+        }
+    }
+
+    @Override
+    public void release() {
+        // release is called when release by scheduler, later than close.
+        // mainly work :
+        // 1. release read scheduler.
+        // 2. delete shuffle file.
+        // 3. release all data in memory.
+        if (!isReleased) {
+            segmentIndexTracker.release();
+            isReleased = true;
+        }
+    }
+
+    @Override
+    public TierType getTierType() {
+        return TierType.IN_MEM;
+    }
+
+    private static void checkMultipleConsumerIsAllowed(TierReaderViewId lastTierReaderViewId) {
+        checkState(lastTierReaderViewId == null, "Memory Tier does not support multiple consumers");
+    }
+}

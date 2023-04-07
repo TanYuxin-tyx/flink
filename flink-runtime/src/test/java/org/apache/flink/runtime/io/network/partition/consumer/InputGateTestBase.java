@@ -24,10 +24,10 @@ import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TieredStoreShuffleEnvironment;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TierReaderFactory;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReader;
-import org.apache.flink.runtime.io.network.partition.tieredstore.downstream.TieredStoreReaderImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStoreShuffleEnvironment;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreReaderImpl;
 
 import org.junit.Before;
 

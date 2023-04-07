@@ -21,7 +21,7 @@ package org.apache.flink.runtime.shuffle;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.GateBuffersSpec;
-import org.apache.flink.runtime.io.network.partition.tieredstore.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -41,8 +41,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class NettyShuffleUtils {
 
-    public static final Map<TierType, Integer>
-            HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS = new HashMap<>();
+    public static final Map<TierType, Integer> HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS =
+            new HashMap<>();
 
     static {
         HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TierType.IN_MEM, 100);
