@@ -23,7 +23,7 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import java.io.IOException;
 
 /**
- * The {@link TieredStoreNettyService} is used to register {@link BufferAvailabilityListener} and
+ * {@link TieredStoreNettyService} is used to register {@link BufferAvailabilityListener} and
  * provide buffer to netty server.
  */
 public interface TieredStoreNettyService {

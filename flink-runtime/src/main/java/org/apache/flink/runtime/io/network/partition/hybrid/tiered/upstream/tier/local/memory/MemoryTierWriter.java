@@ -112,7 +112,7 @@ public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewP
     }
 
     @Override
-    public NettyBasedTierConsumerView createTierReaderView(
+    public NettyBasedTierConsumerView createNettyBasedTierConsumerView(
             int subpartitionId, BufferAvailabilityListener availabilityListener) {
         // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
         // channel.

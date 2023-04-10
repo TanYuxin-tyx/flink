@@ -189,7 +189,7 @@ public class DiskTierWriter implements TierStorage, TierWriter, NettyBasedTierCo
     }
 
     @Override
-    public NettyBasedTierConsumerView createTierReaderView(
+    public NettyBasedTierConsumerView createNettyBasedTierConsumerView(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         // If data file is not readable, throw PartitionNotFoundException to mark this result

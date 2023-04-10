@@ -36,7 +36,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
                         (NettyBasedTierConsumerViewProvider) tierWriter;
                 NettyBasedTierConsumerView nettyBasedTierConsumerView =
                         checkNotNull(
-                                tierConsumerViewProvider.createTierReaderView(
+                                tierConsumerViewProvider.createNettyBasedTierConsumerView(
                                         subpartitionId, availabilityListener));
                 registeredTiers.add(tierConsumerViewProvider);
                 registeredTierConsumerViews.add(nettyBasedTierConsumerView);

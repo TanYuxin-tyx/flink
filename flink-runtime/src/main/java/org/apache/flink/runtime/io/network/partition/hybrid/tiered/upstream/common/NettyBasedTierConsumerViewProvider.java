@@ -22,9 +22,13 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 
 import java.io.IOException;
 
+/**
+ * {@link NettyBasedTierConsumerViewProvider} is used to create the view of {@link
+ * NettyBasedTierConsumer} for each tier.
+ */
 public interface NettyBasedTierConsumerViewProvider {
 
-    NettyBasedTierConsumerView createTierReaderView(
+    NettyBasedTierConsumerView createNettyBasedTierConsumerView(
             int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
 
     boolean hasCurrentSegment(int subpartitionId, int segmentIndex);
