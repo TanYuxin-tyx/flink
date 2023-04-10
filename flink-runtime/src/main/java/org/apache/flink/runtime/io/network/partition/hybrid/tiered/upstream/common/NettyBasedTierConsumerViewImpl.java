@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
 
+import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
@@ -65,11 +66,10 @@ public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerVie
     }
 
     @Override
-    public void setTierReader(NettyBasedTierConsumer nettyBasedTierConsumer) {
+    public void setConsumer(NettyBasedTierConsumer nettyBasedTierConsumer) {
         synchronized (viewLock) {
             checkState(
-                    this.nettyBasedTierConsumer == null,
-                    "Repeatedly set tier reader is not allowed.");
+                    this.nettyBasedTierConsumer == null, "Repeatedly set consumer is not allowed.");
             this.nettyBasedTierConsumer = nettyBasedTierConsumer;
         }
     }
@@ -79,7 +79,7 @@ public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerVie
     public BufferAndBacklog getNextBuffer() throws IOException {
         try {
             synchronized (viewLock) {
-                checkNotNull(nettyBasedTierConsumer, "Tier reader must be not null.");
+                checkNotNull(nettyBasedTierConsumer, "Consumer must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume =
                         nettyBasedTierConsumer.getNextBuffer(consumingOffset + 1);
                 updateConsumingStatus(bufferToConsume);
@@ -176,6 +176,11 @@ public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerVie
         }
     }
 
+    @VisibleForTesting
+    public boolean getNeedNotifyStatus() {
+        return needNotify;
+    }
+
     // -------------------------------
     //       Internal Methods
     // -------------------------------
@@ -191,10 +196,10 @@ public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerVie
     private BufferAndBacklog handleBacklog(BufferAndBacklog bufferToConsume) {
         return bufferToConsume.buffersInBacklog() == 0
                 ? new BufferAndBacklog(
-                        bufferToConsume.buffer(),
-                        getSubpartitionBacklog(),
-                        bufferToConsume.getNextDataType(),
-                        bufferToConsume.getSequenceNumber())
+                bufferToConsume.buffer(),
+                getSubpartitionBacklog(),
+                bufferToConsume.getNextDataType(),
+                bufferToConsume.getSequenceNumber())
                 : bufferToConsume;
     }
 
@@ -217,16 +222,16 @@ public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerVie
     }
 
     private void releaseInternal(@Nullable Throwable throwable) {
-        boolean releaseTierReader;
+        boolean releaseConsumer;
         synchronized (viewLock) {
             if (isReleased) {
                 return;
             }
             isReleased = true;
             failureCause = throwable;
-            releaseTierReader = nettyBasedTierConsumer != null;
+            releaseConsumer = nettyBasedTierConsumer != null;
         }
-        if (releaseTierReader) {
+        if (releaseConsumer) {
             nettyBasedTierConsumer.release();
         }
     }

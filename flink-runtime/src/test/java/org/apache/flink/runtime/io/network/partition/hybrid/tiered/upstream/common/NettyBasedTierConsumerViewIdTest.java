@@ -27,18 +27,26 @@ class NettyBasedTierConsumerViewIdTest {
 
     @Test
     void testNewIdFromNull() {
-        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId = NettyBasedTierConsumerViewId.newId(null);
-        assertThat(nettyBasedTierConsumerViewId).isNotNull().isEqualTo(NettyBasedTierConsumerViewId.DEFAULT);
+        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId =
+                NettyBasedTierConsumerViewId.newId(null);
+        assertThat(nettyBasedTierConsumerViewId)
+                .isNotNull()
+                .isEqualTo(NettyBasedTierConsumerViewId.DEFAULT);
     }
 
     @Test
     void testConsumerIdEquals() {
-        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId = NettyBasedTierConsumerViewId.newId(null);
-        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId1 = NettyBasedTierConsumerViewId.newId(nettyBasedTierConsumerViewId);
-        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId2 = NettyBasedTierConsumerViewId.newId(nettyBasedTierConsumerViewId);
-        assertThat(nettyBasedTierConsumerViewId1.hashCode()).isEqualTo(nettyBasedTierConsumerViewId2.hashCode());
+        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId =
+                NettyBasedTierConsumerViewId.newId(null);
+        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId1 =
+                NettyBasedTierConsumerViewId.newId(nettyBasedTierConsumerViewId);
+        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId2 =
+                NettyBasedTierConsumerViewId.newId(nettyBasedTierConsumerViewId);
+        assertThat(nettyBasedTierConsumerViewId1.hashCode())
+                .isEqualTo(nettyBasedTierConsumerViewId2.hashCode());
         assertThat(nettyBasedTierConsumerViewId1).isEqualTo(nettyBasedTierConsumerViewId2);
 
-        assertThat(NettyBasedTierConsumerViewId.newId(nettyBasedTierConsumerViewId2)).isNotEqualTo(nettyBasedTierConsumerViewId2);
+        assertThat(NettyBasedTierConsumerViewId.newId(nettyBasedTierConsumerViewId2))
+                .isNotEqualTo(nettyBasedTierConsumerViewId2);
     }
 }

@@ -210,10 +210,10 @@ public class DiskTierWriter implements TierStorage, TierWriter, NettyBasedTierCo
         NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId = NettyBasedTierConsumerViewId.newId(
                 lastNettyBasedTierConsumerViewId);
         lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
-        NettyBasedTierConsumer diskReader =
+        NettyBasedTierConsumer diskConsumer =
                 partitionFileReader.registerTierReader(
                         subpartitionId, nettyBasedTierConsumerViewId, diskTierReaderView);
-        diskTierReaderView.setTierReader(diskReader);
+        diskTierReaderView.setConsumer(diskConsumer);
         return diskTierReaderView;
     }
 

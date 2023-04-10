@@ -127,11 +127,11 @@ public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewP
         NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId = NettyBasedTierConsumerViewId.newId(lastNettyBasedTierConsumerViewId);
         lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
 
-        NettyBasedTierConsumer memoryReader =
+        NettyBasedTierConsumer memoryConsumer =
                 checkNotNull(memoryWriter)
                         .registerNewConsumer(subpartitionId, nettyBasedTierConsumerViewId, memoryReaderView);
 
-        memoryReaderView.setTierReader(memoryReader);
+        memoryReaderView.setConsumer(memoryConsumer);
         return memoryReaderView;
     }
 

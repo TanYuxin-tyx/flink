@@ -20,7 +20,10 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.com
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 
-/** The {@link BufferContext} is used in Tiered Store. */
+/**
+ * The {@link BufferContext} represents a combination of buffer, buffer index, and its subpartition
+ * id.
+ */
 public class BufferContext {
 
     private final Buffer buffer;

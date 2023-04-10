@@ -22,12 +22,28 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAn
 
 import java.util.Optional;
 
-/** The {@link NettyBasedTierConsumer} is used to consume data from different tiers. */
+/**
+ * The {@link NettyBasedTierConsumer} is invoked by {@link NettyBasedTierConsumerView} to get buffer
+ * and backlog from a tier.
+ */
 public interface NettyBasedTierConsumer {
 
+    /**
+     * Get buffer from the tier.
+     *
+     * @param bufferIndex the buffer index to consume.
+     * @return the required buffer.
+     * @throws Throwable happened during getting next buffer.
+     */
     Optional<BufferAndBacklog> getNextBuffer(int bufferIndex) throws Throwable;
 
+    /**
+     * Get backlog in the tier.
+     *
+     * @return backlog number.
+     */
     int getBacklog();
 
+    /** Release the consumer. */
     void release();
 }

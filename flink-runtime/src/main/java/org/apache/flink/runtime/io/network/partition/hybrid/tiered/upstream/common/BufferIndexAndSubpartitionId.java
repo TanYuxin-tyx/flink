@@ -18,8 +18,9 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
 
-/** Integrate the buffer index and the channel id which it belongs. */
+/** {@link BufferIndexAndSubpartitionId} indicates the buffer index and subpartition id. */
 public class BufferIndexAndSubpartitionId {
+
     private final int bufferIndex;
 
     private final int subpartitionId;

@@ -25,30 +25,84 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-/** The {@link NettyBasedTierConsumerView} is the view of {@link NettyBasedTierConsumer}. */
+/**
+ * For each {@link NettyBasedTierConsumer}, there will be a corresponding {@link
+ * NettyBasedTierConsumerView}, which will get buffer and backlog from {@link
+ * NettyBasedTierConsumer} and be aware of the available status of {@link NettyBasedTierConsumer}.
+ */
 public interface NettyBasedTierConsumerView {
 
+    /**
+     * Get buffer and backlog from {@link NettyBasedTierConsumer}.
+     *
+     * @return buffer and backlog.
+     * @throws IOException is thrown if there is a failure.
+     */
     @Nullable
     ResultSubpartition.BufferAndBacklog getNextBuffer() throws IOException;
 
+    /**
+     * Get availability and backlog of {@link NettyBasedTierConsumer}.
+     *
+     * @param numCreditsAvailable is the available credit.
+     * @return availability and backlog.
+     */
     ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable);
 
-    void setTierReader(NettyBasedTierConsumer nettyBasedTierConsumer);
+    /**
+     * Set the tier reader to the view.
+     *
+     * @param nettyBasedTierConsumer is the tier reader.
+     */
+    void setConsumer(NettyBasedTierConsumer nettyBasedTierConsumer);
 
+    /** Update the need notify status of {@link NettyBasedTierConsumer}. */
     void updateNeedNotifyStatus();
 
+    /** Notify that {@link NettyBasedTierConsumer} is available. */
     void notifyDataAvailable();
 
+    /**
+     * Get the current consumed buffer index.
+     *
+     * @param withLock indicates whether to lock to get buffer index.
+     * @return current consumed buffer index.
+     */
     int getConsumingOffset(boolean withLock);
 
-    Throwable getFailureCause();
-
+    /**
+     * Get the number of queued buffers in {@link NettyBasedTierConsumer} unsynchronizedly.
+     *
+     * @return the number of queued buffers.
+     */
     int unsynchronizedGetNumberOfQueuedBuffers();
 
+    /**
+     * Get the number of queued buffers in {@link NettyBasedTierConsumer} synchronizedly.
+     *
+     * @return the number of queued buffers.
+     */
     int getNumberOfQueuedBuffers();
 
+    /**
+     * Release the {@link NettyBasedTierConsumerView}.
+     *
+     * @throws IOException happened during releasing the view.
+     */
     void release() throws IOException;
 
+    /**
+     * Return the release status.
+     *
+     * @return if the view is released.
+     */
     boolean isReleased();
+
+    /**
+     * Get the failure cause when getting next buffer.
+     *
+     * @return the failure cause.
+     */
+    Throwable getFailureCause();
 }
