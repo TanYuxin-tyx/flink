@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tie
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 
 import java.util.Collection;
 import java.util.List;
@@ -53,17 +53,17 @@ public interface DiskCacheManagerOperation {
      * This method is called when subpartition data become available.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param tierReaderViewIds the consumer's identifier which need notify data available.
+     * @param nettyBasedTierConsumerViewIds the consumer's identifier which need notify data available.
      */
-    void onDataAvailable(int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds);
+    void onDataAvailable(int subpartitionId, Collection<NettyBasedTierConsumerViewId> nettyBasedTierConsumerViewIds);
 
     /**
      * This method is called when consumer is decided to released.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param tierReaderViewId the consumer's identifier which decided to be released.
+     * @param nettyBasedTierConsumerViewId the consumer's identifier which decided to be released.
      */
-    void onConsumerReleased(int subpartitionId, TierReaderViewId tierReaderViewId);
+    void onConsumerReleased(int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId);
 
     /**
      * This method is called when consumer is get next buffer.

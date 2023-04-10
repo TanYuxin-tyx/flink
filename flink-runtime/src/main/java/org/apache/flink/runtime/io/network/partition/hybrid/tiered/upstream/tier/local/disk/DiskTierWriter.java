@@ -33,7 +33,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.comm
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewProvider;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
@@ -79,7 +79,7 @@ public class DiskTierWriter implements TierStorage, TierWriter, NettyBasedTierCo
     private final BufferCompressor bufferCompressor;
 
     /** Record the last assigned consumerId for each subpartition. */
-    private final TierReaderViewId[] lastTierReaderViewIds;
+    private final NettyBasedTierConsumerViewId[] lastNettyBasedTierConsumerViewIds;
 
     private final PartitionFileReader partitionFileReader;
 
@@ -121,7 +121,7 @@ public class DiskTierWriter implements TierStorage, TierWriter, NettyBasedTierCo
         this.bufferCompressor = bufferCompressor;
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
-        this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
+        this.lastNettyBasedTierConsumerViewIds = new NettyBasedTierConsumerViewId[numSubpartitions];
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
         this.partitionFileManager = partitionFileManager;
@@ -204,14 +204,15 @@ public class DiskTierWriter implements TierStorage, TierWriter, NettyBasedTierCo
 
         NettyBasedTierConsumerViewImpl diskTierReaderView =
                 new NettyBasedTierConsumerViewImpl(availabilityListener);
-        TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
+        NettyBasedTierConsumerViewId lastNettyBasedTierConsumerViewId = lastNettyBasedTierConsumerViewIds[subpartitionId];
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
-        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
-        lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
+        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId = NettyBasedTierConsumerViewId.newId(
+                lastNettyBasedTierConsumerViewId);
+        lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
         NettyBasedTierConsumer diskReader =
                 partitionFileReader.registerTierReader(
-                        subpartitionId, tierReaderViewId, diskTierReaderView);
+                        subpartitionId, nettyBasedTierConsumerViewId, diskTierReaderView);
         diskTierReaderView.setTierReader(diskReader);
         return diskTierReaderView;
     }

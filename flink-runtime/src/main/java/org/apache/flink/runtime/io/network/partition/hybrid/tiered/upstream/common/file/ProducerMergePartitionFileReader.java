@@ -8,7 +8,7 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
@@ -137,7 +137,7 @@ public class ProducerMergePartitionFileReader
     /** This method only called by result partition to create subpartitionFileReader. */
     public NettyBasedTierConsumer registerTierReader(
             int subpartitionId,
-            TierReaderViewId tierReaderViewId,
+            NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
             NettyBasedTierConsumerView tierConsumerView)
             throws IOException {
         synchronized (lock) {
@@ -147,7 +147,7 @@ public class ProducerMergePartitionFileReader
             ProducerMergePartitionTierConsumer subpartitionReader =
                     fileReaderFactory.createFileReader(
                             subpartitionId,
-                            tierReaderViewId,
+                            nettyBasedTierConsumerViewId,
                             dataFileChannel,
                             tierConsumerView,
                             dataIndex,

@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.disk;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.function.TriFunction;
 
@@ -51,7 +51,7 @@ public class TestingRegionBufferIndexTracker implements RegionBufferIndexTracker
             int subpartitionId,
             int bufferIndex,
             int consumingOffset,
-            TierReaderViewId tierReaderViewId) {
+            NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
         return getReadableRegionFunction.apply(subpartitionId, bufferIndex, consumingOffset);
     }
 

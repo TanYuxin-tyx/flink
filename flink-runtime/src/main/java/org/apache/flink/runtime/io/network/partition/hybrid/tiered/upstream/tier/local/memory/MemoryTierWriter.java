@@ -28,7 +28,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.comm
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewProvider;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
@@ -56,7 +56,7 @@ public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewP
     private final BufferCompressor bufferCompressor;
 
     /** Record the last assigned consumerId for each subpartition. */
-    private final TierReaderViewId[] lastTierReaderViewIds;
+    private final NettyBasedTierConsumerViewId[] lastNettyBasedTierConsumerViewIds;
 
     private MemoryTierStorage memoryWriter;
 
@@ -82,7 +82,7 @@ public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewP
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.bufferCompressor = bufferCompressor;
         checkNotNull(bufferCompressor);
-        this.lastTierReaderViewIds = new TierReaderViewId[numSubpartitions];
+        this.lastNettyBasedTierConsumerViewIds = new NettyBasedTierConsumerViewId[numSubpartitions];
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
     }
@@ -120,16 +120,16 @@ public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewP
 
         NettyBasedTierConsumerViewImpl memoryReaderView =
                 new NettyBasedTierConsumerViewImpl(availabilityListener);
-        TierReaderViewId lastTierReaderViewId = lastTierReaderViewIds[subpartitionId];
-        checkMultipleConsumerIsAllowed(lastTierReaderViewId);
+        NettyBasedTierConsumerViewId lastNettyBasedTierConsumerViewId = lastNettyBasedTierConsumerViewIds[subpartitionId];
+        checkMultipleConsumerIsAllowed(lastNettyBasedTierConsumerViewId);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
-        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(lastTierReaderViewId);
-        lastTierReaderViewIds[subpartitionId] = tierReaderViewId;
+        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId = NettyBasedTierConsumerViewId.newId(lastNettyBasedTierConsumerViewId);
+        lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
 
         NettyBasedTierConsumer memoryReader =
                 checkNotNull(memoryWriter)
-                        .registerNewConsumer(subpartitionId, tierReaderViewId, memoryReaderView);
+                        .registerNewConsumer(subpartitionId, nettyBasedTierConsumerViewId, memoryReaderView);
 
         memoryReaderView.setTierReader(memoryReader);
         return memoryReaderView;
@@ -176,7 +176,7 @@ public class MemoryTierWriter implements TierWriter, NettyBasedTierConsumerViewP
         return TierType.IN_MEM;
     }
 
-    private static void checkMultipleConsumerIsAllowed(TierReaderViewId lastTierReaderViewId) {
-        checkState(lastTierReaderViewId == null, "Memory Tier does not support multiple consumers");
+    private static void checkMultipleConsumerIsAllowed(NettyBasedTierConsumerViewId lastNettyBasedTierConsumerViewId) {
+        checkState(lastNettyBasedTierConsumerViewId == null, "Memory Tier does not support multiple consumers");
     }
 }

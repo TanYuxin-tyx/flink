@@ -19,14 +19,14 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.memory;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 
 import java.util.concurrent.locks.Lock;
 
 /** The {@link MemoryTierConsumer} is used to consume data from Memory Tier. */
 public class MemoryTierConsumer extends NettyBasedTierConsumerImpl {
 
-    private final TierReaderViewId tierReaderViewId;
+    private final NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId;
 
     private final int subpartitionId;
 
@@ -35,16 +35,16 @@ public class MemoryTierConsumer extends NettyBasedTierConsumerImpl {
     public MemoryTierConsumer(
             Lock consumerLock,
             int subpartitionId,
-            TierReaderViewId tierReaderViewId,
+            NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
             MemoryDataWriterOperation memoryDataWriterOperation) {
         super(consumerLock);
         this.subpartitionId = subpartitionId;
-        this.tierReaderViewId = tierReaderViewId;
+        this.nettyBasedTierConsumerViewId = nettyBasedTierConsumerViewId;
         this.memoryDataWriterOperation = memoryDataWriterOperation;
     }
 
     @Override
     public void release() {
-        memoryDataWriterOperation.onConsumerReleased(subpartitionId, tierReaderViewId);
+        memoryDataWriterOperation.onConsumerReleased(subpartitionId, nettyBasedTierConsumerViewId);
     }
 }

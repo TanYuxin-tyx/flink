@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.disk;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTracker.ReadableRegion;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTracker.SpilledBuffer;
@@ -58,10 +58,10 @@ class RegionBufferIndexTrackerImplTest {
     void testGetReadableRegionBufferNotExist() {
         regionBufferIndexTracker.addBuffers(createSpilledBuffers(0, Arrays.asList(0, 2)));
         // subpartition 0 does not have buffer with index 1
-        assertThat(regionBufferIndexTracker.getReadableRegion(0, 1, -1, TierReaderViewId.DEFAULT))
+        assertThat(regionBufferIndexTracker.getReadableRegion(0, 1, -1, NettyBasedTierConsumerViewId.DEFAULT))
                 .isNotPresent();
         // subpartition 1 has no buffer
-        assertThat(regionBufferIndexTracker.getReadableRegion(1, 0, -1, TierReaderViewId.DEFAULT))
+        assertThat(regionBufferIndexTracker.getReadableRegion(1, 0, -1, NettyBasedTierConsumerViewId.DEFAULT))
                 .isNotPresent();
     }
 
@@ -70,7 +70,7 @@ class RegionBufferIndexTrackerImplTest {
     void testGetReadableRegionNotReadable() {
         regionBufferIndexTracker.addBuffers(createSpilledBuffers(0, Collections.singletonList(0)));
         // 0-0 is not readable as consuming offset is bigger than 0.
-        assertThat(regionBufferIndexTracker.getReadableRegion(0, 0, 1, TierReaderViewId.DEFAULT))
+        assertThat(regionBufferIndexTracker.getReadableRegion(0, 0, 1, NettyBasedTierConsumerViewId.DEFAULT))
                 .isNotPresent();
     }
 

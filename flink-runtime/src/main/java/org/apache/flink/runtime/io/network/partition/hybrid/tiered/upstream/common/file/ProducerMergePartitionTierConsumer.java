@@ -22,7 +22,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTracker;
 
 import java.io.IOException;
@@ -54,7 +54,7 @@ public interface ProducerMergePartitionTierConsumer
     interface Factory {
         ProducerMergePartitionTierConsumer createFileReader(
                 int subpartitionId,
-                TierReaderViewId tierReaderViewId,
+                NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
                 FileChannel dataFileChannel,
                 NettyBasedTierConsumerView tierConsumerView,
                 RegionBufferIndexTracker dataIndex,

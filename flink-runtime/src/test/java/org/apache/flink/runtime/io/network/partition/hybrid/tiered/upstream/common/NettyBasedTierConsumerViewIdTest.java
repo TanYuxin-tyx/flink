@@ -22,23 +22,23 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Tests for {@link TierReaderViewId}. */
+/** Tests for {@link NettyBasedTierConsumerViewId}. */
 class NettyBasedTierConsumerViewIdTest {
 
     @Test
     void testNewIdFromNull() {
-        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(null);
-        assertThat(tierReaderViewId).isNotNull().isEqualTo(TierReaderViewId.DEFAULT);
+        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId = NettyBasedTierConsumerViewId.newId(null);
+        assertThat(nettyBasedTierConsumerViewId).isNotNull().isEqualTo(NettyBasedTierConsumerViewId.DEFAULT);
     }
 
     @Test
     void testConsumerIdEquals() {
-        TierReaderViewId tierReaderViewId = TierReaderViewId.newId(null);
-        TierReaderViewId tierReaderViewId1 = TierReaderViewId.newId(tierReaderViewId);
-        TierReaderViewId tierReaderViewId2 = TierReaderViewId.newId(tierReaderViewId);
-        assertThat(tierReaderViewId1.hashCode()).isEqualTo(tierReaderViewId2.hashCode());
-        assertThat(tierReaderViewId1).isEqualTo(tierReaderViewId2);
+        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId = NettyBasedTierConsumerViewId.newId(null);
+        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId1 = NettyBasedTierConsumerViewId.newId(nettyBasedTierConsumerViewId);
+        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId2 = NettyBasedTierConsumerViewId.newId(nettyBasedTierConsumerViewId);
+        assertThat(nettyBasedTierConsumerViewId1.hashCode()).isEqualTo(nettyBasedTierConsumerViewId2.hashCode());
+        assertThat(nettyBasedTierConsumerViewId1).isEqualTo(nettyBasedTierConsumerViewId2);
 
-        assertThat(TierReaderViewId.newId(tierReaderViewId2)).isNotEqualTo(tierReaderViewId2);
+        assertThat(NettyBasedTierConsumerViewId.newId(nettyBasedTierConsumerViewId2)).isNotEqualTo(nettyBasedTierConsumerViewId2);
     }
 }

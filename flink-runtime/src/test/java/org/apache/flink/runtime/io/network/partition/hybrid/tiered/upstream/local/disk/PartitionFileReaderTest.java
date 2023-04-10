@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.ProducerMergePartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.ProducerMergePartitionTierConsumer;
@@ -116,7 +116,7 @@ class PartitionFileReaderTest {
         factory.allReaders.add(reader);
         assertThat(reader.readBuffers).isEmpty();
         partitionFileReader.registerTierReader(
-                0, TierReaderViewId.DEFAULT, nettyBasedTierConsumerView);
+                0, NettyBasedTierConsumerViewId.DEFAULT, nettyBasedTierConsumerView);
         ioExecutor.trigger();
         assertThat(reader.readBuffers).hasSize(BUFFER_POOL_SIZE);
     }
@@ -134,7 +134,7 @@ class PartitionFileReaderTest {
                 });
         factory.allReaders.add(reader);
         partitionFileReader.registerTierReader(
-                0, TierReaderViewId.DEFAULT, nettyBasedTierConsumerView);
+                0, NettyBasedTierConsumerViewId.DEFAULT, nettyBasedTierConsumerView);
         ioExecutor.trigger();
         assertThat(reader.readBuffers).hasSize(BUFFER_POOL_SIZE);
         assertThat(bufferPool.getAvailableBuffers()).isZero();
@@ -163,7 +163,7 @@ class PartitionFileReaderTest {
                 });
         factory.allReaders.add(reader);
         partitionFileReader.registerTierReader(
-                0, TierReaderViewId.DEFAULT, nettyBasedTierConsumerView);
+                0, NettyBasedTierConsumerViewId.DEFAULT, nettyBasedTierConsumerView);
         ioExecutor.trigger();
         // not used buffer should be recycled.
         assertThat(bufferPool.getAvailableBuffers()).isEqualTo(1);
@@ -194,9 +194,9 @@ class PartitionFileReaderTest {
         factory.allReaders.add(reader1);
         factory.allReaders.add(reader2);
         partitionFileReader.registerTierReader(
-                0, TierReaderViewId.DEFAULT, nettyBasedTierConsumerView);
+                0, NettyBasedTierConsumerViewId.DEFAULT, nettyBasedTierConsumerView);
         partitionFileReader.registerTierReader(
-                1, TierReaderViewId.DEFAULT, nettyBasedTierConsumerView);
+                1, NettyBasedTierConsumerViewId.DEFAULT, nettyBasedTierConsumerView);
         // trigger run.
         ioExecutor.trigger();
         assertThat(readBuffersFinished2).isCompleted();
@@ -226,7 +226,7 @@ class PartitionFileReaderTest {
         reader.setFailConsumer((cause::complete));
         factory.allReaders.add(reader);
         partitionFileReader.registerTierReader(
-                0, TierReaderViewId.DEFAULT, nettyBasedTierConsumerView);
+                0, NettyBasedTierConsumerViewId.DEFAULT, nettyBasedTierConsumerView);
         ioExecutor.trigger();
         assertThat(prepareForSchedulingFinished).isCompleted();
         assertThat(cause).isCompleted();
@@ -248,7 +248,7 @@ class PartitionFileReaderTest {
                 });
         factory.allReaders.add(reader);
         partitionFileReader.registerTierReader(
-                0, TierReaderViewId.DEFAULT, nettyBasedTierConsumerView);
+                0, NettyBasedTierConsumerViewId.DEFAULT, nettyBasedTierConsumerView);
         ioExecutor.trigger();
         assertThat(cause).isCompleted();
         assertThat(cause.get())
@@ -266,7 +266,7 @@ class PartitionFileReaderTest {
         assertThatThrownBy(
                         () -> {
                             partitionFileReader.registerTierReader(
-                                    0, TierReaderViewId.DEFAULT, nettyBasedTierConsumerView);
+                                    0, NettyBasedTierConsumerViewId.DEFAULT, nettyBasedTierConsumerView);
                             ioExecutor.trigger();
                         })
                 .isInstanceOf(IllegalStateException.class)
@@ -375,7 +375,7 @@ class PartitionFileReaderTest {
             @Override
             public ProducerMergePartitionTierConsumer createFileReader(
                     int subpartitionId,
-                    TierReaderViewId tierReaderViewId,
+                    NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
                     FileChannel dataFileChannel,
                     NettyBasedTierConsumerView tierConsumerView,
                     RegionBufferIndexTracker dataIndex,

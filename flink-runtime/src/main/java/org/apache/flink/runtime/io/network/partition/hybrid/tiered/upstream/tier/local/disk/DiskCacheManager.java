@@ -28,7 +28,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.comm
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileType;
@@ -54,7 +54,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
 
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
-    private final List<Map<TierReaderViewId, NettyBasedTierConsumerView>> tierReaderViewMap;
+    private final List<Map<NettyBasedTierConsumerViewId, NettyBasedTierConsumerView>> tierReaderViewMap;
 
     private volatile CompletableFuture<Void> hasFlushCompleted =
             CompletableFuture.completedFuture(null);
@@ -174,10 +174,10 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
 
     @Override
     public void onDataAvailable(
-            int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, NettyBasedTierConsumerView> consumerViewMap =
+            int subpartitionId, Collection<NettyBasedTierConsumerViewId> nettyBasedTierConsumerViewIds) {
+        Map<NettyBasedTierConsumerViewId, NettyBasedTierConsumerView> consumerViewMap =
                 tierReaderViewMap.get(subpartitionId);
-        tierReaderViewIds.forEach(
+        nettyBasedTierConsumerViewIds.forEach(
                 consumerId -> {
                     NettyBasedTierConsumerView consumerView = consumerViewMap.get(consumerId);
                     if (consumerView != null) {
@@ -187,8 +187,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
     }
 
     @Override
-    public void onConsumerReleased(int subpartitionId, TierReaderViewId tierReaderViewId) {
-        tierReaderViewMap.get(subpartitionId).remove(tierReaderViewId);
+    public void onConsumerReleased(int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
+        tierReaderViewMap.get(subpartitionId).remove(nettyBasedTierConsumerViewId);
     }
 
     @Override

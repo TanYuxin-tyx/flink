@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierReaderViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.util.ExceptionUtils;
@@ -56,7 +56,7 @@ public class MemoryTierStorage implements TierStorage, MemoryDataWriterOperation
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<TierReaderViewId, NettyBasedTierConsumerView>>
+    private final List<Map<NettyBasedTierConsumerViewId, NettyBasedTierConsumerView>>
             subpartitionViewOperationsMap;
 
     // Record the byte number currently written to each sub partition.
@@ -141,16 +141,16 @@ public class MemoryTierStorage implements TierStorage, MemoryDataWriterOperation
 
     public NettyBasedTierConsumer registerNewConsumer(
             int subpartitionId,
-            TierReaderViewId tierReaderViewId,
+            NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
             NettyBasedTierConsumerView viewOperations) {
         NettyBasedTierConsumerView oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
-                        .put(tierReaderViewId, viewOperations);
+                        .put(nettyBasedTierConsumerViewId, viewOperations);
         Preconditions.checkState(
                 oldView == null, "Each subpartition view should have unique consumerId.");
         return getSubpartitionMemoryDataManager(subpartitionId)
-                .registerNewConsumer(tierReaderViewId);
+                .registerNewConsumer(nettyBasedTierConsumerViewId);
     }
 
     /** Close this {@link MemoryTierStorage}, it means no data will be appended to memory. */
@@ -186,10 +186,10 @@ public class MemoryTierStorage implements TierStorage, MemoryDataWriterOperation
 
     @Override
     public void onDataAvailable(
-            int subpartitionId, Collection<TierReaderViewId> tierReaderViewIds) {
-        Map<TierReaderViewId, NettyBasedTierConsumerView> consumerViewMap =
+            int subpartitionId, Collection<NettyBasedTierConsumerViewId> nettyBasedTierConsumerViewIds) {
+        Map<NettyBasedTierConsumerViewId, NettyBasedTierConsumerView> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
-        tierReaderViewIds.forEach(
+        nettyBasedTierConsumerViewIds.forEach(
                 consumerId -> {
                     NettyBasedTierConsumerView nettyBasedTierConsumerView =
                             consumerViewMap.get(consumerId);
@@ -200,9 +200,9 @@ public class MemoryTierStorage implements TierStorage, MemoryDataWriterOperation
     }
 
     @Override
-    public void onConsumerReleased(int subpartitionId, TierReaderViewId tierReaderViewId) {
-        subpartitionViewOperationsMap.get(subpartitionId).remove(tierReaderViewId);
-        getSubpartitionMemoryDataManager(subpartitionId).releaseConsumer(tierReaderViewId);
+    public void onConsumerReleased(int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
+        subpartitionViewOperationsMap.get(subpartitionId).remove(nettyBasedTierConsumerViewId);
+        getSubpartitionMemoryDataManager(subpartitionId).releaseConsumer(nettyBasedTierConsumerViewId);
     }
 
     // ------------------------------------
