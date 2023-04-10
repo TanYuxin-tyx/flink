@@ -19,6 +19,9 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
 
 public interface TierWriterFactory {
+
+    void setup();
+
     TierWriter[] getTierWriters();
 
     TieredStoreMemoryManager getTieredStoreMemoryManager();

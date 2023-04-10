@@ -28,7 +28,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     public TieredStoreResultSubpartitionView register(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
-        List<TierWriter> registeredTiers = new ArrayList<>();
+        List<NettyBasedTierConsumerViewProvider> registeredTiers = new ArrayList<>();
         List<NettyBasedTierConsumerView> registeredTierConsumerViews = new ArrayList<>();
         for (TierWriter tierWriter : tierWriters) {
             if (tierWriter instanceof NettyBasedTierConsumerViewProvider) {
@@ -38,7 +38,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
                         checkNotNull(
                                 tierConsumerViewProvider.createTierReaderView(
                                         subpartitionId, availabilityListener));
-                registeredTiers.add(tierWriter);
+                registeredTiers.add(tierConsumerViewProvider);
                 registeredTierConsumerViews.add(nettyBasedTierConsumerView);
             }
         }

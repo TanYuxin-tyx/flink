@@ -31,6 +31,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.memory.MemoryTierWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote.RemoteTierWriter;
+import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.StringUtils;
 
 import javax.annotation.Nullable;
@@ -117,8 +118,6 @@ public class TierWriterFactoryImpl implements TierWriterFactory {
                         jobID,
                         resultPartitionID,
                         storeConfiguration.getBaseDfsHomePath());
-
-        setupTierWriters();
     }
 
     @Override
@@ -127,15 +126,20 @@ public class TierWriterFactoryImpl implements TierWriterFactory {
     }
 
     @Override
-    public TieredStoreMemoryManager getTieredStoreMemoryManager() {
-        return tieredStoreMemoryManager;
+    public void setup() {
+        addTierExclusiveBuffers(tierTypes);
+        try {
+            for (int i = 0; i < tierTypes.length; i++) {
+                tierWriters[i] = createStorageTier(tierTypes[i]);
+            }
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e);
+        }
     }
 
-    private void setupTierWriters() throws IOException {
-        addTierExclusiveBuffers(tierTypes);
-        for (int i = 0; i < tierTypes.length; i++) {
-            tierWriters[i] = createStorageTier(tierTypes[i]);
-        }
+    @Override
+    public TieredStoreMemoryManager getTieredStoreMemoryManager() {
+        return tieredStoreMemoryManager;
     }
 
     private TierWriter createStorageTier(TierType tierType) throws IOException {

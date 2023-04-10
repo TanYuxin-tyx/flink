@@ -83,11 +83,6 @@ public class RemoteTierWriter implements TierWriter {
     }
 
     @Override
-    public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
-        return segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentIndex);
-    }
-
-    @Override
     public TierType getTierType() {
         return TierType.IN_REMOTE;
     }

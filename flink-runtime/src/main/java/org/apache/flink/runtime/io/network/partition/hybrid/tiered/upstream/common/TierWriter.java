@@ -35,8 +35,6 @@ public interface TierWriter {
 
     boolean canStoreNextSegment(int subpartitionId);
 
-    boolean hasCurrentSegment(int subpartitionId, int segmentIndex);
-
     TierType getTierType();
 
     Path getBaseSubpartitionPath(int subpartitionId);

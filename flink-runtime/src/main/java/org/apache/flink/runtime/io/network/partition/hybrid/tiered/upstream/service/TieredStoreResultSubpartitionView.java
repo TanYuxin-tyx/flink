@@ -22,7 +22,7 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewProvider;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreConsumerFailureCause;
 
 import javax.annotation.Nullable;
@@ -42,7 +42,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final int subpartitionId;
 
-    private final List<TierWriter> registeredTiers;
+    private final List<NettyBasedTierConsumerViewProvider> registeredTiers;
 
     private final List<NettyBasedTierConsumerView> registeredTierConsumerViews;
 
@@ -59,7 +59,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     public TieredStoreResultSubpartitionView(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            List<TierWriter> registeredTiers,
+            List<NettyBasedTierConsumerViewProvider> registeredTiers,
             List<NettyBasedTierConsumerView> registeredTierConsumerViews) {
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
@@ -175,8 +175,9 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             nettyBasedTierConsumerView.updateNeedNotifyStatus();
         }
         for (int viewIndex = 0; viewIndex < registeredTiers.size(); viewIndex++) {
-            TierWriter tieredDataGate = registeredTiers.get(viewIndex);
-            if (tieredDataGate.hasCurrentSegment(subpartitionId, requiredSegmentId)) {
+            NettyBasedTierConsumerViewProvider tierConsumerViewProvider =
+                    registeredTiers.get(viewIndex);
+            if (tierConsumerViewProvider.hasCurrentSegment(subpartitionId, requiredSegmentId)) {
                 viewIndexContainsCurrentSegment = viewIndex;
                 return true;
             }

@@ -273,6 +273,7 @@ public class ResultPartitionFactory {
                                 batchShuffleReadIOExecutor,
                                 bufferCompressor,
                                 storeConfiguration);
+                tierWriterFactory.setup();
                 BufferAccumulator bufferAccumulator =
                         new BufferAccumulatorImpl(
                                 tierWriterFactory.getTierWriters(),

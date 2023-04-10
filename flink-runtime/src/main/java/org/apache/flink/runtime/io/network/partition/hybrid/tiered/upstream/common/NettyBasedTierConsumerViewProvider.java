@@ -26,4 +26,6 @@ public interface NettyBasedTierConsumerViewProvider {
 
     NettyBasedTierConsumerView createTierReaderView(
             int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
+
+    boolean hasCurrentSegment(int subpartitionId, int segmentIndex);
 }
