@@ -24,8 +24,10 @@ import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactoryImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriterFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriterFactoryImpl;
 import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
@@ -61,7 +63,7 @@ public class TieredStoreShuffleEnvironment {
         TierWriterFactory tierWriterFactory = null;
         try {
             tierWriterFactory =
-                    new TierWriterFactory(
+                    new TierWriterFactoryImpl(
                             jobID,
                             tierTypes,
                             resultPartitionID,
@@ -86,7 +88,7 @@ public class TieredStoreShuffleEnvironment {
             List<ResultPartitionID> resultPartitionIDs,
             MemorySegmentProvider memorySegmentProvider,
             List<Integer> subpartitionIndexes) {
-        return new TierReaderFactory(
+        return new TierReaderFactoryImpl(
                 jobID,
                 resultPartitionIDs,
                 memorySegmentProvider,

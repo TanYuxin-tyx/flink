@@ -1,72 +1,31 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream;
 
-import org.apache.flink.api.common.JobID;
-import org.apache.flink.core.memory.MemorySegmentProvider;
-import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-/** The factory of {@link TierReader}. */
-public class TierReaderFactory {
+/** . */
+public interface TierReaderFactory {
+    void setup(InputChannel[] channels, Consumer<InputChannel> channelEnqueueReceiver);
 
-    private final JobID jobID;
-
-    private final List<ResultPartitionID> resultPartitionIDs;
-
-    private final String baseRemoteStoragePath;
-
-    private final List<Integer> subpartitionIndexes;
-
-    private final boolean enableRemoteTier;
-
-    private RemoteTierMonitor remoteTierMonitor;
-
-    private TieredStoreMemoryManager memoryManager;
-
-    public TierReaderFactory(
-            JobID jobID,
-            List<ResultPartitionID> resultPartitionIDs,
-            MemorySegmentProvider memorySegmentProvider,
-            List<Integer> subpartitionIndexes,
-            String baseRemoteStoragePath) {
-        this.jobID = jobID;
-        this.resultPartitionIDs = resultPartitionIDs;
-        this.subpartitionIndexes = subpartitionIndexes;
-        this.baseRemoteStoragePath = baseRemoteStoragePath;
-        this.enableRemoteTier = baseRemoteStoragePath != null;
-        if (enableRemoteTier) {
-            this.memoryManager =
-                    new DownstreamTieredStoreMemoryManager(
-                            (NetworkBufferPool) memorySegmentProvider);
-        }
-    }
-
-    public void setup(InputChannel[] channels, Consumer<InputChannel> channelEnqueueReceiver) {
-        if (enableRemoteTier) {
-            this.remoteTierMonitor =
-                    new RemoteTierMonitor(
-                            jobID, resultPartitionIDs, baseRemoteStoragePath, subpartitionIndexes);
-            this.remoteTierMonitor.setup(channels, channelEnqueueReceiver);
-        }
-    }
-
-    public List<TierReader> createClientList() {
-        List<TierReader> clientList = new ArrayList<>();
-        if (enableRemoteTier) {
-            clientList.add(new LocalTierReader());
-            clientList.add(new RemoteTierReader(memoryManager, remoteTierMonitor));
-        } else {
-            clientList.add(new LocalTierReader());
-        }
-        return clientList;
-    }
-
-    public boolean isEnableRemoteTier() {
-        return enableRemoteTier;
-    }
+    List<TierReader> createClientList();
 }
