@@ -18,12 +18,9 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
-import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
@@ -40,7 +37,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ScheduledExecutorService;
 
 public class RemoteTieredStorageFactory implements TieredStorageFactory {
     private final TierType[] tierTypes;
@@ -54,8 +50,6 @@ public class RemoteTieredStorageFactory implements TieredStorageFactory {
     private final boolean isBroadcast;
 
     private final BufferCompressor bufferCompressor;
-
-    private final float numBuffersTriggerFlushRatio;
 
     private final float minReservedDiskSpaceFraction;
 
@@ -74,22 +68,17 @@ public class RemoteTieredStorageFactory implements TieredStorageFactory {
     private final TieredStoreMemoryManager storeMemoryManager;
 
     public RemoteTieredStorageFactory(
-            JobID jobID,
             TierType[] tierTypes,
             ResultPartitionID resultPartitionID,
             int numSubpartitions,
             int bufferSize,
-            float numBuffersTriggerFlushRatio,
             float minReservedDiskSpaceFraction,
             String dataFileBasePath,
             String baseRemoteStoragePath,
             boolean isBroadcast,
-            BatchShuffleReadBufferPool readBufferPool,
-            ScheduledExecutorService readIOExecutor,
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
-            UpstreamTieredStoreMemoryManager storeMemoryManager,
-            TieredStoreConfiguration storeConfiguration)
+            UpstreamTieredStoreMemoryManager storeMemoryManager)
             throws IOException {
         this.tierTypes = tierTypes;
         this.resultPartitionID = resultPartitionID;
@@ -97,7 +86,6 @@ public class RemoteTieredStorageFactory implements TieredStorageFactory {
         this.bufferSize = bufferSize;
         this.isBroadcast = isBroadcast;
         this.bufferCompressor = bufferCompressor;
-        this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.dataFileBasePath = dataFileBasePath;
         this.baseRemoteStoragePath = baseRemoteStoragePath;
@@ -116,7 +104,6 @@ public class RemoteTieredStorageFactory implements TieredStorageFactory {
     }
 
     public void setup() {
-        //        addTierExclusiveBuffers(tierTypes);
         try {
             for (int i = 0; i < tierTypes.length; i++) {
                 tierStorages[i] = createTierStorage(tierTypes[i]);

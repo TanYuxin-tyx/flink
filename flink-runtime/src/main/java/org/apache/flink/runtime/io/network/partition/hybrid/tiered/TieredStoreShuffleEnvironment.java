@@ -20,14 +20,10 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.memory.MemorySegmentProvider;
-import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactoryImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageFactoryImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
 import org.apache.flink.util.ExceptionUtils;
@@ -36,7 +32,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.ScheduledExecutorService;
 
 public class TieredStoreShuffleEnvironment {
 
@@ -54,36 +49,27 @@ public class TieredStoreShuffleEnvironment {
             ResultPartitionID resultPartitionID,
             int numSubpartitions,
             int bufferSize,
-            float numBuffersTriggerFlushRatio,
             float minReservedDiskSpaceFraction,
             String dataFileBasePath,
             boolean isBroadcast,
-            BatchShuffleReadBufferPool readBufferPool,
-            ScheduledExecutorService readIOExecutor,
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
-            UpstreamTieredStoreMemoryManager storeMemoryManager,
-            TieredStoreConfiguration storeConfiguration) {
+            UpstreamTieredStoreMemoryManager storeMemoryManager) {
         UpstreamTieredStorageFactory tierStorageFactory = null;
         try {
             tierStorageFactory =
                     new UpstreamTieredStorageFactory(
-                            jobID,
                             tierTypes,
                             resultPartitionID,
                             numSubpartitions,
                             bufferSize,
-                            numBuffersTriggerFlushRatio,
                             minReservedDiskSpaceFraction,
                             dataFileBasePath,
                             baseRemoteStoragePath,
                             isBroadcast,
-                            readBufferPool,
-                            readIOExecutor,
                             bufferCompressor,
                             partitionFileManager,
-                            storeMemoryManager,
-                            storeConfiguration);
+                            storeMemoryManager);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
@@ -95,73 +81,27 @@ public class TieredStoreShuffleEnvironment {
             ResultPartitionID resultPartitionID,
             int numSubpartitions,
             int bufferSize,
-            float numBuffersTriggerFlushRatio,
             float minReservedDiskSpaceFraction,
             String dataFileBasePath,
             boolean isBroadcast,
-            BatchShuffleReadBufferPool readBufferPool,
-            ScheduledExecutorService readIOExecutor,
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
-            UpstreamTieredStoreMemoryManager storeMemoryManager,
-            TieredStoreConfiguration storeConfiguration) {
+            UpstreamTieredStoreMemoryManager storeMemoryManager) {
         RemoteTieredStorageFactory tierStorageFactory = null;
         try {
             tierStorageFactory =
                     new RemoteTieredStorageFactory(
-                            jobID,
                             tierTypes,
                             resultPartitionID,
                             numSubpartitions,
                             bufferSize,
-                            numBuffersTriggerFlushRatio,
                             minReservedDiskSpaceFraction,
                             dataFileBasePath,
                             baseRemoteStoragePath,
                             isBroadcast,
-                            readBufferPool,
-                            readIOExecutor,
                             bufferCompressor,
                             partitionFileManager,
-                            storeMemoryManager,
-                            storeConfiguration);
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e);
-        }
-        return tierStorageFactory;
-    }
-
-    public TierStorageFactory createStorageTierWriterFactory(
-            TierType[] tierTypes,
-            ResultPartitionID resultPartitionID,
-            int numSubpartitions,
-            int bufferSize,
-            float numBuffersTriggerFlushRatio,
-            float minReservedDiskSpaceFraction,
-            String dataFileBasePath,
-            boolean isBroadcast,
-            BatchShuffleReadBufferPool readBufferPool,
-            ScheduledExecutorService readIOExecutor,
-            @Nullable BufferCompressor bufferCompressor,
-            TieredStoreConfiguration storeConfiguration) {
-        TierStorageFactory tierStorageFactory = null;
-        try {
-            tierStorageFactory =
-                    new TierStorageFactoryImpl(
-                            jobID,
-                            tierTypes,
-                            resultPartitionID,
-                            numSubpartitions,
-                            bufferSize,
-                            numBuffersTriggerFlushRatio,
-                            minReservedDiskSpaceFraction,
-                            dataFileBasePath,
-                            baseRemoteStoragePath,
-                            isBroadcast,
-                            readBufferPool,
-                            readIOExecutor,
-                            bufferCompressor,
-                            storeConfiguration);
+                            storeMemoryManager);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }

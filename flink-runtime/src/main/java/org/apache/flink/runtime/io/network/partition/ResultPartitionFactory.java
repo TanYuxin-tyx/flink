@@ -375,35 +375,27 @@ public class ResultPartitionFactory {
                             id,
                             subpartitions.length,
                             networkBufferSize,
-                            storeConfiguration.getNumBuffersTriggerFlushRatio(),
                             minReservedDiskSpaceFraction,
                             dataFileBasePath,
                             isBroadcast,
-                            batchShuffleReadBufferPool,
-                            batchShuffleReadIOExecutor,
                             bufferCompressor,
                             partitionFileManager,
-                            storeMemoryManager,
-                            storeConfiguration);
+                            storeMemoryManager);
         }
         RemoteTieredStorageFactory remoteTieredStorageFactory = null;
         if (storeConfiguration.getRemoteTierTypes().length > 0) {
             remoteTieredStorageFactory =
                     storeShuffleEnvironment.createRemoteTieredStorageFactory(
-                            new TierType[] {TierType.IN_REMOTE},
+                            storeConfiguration.getRemoteTierTypes(),
                             id,
                             subpartitions.length,
                             networkBufferSize,
-                            storeConfiguration.getNumBuffersTriggerFlushRatio(),
                             minReservedDiskSpaceFraction,
                             dataFileBasePath,
                             isBroadcast,
-                            batchShuffleReadBufferPool,
-                            batchShuffleReadIOExecutor,
                             bufferCompressor,
                             partitionFileManager,
-                            storeMemoryManager,
-                            storeConfiguration);
+                            storeMemoryManager);
         }
         checkState(upstreamTieredStorageFactory != null || remoteTieredStorageFactory != null);
         TierStorage[] tierStorages;
