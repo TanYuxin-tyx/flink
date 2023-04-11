@@ -50,12 +50,12 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
 
     public void append(
             ByteBuffer record,
-            int targetChannel,
+            int consumerId,
             Buffer.DataType dataType,
             boolean isEndOfPartition)
             throws IOException {
         try {
-            getSubpartitionCachedBuffer(targetChannel).append(record, dataType, isEndOfPartition);
+            getCachedBuffer(consumerId).append(record, dataType, isEndOfPartition);
         } catch (InterruptedException e) {
             throw new IOException(e);
         }
@@ -71,7 +71,7 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
         storeMemoryManager.recycleBufferInAccumulator(buffer);
     }
 
-    private SubpartitionCachedBuffer getSubpartitionCachedBuffer(int targetChannel) {
+    private SubpartitionCachedBuffer getCachedBuffer(int targetChannel) {
         return subpartitionCachedBuffers[targetChannel];
     }
 }

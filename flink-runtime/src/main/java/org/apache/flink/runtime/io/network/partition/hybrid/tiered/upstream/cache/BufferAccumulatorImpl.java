@@ -114,11 +114,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     @Override
     public void receive(
             ByteBuffer record,
-            int targetSubpartition,
+            int consumerId,
             Buffer.DataType dataType,
             boolean isEndOfPartition)
             throws IOException {
-        cachedBuffer.append(record, targetSubpartition, dataType, isEndOfPartition);
+        cachedBuffer.append(record, consumerId, dataType, isEndOfPartition);
     }
 
     @Override
