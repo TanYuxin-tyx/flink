@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.memory;
 
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
@@ -141,19 +140,14 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
     }
 
     @Override
-    public boolean canStoreNextSegment(int subpartitionId) {
+    public boolean canStoreNextSegment(int consumerId) {
         return tieredStoreMemoryManager.numAvailableBuffers(TierType.IN_MEM) > bufferNumberInSegment
-                && memoryWriter.isConsumerRegistered(subpartitionId);
+                && memoryWriter.isConsumerRegistered(consumerId);
     }
 
     @Override
     public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
         return segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentIndex);
-    }
-
-    @Override
-    public Path getBaseSubpartitionPath(int subpartitionId) {
-        return null;
     }
 
     @Override

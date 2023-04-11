@@ -34,31 +34,31 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     private final boolean isBroadcastOnly;
 
-    private final int numSubpartitions;
+    private final int numConsumers;
 
     private final BufferAccumulator bufferAccumulator;
 
     public TieredStoreProducerImpl(
-            int numSubpartitions, boolean isBroadcastOnly, BufferAccumulator bufferAccumulator) {
+            int numConsumers, boolean isBroadcastOnly, BufferAccumulator bufferAccumulator) {
         this.isBroadcastOnly = isBroadcastOnly;
-        this.numSubpartitions = numSubpartitions;
+        this.numConsumers = numConsumers;
         this.bufferAccumulator = bufferAccumulator;
     }
 
     @Override
     public void emit(
             ByteBuffer record,
-            int targetSubpartition,
+            int consumerId,
             Buffer.DataType dataType,
             boolean isBroadcast)
             throws IOException {
 
         if (isBroadcast && !isBroadcastOnly) {
-            for (int i = 0; i < numSubpartitions; ++i) {
+            for (int i = 0; i < numConsumers; ++i) {
                 bufferAccumulator.receive(record.duplicate(), i, dataType);
             }
         } else {
-            bufferAccumulator.receive(record, targetSubpartition, dataType);
+            bufferAccumulator.receive(record, consumerId, dataType);
         }
     }
 

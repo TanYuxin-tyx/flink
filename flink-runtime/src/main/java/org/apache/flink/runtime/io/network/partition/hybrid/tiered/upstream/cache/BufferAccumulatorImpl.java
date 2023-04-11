@@ -81,7 +81,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     public BufferAccumulatorImpl(
             TierStorage[] tierStorages,
-            int numSubpartitions,
+            int numConsumers,
             int bufferSize,
             boolean isBroadcastOnly,
             TieredStoreMemoryManager storeMemoryManager,
@@ -91,10 +91,10 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         this.bufferCompressor = bufferCompressor;
         this.isBroadcastOnly = isBroadcastOnly;
         this.tierWriters = new TierWriter[tierStorages.length];
-        this.subpartitionSegmentIndexes = new int[numSubpartitions];
-        this.lastSubpartitionSegmentIndexes = new int[numSubpartitions];
+        this.subpartitionSegmentIndexes = new int[numConsumers];
+        this.lastSubpartitionSegmentIndexes = new int[numConsumers];
         Arrays.fill(lastSubpartitionSegmentIndexes, -1);
-        this.subpartitionWriterIndex = new int[numSubpartitions];
+        this.subpartitionWriterIndex = new int[numConsumers];
         this.bufferRecyclers = new BufferRecycler[tierStorages.length];
         this.tierTypes = new TierType[tierStorages.length];
 
@@ -111,7 +111,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
         this.cachedBuffer =
                 new HashBasedCachedBuffer(
-                        numSubpartitions, bufferSize, storeMemoryManager, this::emitFinishedBuffer);
+                        numConsumers, bufferSize, storeMemoryManager, this::emitFinishedBuffer);
 
         Arrays.fill(subpartitionSegmentIndexes, 0);
         Arrays.fill(subpartitionWriterIndex, -1);
@@ -152,15 +152,15 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     private void emitFinishedBuffer(MemorySegmentAndChannel finishedSegment) throws IOException {
-        int targetSubpartition = finishedSegment.getChannelIndex();
-        int tierIndex = subpartitionWriterIndex[targetSubpartition];
+        int consumerId = finishedSegment.getChannelIndex();
+        int tierIndex = subpartitionWriterIndex[consumerId];
         // For the first buffer
         if (tierIndex == -1) {
-            tierIndex = chooseStorageTierIndex(targetSubpartition);
-            subpartitionWriterIndex[targetSubpartition] = tierIndex;
+            tierIndex = chooseStorageTierIndex(consumerId);
+            subpartitionWriterIndex[consumerId] = tierIndex;
         }
 
-        int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
+        int segmentIndex = subpartitionSegmentIndexes[consumerId];
         if (finishedSegment.getDataType().isBuffer()) {
             storeMemoryManager.decRequestedBufferInAccumulator();
             storeMemoryManager.incNumRequestedBuffer(tierTypes[tierIndex]);
@@ -175,17 +175,17 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
                         finishedSegment.getDataSize());
         Buffer compressedBuffer = compressBufferIfPossible(finishedBuffer);
         updateStatistics(compressedBuffer);
-        if (segmentIndex != lastSubpartitionSegmentIndexes[targetSubpartition]) {
-            tierWriters[tierIndex].startSegment(targetSubpartition, segmentIndex);
-            lastSubpartitionSegmentIndexes[targetSubpartition] = segmentIndex;
+        if (segmentIndex != lastSubpartitionSegmentIndexes[consumerId]) {
+            tierWriters[tierIndex].startSegment(consumerId, segmentIndex);
+            lastSubpartitionSegmentIndexes[consumerId] = segmentIndex;
         }
         boolean isLastBufferInSegment =
-                tierWriters[tierIndex].emit(targetSubpartition, compressedBuffer);
+                tierWriters[tierIndex].emit(consumerId, compressedBuffer);
         storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
-            tierIndex = chooseStorageTierIndex(targetSubpartition);
-            subpartitionWriterIndex[targetSubpartition] = tierIndex;
-            subpartitionSegmentIndexes[targetSubpartition] = (segmentIndex + 1);
+            tierIndex = chooseStorageTierIndex(consumerId);
+            subpartitionWriterIndex[consumerId] = tierIndex;
+            subpartitionSegmentIndexes[consumerId] = (segmentIndex + 1);
         }
     }
 

@@ -35,7 +35,7 @@ public interface BufferAccumulator {
      */
     void receive(
             ByteBuffer record,
-            int targetSubpartition,
+            int consumerId,
             Buffer.DataType dataType)
             throws IOException;
 

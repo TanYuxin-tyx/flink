@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
 
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 
 import java.io.IOException;
@@ -33,11 +32,9 @@ public interface TierStorage {
 
     TierWriter createPartitionTierWriter();
 
-    boolean canStoreNextSegment(int subpartitionId);
+    boolean canStoreNextSegment(int consumerId);
 
     TierType getTierType();
-
-    Path getBaseSubpartitionPath(int subpartitionId);
 
     void release();
 }

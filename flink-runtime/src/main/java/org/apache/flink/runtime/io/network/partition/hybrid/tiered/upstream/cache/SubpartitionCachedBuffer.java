@@ -39,7 +39,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 public class SubpartitionCachedBuffer {
 
-    private final int targetChannel;
+    private final int consumerId;
 
     private final int bufferSize;
 
@@ -51,11 +51,11 @@ public class SubpartitionCachedBuffer {
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
     public SubpartitionCachedBuffer(
-            int targetChannel,
+            int consumerId,
             int bufferSize,
             Consumer<List<MemorySegmentAndChannel>> finishedBufferListener,
             CacheBufferOperation cacheBufferOperation) {
-        this.targetChannel = targetChannel;
+        this.consumerId = consumerId;
         this.bufferSize = bufferSize;
         this.cacheBufferOperation = cacheBufferOperation;
         this.finishedBufferListener = finishedBufferListener;
@@ -87,7 +87,7 @@ public class SubpartitionCachedBuffer {
         // store Events in adhoc heap segments, for network memory efficiency
         MemorySegment data = MemorySegmentFactory.wrap(event.array());
         addFinishedBuffer(
-                new MemorySegmentAndChannel(data, targetChannel, dataType, data.size()));
+                new MemorySegmentAndChannel(data, consumerId, dataType, data.size()));
     }
 
     private void writeRecord(ByteBuffer record, Buffer.DataType dataType)
@@ -151,7 +151,7 @@ public class SubpartitionCachedBuffer {
         addFinishedBuffer(
                 new MemorySegmentAndChannel(
                         buffer.getMemorySegment(),
-                        targetChannel,
+                        consumerId,
                         buffer.getDataType(),
                         buffer.getSize()));
     }

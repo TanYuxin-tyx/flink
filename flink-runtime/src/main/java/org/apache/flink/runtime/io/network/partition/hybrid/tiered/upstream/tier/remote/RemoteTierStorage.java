@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote;
 
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
@@ -78,18 +77,13 @@ public class RemoteTierStorage implements TierStorage {
     }
 
     @Override
-    public boolean canStoreNextSegment(int subpartitionId) {
+    public boolean canStoreNextSegment(int consumerId) {
         return true;
     }
 
     @Override
     public TierType getTierType() {
         return TierType.IN_REMOTE;
-    }
-
-    @Override
-    public Path getBaseSubpartitionPath(int subpartitionId) {
-        return remoteCacheManager.getBaseSubpartitionPath(subpartitionId);
     }
 
     @Override

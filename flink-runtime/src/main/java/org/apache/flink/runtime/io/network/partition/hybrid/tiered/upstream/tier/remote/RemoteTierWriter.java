@@ -59,28 +59,28 @@ public class RemoteTierWriter implements TierWriter {
     public void setup() throws IOException {}
 
     @Override
-    public void startSegment(int targetSubpartition, int segmentId) {
-        if (!segmentIndexTracker.hasCurrentSegment(targetSubpartition, segmentId)) {
-            segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
-            cacheDataManager.startSegment(targetSubpartition, segmentId);
+    public void startSegment(int consumerId, int segmentId) {
+        if (!segmentIndexTracker.hasCurrentSegment(consumerId, segmentId)) {
+            segmentIndexTracker.addSubpartitionSegmentIndex(consumerId, segmentId);
+            cacheDataManager.startSegment(consumerId, segmentId);
         }
-        subpartitionLastestSegmentId[targetSubpartition] = segmentId;
+        subpartitionLastestSegmentId[consumerId] = segmentId;
     }
 
     @Override
-    public boolean emit(int targetSubpartition, Buffer finishedBuffer)
+    public boolean emit(int consumerId, Buffer finishedBuffer)
             throws IOException {
         boolean isLastBufferInSegment = false;
-        numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.readableBytes();
-        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
+        numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
+        if (numSubpartitionEmitBytes[consumerId] >= numBytesInASegment) {
             isLastBufferInSegment = true;
-            numSubpartitionEmitBytes[targetSubpartition] = 0;
+            numSubpartitionEmitBytes[consumerId] = 0;
         }
-        emitBuffer(finishedBuffer, targetSubpartition);
+        emitBuffer(finishedBuffer, consumerId);
 
         if (isLastBufferInSegment) {
             cacheDataManager.finishSegment(
-                    targetSubpartition, subpartitionLastestSegmentId[targetSubpartition]);
+                    consumerId, subpartitionLastestSegmentId[consumerId]);
         }
         return isLastBufferInSegment;
     }

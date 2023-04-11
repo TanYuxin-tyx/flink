@@ -35,14 +35,14 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
     private final TieredStoreMemoryManager storeMemoryManager;
 
     HashBasedCachedBuffer(
-            int numSubpartitions,
+            int numConsumers,
             int bufferSize,
             TieredStoreMemoryManager storeMemoryManager,
             Consumer<List<MemorySegmentAndChannel>> finishedBufferListener) {
-        this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numSubpartitions];
+        this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numConsumers];
         this.storeMemoryManager = storeMemoryManager;
 
-        for (int i = 0; i < numSubpartitions; i++) {
+        for (int i = 0; i < numConsumers; i++) {
             subpartitionCachedBuffers[i] =
                     new SubpartitionCachedBuffer(i, bufferSize, finishedBufferListener, this);
         }
@@ -70,7 +70,7 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
         storeMemoryManager.recycleBufferInAccumulator(buffer);
     }
 
-    private SubpartitionCachedBuffer getCachedBuffer(int targetChannel) {
-        return subpartitionCachedBuffers[targetChannel];
+    private SubpartitionCachedBuffer getCachedBuffer(int consumerId) {
+        return subpartitionCachedBuffers[consumerId];
     }
 }

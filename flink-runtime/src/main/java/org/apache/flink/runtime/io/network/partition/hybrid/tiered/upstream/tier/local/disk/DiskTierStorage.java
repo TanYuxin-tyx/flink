@@ -175,7 +175,7 @@ public class DiskTierStorage implements TierStorage, NettyBasedTierConsumerViewP
     }
 
     @Override
-    public boolean canStoreNextSegment(int subpartitionId) {
+    public boolean canStoreNextSegment(int consumerId) {
         File filePath = dataFilePath.toFile();
         return filePath.getUsableSpace()
                 > (long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction);
@@ -189,11 +189,6 @@ public class DiskTierStorage implements TierStorage, NettyBasedTierConsumerViewP
     @Override
     public TierType getTierType() {
         return TierType.IN_DISK;
-    }
-
-    @Override
-    public org.apache.flink.core.fs.Path getBaseSubpartitionPath(int subpartitionId) {
-        return null;
     }
 
     @Override

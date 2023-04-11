@@ -30,9 +30,9 @@ public interface TierWriter {
 
     void setup() throws IOException;
 
-    void startSegment(int targetSubpartition, int segmentId);
+    void startSegment(int consumerId, int segmentId);
 
-    boolean emit(int targetSubpartition, Buffer finishedBuffer) throws IOException;
+    boolean emit(int consumerId, Buffer finishedBuffer) throws IOException;
 
     void close();
 }

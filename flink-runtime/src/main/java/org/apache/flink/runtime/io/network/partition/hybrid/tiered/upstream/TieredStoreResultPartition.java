@@ -134,9 +134,9 @@ public class TieredStoreResultPartition extends ResultPartition {
     }
 
     @Override
-    public void emitRecord(ByteBuffer record, int targetSubpartition) throws IOException {
-        resultPartitionBytes.inc(targetSubpartition, record.remaining());
-        emit(record, targetSubpartition, Buffer.DataType.DATA_BUFFER, false);
+    public void emitRecord(ByteBuffer record, int consumerId) throws IOException {
+        resultPartitionBytes.inc(consumerId, record.remaining());
+        emit(record, consumerId, Buffer.DataType.DATA_BUFFER, false);
     }
 
     @Override
@@ -163,11 +163,11 @@ public class TieredStoreResultPartition extends ResultPartition {
 
     private void emit(
             ByteBuffer record,
-            int targetSubpartition,
+            int consumerId,
             Buffer.DataType dataType,
             boolean isBroadcast)
             throws IOException {
-        checkNotNull(tieredStoreProducer).emit(record, targetSubpartition, dataType, isBroadcast);
+        checkNotNull(tieredStoreProducer).emit(record, consumerId, dataType, isBroadcast);
     }
 
     @Override
@@ -258,7 +258,7 @@ public class TieredStoreResultPartition extends ResultPartition {
     }
 
     @Override
-    public int getNumberOfQueuedBuffers(int targetSubpartition) {
+    public int getNumberOfQueuedBuffers(int consumerId) {
         // Nothing to do.
         return 0;
     }

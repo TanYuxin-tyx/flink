@@ -28,7 +28,7 @@ public interface TieredStoreProducer {
 
     void emit(
             ByteBuffer record,
-            int targetSubpartition,
+            int consumerId,
             Buffer.DataType dataType,
             boolean isBroadcast)
             throws IOException;
