@@ -29,12 +29,20 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.RemoteTieredStorageFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStoreShuffleEnvironment;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.UpstreamTieredStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulatorImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriterFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManagerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -47,7 +55,15 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
+
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreUtils.DATA_FILE_SUFFIX;
+import static org.apache.flink.runtime.shuffle.NettyShuffleUtils.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** Factory for {@link ResultPartition} to use in {@link NettyShuffleEnvironment}. */
 public class ResultPartitionFactory {
@@ -257,30 +273,33 @@ public class ResultPartitionFactory {
             if (enableTieredStoreForHybridShuffle) {
                 TieredStoreConfiguration storeConfiguration =
                         getStoreConfiguration(numberOfSubpartitions, type);
+                CacheFlushManager cacheFlushManager = new CacheFlushManager();
                 TieredStoreShuffleEnvironment storeShuffleEnvironment =
                         new TieredStoreShuffleEnvironment(jobID, baseRemoteStorageHomePath);
-                TierWriterFactory tierWriterFactory =
-                        storeShuffleEnvironment.createStorageTierWriterFactory(
-                                storeConfiguration.getTierTypes(),
-                                id,
+                UpstreamTieredStoreMemoryManager storeMemoryManager =
+                        createStoreMemoryManager(
                                 subpartitions.length,
-                                networkBufferSize,
+                                storeConfiguration.getTierTypes(),
                                 storeConfiguration.getNumBuffersTriggerFlushRatio(),
-                                minReservedDiskSpaceFraction,
-                                channelManager.createChannel().getPath(),
+                                cacheFlushManager);
+                TierStorage[] tierStorages =
+                        createTierStorages(
+                                jobID,
+                                id,
                                 isBroadcast,
-                                batchShuffleReadBufferPool,
-                                batchShuffleReadIOExecutor,
                                 bufferCompressor,
-                                storeConfiguration);
-                tierWriterFactory.setup();
+                                subpartitions,
+                                storeConfiguration,
+                                storeShuffleEnvironment,
+                                storeMemoryManager);
+
                 BufferAccumulator bufferAccumulator =
                         new BufferAccumulatorImpl(
-                                tierWriterFactory.getTierStorages(),
+                                tierStorages,
                                 subpartitions.length,
                                 networkBufferSize,
                                 isBroadcast,
-                                tierWriterFactory.getTieredStoreMemoryManager(),
+                                storeMemoryManager,
                                 bufferCompressor);
                 partition =
                         new TieredStoreResultPartition(
@@ -292,8 +311,9 @@ public class ResultPartitionFactory {
                                 maxParallelism,
                                 partitionManager,
                                 isBroadcast,
-                                tierWriterFactory.getTierStorages(),
-                                tierWriterFactory.getTieredStoreMemoryManager(),
+                                tierStorages,
+                                storeMemoryManager,
+                                cacheFlushManager,
                                 bufferCompressor,
                                 bufferAccumulator,
                                 bufferPoolFactory);
@@ -324,6 +344,103 @@ public class ResultPartitionFactory {
         LOG.debug("{}: Initialized {}", taskNameWithSubtaskAndId, this);
 
         return partition;
+    }
+
+    private TierStorage[] createTierStorages(
+            JobID jobID,
+            ResultPartitionID id,
+            boolean isBroadcast,
+            BufferCompressor bufferCompressor,
+            ResultSubpartition[] subpartitions,
+            TieredStoreConfiguration storeConfiguration,
+            TieredStoreShuffleEnvironment storeShuffleEnvironment,
+            UpstreamTieredStoreMemoryManager storeMemoryManager) {
+        String dataFileBasePath = channelManager.createChannel().getPath();
+        PartitionFileManager partitionFileManager =
+                new PartitionFileManagerImpl(
+                        Paths.get(dataFileBasePath + DATA_FILE_SUFFIX),
+                        new RegionBufferIndexTrackerImpl(isBroadcast ? 1 : subpartitions.length),
+                        batchShuffleReadBufferPool,
+                        batchShuffleReadIOExecutor,
+                        storeConfiguration,
+                        subpartitions.length,
+                        jobID,
+                        id,
+                        storeConfiguration.getBaseDfsHomePath());
+        UpstreamTieredStorageFactory upstreamTieredStorageFactory = null;
+        if (storeConfiguration.getUpstreamTierTypes().length > 0) {
+            upstreamTieredStorageFactory =
+                    storeShuffleEnvironment.createUpstreamTieredStorageFactory(
+                            storeConfiguration.getUpstreamTierTypes(),
+                            id,
+                            subpartitions.length,
+                            networkBufferSize,
+                            storeConfiguration.getNumBuffersTriggerFlushRatio(),
+                            minReservedDiskSpaceFraction,
+                            dataFileBasePath,
+                            isBroadcast,
+                            batchShuffleReadBufferPool,
+                            batchShuffleReadIOExecutor,
+                            bufferCompressor,
+                            partitionFileManager,
+                            storeMemoryManager,
+                            storeConfiguration);
+        }
+        RemoteTieredStorageFactory remoteTieredStorageFactory = null;
+        if (storeConfiguration.getRemoteTierTypes().length > 0) {
+            remoteTieredStorageFactory =
+                    storeShuffleEnvironment.createRemoteTieredStorageFactory(
+                            new TierType[] {TierType.IN_REMOTE},
+                            id,
+                            subpartitions.length,
+                            networkBufferSize,
+                            storeConfiguration.getNumBuffersTriggerFlushRatio(),
+                            minReservedDiskSpaceFraction,
+                            dataFileBasePath,
+                            isBroadcast,
+                            batchShuffleReadBufferPool,
+                            batchShuffleReadIOExecutor,
+                            bufferCompressor,
+                            partitionFileManager,
+                            storeMemoryManager,
+                            storeConfiguration);
+        }
+        checkState(upstreamTieredStorageFactory != null || remoteTieredStorageFactory != null);
+        TierStorage[] tierStorages;
+        if (upstreamTieredStorageFactory == null) {
+            tierStorages = remoteTieredStorageFactory.getTierStorages();
+        } else if (remoteTieredStorageFactory == null) {
+            tierStorages = upstreamTieredStorageFactory.getTierStorages();
+        } else {
+            TierStorage[] upstreamTierStorages = upstreamTieredStorageFactory.getTierStorages();
+            TierStorage[] remoteTierStorages = remoteTieredStorageFactory.getTierStorages();
+            tierStorages = new TierStorage[upstreamTierStorages.length + remoteTierStorages.length];
+            System.arraycopy(upstreamTierStorages, 0, tierStorages, 0, upstreamTierStorages.length);
+            System.arraycopy(
+                    remoteTierStorages,
+                    0,
+                    tierStorages,
+                    upstreamTierStorages.length,
+                    remoteTierStorages.length);
+        }
+        return tierStorages;
+    }
+
+    private UpstreamTieredStoreMemoryManager createStoreMemoryManager(
+            int numSubpartitions,
+            TierType[] tierTypes,
+            float numBuffersTriggerFlushRatio,
+            CacheFlushManager cacheFlushManager) {
+        Map<TierType, Integer> tierExclusiveBuffers = new HashMap<>();
+        for (TierType tierType : tierTypes) {
+            tierExclusiveBuffers.put(
+                    tierType, checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(tierType)));
+        }
+        return new UpstreamTieredStoreMemoryManager(
+                tierExclusiveBuffers,
+                numSubpartitions,
+                numBuffersTriggerFlushRatio,
+                cacheFlushManager);
     }
 
     private HybridShuffleConfiguration getHybridShuffleConfiguration(

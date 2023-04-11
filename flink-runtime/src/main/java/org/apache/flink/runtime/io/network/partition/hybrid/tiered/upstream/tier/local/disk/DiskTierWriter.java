@@ -62,8 +62,7 @@ public class DiskTierWriter implements TierWriter {
     }
 
     @Override
-    public boolean write(int consumerId, Buffer finishedBuffer)
-            throws IOException {
+    public boolean write(int consumerId, Buffer finishedBuffer) throws IOException {
         boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
         if (numSubpartitionEmitBytes[consumerId] >= numBytesInASegment) {

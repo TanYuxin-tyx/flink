@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
 
-public interface TierWriterFactory {
+public interface TierStorageFactory {
 
     void setup();
 

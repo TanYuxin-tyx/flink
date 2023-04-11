@@ -33,7 +33,6 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.OutputMetrics;
@@ -50,8 +49,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -63,8 +60,6 @@ import static org.apache.flink.util.Preconditions.checkState;
  * read data from the relevant storage tier.
  */
 public class TieredStoreResultPartition extends ResultPartition {
-
-    public final Map<TierType, Integer> tierExclusiveBuffers;
 
     private final boolean isBroadcast;
 
@@ -93,6 +88,7 @@ public class TieredStoreResultPartition extends ResultPartition {
             boolean isBroadcast,
             TierStorage[] tierStorages,
             TieredStoreMemoryManager tieredStoreMemoryManager,
+            CacheFlushManager cacheFlushManager,
             @Nullable BufferCompressor bufferCompressor,
             BufferAccumulator bufferAccumulator,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory) {
@@ -111,8 +107,7 @@ public class TieredStoreResultPartition extends ResultPartition {
         this.tierStorages = tierStorages;
         this.bufferAccumulator = bufferAccumulator;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
-        this.tierExclusiveBuffers = new HashMap<>();
-        this.cacheFlushManager = new CacheFlushManager();
+        this.cacheFlushManager = cacheFlushManager;
     }
 
     // Called by task thread.
