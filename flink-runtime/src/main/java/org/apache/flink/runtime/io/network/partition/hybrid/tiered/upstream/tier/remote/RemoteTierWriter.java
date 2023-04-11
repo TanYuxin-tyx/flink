@@ -59,7 +59,16 @@ public class RemoteTierWriter implements TierWriter {
     public void setup() throws IOException {}
 
     @Override
-    public boolean emit(int targetSubpartition, Buffer finishedBuffer, int segmentId)
+    public void startSegment(int targetSubpartition, int segmentId) {
+        if (!segmentIndexTracker.hasCurrentSegment(targetSubpartition, segmentId)) {
+            segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
+            cacheDataManager.startSegment(targetSubpartition, segmentId);
+        }
+        subpartitionLastestSegmentId[targetSubpartition] = segmentId;
+    }
+
+    @Override
+    public boolean emit(int targetSubpartition, Buffer finishedBuffer)
             throws IOException {
         boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.readableBytes();
@@ -67,17 +76,12 @@ public class RemoteTierWriter implements TierWriter {
             isLastBufferInSegment = true;
             numSubpartitionEmitBytes[targetSubpartition] = 0;
         }
-
-        if (!segmentIndexTracker.hasCurrentSegment(targetSubpartition, segmentId)) {
-            segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
-            cacheDataManager.startSegment(targetSubpartition, segmentId);
-        }
         emitBuffer(finishedBuffer, targetSubpartition);
-        subpartitionLastestSegmentId[targetSubpartition] = segmentId;
-        if (isLastBufferInSegment) {
-            cacheDataManager.finishSegment(targetSubpartition, segmentId);
-        }
 
+        if (isLastBufferInSegment) {
+            cacheDataManager.finishSegment(
+                    targetSubpartition, subpartitionLastestSegmentId[targetSubpartition]);
+        }
         return isLastBufferInSegment;
     }
 

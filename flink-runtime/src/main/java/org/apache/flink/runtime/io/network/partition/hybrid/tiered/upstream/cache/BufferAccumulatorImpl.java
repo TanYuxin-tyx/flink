@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache;
 
+import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
@@ -46,7 +47,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /**
  * The implementation of the {@link BufferAccumulator}. The {@link BufferAccumulator} receives the
  * records from {@link TieredStoreProducer} and the records will accumulate and transform to
- * finished {@link * MemorySegment}s. The finished memory segments will be transferred to the
+ * finished {@link MemorySegment}s. The finished memory segments will be transferred to the
  * corresponding tier dynamically.
  */
 public class BufferAccumulatorImpl implements BufferAccumulator {
@@ -70,6 +71,9 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     /** Records the newest segment index belonged to each subpartition. */
     private final int[] subpartitionSegmentIndexes;
 
+    /** Records the newest segment index belonged to each subpartition. */
+    private final int[] lastSubpartitionSegmentIndexes;
+
     /** Record the index of tier writer currently used by each subpartition. */
     private final int[] subpartitionWriterIndex;
 
@@ -88,6 +92,8 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         this.isBroadcastOnly = isBroadcastOnly;
         this.tierWriters = new TierWriter[tierStorages.length];
         this.subpartitionSegmentIndexes = new int[numSubpartitions];
+        this.lastSubpartitionSegmentIndexes = new int[numSubpartitions];
+        Arrays.fill(lastSubpartitionSegmentIndexes, -1);
         this.subpartitionWriterIndex = new int[numSubpartitions];
         this.bufferRecyclers = new BufferRecycler[tierStorages.length];
         this.tierTypes = new TierType[tierStorages.length];
@@ -105,25 +111,20 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
         this.cachedBuffer =
                 new HashBasedCachedBuffer(
-                        numSubpartitions, bufferSize, storeMemoryManager,
-                        this::emitFinishedBuffer);
+                        numSubpartitions, bufferSize, storeMemoryManager, this::emitFinishedBuffer);
 
         Arrays.fill(subpartitionSegmentIndexes, 0);
         Arrays.fill(subpartitionWriterIndex, -1);
     }
 
     @Override
-    public void receive(
-            ByteBuffer record,
-            int consumerId,
-            Buffer.DataType dataType)
+    public void receive(ByteBuffer record, int consumerId, Buffer.DataType dataType)
             throws IOException {
         cachedBuffer.append(record, consumerId, dataType);
     }
 
     @Override
-    public void emitFinishedBuffer(
-            List<MemorySegmentAndChannel> memorySegmentAndChannels) {
+    public void emitFinishedBuffer(List<MemorySegmentAndChannel> memorySegmentAndChannels) {
         try {
             emitBuffers(memorySegmentAndChannels);
         } catch (IOException e) {
@@ -144,15 +145,13 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         Arrays.stream(tierStorages).forEach(TierStorage::release);
     }
 
-    void emitBuffers(List<MemorySegmentAndChannel> finishedSegments)
-            throws IOException {
+    void emitBuffers(List<MemorySegmentAndChannel> finishedSegments) throws IOException {
         for (MemorySegmentAndChannel finishedSegment : finishedSegments) {
             emitFinishedBuffer(finishedSegment);
         }
     }
 
-    private void emitFinishedBuffer(
-            MemorySegmentAndChannel finishedSegment) throws IOException {
+    private void emitFinishedBuffer(MemorySegmentAndChannel finishedSegment) throws IOException {
         int targetSubpartition = finishedSegment.getChannelIndex();
         int tierIndex = subpartitionWriterIndex[targetSubpartition];
         // For the first buffer
@@ -176,9 +175,12 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
                         finishedSegment.getDataSize());
         Buffer compressedBuffer = compressBufferIfPossible(finishedBuffer);
         updateStatistics(compressedBuffer);
+        if (segmentIndex != lastSubpartitionSegmentIndexes[targetSubpartition]) {
+            tierWriters[tierIndex].startSegment(targetSubpartition, segmentIndex);
+            lastSubpartitionSegmentIndexes[targetSubpartition] = segmentIndex;
+        }
         boolean isLastBufferInSegment =
-                tierWriters[tierIndex].emit(
-                        targetSubpartition, compressedBuffer, segmentIndex);
+                tierWriters[tierIndex].emit(targetSubpartition, compressedBuffer);
         storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(targetSubpartition);
