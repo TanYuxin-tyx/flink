@@ -1,6 +1,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream;
 
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -22,6 +24,11 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
     }
 
     @Override
+    public void start() {
+        this.clientFactory.start();
+    }
+
+    @Override
     public void setup(InputChannel[] channels, Consumer<InputChannel> channelEnqueuer) {
         this.clientFactory.setup(channels, channelEnqueuer);
         for (int i = 0; i < numInputChannels; ++i) {
@@ -33,6 +40,12 @@ public class TieredStoreReaderImpl implements TieredStoreReader {
     @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException {
+
+        if (inputChannel.getClass() == LocalRecoveredInputChannel.class
+                || inputChannel.getClass() == RemoteRecoveredInputChannel.class) {
+            return inputChannel.getNextBuffer();
+        }
+
         return subpartitionReaders[inputChannel.getChannelIndex()].getNextBuffer(inputChannel);
     }
 

@@ -321,6 +321,8 @@ public class SingleInputGate extends IndexedInputGate {
             }
 
             requestedPartitionsFlag = true;
+            // 这是因为不让 RemoteRecoveredChannel入队，否则 检查的太快，对应Channel就不入队了
+            tieredStoreReader.start();
         }
     }
 
@@ -965,7 +967,9 @@ public class SingleInputGate extends IndexedInputGate {
     @Override
     public void acknowledgeAllRecordsProcessed(InputChannelInfo channelInfo) throws IOException {
         checkState(!isFinished(), "InputGate already finished.");
-        channels[channelInfo.getInputChannelIdx()].acknowledgeAllRecordsProcessed();
+        if (tieredStoreReader == null) {
+            channels[channelInfo.getInputChannelIdx()].acknowledgeAllRecordsProcessed();
+        }
     }
 
     // ------------------------------------------------------------------------

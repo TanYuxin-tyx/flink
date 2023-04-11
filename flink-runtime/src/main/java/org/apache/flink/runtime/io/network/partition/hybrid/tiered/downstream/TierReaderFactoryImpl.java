@@ -55,6 +55,13 @@ public class TierReaderFactoryImpl implements TierReaderFactory {
         }
     }
 
+    @Override
+    public void start() {
+        if (remoteTierMonitor != null) {
+            this.remoteTierMonitor.start();
+        }
+    }
+
     public List<TierReader> createClientList() {
         List<TierReader> clientList = new ArrayList<>();
         if (enableRemoteTier) {

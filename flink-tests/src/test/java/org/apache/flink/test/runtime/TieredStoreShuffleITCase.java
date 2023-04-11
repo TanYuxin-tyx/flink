@@ -27,6 +27,7 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
 
@@ -144,7 +145,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
     //        For Remote Tier
     // ------------------------------------
 
-    @Test
+    @RepeatedTest(100)
     void testTieredStoreRemote() throws Exception {
         final int numRecordsToSend = 10000;
         Configuration configuration = getConfiguration();
@@ -155,7 +156,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
                 NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
         setupDfsConfigurations(configuration);
         configuration.set(TIERED_STORE_TIERS, "REMOTE");
-        JobGraph jobGraph = createJobGraph(numRecordsToSend, false, false, configuration, 1);
+        JobGraph jobGraph = createJobGraph(numRecordsToSend, false, false, configuration, 10);
         executeJob(jobGraph, configuration, numRecordsToSend);
     }
 

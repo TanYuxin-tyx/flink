@@ -25,6 +25,9 @@ import java.util.function.Consumer;
 
 /** . */
 public interface TierReaderFactory {
+
+    void start();
+
     void setup(InputChannel[] channels, Consumer<InputChannel> channelEnqueueReceiver);
 
     List<TierReader> createClientList();

@@ -12,6 +12,8 @@ public interface TieredStoreReader {
 
     void setup(InputChannel[] inputChannels, Consumer<InputChannel> channelEnqueuer);
 
+    void start();
+
     Optional<BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException;
 
