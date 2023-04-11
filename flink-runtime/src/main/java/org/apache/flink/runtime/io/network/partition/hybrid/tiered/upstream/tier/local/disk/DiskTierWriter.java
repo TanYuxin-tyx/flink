@@ -58,7 +58,7 @@ public class DiskTierWriter implements TierWriter {
 
     @Override
     public boolean emit(
-            int targetSubpartition, Buffer finishedBuffer, boolean isEndOfPartition, int segmentId)
+            int targetSubpartition, Buffer finishedBuffer, int segmentId)
             throws IOException {
         boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.readableBytes();
@@ -68,7 +68,7 @@ public class DiskTierWriter implements TierWriter {
         }
 
         segmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
-        if (isLastBufferInSegment && !isEndOfPartition) {
+        if (isLastBufferInSegment) {
             emitBuffer(finishedBuffer, targetSubpartition, false);
             emitEndOfSegmentEvent(segmentId, targetSubpartition);
         } else {

@@ -40,6 +40,8 @@ public class RemoteTierWriter implements TierWriter {
 
     private int numBytesInASegment;
 
+    private final int[] subpartitionLastestSegmentId;
+
     public RemoteTierWriter(
             int numSubpartitions,
             SubpartitionSegmentIndexTracker segmentIndexTracker,
@@ -48,6 +50,7 @@ public class RemoteTierWriter implements TierWriter {
         this.segmentIndexTracker = segmentIndexTracker;
         this.cacheDataManager = remoteCacheManager;
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
+        this.subpartitionLastestSegmentId = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
         this.numBytesInASegment = numBytesInASegment;
     }
@@ -56,8 +59,7 @@ public class RemoteTierWriter implements TierWriter {
     public void setup() throws IOException {}
 
     @Override
-    public boolean emit(
-            int targetSubpartition, Buffer finishedBuffer, boolean isEndOfPartition, int segmentId)
+    public boolean emit(int targetSubpartition, Buffer finishedBuffer, int segmentId)
             throws IOException {
         boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.readableBytes();
@@ -71,7 +73,8 @@ public class RemoteTierWriter implements TierWriter {
             cacheDataManager.startSegment(targetSubpartition, segmentId);
         }
         emitBuffer(finishedBuffer, targetSubpartition);
-        if (isLastBufferInSegment || isEndOfPartition) {
+        subpartitionLastestSegmentId[targetSubpartition] = segmentId;
+        if (isLastBufferInSegment) {
             cacheDataManager.finishSegment(targetSubpartition, segmentId);
         }
 
@@ -84,6 +87,9 @@ public class RemoteTierWriter implements TierWriter {
 
     @Override
     public void close() {
+        for (int index = 0; index < subpartitionLastestSegmentId.length; ++index) {
+            cacheDataManager.finishSegment(index, subpartitionLastestSegmentId[index]);
+        }
         cacheDataManager.close();
     }
 }

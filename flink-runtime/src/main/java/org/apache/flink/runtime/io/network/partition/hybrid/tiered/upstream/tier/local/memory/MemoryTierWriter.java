@@ -103,11 +103,7 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     public void setup() throws IOException {}
 
     @Override
-    public boolean emit(
-            int targetSubpartition,
-            Buffer finishedBuffer,
-            boolean isEndOfPartition,
-            int segmentId) {
+    public boolean emit(int targetSubpartition, Buffer finishedBuffer, int segmentId) {
         boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.readableBytes();
         if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
@@ -115,7 +111,7 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
             numSubpartitionEmitBytes[targetSubpartition] = 0;
         }
         subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
-        if (isLastBufferInSegment && !isEndOfPartition) {
+        if (isLastBufferInSegment) {
             append(finishedBuffer, targetSubpartition);
             // Send the EndOfSegmentEvent
             appendEndOfSegmentEvent(segmentId, targetSubpartition);
@@ -157,7 +153,6 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     /** Close this {@link MemoryTierWriter}, it means no data will be appended to memory. */
     @Override
     public void close() {}
-
 
     public boolean isConsumerRegistered(int subpartitionId) {
         int numConsumers = subpartitionViewOperationsMap.get(subpartitionId).size();

@@ -105,7 +105,8 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
         this.cachedBuffer =
                 new HashBasedCachedBuffer(
-                        numSubpartitions, bufferSize, storeMemoryManager, this::emitFinishedBuffer);
+                        numSubpartitions, bufferSize, storeMemoryManager,
+                        this::emitFinishedBuffer);
 
         Arrays.fill(subpartitionSegmentIndexes, 0);
         Arrays.fill(subpartitionWriterIndex, -1);
@@ -115,17 +116,16 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     public void receive(
             ByteBuffer record,
             int consumerId,
-            Buffer.DataType dataType,
-            boolean isEndOfPartition)
+            Buffer.DataType dataType)
             throws IOException {
-        cachedBuffer.append(record, consumerId, dataType, isEndOfPartition);
+        cachedBuffer.append(record, consumerId, dataType);
     }
 
     @Override
     public void emitFinishedBuffer(
-            List<MemorySegmentAndChannel> memorySegmentAndChannels, boolean isEndOfPartition) {
+            List<MemorySegmentAndChannel> memorySegmentAndChannels) {
         try {
-            emitBuffers(memorySegmentAndChannels, isEndOfPartition);
+            emitBuffers(memorySegmentAndChannels);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
@@ -144,15 +144,15 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         Arrays.stream(tierStorages).forEach(TierStorage::release);
     }
 
-    void emitBuffers(List<MemorySegmentAndChannel> finishedSegments, boolean isEndOfPartition)
+    void emitBuffers(List<MemorySegmentAndChannel> finishedSegments)
             throws IOException {
         for (MemorySegmentAndChannel finishedSegment : finishedSegments) {
-            emitFinishedBuffer(finishedSegment, isEndOfPartition);
+            emitFinishedBuffer(finishedSegment);
         }
     }
 
     private void emitFinishedBuffer(
-            MemorySegmentAndChannel finishedSegment, boolean isEndOfPartition) throws IOException {
+            MemorySegmentAndChannel finishedSegment) throws IOException {
         int targetSubpartition = finishedSegment.getChannelIndex();
         int tierIndex = subpartitionWriterIndex[targetSubpartition];
         // For the first buffer
@@ -178,7 +178,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         updateStatistics(compressedBuffer);
         boolean isLastBufferInSegment =
                 tierWriters[tierIndex].emit(
-                        targetSubpartition, compressedBuffer, isEndOfPartition, segmentIndex);
+                        targetSubpartition, compressedBuffer, segmentIndex);
         storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(targetSubpartition);

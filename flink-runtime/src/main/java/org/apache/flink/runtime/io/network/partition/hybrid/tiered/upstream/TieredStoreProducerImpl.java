@@ -50,16 +50,15 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
+            boolean isBroadcast)
             throws IOException {
 
         if (isBroadcast && !isBroadcastOnly) {
             for (int i = 0; i < numSubpartitions; ++i) {
-                bufferAccumulator.receive(record.duplicate(), i, dataType, isEndOfPartition);
+                bufferAccumulator.receive(record.duplicate(), i, dataType);
             }
         } else {
-            bufferAccumulator.receive(record, targetSubpartition, dataType, isEndOfPartition);
+            bufferAccumulator.receive(record, targetSubpartition, dataType);
         }
     }
 

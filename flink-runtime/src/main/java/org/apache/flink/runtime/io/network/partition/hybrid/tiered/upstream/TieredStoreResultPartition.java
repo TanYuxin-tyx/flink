@@ -136,13 +136,13 @@ public class TieredStoreResultPartition extends ResultPartition {
     @Override
     public void emitRecord(ByteBuffer record, int targetSubpartition) throws IOException {
         resultPartitionBytes.inc(targetSubpartition, record.remaining());
-        emit(record, targetSubpartition, Buffer.DataType.DATA_BUFFER, false, false);
+        emit(record, targetSubpartition, Buffer.DataType.DATA_BUFFER, false);
     }
 
     @Override
     public void broadcastRecord(ByteBuffer record) throws IOException {
         resultPartitionBytes.incAll(record.remaining());
-        broadcast(record, Buffer.DataType.DATA_BUFFER, false);
+        broadcast(record, Buffer.DataType.DATA_BUFFER);
     }
 
     @Override
@@ -150,30 +150,24 @@ public class TieredStoreResultPartition extends ResultPartition {
         Buffer buffer = EventSerializer.toBuffer(event, isPriorityEvent);
         try {
             ByteBuffer serializedEvent = buffer.getNioBufferReadable();
-            broadcast(
-                    serializedEvent,
-                    buffer.getDataType(),
-                    event.equals(EndOfPartitionEvent.INSTANCE));
+            broadcast(serializedEvent, buffer.getDataType());
         } finally {
             buffer.recycleBuffer();
         }
     }
 
-    private void broadcast(ByteBuffer record, Buffer.DataType dataType, boolean isEndOfPartition)
-            throws IOException {
+    private void broadcast(ByteBuffer record, Buffer.DataType dataType) throws IOException {
         checkInProduceState();
-        emit(record, 0, dataType, true, isEndOfPartition);
+        emit(record, 0, dataType, true);
     }
 
     private void emit(
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
+            boolean isBroadcast)
             throws IOException {
-        checkNotNull(tieredStoreProducer)
-                .emit(record, targetSubpartition, dataType, isBroadcast, isEndOfPartition);
+        checkNotNull(tieredStoreProducer).emit(record, targetSubpartition, dataType, isBroadcast);
     }
 
     @Override

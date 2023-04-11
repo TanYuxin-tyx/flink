@@ -84,9 +84,11 @@ public class SubpartitionRemoteCacheManager {
     }
 
     public void finishSegment(int segmentIndex) {
-        checkState(currentSegmentId.get() == segmentIndex);
-        flushCachedBuffers();
-        lastSpillFuture = partitionFileWriter.finishSegment(targetChannel, segmentIndex);
+        checkState(currentSegmentId.get() == -1 ||  currentSegmentId.get() == segmentIndex);
+        int bufferNumber = flushCachedBuffers();
+        if (bufferNumber > 0) {
+            lastSpillFuture = partitionFileWriter.finishSegment(targetChannel, segmentIndex);
+        }
         checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
     }
 
@@ -129,7 +131,7 @@ public class SubpartitionRemoteCacheManager {
         }
     }
 
-    private void flushCachedBuffers() {
+    private int flushCachedBuffers() {
         List<BufferContext> bufferContexts = generateToSpillBuffersWithId();
         if (bufferContexts.size() > 0) {
             synchronized (currentSegmentId) {
@@ -138,6 +140,7 @@ public class SubpartitionRemoteCacheManager {
                                 targetChannel, currentSegmentId.get(), bufferContexts);
             }
         }
+        return bufferContexts.size();
     }
 
     private List<BufferContext> generateToSpillBuffersWithId() {

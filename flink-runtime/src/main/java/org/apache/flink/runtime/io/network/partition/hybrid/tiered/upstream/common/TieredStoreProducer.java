@@ -30,8 +30,7 @@ public interface TieredStoreProducer {
             ByteBuffer record,
             int targetSubpartition,
             Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
+            boolean isBroadcast)
             throws IOException;
 
     void setMetricGroup(OutputMetrics metrics);

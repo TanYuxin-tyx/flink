@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.comm
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public class HashBasedCachedBuffer implements CacheBufferOperation {
     private final SubpartitionCachedBuffer[] subpartitionCachedBuffers;
@@ -38,7 +38,7 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
             int numSubpartitions,
             int bufferSize,
             TieredStoreMemoryManager storeMemoryManager,
-            BiConsumer<List<MemorySegmentAndChannel>, Boolean> finishedBufferListener) {
+            Consumer<List<MemorySegmentAndChannel>> finishedBufferListener) {
         this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numSubpartitions];
         this.storeMemoryManager = storeMemoryManager;
 
@@ -51,11 +51,10 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
     public void append(
             ByteBuffer record,
             int consumerId,
-            Buffer.DataType dataType,
-            boolean isEndOfPartition)
+            Buffer.DataType dataType)
             throws IOException {
         try {
-            getCachedBuffer(consumerId).append(record, dataType, isEndOfPartition);
+            getCachedBuffer(consumerId).append(record, dataType);
         } catch (InterruptedException e) {
             throw new IOException(e);
         }

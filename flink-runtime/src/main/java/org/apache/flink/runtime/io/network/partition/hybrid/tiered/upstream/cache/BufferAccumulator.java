@@ -36,8 +36,7 @@ public interface BufferAccumulator {
     void receive(
             ByteBuffer record,
             int targetSubpartition,
-            Buffer.DataType dataType,
-            boolean isEndOfPartition)
+            Buffer.DataType dataType)
             throws IOException;
 
     /**
@@ -46,7 +45,7 @@ public interface BufferAccumulator {
      * appreciate tier, then emit the buffers to this chosen tier.
      */
     void emitFinishedBuffer(
-            List<MemorySegmentAndChannel> memorySegmentAndChannels, boolean isEndOfPartition);
+            List<MemorySegmentAndChannel> memorySegmentAndChannels);
 
     void setMetricGroup(OutputMetrics metrics);
 
