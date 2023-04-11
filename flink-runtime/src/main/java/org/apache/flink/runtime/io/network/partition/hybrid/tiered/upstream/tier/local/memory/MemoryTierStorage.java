@@ -66,9 +66,9 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
 
     private final int bufferNumberInSegment = numBytesInASegment / 32 / 1024;
 
-    private volatile boolean isReleased;
+    private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
 
-    private volatile boolean isClosed;
+    private volatile boolean isReleased;
 
     public MemoryTierStorage(
             int numSubpartitions,
@@ -85,6 +85,7 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
         this.lastNettyBasedTierConsumerViewIds = new NettyBasedTierConsumerViewId[numSubpartitions];
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
+        this.subpartitionMemoryDataManagers = new SubpartitionMemoryDataManager[numSubpartitions];
     }
 
     @Override
@@ -98,7 +99,8 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
                         segmentIndexTracker,
                         isBroadcastOnly,
                         numSubpartitions,
-                        numBytesInASegment);
+                        numBytesInASegment,
+                        subpartitionMemoryDataManagers);
         this.memoryWriter.setup();
     }
 
@@ -155,14 +157,10 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
     }
 
     @Override
-    public void close() {
-        if (!isClosed) {
-            isClosed = true;
-        }
-    }
-
-    @Override
     public void release() {
+        for (int i = 0; i < numSubpartitions; i++) {
+            subpartitionMemoryDataManagers[i].release();
+        }
         // release is called when release by scheduler, later than close.
         // mainly work :
         // 1. release read scheduler.

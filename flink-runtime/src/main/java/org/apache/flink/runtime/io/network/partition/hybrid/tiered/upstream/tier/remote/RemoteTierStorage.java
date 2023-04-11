@@ -93,10 +93,9 @@ public class RemoteTierStorage implements TierStorage {
     }
 
     @Override
-    public void close() {}
-
-    @Override
     public void release() {
+        remoteCacheManager.release();
+        segmentIndexTracker.release();
         segmentIndexTracker.release();
     }
 }

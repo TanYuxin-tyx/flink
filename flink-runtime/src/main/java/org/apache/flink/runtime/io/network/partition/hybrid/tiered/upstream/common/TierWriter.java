@@ -27,13 +27,12 @@ import java.io.IOException;
  * subpartitions.
  */
 public interface TierWriter {
+
     void setup() throws IOException;
 
     boolean emit(
             int targetSubpartition, Buffer finishedBuffer, boolean isEndOfPartition, int segmentId)
             throws IOException;
-
-    void release();
 
     void close();
 }

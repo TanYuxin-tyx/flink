@@ -48,8 +48,6 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
 
     private final int numSubpartitions;
 
-    private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
-
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
     /**
@@ -70,6 +68,8 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
 
     private int numBytesInASegment;
 
+    private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
+
     public MemoryTierWriter(
             int numSubpartitions,
             int bufferSize,
@@ -78,17 +78,18 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
             SubpartitionSegmentIndexTracker subpartitionSegmentIndexTracker,
             boolean isBroadcastOnly,
             int numTotalConsumers,
-            int numBytesInASegment) {
+            int numBytesInASegment,
+            SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers) {
         this.numSubpartitions = numSubpartitions;
         this.numTotalConsumers = numTotalConsumers;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
-        this.subpartitionMemoryDataManagers = new SubpartitionMemoryDataManager[numSubpartitions];
+
         this.subpartitionSegmentIndexTracker = subpartitionSegmentIndexTracker;
         this.isBroadcastOnly = isBroadcastOnly;
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
         this.numBytesInASegment = numBytesInASegment;
-
+        this.subpartitionMemoryDataManagers = subpartitionMemoryDataManagers;
         this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionMemoryDataManagers[subpartitionId] =
@@ -157,15 +158,6 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     @Override
     public void close() {}
 
-    /**
-     * Release this {@link MemoryTierWriter}, it means all memory taken by this class will recycle.
-     */
-    @Override
-    public void release() {
-        for (int i = 0; i < numSubpartitions; i++) {
-            getSubpartitionMemoryDataManager(i).release();
-        }
-    }
 
     public boolean isConsumerRegistered(int subpartitionId) {
         int numConsumers = subpartitionViewOperationsMap.get(subpartitionId).size();

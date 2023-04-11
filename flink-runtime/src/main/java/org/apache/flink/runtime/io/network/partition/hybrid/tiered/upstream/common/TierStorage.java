@@ -39,7 +39,5 @@ public interface TierStorage {
 
     Path getBaseSubpartitionPath(int subpartitionId);
 
-    void close();
-
     void release();
 }

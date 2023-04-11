@@ -138,11 +138,9 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     public void close() {
         Arrays.stream(tierWriters).forEach(TierWriter::close);
-        Arrays.stream(tierStorages).forEach(TierStorage::close);
     }
 
     public void release() {
-        Arrays.stream(tierWriters).forEach(TierWriter::release);
         Arrays.stream(tierStorages).forEach(TierStorage::release);
     }
 
