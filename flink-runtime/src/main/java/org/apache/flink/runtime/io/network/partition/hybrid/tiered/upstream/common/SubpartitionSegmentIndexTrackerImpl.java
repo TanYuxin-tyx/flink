@@ -28,7 +28,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * The implementation of {@link SubpartitionSegmentIndexTracker}. Each {@link TierWriter}'s data
+ * The implementation of {@link SubpartitionSegmentIndexTracker}. Each {@link TierStorage}'s data
  * manager has a separate {@link SubpartitionSegmentIndexTrackerImpl}.
  */
 public class SubpartitionSegmentIndexTrackerImpl implements SubpartitionSegmentIndexTracker {

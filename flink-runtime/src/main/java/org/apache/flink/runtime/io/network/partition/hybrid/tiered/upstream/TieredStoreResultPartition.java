@@ -37,7 +37,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreProducer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service.TieredStoreNettyService;
@@ -70,7 +70,7 @@ public class TieredStoreResultPartition extends ResultPartition {
 
     private final CacheFlushManager cacheFlushManager;
 
-    private final TierWriter[] tierWriters;
+    private final TierStorage[] tierStorages;
 
     private final BufferAccumulator bufferAccumulator;
 
@@ -91,7 +91,7 @@ public class TieredStoreResultPartition extends ResultPartition {
             int numTargetKeyGroups,
             ResultPartitionManager partitionManager,
             boolean isBroadcast,
-            TierWriter[] tierWriters,
+            TierStorage[] tierStorages,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             @Nullable BufferCompressor bufferCompressor,
             BufferAccumulator bufferAccumulator,
@@ -108,7 +108,7 @@ public class TieredStoreResultPartition extends ResultPartition {
                 bufferPoolFactory);
 
         this.isBroadcast = isBroadcast;
-        this.tierWriters = tierWriters;
+        this.tierStorages = tierStorages;
         this.bufferAccumulator = bufferAccumulator;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.tierExclusiveBuffers = new HashMap<>();
@@ -124,7 +124,7 @@ public class TieredStoreResultPartition extends ResultPartition {
         tieredStoreMemoryManager.setBufferPool(bufferPool);
         tieredStoreProducer =
                 new TieredStoreProducerImpl(numSubpartitions, isBroadcast, bufferAccumulator);
-        tieredStoreNettyService = new TieredStoreNettyServiceImpl(tierWriters);
+        tieredStoreNettyService = new TieredStoreNettyServiceImpl(tierStorages);
     }
 
     @Override

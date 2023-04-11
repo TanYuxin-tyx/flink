@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.com
 
 /**
  * {@link SubpartitionSegmentIndexTracker} is to track segment index for each subpartition. Each
- * {@link TierWriter}'s data manager has a separate {@link SubpartitionSegmentIndexTracker}.
+ * {@link TierStorage}'s data manager has a separate {@link SubpartitionSegmentIndexTracker}.
  */
 public interface SubpartitionSegmentIndexTracker {
     void addSubpartitionSegmentIndex(int subpartitionId, int segmentIndex);

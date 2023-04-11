@@ -18,198 +18,171 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.memory;
 
-import org.apache.flink.core.memory.MemorySegment;
-import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
-import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
-import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
-import org.apache.flink.util.ExceptionUtils;
-import org.apache.flink.util.Preconditions;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
-/** This class is responsible for managing cached buffers data before flush to local files. */
-public class MemoryTierStorage implements TierStorage, MemoryDataWriterOperation {
+/** The DataManager of LOCAL file. */
+public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerViewProvider {
+
+    public static final int BROADCAST_CHANNEL = 0;
 
     private final int numSubpartitions;
 
-    private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
+    private final int networkBufferSize;
 
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
-    /**
-     * Each element of the list is all views of the subpartition corresponding to its index, which
-     * are stored in the form of a map that maps consumer id to its subpartition view.
-     */
-    private final List<Map<NettyBasedTierConsumerViewId, NettyBasedTierConsumerView>>
-            subpartitionViewOperationsMap;
-
-    // Record the byte number currently written to each sub partition.
-    private final int[] numSubpartitionEmitBytes;
-
-    private final SubpartitionSegmentIndexTracker subpartitionSegmentIndexTracker;
-
     private final boolean isBroadcastOnly;
 
-    private final int numTotalConsumers;
+    private final BufferCompressor bufferCompressor;
 
-    private int numBytesInASegment;
+    /** Record the last assigned consumerId for each subpartition. */
+    private final NettyBasedTierConsumerViewId[] lastNettyBasedTierConsumerViewIds;
+
+    private MemoryTierWriter memoryWriter;
+
+    private final SubpartitionSegmentIndexTracker segmentIndexTracker;
+
+    private int numBytesInASegment = 10 * 32 * 1024;
+
+    private final int bufferNumberInSegment = numBytesInASegment / 32 / 1024;
+
+    private volatile boolean isReleased;
+
+    private volatile boolean isClosed;
 
     public MemoryTierStorage(
             int numSubpartitions,
-            int bufferSize,
+            int networkBufferSize,
             TieredStoreMemoryManager tieredStoreMemoryManager,
-            BufferCompressor bufferCompressor,
-            SubpartitionSegmentIndexTracker subpartitionSegmentIndexTracker,
             boolean isBroadcastOnly,
-            int numTotalConsumers,
-            int numBytesInASegment) {
+            @Nullable BufferCompressor bufferCompressor) {
         this.numSubpartitions = numSubpartitions;
-        this.numTotalConsumers = numTotalConsumers;
-        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
-        this.subpartitionMemoryDataManagers = new SubpartitionMemoryDataManager[numSubpartitions];
-        this.subpartitionSegmentIndexTracker = subpartitionSegmentIndexTracker;
+        this.networkBufferSize = networkBufferSize;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.numSubpartitionEmitBytes = new int[numSubpartitions];
-        Arrays.fill(numSubpartitionEmitBytes, 0);
-        this.numBytesInASegment = numBytesInASegment;
-
-        this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
-        for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
-            subpartitionMemoryDataManagers[subpartitionId] =
-                    new SubpartitionMemoryDataManager(
-                            subpartitionId, bufferSize, bufferCompressor, this);
-            subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
-        }
+        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
+        this.bufferCompressor = bufferCompressor;
+        checkNotNull(bufferCompressor);
+        this.lastNettyBasedTierConsumerViewIds = new NettyBasedTierConsumerViewId[numSubpartitions];
+        this.segmentIndexTracker =
+                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
     }
 
     @Override
-    public void setup() throws IOException {}
-
-    @Override
-    public boolean emit(
-            int targetSubpartition,
-            Buffer finishedBuffer,
-            boolean isEndOfPartition,
-            int segmentId) {
-        boolean isLastBufferInSegment = false;
-        numSubpartitionEmitBytes[targetSubpartition] += finishedBuffer.readableBytes();
-        if (numSubpartitionEmitBytes[targetSubpartition] >= numBytesInASegment) {
-            isLastBufferInSegment = true;
-            numSubpartitionEmitBytes[targetSubpartition] = 0;
-        }
-        subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(targetSubpartition, segmentId);
-        if (isLastBufferInSegment && !isEndOfPartition) {
-            append(finishedBuffer, targetSubpartition);
-            // Send the EndOfSegmentEvent
-            appendEndOfSegmentEvent(segmentId, targetSubpartition);
-        } else {
-            append(finishedBuffer, targetSubpartition);
-        }
-        return isLastBufferInSegment;
+    public void setup() throws IOException {
+        this.memoryWriter =
+                new MemoryTierWriter(
+                        isBroadcastOnly ? 1 : numSubpartitions,
+                        networkBufferSize,
+                        tieredStoreMemoryManager,
+                        bufferCompressor,
+                        segmentIndexTracker,
+                        isBroadcastOnly,
+                        numSubpartitions,
+                        numBytesInASegment);
+        this.memoryWriter.setup();
     }
-
-    private void appendEndOfSegmentEvent(int segmentId, int targetChannel) {
-        try {
-            getSubpartitionMemoryDataManager(targetChannel)
-                    .appendSegmentEvent(
-                            EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE),
-                            SEGMENT_EVENT);
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e, "Failed to append end of segment event,");
-        }
-    }
-
-    private void append(Buffer finishedBuffer, int targetChannel) {
-        getSubpartitionMemoryDataManager(targetChannel).addFinishedBuffer(finishedBuffer);
-    }
-
-    public NettyBasedTierConsumer registerNewConsumer(
-            int subpartitionId,
-            NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
-            NettyBasedTierConsumerView viewOperations) {
-        NettyBasedTierConsumerView oldView =
-                subpartitionViewOperationsMap
-                        .get(subpartitionId)
-                        .put(nettyBasedTierConsumerViewId, viewOperations);
-        Preconditions.checkState(
-                oldView == null, "Each subpartition view should have unique consumerId.");
-        return getSubpartitionMemoryDataManager(subpartitionId)
-                .registerNewConsumer(nettyBasedTierConsumerViewId);
-    }
-
-    /** Close this {@link MemoryTierStorage}, it means no data will be appended to memory. */
-    @Override
-    public void close() {}
 
     /**
-     * Release this {@link MemoryTierStorage}, it means all memory taken by this class will recycle.
+     * In the local tier, only one memory data manager and only one file disk data manager are used,
+     * and the subpartitionId is not used. So return directly.
      */
     @Override
+    public TierWriter createPartitionTierWriter() {
+        return memoryWriter;
+    }
+
+    @Override
+    public NettyBasedTierConsumerView createNettyBasedTierConsumerView(
+            int subpartitionId, BufferAvailabilityListener availabilityListener) {
+        // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
+        // channel.
+        subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
+
+        NettyBasedTierConsumerViewImpl memoryReaderView =
+                new NettyBasedTierConsumerViewImpl(availabilityListener);
+        NettyBasedTierConsumerViewId lastNettyBasedTierConsumerViewId =
+                lastNettyBasedTierConsumerViewIds[subpartitionId];
+        checkMultipleConsumerIsAllowed(lastNettyBasedTierConsumerViewId);
+        // assign a unique id for each consumer, now it is guaranteed by the value that is one
+        // higher than the last consumerId's id field.
+        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId =
+                NettyBasedTierConsumerViewId.newId(lastNettyBasedTierConsumerViewId);
+        lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
+
+        NettyBasedTierConsumer memoryConsumer =
+                checkNotNull(memoryWriter)
+                        .registerNewConsumer(
+                                subpartitionId, nettyBasedTierConsumerViewId, memoryReaderView);
+
+        memoryReaderView.setConsumer(memoryConsumer);
+        return memoryReaderView;
+    }
+
+    @Override
+    public boolean canStoreNextSegment(int subpartitionId) {
+        return tieredStoreMemoryManager.numAvailableBuffers(TierType.IN_MEM) > bufferNumberInSegment
+                && memoryWriter.isConsumerRegistered(subpartitionId);
+    }
+
+    @Override
+    public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
+        return segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentIndex);
+    }
+
+    @Override
+    public Path getBaseSubpartitionPath(int subpartitionId) {
+        return null;
+    }
+
+    @Override
+    public void close() {
+        if (!isClosed) {
+            isClosed = true;
+        }
+    }
+
+    @Override
     public void release() {
-        for (int i = 0; i < numSubpartitions; i++) {
-            getSubpartitionMemoryDataManager(i).release();
+        // release is called when release by scheduler, later than close.
+        // mainly work :
+        // 1. release read scheduler.
+        // 2. delete shuffle file.
+        // 3. release all data in memory.
+        if (!isReleased) {
+            segmentIndexTracker.release();
+            isReleased = true;
         }
     }
 
-    public boolean isConsumerRegistered(int subpartitionId) {
-        int numConsumers = subpartitionViewOperationsMap.get(subpartitionId).size();
-        if (isBroadcastOnly) {
-            return numConsumers == numTotalConsumers;
-        }
-        return numConsumers > 0;
-    }
-
-    // ------------------------------------
-    //      Callback for subpartition
-    // ------------------------------------
-
     @Override
-    public MemorySegment requestBufferFromPool(int subpartitionId) {
-        return tieredStoreMemoryManager.requestMemorySegmentBlocking(TierType.IN_MEM);
+    public TierType getTierType() {
+        return TierType.IN_MEM;
     }
 
-    @Override
-    public void onDataAvailable(
-            int subpartitionId, Collection<NettyBasedTierConsumerViewId> nettyBasedTierConsumerViewIds) {
-        Map<NettyBasedTierConsumerViewId, NettyBasedTierConsumerView> consumerViewMap =
-                subpartitionViewOperationsMap.get(subpartitionId);
-        nettyBasedTierConsumerViewIds.forEach(
-                consumerId -> {
-                    NettyBasedTierConsumerView nettyBasedTierConsumerView =
-                            consumerViewMap.get(consumerId);
-                    if (nettyBasedTierConsumerView != null) {
-                        nettyBasedTierConsumerView.notifyDataAvailable();
-                    }
-                });
-    }
-
-    @Override
-    public void onConsumerReleased(int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
-        subpartitionViewOperationsMap.get(subpartitionId).remove(nettyBasedTierConsumerViewId);
-        getSubpartitionMemoryDataManager(subpartitionId).releaseConsumer(nettyBasedTierConsumerViewId);
-    }
-
-    // ------------------------------------
-    //           Internal Method
-    // ------------------------------------
-
-    private SubpartitionMemoryDataManager getSubpartitionMemoryDataManager(int targetChannel) {
-        return subpartitionMemoryDataManagers[targetChannel];
+    private static void checkMultipleConsumerIsAllowed(
+            NettyBasedTierConsumerViewId lastNettyBasedTierConsumerViewId) {
+        checkState(
+                lastNettyBasedTierConsumerViewId == null,
+                "Memory Tier does not support multiple consumers");
     }
 }

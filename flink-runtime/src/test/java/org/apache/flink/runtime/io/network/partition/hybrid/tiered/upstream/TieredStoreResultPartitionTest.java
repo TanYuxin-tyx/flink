@@ -49,7 +49,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TestingTieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
@@ -692,11 +692,11 @@ class TieredStoreResultPartitionTest {
     private TieredStoreResultPartition createTieredStoreResultPartition(
             int numSubpartitions, BufferPool bufferPool, boolean isBroadcastOnly)
             throws IOException {
-        TierWriter[] tierWriters = new TierWriter[0];
+        TierStorage[] tierStorages = new TierStorage[0];
         TieredStoreMemoryManager storeMemoryManager = new TestingTieredStoreMemoryManager();
         BufferAccumulator bufferAccumulator =
                 new BufferAccumulatorImpl(
-                        tierWriters,
+                        tierStorages,
                         numSubpartitions,
                         bufferSize,
                         isBroadcastOnly,
@@ -712,7 +712,7 @@ class TieredStoreResultPartitionTest {
                         numSubpartitions,
                         new ResultPartitionManager(),
                         isBroadcastOnly,
-                        tierWriters,
+                        tierStorages,
                         storeMemoryManager,
                         new BufferCompressor(bufferSize, "LZ4"),
                         bufferAccumulator,

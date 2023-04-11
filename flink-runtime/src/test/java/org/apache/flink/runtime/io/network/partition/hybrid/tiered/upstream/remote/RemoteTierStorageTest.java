@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.comm
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManagerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote.RemoteTierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote.RemoteTierStorage;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,8 +37,8 @@ import java.io.IOException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Tests for {@link RemoteTierWriter}. */
-class RemoteTierWriterTest {
+/** Tests for {@link RemoteTierStorage}. */
+class RemoteTierStorageTest {
 
     private static final int NUM_BUFFERS = 10;
 
@@ -58,11 +58,11 @@ class RemoteTierWriterTest {
 
     @Test
     void testDataManagerStoreSegment() throws Exception {
-        RemoteTierWriter dataManager = createRemoteTier();
+        RemoteTierStorage dataManager = createRemoteTier();
         assertThat(dataManager.canStoreNextSegment(0)).isTrue();
     }
 
-    private RemoteTierWriter createRemoteTier() throws IOException {
+    private RemoteTierStorage createRemoteTier() throws IOException {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, BUFFER_SIZE);
         BufferPool bufferPool = networkBufferPool.createBufferPool(NUM_BUFFERS, NUM_BUFFERS);
         TieredStoreMemoryManager tieredStoreMemoryManager =
@@ -73,7 +73,7 @@ class RemoteTierWriterTest {
                         new CacheFlushManager());
         tieredStoreMemoryManager.setBufferPool(bufferPool);
 
-        return new RemoteTierWriter(
+        return new RemoteTierStorage(
                 NUM_SUBPARTITIONS,
                 1024,
                 tieredStoreMemoryManager,

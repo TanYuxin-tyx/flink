@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.comm
 import java.util.Collection;
 
 /**
- * This interface is used by {@link MemoryTierConsumer} to operate {@link MemoryTierStorage}.
+ * This interface is used by {@link MemoryTierConsumer} to operate {@link MemoryTierWriter}.
  * Spilling decision may be made and handled inside these operations.
  */
 public interface MemoryDataWriterOperation {
@@ -39,9 +39,12 @@ public interface MemoryDataWriterOperation {
      * This method is called when subpartition data become available.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param nettyBasedTierConsumerViewIds the consumer's identifier which need notify data available.
+     * @param nettyBasedTierConsumerViewIds the consumer's identifier which need notify data
+     *     available.
      */
-    void onDataAvailable(int subpartitionId, Collection<NettyBasedTierConsumerViewId> nettyBasedTierConsumerViewIds);
+    void onDataAvailable(
+            int subpartitionId,
+            Collection<NettyBasedTierConsumerViewId> nettyBasedTierConsumerViewIds);
 
     /**
      * This method is called when consumer is decided to released.
@@ -49,7 +52,8 @@ public interface MemoryDataWriterOperation {
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
      * @param nettyBasedTierConsumerViewId the consumer's identifier which decided to be released.
      */
-    void onConsumerReleased(int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId);
+    void onConsumerReleased(
+            int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId);
 
     boolean isConsumerRegistered(int subpartitionId);
 }

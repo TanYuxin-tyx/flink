@@ -3,7 +3,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.ser
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewProvider;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -17,11 +17,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
 
-    private final TierWriter[] tierWriters;
+    private final TierStorage[] tierStorages;
 
-    public TieredStoreNettyServiceImpl(TierWriter[] tierWriters) {
-        checkArgument(tierWriters.length > 0, "The number of StorageTier must be larger than 0.");
-        this.tierWriters = tierWriters;
+    public TieredStoreNettyServiceImpl(TierStorage[] tierStorages) {
+        checkArgument(tierStorages.length > 0, "The number of StorageTier must be larger than 0.");
+        this.tierStorages = tierStorages;
     }
 
     @Override
@@ -30,10 +30,10 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
             throws IOException {
         List<NettyBasedTierConsumerViewProvider> registeredTiers = new ArrayList<>();
         List<NettyBasedTierConsumerView> registeredTierConsumerViews = new ArrayList<>();
-        for (TierWriter tierWriter : tierWriters) {
-            if (tierWriter instanceof NettyBasedTierConsumerViewProvider) {
+        for (TierStorage tierStorage : tierStorages) {
+            if (tierStorage instanceof NettyBasedTierConsumerViewProvider) {
                 NettyBasedTierConsumerViewProvider tierConsumerViewProvider =
-                        (NettyBasedTierConsumerViewProvider) tierWriter;
+                        (NettyBasedTierConsumerViewProvider) tierStorage;
                 NettyBasedTierConsumerView nettyBasedTierConsumerView =
                         checkNotNull(
                                 tierConsumerViewProvider.createNettyBasedTierConsumerView(

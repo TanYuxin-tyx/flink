@@ -22,7 +22,7 @@ public interface TierWriterFactory {
 
     void setup();
 
-    TierWriter[] getTierWriters();
+    TierStorage[] getTierStorages();
 
     TieredStoreMemoryManager getTieredStoreMemoryManager();
 }

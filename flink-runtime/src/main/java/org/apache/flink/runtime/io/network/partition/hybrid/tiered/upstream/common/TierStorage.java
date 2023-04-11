@@ -18,22 +18,28 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
 
-import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 
 import java.io.IOException;
 
 /**
- * This {@link TierStorage} is the writer for specific tier. Each tier may contain data of all
- * subpartitions.
+ * The gate for a single tiered data. The gate is used to create {@link TierWriter}. The writing and
+ * reading data processes happen in the writer and reader.
  */
 public interface TierStorage {
+
     void setup() throws IOException;
 
-    boolean emit(
-            int targetSubpartition, Buffer finishedBuffer, boolean isEndOfPartition, int segmentId)
-            throws IOException;
+    TierWriter createPartitionTierWriter();
 
-    void release();
+    boolean canStoreNextSegment(int subpartitionId);
+
+    TierType getTierType();
+
+    Path getBaseSubpartitionPath(int subpartitionId);
 
     void close();
+
+    void release();
 }

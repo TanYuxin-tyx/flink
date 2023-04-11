@@ -276,7 +276,7 @@ public class ResultPartitionFactory {
                 tierWriterFactory.setup();
                 BufferAccumulator bufferAccumulator =
                         new BufferAccumulatorImpl(
-                                tierWriterFactory.getTierWriters(),
+                                tierWriterFactory.getTierStorages(),
                                 subpartitions.length,
                                 networkBufferSize,
                                 isBroadcast,
@@ -292,7 +292,7 @@ public class ResultPartitionFactory {
                                 maxParallelism,
                                 partitionManager,
                                 isBroadcast,
-                                tierWriterFactory.getTierWriters(),
+                                tierWriterFactory.getTierStorages(),
                                 tierWriterFactory.getTieredStoreMemoryManager(),
                                 bufferCompressor,
                                 bufferAccumulator,

@@ -28,8 +28,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.OutputMetrics;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
@@ -52,7 +52,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * This class is responsible for managing the data in a single subpartition. One {@link
- * MemoryTierStorage} will hold multiple {@link MemoryTierConsumer}.
+ * MemoryTierWriter} will hold multiple {@link MemoryTierConsumer}.
  */
 public class SubpartitionMemoryDataManager {
 
@@ -117,7 +117,8 @@ public class SubpartitionMemoryDataManager {
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
-    public MemoryTierConsumer registerNewConsumer(NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
+    public MemoryTierConsumer registerNewConsumer(
+            NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
         return callWithLock(
                 () -> {
                     checkState(!consumerMap.containsKey(nettyBasedTierConsumerViewId));
