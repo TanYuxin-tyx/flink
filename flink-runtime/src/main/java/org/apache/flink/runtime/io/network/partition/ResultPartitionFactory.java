@@ -390,8 +390,6 @@ public class ResultPartitionFactory {
                             id,
                             subpartitions.length,
                             networkBufferSize,
-                            minReservedDiskSpaceFraction,
-                            dataFileBasePath,
                             isBroadcast,
                             bufferCompressor,
                             partitionFileManager,

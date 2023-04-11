@@ -65,11 +65,11 @@ public class TieredStoreShuffleEnvironment {
                             bufferSize,
                             minReservedDiskSpaceFraction,
                             dataFileBasePath,
-                            baseRemoteStoragePath,
                             isBroadcast,
                             bufferCompressor,
                             partitionFileManager,
                             storeMemoryManager);
+            tierStorageFactory.setup();
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
@@ -81,8 +81,6 @@ public class TieredStoreShuffleEnvironment {
             ResultPartitionID resultPartitionID,
             int numSubpartitions,
             int bufferSize,
-            float minReservedDiskSpaceFraction,
-            String dataFileBasePath,
             boolean isBroadcast,
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
@@ -95,13 +93,12 @@ public class TieredStoreShuffleEnvironment {
                             resultPartitionID,
                             numSubpartitions,
                             bufferSize,
-                            minReservedDiskSpaceFraction,
-                            dataFileBasePath,
                             baseRemoteStoragePath,
                             isBroadcast,
                             bufferCompressor,
                             partitionFileManager,
                             storeMemoryManager);
+            tierStorageFactory.setup();
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
