@@ -111,7 +111,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
         this.cachedBuffer =
                 new HashBasedCachedBuffer(
-                        numConsumers, bufferSize, storeMemoryManager, this::emitFinishedBuffer);
+                        numConsumers, bufferSize, storeMemoryManager, this::writeFinishedBuffer);
 
         Arrays.fill(subpartitionSegmentIndexes, 0);
         Arrays.fill(subpartitionWriterIndex, -1);
@@ -124,9 +124,9 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     @Override
-    public void emitFinishedBuffer(List<MemorySegmentAndChannel> memorySegmentAndChannels) {
+    public void writeFinishedBuffer(List<MemorySegmentAndChannel> memorySegmentAndChannels) {
         try {
-            emitBuffers(memorySegmentAndChannels);
+            writeBuffers(memorySegmentAndChannels);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
@@ -145,13 +145,13 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         Arrays.stream(tierStorages).forEach(TierStorage::release);
     }
 
-    void emitBuffers(List<MemorySegmentAndChannel> finishedSegments) throws IOException {
+    void writeBuffers(List<MemorySegmentAndChannel> finishedSegments) throws IOException {
         for (MemorySegmentAndChannel finishedSegment : finishedSegments) {
-            emitFinishedBuffer(finishedSegment);
+            writeFinishedBuffer(finishedSegment);
         }
     }
 
-    private void emitFinishedBuffer(MemorySegmentAndChannel finishedSegment) throws IOException {
+    private void writeFinishedBuffer(MemorySegmentAndChannel finishedSegment) throws IOException {
         int consumerId = finishedSegment.getChannelIndex();
         int tierIndex = subpartitionWriterIndex[consumerId];
         // For the first buffer
@@ -180,7 +180,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
             lastSubpartitionSegmentIndexes[consumerId] = segmentIndex;
         }
         boolean isLastBufferInSegment =
-                tierWriters[tierIndex].emit(consumerId, compressedBuffer);
+                tierWriters[tierIndex].write(consumerId, compressedBuffer);
         storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(consumerId);

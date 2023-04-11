@@ -32,7 +32,7 @@ public interface TierWriter {
 
     void startSegment(int consumerId, int segmentId);
 
-    boolean emit(int consumerId, Buffer finishedBuffer) throws IOException;
+    boolean write(int consumerId, Buffer finishedBuffer) throws IOException;
 
     void close();
 }

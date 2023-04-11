@@ -68,7 +68,7 @@ public class RemoteTierWriter implements TierWriter {
     }
 
     @Override
-    public boolean emit(int consumerId, Buffer finishedBuffer)
+    public boolean write(int consumerId, Buffer finishedBuffer)
             throws IOException {
         boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();

@@ -108,7 +108,7 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     }
 
     @Override
-    public boolean emit(int consumerId, Buffer finishedBuffer) {
+    public boolean write(int consumerId, Buffer finishedBuffer) {
         boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
         if (numSubpartitionEmitBytes[consumerId] >= numBytesInASegment) {

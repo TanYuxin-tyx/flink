@@ -44,7 +44,7 @@ public interface BufferAccumulator {
      * emitting the finished buffers, the {@link BufferAccumulator} will firstly choose an
      * appreciate tier, then emit the buffers to this chosen tier.
      */
-    void emitFinishedBuffer(
+    void writeFinishedBuffer(
             List<MemorySegmentAndChannel> memorySegmentAndChannels);
 
     void setMetricGroup(OutputMetrics metrics);
