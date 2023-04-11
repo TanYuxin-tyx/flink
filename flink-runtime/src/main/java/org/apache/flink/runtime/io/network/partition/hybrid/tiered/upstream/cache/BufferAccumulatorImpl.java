@@ -30,7 +30,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.comm
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreProducer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.DiskTierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.DiskTierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.memory.MemoryTierStorage;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -194,7 +194,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         // only for test case Memory and Disk
         if (tierStorages.length == 2
                 && tierStorages[0] instanceof MemoryTierStorage
-                && tierStorages[1] instanceof DiskTierWriter) {
+                && tierStorages[1] instanceof DiskTierStorage) {
             if (!isBroadcastOnly && tierStorages[0].canStoreNextSegment(targetSubpartition)) {
                 return 0;
             }

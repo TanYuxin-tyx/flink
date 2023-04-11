@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManagerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.DiskTierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.DiskTierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.memory.MemoryTierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote.RemoteTierStorage;
@@ -149,7 +149,7 @@ public class TierWriterFactoryImpl implements TierWriterFactory {
                 tierStorage = getMemoryTierWriter();
                 break;
             case IN_DISK:
-                tierStorage = getDiskTierWriter();
+                tierStorage = getDiskTierStorage();
                 break;
             case IN_REMOTE:
                 tierStorage = getRemoteTierWriter();
@@ -184,8 +184,8 @@ public class TierWriterFactoryImpl implements TierWriterFactory {
                 bufferCompressor);
     }
 
-    private DiskTierWriter getDiskTierWriter() {
-        return new DiskTierWriter(
+    private DiskTierStorage getDiskTierStorage() {
+        return new DiskTierStorage(
                 numSubpartitions,
                 bufferSize,
                 resultPartitionID,
