@@ -20,9 +20,5 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.com
 
 public interface TierStorageFactory {
 
-    void setup();
-
-    TierStorage[] getTierStorages();
-
-    TieredStoreMemoryManager getTieredStoreMemoryManager();
+    TierStorage createTierStorage();
 }

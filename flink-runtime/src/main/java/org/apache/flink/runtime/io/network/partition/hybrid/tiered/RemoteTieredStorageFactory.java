@@ -23,12 +23,11 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.DiskTierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.memory.MemoryTierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote.RemoteTierStorage;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote.RemoteTierStorageFactory;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.StringUtils;
 
@@ -114,44 +113,20 @@ public class RemoteTieredStorageFactory implements TieredStorageFactory {
     }
 
     private TierStorage createTierStorage(TierType tierType) throws IOException {
-        TierStorage tierStorage;
+        TierStorageFactory tierStorageFactory;
         switch (tierType) {
-            case IN_MEM:
-                tierStorage = getMemoryTierStorage();
-                break;
-            case IN_DISK:
-                tierStorage = getDiskTierStorage();
-                break;
             case IN_REMOTE:
-                tierStorage = getRemoteTierStorage();
+                tierStorageFactory = getRemoteTierStorageFactory();
                 break;
             default:
                 throw new IllegalArgumentException("Illegal tier type " + tierType);
         }
+        TierStorage tierStorage = tierStorageFactory.createTierStorage();
         tierStorage.setup();
         return tierStorage;
     }
 
-    private MemoryTierStorage getMemoryTierStorage() {
-        return new MemoryTierStorage(
-                numSubpartitions, bufferSize, storeMemoryManager, isBroadcast, bufferCompressor);
-    }
-
-    private DiskTierStorage getDiskTierStorage() {
-        return new DiskTierStorage(
-                numSubpartitions,
-                bufferSize,
-                resultPartitionID,
-                storeMemoryManager,
-                cacheFlushManager,
-                dataFileBasePath,
-                minReservedDiskSpaceFraction,
-                isBroadcast,
-                bufferCompressor,
-                partitionFileManager);
-    }
-
-    private RemoteTierStorage getRemoteTierStorage() {
+    private TierStorageFactory getRemoteTierStorageFactory() {
         if (StringUtils.isNullOrWhitespaceOnly(baseRemoteStoragePath)) {
             throw new IllegalArgumentException(
                     String.format(
@@ -160,7 +135,7 @@ public class RemoteTieredStorageFactory implements TieredStorageFactory {
                                     .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH
                                     .key()));
         }
-        return new RemoteTierStorage(
+        return new RemoteTierStorageFactory(
                 numSubpartitions,
                 bufferSize,
                 storeMemoryManager,
