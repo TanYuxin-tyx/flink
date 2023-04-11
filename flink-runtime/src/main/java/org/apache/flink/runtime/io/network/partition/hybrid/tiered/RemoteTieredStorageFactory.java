@@ -16,19 +16,20 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.DiskTierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.memory.MemoryTierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote.RemoteTierStorage;
 import org.apache.flink.util.ExceptionUtils;
@@ -37,17 +38,11 @@ import org.apache.flink.util.StringUtils;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreUtils.DATA_FILE_SUFFIX;
-import static org.apache.flink.runtime.shuffle.NettyShuffleUtils.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS;
-import static org.apache.flink.util.Preconditions.checkNotNull;
-
-public class TierWriterFactoryImpl implements TierWriterFactory {
-
+public class RemoteTieredStorageFactory implements TieredStorageFactory {
     private final TierType[] tierTypes;
 
     private final ResultPartitionID resultPartitionID;
@@ -76,9 +71,9 @@ public class TierWriterFactoryImpl implements TierWriterFactory {
 
     private final PartitionFileManager partitionFileManager;
 
-    private TieredStoreMemoryManager tieredStoreMemoryManager;
+    private final TieredStoreMemoryManager storeMemoryManager;
 
-    public TierWriterFactoryImpl(
+    public RemoteTieredStorageFactory(
             JobID jobID,
             TierType[] tierTypes,
             ResultPartitionID resultPartitionID,
@@ -92,6 +87,8 @@ public class TierWriterFactoryImpl implements TierWriterFactory {
             BatchShuffleReadBufferPool readBufferPool,
             ScheduledExecutorService readIOExecutor,
             @Nullable BufferCompressor bufferCompressor,
+            PartitionFileManager partitionFileManager,
+            UpstreamTieredStoreMemoryManager storeMemoryManager,
             TieredStoreConfiguration storeConfiguration)
             throws IOException {
         this.tierTypes = tierTypes;
@@ -107,17 +104,10 @@ public class TierWriterFactoryImpl implements TierWriterFactory {
         this.tierStorages = new TierStorage[tierTypes.length];
         this.tierExclusiveBuffers = new HashMap<>();
         this.cacheFlushManager = new CacheFlushManager();
-        this.partitionFileManager =
-                new PartitionFileManagerImpl(
-                        Paths.get(dataFileBasePath + DATA_FILE_SUFFIX),
-                        new RegionBufferIndexTrackerImpl(isBroadcast ? 1 : numSubpartitions),
-                        readBufferPool,
-                        readIOExecutor,
-                        storeConfiguration,
-                        numSubpartitions,
-                        jobID,
-                        resultPartitionID,
-                        storeConfiguration.getBaseDfsHomePath());
+        this.partitionFileManager = partitionFileManager;
+        this.storeMemoryManager = storeMemoryManager;
+
+        setup();
     }
 
     @Override
@@ -125,34 +115,28 @@ public class TierWriterFactoryImpl implements TierWriterFactory {
         return tierStorages;
     }
 
-    @Override
     public void setup() {
-        addTierExclusiveBuffers(tierTypes);
+        //        addTierExclusiveBuffers(tierTypes);
         try {
             for (int i = 0; i < tierTypes.length; i++) {
-                tierStorages[i] = createStorageTier(tierTypes[i]);
+                tierStorages[i] = createTierStorage(tierTypes[i]);
             }
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
     }
 
-    @Override
-    public TieredStoreMemoryManager getTieredStoreMemoryManager() {
-        return tieredStoreMemoryManager;
-    }
-
-    private TierStorage createStorageTier(TierType tierType) throws IOException {
+    private TierStorage createTierStorage(TierType tierType) throws IOException {
         TierStorage tierStorage;
         switch (tierType) {
             case IN_MEM:
-                tierStorage = getMemoryTierWriter();
+                tierStorage = getMemoryTierStorage();
                 break;
             case IN_DISK:
                 tierStorage = getDiskTierStorage();
                 break;
             case IN_REMOTE:
-                tierStorage = getRemoteTierWriter();
+                tierStorage = getRemoteTierStorage();
                 break;
             default:
                 throw new IllegalArgumentException("Illegal tier type " + tierType);
@@ -161,27 +145,9 @@ public class TierWriterFactoryImpl implements TierWriterFactory {
         return tierStorage;
     }
 
-    private void addTierExclusiveBuffers(TierType... toAddTierTypes) {
-        for (TierType toAddTierType : toAddTierTypes) {
-            tierExclusiveBuffers.put(
-                    toAddTierType,
-                    checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(toAddTierType)));
-        }
-        tieredStoreMemoryManager =
-                new UpstreamTieredStoreMemoryManager(
-                        tierExclusiveBuffers,
-                        numSubpartitions,
-                        numBuffersTriggerFlushRatio,
-                        cacheFlushManager);
-    }
-
-    private MemoryTierStorage getMemoryTierWriter() {
+    private MemoryTierStorage getMemoryTierStorage() {
         return new MemoryTierStorage(
-                numSubpartitions,
-                bufferSize,
-                tieredStoreMemoryManager,
-                isBroadcast,
-                bufferCompressor);
+                numSubpartitions, bufferSize, storeMemoryManager, isBroadcast, bufferCompressor);
     }
 
     private DiskTierStorage getDiskTierStorage() {
@@ -189,7 +155,7 @@ public class TierWriterFactoryImpl implements TierWriterFactory {
                 numSubpartitions,
                 bufferSize,
                 resultPartitionID,
-                tieredStoreMemoryManager,
+                storeMemoryManager,
                 cacheFlushManager,
                 dataFileBasePath,
                 minReservedDiskSpaceFraction,
@@ -198,7 +164,7 @@ public class TierWriterFactoryImpl implements TierWriterFactory {
                 partitionFileManager);
     }
 
-    private RemoteTierStorage getRemoteTierWriter() {
+    private RemoteTierStorage getRemoteTierStorage() {
         if (StringUtils.isNullOrWhitespaceOnly(baseRemoteStoragePath)) {
             throw new IllegalArgumentException(
                     String.format(
@@ -210,7 +176,7 @@ public class TierWriterFactoryImpl implements TierWriterFactory {
         return new RemoteTierStorage(
                 numSubpartitions,
                 bufferSize,
-                tieredStoreMemoryManager,
+                storeMemoryManager,
                 cacheFlushManager,
                 isBroadcast,
                 bufferCompressor,
