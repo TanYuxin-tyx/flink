@@ -33,7 +33,6 @@ import org.apache.flink.runtime.util.ConfigurationParserUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -164,8 +163,8 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
     public void unregisterJob(JobID jobID) {
         TieredStoreShuffleEnvironment tieredStoreShuffleEnvironment =
                 new TieredStoreShuffleEnvironment();
-        TierStorageReleaser[] tierStorageReleasers =
-                tieredStoreShuffleEnvironment.createStorageTierReleasers(jobID, baseDfsPath);
-        Arrays.stream(tierStorageReleasers).forEach(TierStorageReleaser::releaseTierStorage);
+        tieredStoreShuffleEnvironment
+                .createStorageTierReleasers(jobID, baseDfsPath)
+                .forEach(TierStorageReleaser::releaseTierStorage);
     }
 }

@@ -26,9 +26,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.Ti
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactoryImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.UpstreamTierStorageReleaser;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote.RemoteTierStorageReleaser;
 
+import java.util.Collections;
 import java.util.List;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreUtils.generateToReleasePath;
@@ -82,12 +82,12 @@ public class TieredStoreShuffleEnvironment {
                 baseRemoteStoragePath);
     }
 
-    public TierStorageReleaser[] createStorageTierReleasers(
+    public List<TierStorageReleaser> createStorageTierReleasers(
             JobID jobID, String baseRemoteStoragePath) {
         Path toReleasePath = generateToReleasePath(jobID, baseRemoteStoragePath);
-        TierStorageReleaser[] tierStorageReleasers = new TierStorageReleaser[2];
-        tierStorageReleasers[0] = new UpstreamTierStorageReleaser();
-        tierStorageReleasers[1] = new RemoteTierStorageReleaser(toReleasePath);
-        return tierStorageReleasers;
+        if (toReleasePath == null) {
+            return Collections.emptyList();
+        }
+        return Collections.singletonList(new RemoteTierStorageReleaser(toReleasePath));
     }
 }
