@@ -30,7 +30,7 @@ import org.apache.flink.util.ExceptionUtils;
 import java.io.IOException;
 
 /** {@link UpstreamTieredStorageFactory} is used to get storage in upstream. */
-public class UpstreamTieredStorageFactory implements TieredStorageFactory {
+public class UpstreamTieredStorageFactory {
 
     private final boolean isBroadcast;
     private final PartitionFileManager partitionFileManager;
@@ -79,13 +79,11 @@ public class UpstreamTieredStorageFactory implements TieredStorageFactory {
         }
     }
 
-    @Override
     public TierStorage[] getTierStorages() {
         return tierStorages;
     }
 
-    @Override
-    public TierStorage createTierStorage(TierType tierType) throws IOException {
+    private TierStorage createTierStorage(TierType tierType) throws IOException {
         TierStorageFactory tierStorageFactory;
         switch (tierType) {
             case IN_MEM:

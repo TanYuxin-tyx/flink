@@ -25,7 +25,7 @@ import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 
-public class RemoteTieredStorageFactory implements TieredStorageFactory {
+public class RemoteTieredStorageFactory {
 
     private final TieredStorageWriterFactory tieredStorageWriterFactory;
 
@@ -50,13 +50,11 @@ public class RemoteTieredStorageFactory implements TieredStorageFactory {
         }
     }
 
-    @Override
     public TierStorage[] getTierStorages() {
         return tierStorages;
     }
 
-    @Override
-    public TierStorage createTierStorage(TierType tierType) throws IOException {
+    private TierStorage createTierStorage(TierType tierType) throws IOException {
         TierStorageFactory tierStorageFactory;
         switch (tierType) {
             case IN_REMOTE:
