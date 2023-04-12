@@ -22,7 +22,7 @@ import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageWriter;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
@@ -31,7 +31,7 @@ import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */
-public class DiskTierWriter implements TierWriter {
+public class DiskTierStorageWriter implements TierStorageWriter {
 
     private final int[] numSubpartitionEmitBytes;
 
@@ -44,7 +44,7 @@ public class DiskTierWriter implements TierWriter {
 
     private volatile boolean isClosed;
 
-    public DiskTierWriter(
+    public DiskTierStorageWriter(
             int[] numSubpartitionEmitBytes,
             SubpartitionSegmentIndexTracker segmentIndexTracker,
             DiskCacheManager diskCacheManager) {
@@ -102,5 +102,13 @@ public class DiskTierWriter implements TierWriter {
             checkNotNull(diskCacheManager).close();
             isClosed = true;
         }
+    }
+
+    public DiskCacheManager getDiskCacheManager() {
+        return diskCacheManager;
+    }
+
+    public SubpartitionSegmentIndexTracker getSegmentIndexTracker() {
+        return segmentIndexTracker;
     }
 }

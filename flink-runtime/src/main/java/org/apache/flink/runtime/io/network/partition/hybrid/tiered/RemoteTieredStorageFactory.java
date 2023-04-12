@@ -18,48 +18,41 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 
-import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote.RemoteTierStorageFactory;
-import org.apache.flink.util.StringUtils;
-
-import javax.annotation.Nullable;
+import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 
-public class RemoteTieredStorageFactory extends BaseTieredStorageFactory {
+public class RemoteTieredStorageFactory implements TieredStorageFactory {
 
-    private final String baseRemoteStoragePath;
+    private final TieredStorageWriterFactory tieredStorageWriterFactory;
+
+    private final TierStorage[] tierStorages;
+
+    private final TierType[] tierTypes;
 
     public RemoteTieredStorageFactory(
-            TierType[] tierTypes,
-            ResultPartitionID resultPartitionID,
-            int numSubpartitions,
-            int bufferSize,
-            String baseRemoteStoragePath,
-            boolean isBroadcast,
-            @Nullable BufferCompressor bufferCompressor,
-            PartitionFileManager partitionFileManager,
-            UpstreamTieredStoreMemoryManager storeMemoryManager,
-            CacheFlushManager cacheFlushManager)
-            throws IOException {
-        super(
-                tierTypes,
-                resultPartitionID,
-                numSubpartitions,
-                bufferSize,
-                isBroadcast,
-                bufferCompressor,
-                partitionFileManager,
-                storeMemoryManager,
-                cacheFlushManager);
-        this.baseRemoteStoragePath = baseRemoteStoragePath;
+            TierType[] tierTypes, TieredStorageWriterFactory tieredStorageWriterFactory) {
+        this.tierTypes = tierTypes;
+        this.tierStorages = new TierStorage[tierTypes.length];
+        this.tieredStorageWriterFactory = tieredStorageWriterFactory;
+    }
+
+    public void setup() {
+        try {
+            for (int i = 0; i < tierTypes.length; i++) {
+                tierStorages[i] = createTierStorage(tierTypes[i]);
+            }
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e);
+        }
+    }
+
+    @Override
+    public TierStorage[] getTierStorages() {
+        return tierStorages;
     }
 
     @Override
@@ -78,21 +71,6 @@ public class RemoteTieredStorageFactory extends BaseTieredStorageFactory {
     }
 
     private TierStorageFactory getRemoteTierStorageFactory() {
-        if (StringUtils.isNullOrWhitespaceOnly(baseRemoteStoragePath)) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Must specify DFS home path by %s when using DFS in Tiered Store.",
-                            NettyShuffleEnvironmentOptions
-                                    .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH
-                                    .key()));
-        }
-        return new RemoteTierStorageFactory(
-                numSubpartitions,
-                bufferSize,
-                storeMemoryManager,
-                cacheFlushManager,
-                isBroadcast,
-                bufferCompressor,
-                partitionFileManager);
+        return new RemoteTierStorageFactory(tieredStorageWriterFactory);
     }
 }

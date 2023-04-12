@@ -18,62 +18,38 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote;
 
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileType;
-
-import javax.annotation.Nullable;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageWriter;
+import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 
 /** The DataManager of DFS. */
 public class RemoteTierStorage implements TierStorage {
 
-    private final int numSubpartitions;
+    private final TieredStorageWriterFactory tieredStorageWriterFactory;
 
-    private final SubpartitionSegmentIndexTracker segmentIndexTracker;
-
-    private final RemoteCacheManager remoteCacheManager;
-
-    // TODO, Make this configurable.
-    private int numBytesInASegment = 4 * 1024; // 4 M
+    private TierStorageWriter tierStorageWriter;
 
     public RemoteTierStorage(
-            int numSubpartitions,
-            int networkBufferSize,
-            TieredStoreMemoryManager tieredStoreMemoryManager,
-            CacheFlushManager cacheFlushManager,
-            boolean isBroadcastOnly,
-            @Nullable BufferCompressor bufferCompressor,
-            PartitionFileManager partitionFileManager) {
-        this.numSubpartitions = numSubpartitions;
-        this.segmentIndexTracker =
-                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
-        this.remoteCacheManager =
-                new RemoteCacheManager(
-                        isBroadcastOnly ? 1 : numSubpartitions,
-                        networkBufferSize,
-                        tieredStoreMemoryManager,
-                        cacheFlushManager,
-                        bufferCompressor,
-                        partitionFileManager.createPartitionFileWriter(
-                                PartitionFileType.PRODUCER_HASH));
+            TieredStorageWriterFactory tieredStorageWriterFactory) {
+        this.tieredStorageWriterFactory = tieredStorageWriterFactory;
     }
 
     @Override
     public void setup() throws IOException {}
 
     @Override
-    public TierWriter createPartitionTierWriter() {
-        return new RemoteTierWriter(
-                numSubpartitions, segmentIndexTracker, remoteCacheManager, numBytesInASegment);
+    public TierStorageWriter createPartitionTierWriter() {
+        try {
+            tierStorageWriter =
+                    tieredStorageWriterFactory.createTierStorageWriter(TierType.IN_REMOTE);
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to craete remote tier writer");
+        }
+        return tierStorageWriter;
     }
 
     @Override
@@ -88,8 +64,7 @@ public class RemoteTierStorage implements TierStorage {
 
     @Override
     public void release() {
-        remoteCacheManager.release();
-        segmentIndexTracker.release();
-        segmentIndexTracker.release();
+        ((RemoteTierStorageWriter) tierStorageWriter).getRemoteCacheManager().release();
+        ((RemoteTierStorageWriter) tierStorageWriter).getSegmentIndexTracker().release();
     }
 }

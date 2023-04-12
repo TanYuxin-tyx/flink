@@ -18,21 +18,17 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.memory;
 
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewProvider;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 
@@ -46,60 +42,38 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
 
     private final int numSubpartitions;
 
-    private final int networkBufferSize;
-
     private final TieredStoreMemoryManager tieredStoreMemoryManager;
 
     private final boolean isBroadcastOnly;
 
-    private final BufferCompressor bufferCompressor;
-
     /** Record the last assigned consumerId for each subpartition. */
     private final NettyBasedTierConsumerViewId[] lastNettyBasedTierConsumerViewIds;
 
-    private MemoryTierWriter memoryWriter;
+    private final TieredStorageWriterFactory tieredStorageWriterFactory;
 
-    private final SubpartitionSegmentIndexTracker segmentIndexTracker;
+    private TierStorageWriter memoryWriter;
 
-    private int numBytesInASegment = 10 * 32 * 1024;
+    public static final int MEMORY_TIER_SEGMENT_BYTES = 10 * 32 * 1024;
 
-    private final int bufferNumberInSegment = numBytesInASegment / 32 / 1024;
-
-    private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
+    private final int bufferNumberInSegment = MEMORY_TIER_SEGMENT_BYTES / 32 / 1024;
 
     private volatile boolean isReleased;
 
     public MemoryTierStorage(
             int numSubpartitions,
-            int networkBufferSize,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             boolean isBroadcastOnly,
-            @Nullable BufferCompressor bufferCompressor) {
+            TieredStorageWriterFactory tieredStorageWriterFactory) {
         this.numSubpartitions = numSubpartitions;
-        this.networkBufferSize = networkBufferSize;
         this.isBroadcastOnly = isBroadcastOnly;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
-        this.bufferCompressor = bufferCompressor;
-        checkNotNull(bufferCompressor);
         this.lastNettyBasedTierConsumerViewIds = new NettyBasedTierConsumerViewId[numSubpartitions];
-        this.segmentIndexTracker =
-                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
-        this.subpartitionMemoryDataManagers = new SubpartitionMemoryDataManager[numSubpartitions];
+        this.tieredStorageWriterFactory = tieredStorageWriterFactory;
     }
 
     @Override
     public void setup() throws IOException {
-        this.memoryWriter =
-                new MemoryTierWriter(
-                        isBroadcastOnly ? 1 : numSubpartitions,
-                        networkBufferSize,
-                        tieredStoreMemoryManager,
-                        bufferCompressor,
-                        segmentIndexTracker,
-                        isBroadcastOnly,
-                        numSubpartitions,
-                        numBytesInASegment,
-                        subpartitionMemoryDataManagers);
+        this.memoryWriter = tieredStorageWriterFactory.createTierStorageWriter(TierType.IN_MEM);
         this.memoryWriter.setup();
     }
 
@@ -108,7 +82,7 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
      * and the subpartitionId is not used. So return directly.
      */
     @Override
-    public TierWriter createPartitionTierWriter() {
+    public TierStorageWriter createPartitionTierWriter() {
         return memoryWriter;
     }
 
@@ -131,7 +105,7 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
         lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
 
         NettyBasedTierConsumer memoryConsumer =
-                checkNotNull(memoryWriter)
+                ((MemoryTierStorageWriter) checkNotNull(memoryWriter))
                         .registerNewConsumer(
                                 subpartitionId, nettyBasedTierConsumerViewId, memoryReaderView);
 
@@ -142,26 +116,32 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
     @Override
     public boolean canStoreNextSegment(int consumerId) {
         return tieredStoreMemoryManager.numAvailableBuffers(TierType.IN_MEM) > bufferNumberInSegment
-                && memoryWriter.isConsumerRegistered(consumerId);
+                && ((MemoryTierStorageWriter) checkNotNull(memoryWriter))
+                        .isConsumerRegistered(consumerId);
     }
 
     @Override
     public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
-        return segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentIndex);
+        return ((MemoryTierStorageWriter) checkNotNull(memoryWriter))
+                .getSegmentIndexTracker()
+                .hasCurrentSegment(subpartitionId, segmentIndex);
     }
 
     @Override
     public void release() {
         for (int i = 0; i < numSubpartitions; i++) {
-            subpartitionMemoryDataManagers[i].release();
+            ((MemoryTierStorageWriter) checkNotNull(memoryWriter))
+                    .getSubpartitionMemoryDataManagers()[i].release();
         }
+
         // release is called when release by scheduler, later than close.
         // mainly work :
         // 1. release read scheduler.
         // 2. delete shuffle file.
         // 3. release all data in memory.
+
         if (!isReleased) {
-            segmentIndexTracker.release();
+            ((MemoryTierStorageWriter) checkNotNull(memoryWriter)).getSegmentIndexTracker().release();
             isReleased = true;
         }
     }

@@ -31,6 +31,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.RemoteTieredStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStoreShuffleEnvironment;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.UpstreamTieredStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
@@ -289,7 +290,6 @@ public class ResultPartitionFactory {
                                 isBroadcast,
                                 bufferCompressor,
                                 subpartitions,
-                                baseRemoteStorageHomePath,
                                 storeConfiguration,
                                 storeShuffleEnvironment,
                                 storeMemoryManager,
@@ -348,13 +348,13 @@ public class ResultPartitionFactory {
         return partition;
     }
 
+    @SuppressWarnings("checkstyle:EmptyLineSeparator")
     private TierStorage[] createTierStorages(
             JobID jobID,
             ResultPartitionID id,
             boolean isBroadcast,
             BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
-            String baseRemoteStoragePath,
             TieredStoreConfiguration storeConfiguration,
             TieredStoreShuffleEnvironment storeShuffleEnvironment,
             UpstreamTieredStoreMemoryManager storeMemoryManager,
@@ -371,6 +371,18 @@ public class ResultPartitionFactory {
                         jobID,
                         id,
                         storeConfiguration.getBaseDfsHomePath());
+
+        // create TieredStorageWriterFactory
+        TieredStorageWriterFactory tieredStorageWriterFactory =
+                new TieredStorageWriterFactory(
+                        isBroadcast,
+                        subpartitions.length,
+                        networkBufferSize,
+                        storeMemoryManager,
+                        bufferCompressor,
+                        cacheFlushManager,
+                        partitionFileManager);
+
         UpstreamTieredStorageFactory upstreamTieredStorageFactory = null;
         if (storeConfiguration.getUpstreamTierTypes().length > 0) {
             upstreamTieredStorageFactory =
@@ -378,29 +390,18 @@ public class ResultPartitionFactory {
                             storeConfiguration.getUpstreamTierTypes(),
                             id,
                             subpartitions.length,
-                            networkBufferSize,
                             minReservedDiskSpaceFraction,
                             dataFileBasePath,
                             isBroadcast,
-                            bufferCompressor,
                             partitionFileManager,
                             storeMemoryManager,
-                            cacheFlushManager);
+                            tieredStorageWriterFactory);
         }
         RemoteTieredStorageFactory remoteTieredStorageFactory = null;
         if (storeConfiguration.getRemoteTierTypes().length > 0) {
             remoteTieredStorageFactory =
                     storeShuffleEnvironment.createRemoteTieredStorageFactory(
-                            storeConfiguration.getRemoteTierTypes(),
-                            id,
-                            subpartitions.length,
-                            networkBufferSize,
-                            baseRemoteStoragePath,
-                            isBroadcast,
-                            bufferCompressor,
-                            partitionFileManager,
-                            storeMemoryManager,
-                            cacheFlushManager);
+                            storeConfiguration.getRemoteTierTypes(), tieredStorageWriterFactory);
         }
         checkState(upstreamTieredStorageFactory != null || remoteTieredStorageFactory != null);
         TierStorage[] tierStorages;

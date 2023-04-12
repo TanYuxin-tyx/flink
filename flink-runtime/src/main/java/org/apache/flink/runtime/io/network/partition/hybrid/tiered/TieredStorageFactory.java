@@ -20,7 +20,11 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 
+import java.io.IOException;
+
 public interface TieredStorageFactory {
 
     TierStorage[] getTierStorages();
+
+    TierStorage createTierStorage(TierType tierType) throws IOException;
 }

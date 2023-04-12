@@ -18,57 +18,20 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote;
 
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
-
-import javax.annotation.Nullable;
 
 public class RemoteTierStorageFactory implements TierStorageFactory {
 
-    private final int numSubpartitions;
+    private final TieredStorageWriterFactory tieredStorageWriterFactory;
 
-    private final int bufferSize;
-
-    private final TieredStoreMemoryManager storeMemoryManager;
-
-    private final boolean isBroadcast;
-
-    private final BufferCompressor bufferCompressor;
-
-    private final CacheFlushManager cacheFlushManager;
-
-    private final PartitionFileManager partitionFileManager;
-
-    public RemoteTierStorageFactory(
-            int numSubpartitions,
-            int bufferSize,
-            TieredStoreMemoryManager storeMemoryManager,
-            CacheFlushManager cacheFlushManager,
-            boolean isBroadcast,
-            @Nullable BufferCompressor bufferCompressor,
-            PartitionFileManager partitionFileManager) {
-        this.numSubpartitions = numSubpartitions;
-        this.bufferSize = bufferSize;
-        this.storeMemoryManager = storeMemoryManager;
-        this.cacheFlushManager = cacheFlushManager;
-        this.isBroadcast = isBroadcast;
-        this.bufferCompressor = bufferCompressor;
-        this.partitionFileManager = partitionFileManager;
+    public RemoteTierStorageFactory(TieredStorageWriterFactory tieredStorageWriterFactory) {
+        this.tieredStorageWriterFactory = tieredStorageWriterFactory;
     }
 
     @Override
     public TierStorage createTierStorage() {
-        return new RemoteTierStorage(
-                numSubpartitions,
-                bufferSize,
-                storeMemoryManager,
-                cacheFlushManager,
-                isBroadcast,
-                bufferCompressor,
-                partitionFileManager);
+        return new RemoteTierStorage(tieredStorageWriterFactory);
     }
 }

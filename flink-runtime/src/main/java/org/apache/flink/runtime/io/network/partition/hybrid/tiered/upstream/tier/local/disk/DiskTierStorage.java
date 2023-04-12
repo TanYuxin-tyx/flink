@@ -18,52 +18,36 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk;
 
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewProvider;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileType;
-
-import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreUtils.DATA_FILE_SUFFIX;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */
 public class DiskTierStorage implements TierStorage, NettyBasedTierConsumerViewProvider {
 
     public static final int BROADCAST_CHANNEL = 0;
 
-    private final int numSubpartitions;
-
-    private final int networkBufferSize;
-
     private final ResultPartitionID resultPartitionID;
-
-    private final TieredStoreMemoryManager tieredStoreMemoryManager;
-
-    private final CacheFlushManager cacheFlushManager;
 
     private final Path dataFilePath;
 
@@ -71,68 +55,38 @@ public class DiskTierStorage implements TierStorage, NettyBasedTierConsumerViewP
 
     private final boolean isBroadcastOnly;
 
-    private final BufferCompressor bufferCompressor;
-
     /** Record the last assigned consumerId for each subpartition. */
     private final NettyBasedTierConsumerViewId[] lastNettyBasedTierConsumerViewIds;
 
     private final PartitionFileReader partitionFileReader;
 
-    // Record the byte number currently written to each sub partition.
-    private final int[] numSubpartitionEmitBytes;
-
-    private final SubpartitionSegmentIndexTracker segmentIndexTracker;
-
-    private final PartitionFileManager partitionFileManager;
-
-    private DiskCacheManager diskCacheManager;
+    private final TieredStorageWriterFactory tieredStorageWriterFactory;
 
     private volatile boolean isReleased;
 
-    private DiskTierWriter diskTierWriter;
+    private TierStorageWriter diskTierWriter;
 
     public DiskTierStorage(
             int numSubpartitions,
-            int networkBufferSize,
             ResultPartitionID resultPartitionID,
-            TieredStoreMemoryManager tieredStoreMemoryManager,
-            CacheFlushManager cacheFlushManager,
             String dataFileBasePath,
             float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
-            @Nullable BufferCompressor bufferCompressor,
-            PartitionFileManager partitionFileManager) {
-        this.numSubpartitions = numSubpartitions;
-        this.networkBufferSize = networkBufferSize;
+            PartitionFileManager partitionFileManager,
+            TieredStorageWriterFactory tieredStorageWriterFactory) {
         this.resultPartitionID = resultPartitionID;
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
-        this.cacheFlushManager = cacheFlushManager;
-        this.bufferCompressor = bufferCompressor;
-        this.numSubpartitionEmitBytes = new int[numSubpartitions];
-        Arrays.fill(numSubpartitionEmitBytes, 0);
         this.lastNettyBasedTierConsumerViewIds = new NettyBasedTierConsumerViewId[numSubpartitions];
-        this.segmentIndexTracker =
-                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
-        this.partitionFileManager = partitionFileManager;
         this.partitionFileReader =
                 partitionFileManager.createPartitionFileReader(PartitionFileType.PRODUCER_MERGE);
+        this.tieredStorageWriterFactory = tieredStorageWriterFactory;
     }
 
     @Override
     public void setup() throws IOException {
-        this.diskCacheManager =
-                new DiskCacheManager(
-                        isBroadcastOnly ? 1 : numSubpartitions,
-                        networkBufferSize,
-                        tieredStoreMemoryManager,
-                        cacheFlushManager,
-                        bufferCompressor,
-                        partitionFileManager);
-        this.diskTierWriter =
-                new DiskTierWriter(numSubpartitionEmitBytes, segmentIndexTracker, diskCacheManager);
+        this.diskTierWriter = tieredStorageWriterFactory.createTierStorageWriter(TierType.IN_DISK);
     }
 
     /**
@@ -140,7 +94,7 @@ public class DiskTierStorage implements TierStorage, NettyBasedTierConsumerViewP
      * and the subpartitionId is not used. So return directly.
      */
     @Override
-    public TierWriter createPartitionTierWriter() {
+    public TierStorageWriter createPartitionTierWriter() {
         return diskTierWriter;
     }
 
@@ -183,7 +137,9 @@ public class DiskTierStorage implements TierStorage, NettyBasedTierConsumerViewP
 
     @Override
     public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
-        return segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentIndex);
+        return ((DiskTierStorageWriter) diskTierWriter)
+                .getSegmentIndexTracker()
+                .hasCurrentSegment(subpartitionId, segmentIndex);
     }
 
     @Override
@@ -200,8 +156,8 @@ public class DiskTierStorage implements TierStorage, NettyBasedTierConsumerViewP
         // 3. release all data in memory.
         if (!isReleased) {
             partitionFileReader.release();
-            checkNotNull(diskCacheManager).release();
-            segmentIndexTracker.release();
+            ((DiskTierStorageWriter) diskTierWriter).getDiskCacheManager().release();
+            ((DiskTierStorageWriter) diskTierWriter).getSegmentIndexTracker().release();
             isReleased = true;
         }
     }

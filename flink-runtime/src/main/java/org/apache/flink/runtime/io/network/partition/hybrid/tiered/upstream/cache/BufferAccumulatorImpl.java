@@ -28,7 +28,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.MemorySegmentAndChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreProducer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.DiskTierStorage;
@@ -54,7 +54,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private final TierStorage[] tierStorages;
 
-    private final TierWriter[] tierWriters;
+    private final TierStorageWriter[] tierStorageWriters;
 
     private final TierType[] tierTypes;
 
@@ -90,7 +90,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         this.storeMemoryManager = storeMemoryManager;
         this.bufferCompressor = bufferCompressor;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.tierWriters = new TierWriter[tierStorages.length];
+        this.tierStorageWriters = new TierStorageWriter[tierStorages.length];
         this.subpartitionSegmentIndexes = new int[numConsumers];
         this.lastSubpartitionSegmentIndexes = new int[numConsumers];
         Arrays.fill(lastSubpartitionSegmentIndexes, -1);
@@ -99,11 +99,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         this.tierTypes = new TierType[tierStorages.length];
 
         for (int i = 0; i < tierStorages.length; i++) {
-            tierWriters[i] = tierStorages[i].createPartitionTierWriter();
+            tierStorageWriters[i] = tierStorages[i].createPartitionTierWriter();
         }
 
         for (int i = 0; i < tierStorages.length; i++) {
-            tierWriters[i] = tierStorages[i].createPartitionTierWriter();
+            tierStorageWriters[i] = tierStorages[i].createPartitionTierWriter();
             tierTypes[i] = tierStorages[i].getTierType();
             TierType tierType = tierTypes[i];
             bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tierType);
@@ -138,7 +138,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     public void close() {
-        Arrays.stream(tierWriters).forEach(TierWriter::close);
+        Arrays.stream(tierStorageWriters).forEach(TierStorageWriter::close);
     }
 
     public void release() {
@@ -176,11 +176,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         Buffer compressedBuffer = compressBufferIfPossible(finishedBuffer);
         updateStatistics(compressedBuffer);
         if (segmentIndex != lastSubpartitionSegmentIndexes[consumerId]) {
-            tierWriters[tierIndex].startSegment(consumerId, segmentIndex);
+            tierStorageWriters[tierIndex].startSegment(consumerId, segmentIndex);
             lastSubpartitionSegmentIndexes[consumerId] = segmentIndex;
         }
         boolean isLastBufferInSegment =
-                tierWriters[tierIndex].write(consumerId, compressedBuffer);
+                tierStorageWriters[tierIndex].write(consumerId, compressedBuffer);
         storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(consumerId);

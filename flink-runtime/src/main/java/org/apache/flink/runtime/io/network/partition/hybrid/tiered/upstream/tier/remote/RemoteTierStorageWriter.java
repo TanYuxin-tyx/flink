@@ -20,16 +20,16 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tie
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageWriter;
 
 import java.io.IOException;
 import java.util.Arrays;
 
 /**
- * Through the {@link RemoteTierWriter}, records from {@link RemoteTierStorage} is written to cached
+ * Through the {@link RemoteTierStorageWriter}, records from {@link RemoteTierStorage} is written to cached
  * buffers.
  */
-public class RemoteTierWriter implements TierWriter {
+public class RemoteTierStorageWriter implements TierStorageWriter {
 
     // Record the byte number currently written to each sub partition.
     private final int[] numSubpartitionEmitBytes;
@@ -43,11 +43,10 @@ public class RemoteTierWriter implements TierWriter {
 
     private final int[] subpartitionLastestSegmentId;
 
-    public RemoteTierWriter(
+    public RemoteTierStorageWriter(
             int numSubpartitions,
             SubpartitionSegmentIndexTracker segmentIndexTracker,
-            RemoteCacheManager remoteCacheManager,
-            int numBytesInASegment) {
+            RemoteCacheManager remoteCacheManager) {
         this.segmentIndexTracker = segmentIndexTracker;
         this.cacheDataManager = remoteCacheManager;
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
@@ -96,5 +95,13 @@ public class RemoteTierWriter implements TierWriter {
             cacheDataManager.finishSegment(index, subpartitionLastestSegmentId[index]);
         }
         cacheDataManager.close();
+    }
+
+    public RemoteCacheManager getRemoteCacheManager() {
+        return cacheDataManager;
+    }
+
+    public SubpartitionSegmentIndexTracker getSegmentIndexTracker() {
+        return segmentIndexTracker;
     }
 }

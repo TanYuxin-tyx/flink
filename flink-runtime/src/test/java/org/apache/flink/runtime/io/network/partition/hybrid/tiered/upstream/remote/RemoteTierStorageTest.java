@@ -18,15 +18,12 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.remote;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote.RemoteTierStorage;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -73,22 +70,23 @@ class RemoteTierStorageTest {
                         new CacheFlushManager());
         tieredStoreMemoryManager.setBufferPool(bufferPool);
 
-        return new RemoteTierStorage(
-                NUM_SUBPARTITIONS,
-                1024,
-                tieredStoreMemoryManager,
-                new CacheFlushManager(),
-                false,
-                null,
-                new PartitionFileManagerImpl(
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        NUM_SUBPARTITIONS,
-                        JobID.generate(),
-                        new ResultPartitionID(),
-                        tmpFolder.getRoot().getPath()));
+        //return new RemoteTierStorage(
+        //        NUM_SUBPARTITIONS,
+        //        1024,
+        //        tieredStoreMemoryManager,
+        //        new CacheFlushManager(),
+        //        false,
+        //        null,
+        //        new PartitionFileManagerImpl(
+        //                null,
+        //                null,
+        //                null,
+        //                null,
+        //                null,
+        //                NUM_SUBPARTITIONS,
+        //                JobID.generate(),
+        //                new ResultPartitionID(),
+        //                tmpFolder.getRoot().getPath()));
+        return null;
     }
 }

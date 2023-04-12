@@ -23,10 +23,10 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import java.io.IOException;
 
 /**
- * This {@link TierWriter} is the writer for specific tier. Each tier may contain data of all
+ * This {@link TierStorageWriter} is the writer for specific tier. Each tier may contain data of all
  * subpartitions.
  */
-public interface TierWriter {
+public interface TierStorageWriter {
 
     void setup() throws IOException;
 

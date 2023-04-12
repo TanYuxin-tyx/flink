@@ -28,7 +28,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.comm
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
@@ -42,9 +42,10 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.memory.MemoryTierStorage.MEMORY_TIER_SEGMENT_BYTES;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
-public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
+public class MemoryTierStorageWriter implements TierStorageWriter, MemoryDataWriterOperation {
 
     private final int numSubpartitions;
 
@@ -66,11 +67,9 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
 
     private final int numTotalConsumers;
 
-    private int numBytesInASegment;
-
     private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
 
-    public MemoryTierWriter(
+    public MemoryTierStorageWriter(
             int numSubpartitions,
             int bufferSize,
             TieredStoreMemoryManager tieredStoreMemoryManager,
@@ -78,7 +77,6 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
             SubpartitionSegmentIndexTracker subpartitionSegmentIndexTracker,
             boolean isBroadcastOnly,
             int numTotalConsumers,
-            int numBytesInASegment,
             SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers) {
         this.numSubpartitions = numSubpartitions;
         this.numTotalConsumers = numTotalConsumers;
@@ -88,7 +86,6 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
         this.isBroadcastOnly = isBroadcastOnly;
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
-        this.numBytesInASegment = numBytesInASegment;
         this.subpartitionMemoryDataManagers = subpartitionMemoryDataManagers;
         this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
@@ -111,7 +108,7 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
     public boolean write(int consumerId, Buffer finishedBuffer) {
         boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
-        if (numSubpartitionEmitBytes[consumerId] >= numBytesInASegment) {
+        if (numSubpartitionEmitBytes[consumerId] >= MEMORY_TIER_SEGMENT_BYTES) {
             isLastBufferInSegment = true;
             numSubpartitionEmitBytes[consumerId] = 0;
         }
@@ -154,7 +151,7 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
                 .registerNewConsumer(nettyBasedTierConsumerViewId);
     }
 
-    /** Close this {@link MemoryTierWriter}, it means no data will be appended to memory. */
+    /** Close this {@link MemoryTierStorageWriter}, it means no data will be appended to memory. */
     @Override
     public void close() {}
 
@@ -205,5 +202,13 @@ public class MemoryTierWriter implements TierWriter, MemoryDataWriterOperation {
 
     private SubpartitionMemoryDataManager getSubpartitionMemoryDataManager(int targetChannel) {
         return subpartitionMemoryDataManagers[targetChannel];
+    }
+
+    public SubpartitionSegmentIndexTracker getSegmentIndexTracker() {
+        return subpartitionSegmentIndexTracker;
+    }
+
+    public SubpartitionMemoryDataManager[] getSubpartitionMemoryDataManagers() {
+        return subpartitionMemoryDataManagers;
     }
 }

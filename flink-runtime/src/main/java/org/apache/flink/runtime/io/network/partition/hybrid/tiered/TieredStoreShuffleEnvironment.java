@@ -21,20 +21,14 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.MemorySegmentProvider;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactoryImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.UpstreamTierStorageReleaser;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote.RemoteTierStorageReleaser;
-import org.apache.flink.util.ExceptionUtils;
 
-import javax.annotation.Nullable;
-
-import java.io.IOException;
 import java.util.List;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreUtils.generateToReleasePath;
@@ -45,65 +39,32 @@ public class TieredStoreShuffleEnvironment {
             TierType[] tierTypes,
             ResultPartitionID resultPartitionID,
             int numSubpartitions,
-            int bufferSize,
             float minReservedDiskSpaceFraction,
             String dataFileBasePath,
             boolean isBroadcast,
-            @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
             UpstreamTieredStoreMemoryManager storeMemoryManager,
-            CacheFlushManager cacheFlushManager) {
-        UpstreamTieredStorageFactory tierStorageFactory = null;
-        try {
-            tierStorageFactory =
-                    new UpstreamTieredStorageFactory(
-                            tierTypes,
-                            resultPartitionID,
-                            numSubpartitions,
-                            bufferSize,
-                            minReservedDiskSpaceFraction,
-                            dataFileBasePath,
-                            isBroadcast,
-                            bufferCompressor,
-                            partitionFileManager,
-                            storeMemoryManager,
-                            cacheFlushManager);
-            tierStorageFactory.setup();
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e);
-        }
+            TieredStorageWriterFactory tieredStorageWriterFactory) {
+        UpstreamTieredStorageFactory tierStorageFactory =
+                new UpstreamTieredStorageFactory(
+                        tierTypes,
+                        resultPartitionID,
+                        numSubpartitions,
+                        minReservedDiskSpaceFraction,
+                        dataFileBasePath,
+                        isBroadcast,
+                        partitionFileManager,
+                        storeMemoryManager,
+                        tieredStorageWriterFactory);
+        tierStorageFactory.setup();
         return tierStorageFactory;
     }
 
     public RemoteTieredStorageFactory createRemoteTieredStorageFactory(
-            TierType[] tierTypes,
-            ResultPartitionID resultPartitionID,
-            int numSubpartitions,
-            int bufferSize,
-            String baseRemoteStoragePath,
-            boolean isBroadcast,
-            @Nullable BufferCompressor bufferCompressor,
-            PartitionFileManager partitionFileManager,
-            UpstreamTieredStoreMemoryManager storeMemoryManager,
-            CacheFlushManager cacheFlushManager) {
-        RemoteTieredStorageFactory tierStorageFactory = null;
-        try {
-            tierStorageFactory =
-                    new RemoteTieredStorageFactory(
-                            tierTypes,
-                            resultPartitionID,
-                            numSubpartitions,
-                            bufferSize,
-                            baseRemoteStoragePath,
-                            isBroadcast,
-                            bufferCompressor,
-                            partitionFileManager,
-                            storeMemoryManager,
-                            cacheFlushManager);
-            tierStorageFactory.setup();
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e);
-        }
+            TierType[] tierTypes, TieredStorageWriterFactory tieredStorageWriterFactory) {
+        RemoteTieredStorageFactory tierStorageFactory =
+                new RemoteTieredStorageFactory(tierTypes, tieredStorageWriterFactory);
+        tierStorageFactory.setup();
         return tierStorageFactory;
     }
 

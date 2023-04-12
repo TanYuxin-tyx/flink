@@ -18,71 +18,54 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk;
 
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
 
 public class UpstreamDiskTierStorageFactory implements TierStorageFactory {
 
     private final int numSubpartitions;
 
-    private final int bufferSize;
-
     private final ResultPartitionID resultPartitionID;
 
-    private final TieredStoreMemoryManager storeMemoryManager;
-
     private final boolean isBroadcast;
-
-    private final BufferCompressor bufferCompressor;
 
     private final float minReservedDiskSpaceFraction;
 
     private final String dataFileBasePath;
 
-    private final CacheFlushManager cacheFlushManager;
-
     private final PartitionFileManager partitionFileManager;
+
+    private final TieredStorageWriterFactory tieredStorageWriterFactory;
 
     public UpstreamDiskTierStorageFactory(
             int numSubpartitions,
-            int bufferSize,
             ResultPartitionID resultPartitionID,
-            TieredStoreMemoryManager storeMemoryManager,
-            CacheFlushManager cacheFlushManager,
             String dataFileBasePath,
             float minReservedDiskSpaceFraction,
             boolean isBroadcast,
-            BufferCompressor bufferCompressor,
-            PartitionFileManager partitionFileManager) {
+            PartitionFileManager partitionFileManager,
+            TieredStorageWriterFactory tieredStorageWriterFactory) {
         this.numSubpartitions = numSubpartitions;
-        this.bufferSize = bufferSize;
         this.resultPartitionID = resultPartitionID;
-        this.storeMemoryManager = storeMemoryManager;
-        this.cacheFlushManager = cacheFlushManager;
         this.isBroadcast = isBroadcast;
         this.dataFileBasePath = dataFileBasePath;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
-        this.bufferCompressor = bufferCompressor;
         this.partitionFileManager = partitionFileManager;
+        this.tieredStorageWriterFactory = tieredStorageWriterFactory;
     }
 
     @Override
     public TierStorage createTierStorage() {
         return new DiskTierStorage(
                 numSubpartitions,
-                bufferSize,
                 resultPartitionID,
-                storeMemoryManager,
-                cacheFlushManager,
                 dataFileBasePath,
                 minReservedDiskSpaceFraction,
                 isBroadcast,
-                bufferCompressor,
-                partitionFileManager);
+                partitionFileManager,
+                tieredStorageWriterFactory);
     }
 }

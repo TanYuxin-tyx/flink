@@ -23,14 +23,14 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import java.io.IOException;
 
 /**
- * The gate for a single tiered data. The gate is used to create {@link TierWriter}. The writing and
+ * The gate for a single tiered data. The gate is used to create {@link TierStorageWriter}. The writing and
  * reading data processes happen in the writer and reader.
  */
 public interface TierStorage {
 
     void setup() throws IOException;
 
-    TierWriter createPartitionTierWriter();
+    TierStorageWriter createPartitionTierWriter();
 
     boolean canStoreNextSegment(int consumerId);
 

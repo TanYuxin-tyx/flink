@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.memory;
 
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
@@ -27,30 +27,26 @@ public class UpstreamMemoryTierStorageFactory implements TierStorageFactory {
 
     private final int numSubpartitions;
 
-    private final int bufferSize;
-
     private final TieredStoreMemoryManager storeMemoryManager;
 
     private final boolean isBroadcast;
 
-    private final BufferCompressor bufferCompressor;
+    private final TieredStorageWriterFactory tieredStorageWriterFactory;
 
     public UpstreamMemoryTierStorageFactory(
             int numSubpartitions,
-            int bufferSize,
             TieredStoreMemoryManager storeMemoryManager,
             boolean isBroadcast,
-            BufferCompressor bufferCompressor) {
+            TieredStorageWriterFactory tieredStorageWriterFactory) {
         this.numSubpartitions = numSubpartitions;
-        this.bufferSize = bufferSize;
         this.storeMemoryManager = storeMemoryManager;
         this.isBroadcast = isBroadcast;
-        this.bufferCompressor = bufferCompressor;
+        this.tieredStorageWriterFactory = tieredStorageWriterFactory;
     }
 
     @Override
     public TierStorage createTierStorage() {
         return new MemoryTierStorage(
-                numSubpartitions, bufferSize, storeMemoryManager, isBroadcast, bufferCompressor);
+                numSubpartitions, storeMemoryManager, isBroadcast, tieredStorageWriterFactory);
     }
 }
