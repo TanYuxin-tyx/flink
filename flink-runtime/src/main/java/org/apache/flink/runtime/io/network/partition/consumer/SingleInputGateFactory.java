@@ -185,10 +185,14 @@ public class SingleInputGateFactory {
             }
 
             TieredStoreShuffleEnvironment storeShuffleEnvironment =
-                    new TieredStoreShuffleEnvironment(owner.getJobID(), baseRemoteStoragePath);
+                    new TieredStoreShuffleEnvironment();
             TierReaderFactory tierReaderFactory =
                     storeShuffleEnvironment.createStorageTierReaderFactory(
-                            resultPartitionIDs, networkBufferPool, subpartitionIndexes);
+                            owner.getJobID(),
+                            resultPartitionIDs,
+                            networkBufferPool,
+                            subpartitionIndexes,
+                            baseRemoteStoragePath);
             tieredStoreReader = new TieredStoreReaderImpl(numberOfInputChannels, tierReaderFactory);
         }
 

@@ -23,6 +23,8 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierStorageReleaser;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStoreShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor.LocalExecutionPartitionConnectionInfo;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor.NetworkPartitionConnectionInfo;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor.PartitionConnectionInfo;
@@ -31,11 +33,10 @@ import org.apache.flink.runtime.util.ConfigurationParserUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreUtils.deleteJobBasePath;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -161,12 +162,10 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
 
     @Override
     public void unregisterJob(JobID jobID) {
-        if (baseDfsPath != null) {
-            try {
-                deleteJobBasePath(jobID, baseDfsPath);
-            } catch (IOException e) {
-                LOG.error("Failed to delete shuffle files.", e);
-            }
-        }
+        TieredStoreShuffleEnvironment tieredStoreShuffleEnvironment =
+                new TieredStoreShuffleEnvironment();
+        TierStorageReleaser[] tierStorageReleasers =
+                tieredStoreShuffleEnvironment.createStorageTierReleasers(jobID, baseDfsPath);
+        Arrays.stream(tierStorageReleasers).forEach(TierStorageReleaser::releaseTierStorage);
     }
 }

@@ -275,7 +275,7 @@ public class ResultPartitionFactory {
                         getStoreConfiguration(numberOfSubpartitions, type);
                 CacheFlushManager cacheFlushManager = new CacheFlushManager();
                 TieredStoreShuffleEnvironment storeShuffleEnvironment =
-                        new TieredStoreShuffleEnvironment(jobID, baseRemoteStorageHomePath);
+                        new TieredStoreShuffleEnvironment();
                 UpstreamTieredStoreMemoryManager storeMemoryManager =
                         createStoreMemoryManager(
                                 subpartitions.length,
@@ -289,6 +289,7 @@ public class ResultPartitionFactory {
                                 isBroadcast,
                                 bufferCompressor,
                                 subpartitions,
+                                baseRemoteStorageHomePath,
                                 storeConfiguration,
                                 storeShuffleEnvironment,
                                 storeMemoryManager,
@@ -353,6 +354,7 @@ public class ResultPartitionFactory {
             boolean isBroadcast,
             BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
+            String baseRemoteStoragePath,
             TieredStoreConfiguration storeConfiguration,
             TieredStoreShuffleEnvironment storeShuffleEnvironment,
             UpstreamTieredStoreMemoryManager storeMemoryManager,
@@ -393,6 +395,7 @@ public class ResultPartitionFactory {
                             id,
                             subpartitions.length,
                             networkBufferSize,
+                            baseRemoteStoragePath,
                             isBroadcast,
                             bufferCompressor,
                             partitionFileManager,

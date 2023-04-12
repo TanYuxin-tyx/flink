@@ -125,6 +125,28 @@ public class TieredStoreUtils {
                 baseDfsPath, TIER_STORE_DIR, jobID, resultPartitionID, subpartitionId);
     }
 
+    public static Path generateToReleasePath(JobID jobID, String baseDfsPath) {
+        if (jobID == null || baseDfsPath == null) {
+            return null;
+        }
+
+        while (baseDfsPath.endsWith("/") && baseDfsPath.length() > 1) {
+            baseDfsPath = baseDfsPath.substring(0, baseDfsPath.length() - 1);
+        }
+        String basePathStr = String.format("%s/%s/%s", baseDfsPath, TIER_STORE_DIR, jobID);
+        return new Path(basePathStr);
+    }
+
+    public static void deletePath(Path path) throws IOException {
+        if (path == null) {
+            return;
+        }
+        FileSystem fs = path.getFileSystem();
+        if (fs.exists(path)) {
+            fs.delete(path, true);
+        }
+    }
+
     public static String deleteJobBasePath(JobID jobID, String baseDfsPath) throws IOException {
         while (baseDfsPath.endsWith("/") && baseDfsPath.length() > 1) {
             baseDfsPath = baseDfsPath.substring(0, baseDfsPath.length() - 1);

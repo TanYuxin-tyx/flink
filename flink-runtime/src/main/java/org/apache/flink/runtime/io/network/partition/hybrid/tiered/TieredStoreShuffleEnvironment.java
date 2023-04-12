@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -27,6 +28,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.Ti
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.UpstreamTierStorageReleaser;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.remote.RemoteTierStorageReleaser;
 import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
@@ -34,16 +37,9 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreUtils.generateToReleasePath;
+
 public class TieredStoreShuffleEnvironment {
-
-    private final JobID jobID;
-
-    private final String baseRemoteStoragePath;
-
-    public TieredStoreShuffleEnvironment(JobID jobID, String baseRemoteStoragePath) {
-        this.jobID = jobID;
-        this.baseRemoteStoragePath = baseRemoteStoragePath;
-    }
 
     public UpstreamTieredStorageFactory createUpstreamTieredStorageFactory(
             TierType[] tierTypes,
@@ -84,6 +80,7 @@ public class TieredStoreShuffleEnvironment {
             ResultPartitionID resultPartitionID,
             int numSubpartitions,
             int bufferSize,
+            String baseRemoteStoragePath,
             boolean isBroadcast,
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
@@ -111,14 +108,25 @@ public class TieredStoreShuffleEnvironment {
     }
 
     public TierReaderFactory createStorageTierReaderFactory(
+            JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             MemorySegmentProvider memorySegmentProvider,
-            List<Integer> subpartitionIndexes) {
+            List<Integer> subpartitionIndexes,
+            String baseRemoteStoragePath) {
         return new TierReaderFactoryImpl(
                 jobID,
                 resultPartitionIDs,
                 memorySegmentProvider,
                 subpartitionIndexes,
                 baseRemoteStoragePath);
+    }
+
+    public TierStorageReleaser[] createStorageTierReleasers(
+            JobID jobID, String baseRemoteStoragePath) {
+        Path toReleasePath = generateToReleasePath(jobID, baseRemoteStoragePath);
+        TierStorageReleaser[] tierStorageReleasers = new TierStorageReleaser[2];
+        tierStorageReleasers[0] = new UpstreamTierStorageReleaser();
+        tierStorageReleasers[1] = new RemoteTierStorageReleaser(toReleasePath);
+        return tierStorageReleasers;
     }
 }

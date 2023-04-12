@@ -139,13 +139,14 @@ public abstract class InputGateTestBase {
             subpartitionIndexes.add(index);
         }
 
-        TieredStoreShuffleEnvironment storeShuffleEnvironment =
-                new TieredStoreShuffleEnvironment(JobID.generate(), baseRemoteStoragePath);
+        TieredStoreShuffleEnvironment storeShuffleEnvironment = new TieredStoreShuffleEnvironment();
         TierReaderFactory tierReaderFactory =
                 storeShuffleEnvironment.createStorageTierReaderFactory(
+                        JobID.generate(),
                         Collections.singletonList(new ResultPartitionID()),
                         environment.getNetworkBufferPool(),
-                        subpartitionIndexes);
+                        subpartitionIndexes,
+                        baseRemoteStoragePath);
 
         TieredStoreReader tieredStoreReader =
                 new TieredStoreReaderImpl(numberOfInputChannels, tierReaderFactory);
