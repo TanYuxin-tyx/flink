@@ -82,7 +82,7 @@ public class TieredStoreBufferReader implements SingInputGateBufferReader {
     }
 
     @Override
-    public boolean supportAcknowledgeAllRecordsProcessed() {
+    public boolean supportAcknowledgeUpstreamAllRecordsProcessed() {
         return false;
     }
 

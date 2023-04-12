@@ -959,7 +959,7 @@ public class SingleInputGate extends IndexedInputGate {
     @Override
     public void acknowledgeAllRecordsProcessed(InputChannelInfo channelInfo) throws IOException {
         checkState(!isFinished(), "InputGate already finished.");
-        if (singInputGateBufferReader.supportAcknowledgeAllRecordsProcessed()) {
+        if (singInputGateBufferReader.supportAcknowledgeUpstreamAllRecordsProcessed()) {
             channels[channelInfo.getInputChannelIdx()].acknowledgeAllRecordsProcessed();
         }
     }

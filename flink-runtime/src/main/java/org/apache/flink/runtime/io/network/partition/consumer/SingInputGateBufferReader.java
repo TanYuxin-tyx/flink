@@ -25,6 +25,7 @@ import java.util.Optional;
 /** {@link SingInputGateBufferReader} includes the logic of reading buffer from channel. */
 public interface SingInputGateBufferReader extends Closeable {
 
+    /** Start the reader. */
     void start();
 
     /**
@@ -36,5 +37,11 @@ public interface SingInputGateBufferReader extends Closeable {
     Optional<InputChannel.BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException;
 
-    boolean supportAcknowledgeAllRecordsProcessed();
+    /**
+     * Ask if the reader is needed to acknowledge all records are processed to upstream. If the
+     * reader reads buffer through tiered store, it doesn't need to acknowledge it.
+     *
+     * @return if the reader is needed to acknowledge all records are processed to upstream.
+     */
+    boolean supportAcknowledgeUpstreamAllRecordsProcessed();
 }
