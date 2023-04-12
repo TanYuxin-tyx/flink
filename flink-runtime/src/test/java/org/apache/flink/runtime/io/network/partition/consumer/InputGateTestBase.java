@@ -27,7 +27,6 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStoreShuffleEnvironment;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreReaderImpl;
 
 import org.junit.Before;
 
@@ -148,8 +147,7 @@ public abstract class InputGateTestBase {
                         subpartitionIndexes,
                         baseRemoteStoragePath);
 
-        TieredStoreReader tieredStoreReader =
-                new TieredStoreReaderImpl(numberOfInputChannels, tierReaderFactory);
+        TieredStoreReader tieredStoreReader = null;
 
         SingleInputGateBuilder builder =
                 new SingleInputGateBuilder()

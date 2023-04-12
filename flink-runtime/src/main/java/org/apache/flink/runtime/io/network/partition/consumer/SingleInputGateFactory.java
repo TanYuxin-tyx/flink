@@ -39,7 +39,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStoreShuffleEnvironment;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreReaderImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreBufferReader;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
@@ -170,31 +170,31 @@ public class SingleInputGateFactory {
         IndexRange subpartitionIndexRange = igdd.getConsumedSubpartitionIndexRange();
         int numberOfInputChannels =
                 calculateNumChannels(igdd.getShuffleDescriptors().length, subpartitionIndexRange);
-        TieredStoreReader tieredStoreReader = null;
-        if (enableTieredStore) {
-            ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
-            List<ResultPartitionID> resultPartitionIDs = new ArrayList<>();
-            List<Integer> subpartitionIndexes = new ArrayList<>();
-            for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
-                for (int subpartitionIndex = subpartitionIndexRange.getStartIndex();
-                        subpartitionIndex <= subpartitionIndexRange.getEndIndex();
-                        ++subpartitionIndex) {
-                    resultPartitionIDs.add(shuffleDescriptor.getResultPartitionID());
-                    subpartitionIndexes.add(subpartitionIndex);
-                }
-            }
 
-            TieredStoreShuffleEnvironment storeShuffleEnvironment =
-                    new TieredStoreShuffleEnvironment();
-            TierReaderFactory tierReaderFactory =
-                    storeShuffleEnvironment.createStorageTierReaderFactory(
-                            owner.getJobID(),
-                            resultPartitionIDs,
-                            networkBufferPool,
-                            subpartitionIndexes,
-                            baseRemoteStoragePath);
-            tieredStoreReader = new TieredStoreReaderImpl(numberOfInputChannels, tierReaderFactory);
+        ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
+        boolean isUpstreamBroadcastOnly =
+                ((NettyShuffleDescriptor) shuffleDescriptors[0]).isUpstreamBroadcastOnly();
+        List<ResultPartitionID> resultPartitionIDs = new ArrayList<>();
+        List<Integer> subpartitionIndexes = new ArrayList<>();
+        for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
+            for (int subpartitionIndex = subpartitionIndexRange.getStartIndex();
+                    subpartitionIndex <= subpartitionIndexRange.getEndIndex();
+                    ++subpartitionIndex) {
+                resultPartitionIDs.add(shuffleDescriptor.getResultPartitionID());
+                subpartitionIndexes.add(subpartitionIndex);
+            }
         }
+
+        TieredStorageReaderFactory tieredStorageReaderFactory =
+                new TieredStorageReaderFactory(
+                        enableTieredStore,
+                        isUpstreamBroadcastOnly,
+                        numberOfInputChannels,
+                        owner.getJobID(),
+                        resultPartitionIDs,
+                        networkBufferPool,
+                        subpartitionIndexes,
+                        baseRemoteStoragePath);
 
         SingleInputGate inputGate =
                 createInputGate(
@@ -212,7 +212,7 @@ public class SingleInputGateFactory {
                         new ThroughputCalculator(SystemClock.getInstance()),
                         maybeCreateBufferDebloater(
                                 owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)),
-                        tieredStoreReader);
+                        tieredStorageReaderFactory);
 
         createInputChannels(
                 owningTaskName, igdd, inputGate, subpartitionIndexRange, gateBuffersSpec, metrics);
@@ -336,7 +336,7 @@ public class SingleInputGateFactory {
             int segmentSize,
             ThroughputCalculator throughputCalculator,
             @Nullable BufferDebloater bufferDebloater,
-            @Nullable TieredStoreReader tieredStoreReader) {
+            TieredStorageReaderFactory tieredStorageReaderFactory) {
 
         return new SingleInputGate(
                 owningTaskName,
@@ -352,7 +352,7 @@ public class SingleInputGateFactory {
                 segmentSize,
                 throughputCalculator,
                 bufferDebloater,
-                tieredStoreReader);
+                tieredStorageReaderFactory);
     }
 
     protected static int calculateNumChannels(

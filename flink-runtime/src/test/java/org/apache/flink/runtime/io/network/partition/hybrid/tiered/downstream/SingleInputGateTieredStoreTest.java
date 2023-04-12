@@ -1181,8 +1181,7 @@ public class SingleInputGateTieredStoreTest extends InputGateTestBase {
                     new SingleInputGateBuilder()
                             .setSingleInputGateIndex(i)
                             .setNumberOfChannels(numInputChannels)
-                            .setTieredStoreReader(
-                                    new TieredStoreReaderImpl(numInputChannels, tierReaderFactory))
+                            .setTieredStoreReader(null)
                             .build();
 
             int channelCounter = 0;

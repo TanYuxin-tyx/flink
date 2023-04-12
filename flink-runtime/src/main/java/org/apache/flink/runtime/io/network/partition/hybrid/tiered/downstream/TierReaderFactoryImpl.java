@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-/** The factory of {@link TierReader}. */
+/** The factory of {@link TierStorageClient}. */
 public class TierReaderFactoryImpl implements TierReaderFactory {
 
     private final JobID jobID;
@@ -47,12 +47,6 @@ public class TierReaderFactoryImpl implements TierReaderFactory {
     }
 
     public void setup(InputChannel[] channels, Consumer<InputChannel> channelEnqueueReceiver) {
-        if (enableRemoteTier) {
-            this.remoteTierMonitor =
-                    new RemoteTierMonitor(
-                            jobID, resultPartitionIDs, baseRemoteStoragePath, subpartitionIndexes);
-            this.remoteTierMonitor.setup(channels, channelEnqueueReceiver);
-        }
     }
 
     @Override
@@ -62,13 +56,13 @@ public class TierReaderFactoryImpl implements TierReaderFactory {
         }
     }
 
-    public List<TierReader> createClientList() {
-        List<TierReader> clientList = new ArrayList<>();
+    public List<TierStorageClient> createClientList() {
+        List<TierStorageClient> clientList = new ArrayList<>();
         if (enableRemoteTier) {
-            clientList.add(new LocalTierReader());
-            clientList.add(new RemoteTierReader(memoryManager, remoteTierMonitor));
+            clientList.add(new LocalTierStorageClient());
+            clientList.add(new RemoteTierStorageClient(memoryManager, remoteTierMonitor));
         } else {
-            clientList.add(new LocalTierReader());
+            clientList.add(new LocalTierStorageClient());
         }
         return clientList;
     }

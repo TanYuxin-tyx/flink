@@ -182,7 +182,7 @@ public class SingleInputGateBuilder {
                         bufferSize,
                         createThroughputCalculator.apply(bufferDebloatConfiguration),
                         maybeCreateBufferDebloater(gateIndex),
-                        tieredStoreReader);
+                        null);
         if (channelFactory != null) {
             gate.setInputChannels(
                     IntStream.range(0, numberOfChannels)

@@ -5,7 +5,6 @@ import org.apache.flink.core.fs.FSDataInputStream;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
@@ -71,15 +70,20 @@ public class RemoteTierMonitor implements Runnable {
                             .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
                             .build());
 
-    private InputChannel[] inputChannels;
+    private final int numInputChannels;
 
-    private Consumer<InputChannel> channelEnqueueReceiver;
+    private final boolean isUpstreamBroadcast;
+
+    private final Consumer<Integer> channelEnqueueReceiver;
 
     public RemoteTierMonitor(
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             String baseRemoteStoragePath,
-            List<Integer> subpartitionIndexes) {
+            List<Integer> subpartitionIndexes,
+            int numInputChannels,
+            boolean isUpstreamBroadcast,
+            Consumer<Integer> channelEnqueueReceiver) {
         this.existStatus = new Map[subpartitionIndexes.size()];
         Arrays.fill(existStatus, new ConcurrentHashMap<>());
         this.requiredSegmentIds = new int[subpartitionIndexes.size()];
@@ -91,15 +95,13 @@ public class RemoteTierMonitor implements Runnable {
         this.jobID = jobID;
         this.resultPartitionIDs = resultPartitionIDs;
         this.baseRemoteStoragePath = baseRemoteStoragePath;
-    }
-
-    public void setup(InputChannel[] inputChannels, Consumer<InputChannel> channelEnqueueReceiver) {
-        this.inputChannels = inputChannels;
+        this.isUpstreamBroadcast = isUpstreamBroadcast;
+        this.numInputChannels = numInputChannels;
         this.channelEnqueueReceiver = channelEnqueueReceiver;
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to initialize the FileSystem", e);
+            ExceptionUtils.rethrow(e, "Failed to initialize the FileSystem");
         }
     }
 
@@ -109,25 +111,25 @@ public class RemoteTierMonitor implements Runnable {
 
     @Override
     public void run() {
-        for (int channelIndex = 0; channelIndex < inputChannels.length; channelIndex++) {
+        for (int channelIndex = 0; channelIndex < numInputChannels; channelIndex++) {
             boolean isEnqueue = false;
             synchronized (lock) {
                 int scanningSegmentId = scanningSegmentIds[channelIndex];
                 int requiredSegmentId = requiredSegmentIds[channelIndex];
                 if (scanningSegmentId <= requiredSegmentId
-                        && hasSegmentId(inputChannels[channelIndex], scanningSegmentId)) {
+                        && hasSegmentId(channelIndex, scanningSegmentId)) {
                     scanningSegmentIds[channelIndex] = scanningSegmentId + 1;
                     isEnqueue = true;
                 }
             }
             if (isEnqueue) {
-                channelEnqueueReceiver.accept(inputChannels[channelIndex]);
+                channelEnqueueReceiver.accept(channelIndex);
             }
         }
     }
 
     public boolean isExist(int channelIndex, int segmentId) {
-        return hasSegmentId(inputChannels[channelIndex], segmentId);
+        return hasSegmentId(channelIndex, segmentId);
     }
 
     public void requireSegmentId(int channelIndex, int segmentId) {
@@ -136,17 +138,16 @@ public class RemoteTierMonitor implements Runnable {
         }
     }
 
-    public FSDataInputStream getInputStream(InputChannel inputChannel, int segmentId) {
-        FSDataInputStream requiredInputStream = inputStreams[inputChannel.getChannelIndex()];
-        if (requiredInputStream == null
-                || readingSegmentIds[inputChannel.getChannelIndex()] != segmentId) {
+    public FSDataInputStream getInputStream(int channelIndex, int segmentId) {
+        FSDataInputStream requiredInputStream = inputStreams[channelIndex];
+        if (requiredInputStream == null || readingSegmentIds[channelIndex] != segmentId) {
             String baseSubpartitionPath =
                     getBaseSubpartitionPath(
                             jobID,
-                            resultPartitionIDs.get(inputChannel.getChannelIndex()),
-                            subpartitionIndexes.get(inputChannel.getChannelIndex()),
+                            resultPartitionIDs.get(channelIndex),
+                            subpartitionIndexes.get(channelIndex),
                             baseRemoteStoragePath,
-                            inputChannel.isUpstreamBroadcastOnly());
+                            isUpstreamBroadcast);
             Path currentSegmentPath = generateNewSegmentPath(baseSubpartitionPath, segmentId);
             FSDataInputStream inputStream = null;
             try {
@@ -154,11 +155,11 @@ public class RemoteTierMonitor implements Runnable {
             } catch (IOException e) {
                 ExceptionUtils.rethrow(e, "Failed to open the segment path: " + currentSegmentPath);
             }
-            inputStreams[inputChannel.getChannelIndex()] = inputStream;
-            readingSegmentIds[inputChannel.getChannelIndex()] = segmentId;
+            inputStreams[channelIndex] = inputStream;
+            readingSegmentIds[channelIndex] = segmentId;
             return inputStream;
         } else {
-            return inputStreams[inputChannel.getChannelIndex()];
+            return inputStreams[channelIndex];
         }
     }
 
@@ -173,15 +174,14 @@ public class RemoteTierMonitor implements Runnable {
         }
     }
 
-    private boolean hasSegmentId(InputChannel inputChannel, int segmentId) {
-        boolean isBroadcastOnly = inputChannel.isUpstreamBroadcastOnly();
+    private boolean hasSegmentId(int channelIndex, int segmentId) {
         String baseSubpartitionPath =
                 getBaseSubpartitionPath(
                         jobID,
-                        resultPartitionIDs.get(inputChannel.getChannelIndex()),
-                        subpartitionIndexes.get(inputChannel.getChannelIndex()),
+                        resultPartitionIDs.get(channelIndex),
+                        subpartitionIndexes.get(channelIndex),
                         baseRemoteStoragePath,
-                        isBroadcastOnly);
+                        isUpstreamBroadcast);
         Path currentSegmentFinishPath = generateSegmentFinishPath(baseSubpartitionPath, segmentId);
         return isPathExist(currentSegmentFinishPath);
     }

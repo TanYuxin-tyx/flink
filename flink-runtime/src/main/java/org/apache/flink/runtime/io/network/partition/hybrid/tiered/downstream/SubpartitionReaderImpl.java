@@ -12,30 +12,23 @@ import java.util.function.Consumer;
 /** The implementation of {@link SubpartitionReader} interface. */
 public class SubpartitionReaderImpl implements SubpartitionReader {
 
-    private final TierReaderFactory clientFactory;
+    private final Consumer<Integer> queueChannelReceiver;
 
-    private final Consumer<InputChannel> queueChannelReceiver;
-
-    private List<TierReader> clientList;
+    private final List<TierStorageClient> clientList;
 
     private int currentSegmentId = 0;
 
     public SubpartitionReaderImpl(
-            TierReaderFactory clientFactory, Consumer<InputChannel> queueChannelReceiver) {
-        this.clientFactory = clientFactory;
+            List<TierStorageClient> clientList, Consumer<Integer> queueChannelReceiver) {
+        this.clientList = clientList;
         this.queueChannelReceiver = queueChannelReceiver;
-    }
-
-    @Override
-    public void setup() {
-        this.clientList = clientFactory.createClientList();
     }
 
     @Override
     public Optional<BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException {
         Optional<BufferAndAvailability> bufferAndAvailability = Optional.empty();
-        for (TierReader client : clientList) {
+        for (TierStorageClient client : clientList) {
             bufferAndAvailability = client.getNextBuffer(inputChannel, currentSegmentId);
             if (bufferAndAvailability.isPresent()) {
                 break;
@@ -48,7 +41,7 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
         if (bufferData.buffer().getDataType() == Buffer.DataType.SEGMENT_EVENT) {
             currentSegmentId++;
             bufferData.buffer().recycleBuffer();
-            queueChannelReceiver.accept(inputChannel);
+            queueChannelReceiver.accept(inputChannel.getChannelIndex());
             return getNextBuffer(inputChannel);
         }
         return Optional.of(bufferData);
@@ -56,7 +49,7 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
 
     @Override
     public void close() throws IOException {
-        for (TierReader client : clientList) {
+        for (TierStorageClient client : clientList) {
             client.close();
         }
     }

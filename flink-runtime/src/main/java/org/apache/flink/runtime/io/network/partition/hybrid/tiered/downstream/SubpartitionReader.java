@@ -9,8 +9,6 @@ import java.util.Optional;
 /** The interface of {@link SubpartitionReader} in Tiered Store. */
 public interface SubpartitionReader {
 
-    void setup();
-
     Optional<BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException;
 

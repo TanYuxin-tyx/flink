@@ -26,7 +26,7 @@ import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUt
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The data client is used to fetch data from DFS tier. */
-public class RemoteTierReader implements TierReader {
+public class RemoteTierStorageClient implements TierStorageClient {
 
     private final TieredStoreMemoryManager memoryManager;
 
@@ -38,7 +38,7 @@ public class RemoteTierReader implements TierReader {
 
     private int latestSegmentId = -1;
 
-    public RemoteTierReader(
+    public RemoteTierStorageClient(
             TieredStoreMemoryManager memoryManager, RemoteTierMonitor remoteTierMonitor) {
         this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
         headerBuffer.order(ByteOrder.nativeOrder());
@@ -56,7 +56,7 @@ public class RemoteTierReader implements TierReader {
         if (!remoteTierMonitor.isExist(inputChannel.getChannelIndex(), segmentId)) {
             return Optional.empty();
         }
-        currentInputStream = remoteTierMonitor.getInputStream(inputChannel, segmentId);
+        currentInputStream = remoteTierMonitor.getInputStream(inputChannel.getChannelIndex(), segmentId);
         if (currentInputStream.available() == 0) {
             currentInputStream.close();
             return Optional.of(

@@ -41,7 +41,6 @@ import org.apache.flink.runtime.io.network.partition.PrioritizedDeque;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreReader;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -213,7 +212,7 @@ public class SingleInputGate extends IndexedInputGate {
     private final ThroughputCalculator throughputCalculator;
     private final BufferDebloater bufferDebloater;
 
-    @Nullable private final TieredStoreReader tieredStoreReader;
+    private final SingInputGateBufferReader singInputGateBufferReader;
 
     private boolean shouldDrainOnEndOfData = true;
 
@@ -231,7 +230,7 @@ public class SingleInputGate extends IndexedInputGate {
             int segmentSize,
             ThroughputCalculator throughputCalculator,
             @Nullable BufferDebloater bufferDebloater,
-            @Nullable TieredStoreReader tieredStoreReader) {
+            TieredStorageReaderFactory tieredStorageReaderFactory) {
 
         this.owningTaskName = checkNotNull(owningTaskName);
         Preconditions.checkArgument(0 <= gateIndex, "The gate index must be positive.");
@@ -264,7 +263,9 @@ public class SingleInputGate extends IndexedInputGate {
         this.unpooledSegment = MemorySegmentFactory.allocateUnpooledSegment(segmentSize);
         this.bufferDebloater = bufferDebloater;
         this.throughputCalculator = checkNotNull(throughputCalculator);
-        this.tieredStoreReader = tieredStoreReader;
+        this.singInputGateBufferReader =
+                tieredStorageReaderFactory.createSingInputGateBufferReader(
+                        channelIndex -> queueChannel(channels[channelIndex], null, false));
     }
 
     protected PrioritizedDeque<InputChannel> getInputChannelsWithData() {
@@ -279,9 +280,6 @@ public class SingleInputGate extends IndexedInputGate {
 
         BufferPool bufferPool = bufferPoolFactory.get();
         setBufferPool(bufferPool);
-        if (tieredStoreReader != null) {
-            tieredStoreReader.setup(channels, channel -> queueChannel(channel, null, false));
-        }
         setupChannels();
     }
 
@@ -322,7 +320,7 @@ public class SingleInputGate extends IndexedInputGate {
 
             requestedPartitionsFlag = true;
             // 这是因为不让 RemoteRecoveredChannel入队，否则 检查的太快，对应Channel就不入队了
-            tieredStoreReader.start();
+            singInputGateBufferReader.start();
         }
     }
 
@@ -708,9 +706,7 @@ public class SingleInputGate extends IndexedInputGate {
             synchronized (inputChannelsWithData) {
                 inputChannelsWithData.notifyAll();
             }
-            if (tieredStoreReader != null) {
-                tieredStoreReader.close();
-            }
+            singInputGateBufferReader.close();
         }
     }
 
@@ -795,11 +791,7 @@ public class SingleInputGate extends IndexedInputGate {
                 }
                 final InputChannel inputChannel = inputChannelOpt.get();
                 Optional<BufferAndAvailability> bufferAndAvailabilityOpt;
-                if (tieredStoreReader != null) {
-                    bufferAndAvailabilityOpt = tieredStoreReader.getNextBuffer(inputChannel);
-                } else {
-                    bufferAndAvailabilityOpt = inputChannel.getNextBuffer();
-                }
+                bufferAndAvailabilityOpt = singInputGateBufferReader.getNextBuffer(inputChannel);
                 if (!bufferAndAvailabilityOpt.isPresent()) {
                     checkUnavailability();
                     continue;
@@ -967,7 +959,7 @@ public class SingleInputGate extends IndexedInputGate {
     @Override
     public void acknowledgeAllRecordsProcessed(InputChannelInfo channelInfo) throws IOException {
         checkState(!isFinished(), "InputGate already finished.");
-        if (tieredStoreReader == null) {
+        if (singInputGateBufferReader.supportAcknowledgeAllRecordsProcessed()) {
             channels[channelInfo.getInputChannelIdx()].acknowledgeAllRecordsProcessed();
         }
     }

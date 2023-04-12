@@ -16,19 +16,25 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream;
+package org.apache.flink.runtime.io.network.partition.consumer;
 
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.Optional;
 
-import java.util.List;
-import java.util.function.Consumer;
-
-/** . */
-public interface TierReaderFactory {
+/** {@link SingInputGateBufferReader} includes the logic of reading buffer from channel. */
+public interface SingInputGateBufferReader extends Closeable {
 
     void start();
 
-    void setup(InputChannel[] channels, Consumer<InputChannel> channelEnqueueReceiver);
+    /**
+     * Get next buffer.
+     *
+     * @param inputChannel indicate the subpartition to read buffer.
+     * @return the next buffer.
+     */
+    Optional<InputChannel.BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
+            throws IOException, InterruptedException;
 
-    List<TierStorageClient> createClientList();
+    boolean supportAcknowledgeAllRecordsProcessed();
 }

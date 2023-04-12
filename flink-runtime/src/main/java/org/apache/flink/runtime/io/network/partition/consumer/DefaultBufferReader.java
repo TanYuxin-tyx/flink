@@ -16,19 +16,32 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream;
+package org.apache.flink.runtime.io.network.partition.consumer;
 
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import java.io.IOException;
+import java.util.Optional;
 
-import java.util.List;
-import java.util.function.Consumer;
+/** {@link DefaultBufferReader} is the default buffer reader of {@link SingleInputGate}. */
+public class DefaultBufferReader implements SingInputGateBufferReader {
 
-/** . */
-public interface TierReaderFactory {
+    @Override
+    public void start() {
+        // nothing to do.
+    }
 
-    void start();
+    @Override
+    public Optional<InputChannel.BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
+            throws IOException, InterruptedException {
+        return inputChannel.getNextBuffer();
+    }
 
-    void setup(InputChannel[] channels, Consumer<InputChannel> channelEnqueueReceiver);
+    @Override
+    public boolean supportAcknowledgeAllRecordsProcessed() {
+        return true;
+    }
 
-    List<TierStorageClient> createClientList();
+    @Override
+    public void close() {
+        // nothing to do.
+    }
 }
