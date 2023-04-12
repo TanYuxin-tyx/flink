@@ -90,7 +90,8 @@ public class UpstreamTieredStorageFactory implements TieredStorageFactory {
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
             UpstreamTieredStoreMemoryManager storeMemoryManager,
-            TieredStoreConfiguration storeConfiguration)
+            TieredStoreConfiguration storeConfiguration,
+            CacheFlushManager cacheFlushManager)
             throws IOException {
         this.tierTypes = tierTypes;
         this.resultPartitionID = resultPartitionID;
@@ -104,7 +105,7 @@ public class UpstreamTieredStorageFactory implements TieredStorageFactory {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
         this.tierStorages = new TierStorage[tierTypes.length];
         this.tierExclusiveBuffers = new HashMap<>();
-        this.cacheFlushManager = new CacheFlushManager();
+        this.cacheFlushManager = cacheFlushManager;
         this.partitionFileManager = partitionFileManager;
         this.storeMemoryManager = storeMemoryManager;
 

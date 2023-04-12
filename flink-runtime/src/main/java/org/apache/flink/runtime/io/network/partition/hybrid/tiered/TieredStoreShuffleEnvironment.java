@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactoryImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageFactoryImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
@@ -63,7 +64,8 @@ public class TieredStoreShuffleEnvironment {
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
             UpstreamTieredStoreMemoryManager storeMemoryManager,
-            TieredStoreConfiguration storeConfiguration) {
+            TieredStoreConfiguration storeConfiguration,
+            CacheFlushManager cacheFlushManager) {
         UpstreamTieredStorageFactory tierStorageFactory = null;
         try {
             tierStorageFactory =
@@ -83,7 +85,8 @@ public class TieredStoreShuffleEnvironment {
                             bufferCompressor,
                             partitionFileManager,
                             storeMemoryManager,
-                            storeConfiguration);
+                            storeConfiguration,
+                            cacheFlushManager);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
@@ -104,7 +107,8 @@ public class TieredStoreShuffleEnvironment {
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
             UpstreamTieredStoreMemoryManager storeMemoryManager,
-            TieredStoreConfiguration storeConfiguration) {
+            TieredStoreConfiguration storeConfiguration,
+            CacheFlushManager cacheFlushManager) {
         RemoteTieredStorageFactory tierStorageFactory = null;
         try {
             tierStorageFactory =
@@ -124,7 +128,8 @@ public class TieredStoreShuffleEnvironment {
                             bufferCompressor,
                             partitionFileManager,
                             storeMemoryManager,
-                            storeConfiguration);
+                            storeConfiguration,
+                            cacheFlushManager);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }

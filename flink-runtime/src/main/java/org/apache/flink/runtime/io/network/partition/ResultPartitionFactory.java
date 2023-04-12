@@ -291,7 +291,8 @@ public class ResultPartitionFactory {
                                 subpartitions,
                                 storeConfiguration,
                                 storeShuffleEnvironment,
-                                storeMemoryManager);
+                                storeMemoryManager,
+                                cacheFlushManager);
 
                 BufferAccumulator bufferAccumulator =
                         new BufferAccumulatorImpl(
@@ -354,7 +355,8 @@ public class ResultPartitionFactory {
             ResultSubpartition[] subpartitions,
             TieredStoreConfiguration storeConfiguration,
             TieredStoreShuffleEnvironment storeShuffleEnvironment,
-            UpstreamTieredStoreMemoryManager storeMemoryManager) {
+            UpstreamTieredStoreMemoryManager storeMemoryManager,
+            CacheFlushManager cacheFlushManager) {
         String dataFileBasePath = channelManager.createChannel().getPath();
         PartitionFileManager partitionFileManager =
                 new PartitionFileManagerImpl(
@@ -384,7 +386,8 @@ public class ResultPartitionFactory {
                             bufferCompressor,
                             partitionFileManager,
                             storeMemoryManager,
-                            storeConfiguration);
+                            storeConfiguration,
+                            cacheFlushManager);
         }
         RemoteTieredStorageFactory remoteTieredStorageFactory = null;
         if (storeConfiguration.getRemoteTierTypes().length > 0) {
@@ -403,7 +406,8 @@ public class ResultPartitionFactory {
                             bufferCompressor,
                             partitionFileManager,
                             storeMemoryManager,
-                            storeConfiguration);
+                            storeConfiguration,
+                            cacheFlushManager);
         }
         checkState(upstreamTieredStorageFactory != null || remoteTieredStorageFactory != null);
         TierStorage[] tierStorages;
