@@ -18,10 +18,12 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream;
 
+import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsFullSpillingStrategy;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsSelectiveSpillingStrategy;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
+import org.apache.flink.util.StringUtils;
 
 import java.time.Duration;
 
@@ -397,8 +399,6 @@ public class TieredStoreConfiguration {
                     getConfiguredUpstreamTierTypes(configuredStoreTiers, partitionType);
             this.remoteTierTypes =
                     getConfiguredRemoteTierTypes(configuredStoreTiers, partitionType);
-            System.out.println();
-            checkState(tierTypes.length == upstreamTierTypes.length + remoteTierTypes.length);
             return this;
         }
 
@@ -480,6 +480,7 @@ public class TieredStoreConfiguration {
         }
 
         public TieredStoreConfiguration build() {
+            validateConfiguredOptions();
             return new TieredStoreConfiguration(
                     maxBuffersReadAhead,
                     bufferRequestTimeout,
@@ -499,6 +500,18 @@ public class TieredStoreConfiguration {
                     tierTypes,
                     upstreamTierTypes,
                     remoteTierTypes);
+        }
+
+        private void validateConfiguredOptions() {
+            if (remoteTierTypes.length > 0 && StringUtils.isNullOrWhitespaceOnly(baseDfsHomePath)) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Must specify remote storage home path by %s when using DFS in Tiered Store.",
+                                NettyShuffleEnvironmentOptions
+                                        .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH
+                                        .key()));
+            }
+            checkState(tierTypes.length == upstreamTierTypes.length + remoteTierTypes.length);
         }
     }
 }
