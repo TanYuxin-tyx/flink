@@ -7,7 +7,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingInputGateBufferReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreMemoryManager;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,8 +36,7 @@ public class TieredStoreBufferReader implements SingInputGateBufferReader {
             String baseRemoteStoragePath,
             Consumer<Integer> channelEnqueueReceiver) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
-        this.tieredStoreMemoryManager =
-                new DownstreamTieredStoreMemoryManager(networkBufferPool);
+        this.tieredStoreMemoryManager = new DownstreamTieredStoreMemoryManager(networkBufferPool);
         if (baseRemoteStoragePath != null) {
             this.remoteTierMonitor =
                     new RemoteTierMonitor(

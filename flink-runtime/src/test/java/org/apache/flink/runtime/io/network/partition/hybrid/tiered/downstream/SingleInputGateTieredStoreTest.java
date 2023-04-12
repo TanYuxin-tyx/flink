@@ -1173,9 +1173,6 @@ public class SingleInputGateTieredStoreTest extends InputGateTestBase {
         for (int i = 0; i < numSingleInputGates; i++) {
             TieredStoreShuffleEnvironment storeShuffleEnvironment =
                     new TieredStoreShuffleEnvironment();
-            TierReaderFactory tierReaderFactory =
-                    storeShuffleEnvironment.createStorageTierReaderFactory(
-                            JobID.generate(), null, null, null, null);
 
             final SingleInputGate gate =
                     new SingleInputGateBuilder()

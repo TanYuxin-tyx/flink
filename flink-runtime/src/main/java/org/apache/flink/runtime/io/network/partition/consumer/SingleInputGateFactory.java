@@ -36,10 +36,6 @@ import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvi
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStoreShuffleEnvironment;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreBufferReader;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;

@@ -20,12 +20,9 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorageReleaser;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageWriterFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactoryImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.remote.RemoteTierStorageReleaser;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.remote.RemoteTieredStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.UpstreamTieredStorageFactory;
@@ -72,19 +69,7 @@ public class TieredStoreShuffleEnvironment {
         return tierStorageFactory;
     }
 
-    public TierReaderFactory createStorageTierReaderFactory(
-            JobID jobID,
-            List<ResultPartitionID> resultPartitionIDs,
-            MemorySegmentProvider memorySegmentProvider,
-            List<Integer> subpartitionIndexes,
-            String baseRemoteStoragePath) {
-        return new TierReaderFactoryImpl(
-                jobID,
-                resultPartitionIDs,
-                memorySegmentProvider,
-                subpartitionIndexes,
-                baseRemoteStoragePath);
-    }
+    public void createStorageTierReaderFactory(){}
 
     public List<TierStorageReleaser> createStorageTierReleasers(
             JobID jobID, String baseRemoteStoragePath) {

@@ -18,20 +18,16 @@
 
 package org.apache.flink.runtime.io.network.partition.consumer;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.PullingAsyncDataInput;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStoreShuffleEnvironment;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreReader;
 
 import org.junit.Before;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -139,13 +135,6 @@ public abstract class InputGateTestBase {
         }
 
         TieredStoreShuffleEnvironment storeShuffleEnvironment = new TieredStoreShuffleEnvironment();
-        TierReaderFactory tierReaderFactory =
-                storeShuffleEnvironment.createStorageTierReaderFactory(
-                        JobID.generate(),
-                        Collections.singletonList(new ResultPartitionID()),
-                        environment.getNetworkBufferPool(),
-                        subpartitionIndexes,
-                        baseRemoteStoragePath);
 
         TieredStoreReader tieredStoreReader = null;
 
