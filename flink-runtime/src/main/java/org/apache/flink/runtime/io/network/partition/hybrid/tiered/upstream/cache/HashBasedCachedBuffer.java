@@ -37,7 +37,7 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
             int numConsumers,
             int bufferSize,
             TieredStoreMemoryManager storeMemoryManager,
-            Consumer<List<MemorySegmentAndChannel>> finishedBufferListener) {
+            Consumer<List<MemorySegmentAndConsumerId>> finishedBufferListener) {
         this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numConsumers];
         this.storeMemoryManager = storeMemoryManager;
 

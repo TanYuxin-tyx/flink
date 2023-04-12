@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cac
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 
-public class MemorySegmentAndChannel {
+public class MemorySegmentAndConsumerId {
     private final MemorySegment buffer;
 
     private final int channelIndex;
@@ -30,7 +30,7 @@ public class MemorySegmentAndChannel {
 
     private final int dataSize;
 
-    public MemorySegmentAndChannel(
+    public MemorySegmentAndConsumerId(
             MemorySegment buffer, int channelIndex, Buffer.DataType dataType, int dataSize) {
         this.buffer = buffer;
         this.channelIndex = channelIndex;

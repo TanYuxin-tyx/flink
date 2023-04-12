@@ -123,9 +123,9 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     @Override
-    public void writeFinishedBuffer(List<MemorySegmentAndChannel> memorySegmentAndChannels) {
+    public void writeFinishedBuffer(List<MemorySegmentAndConsumerId> memorySegmentAndConsumerIds) {
         try {
-            writeBuffers(memorySegmentAndChannels);
+            writeBuffers(memorySegmentAndConsumerIds);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
@@ -144,13 +144,14 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         Arrays.stream(tierStorages).forEach(TierStorage::release);
     }
 
-    void writeBuffers(List<MemorySegmentAndChannel> finishedSegments) throws IOException {
-        for (MemorySegmentAndChannel finishedSegment : finishedSegments) {
+    void writeBuffers(List<MemorySegmentAndConsumerId> finishedSegments) throws IOException {
+        for (MemorySegmentAndConsumerId finishedSegment : finishedSegments) {
             writeFinishedBuffer(finishedSegment);
         }
     }
 
-    private void writeFinishedBuffer(MemorySegmentAndChannel finishedSegment) throws IOException {
+    private void writeFinishedBuffer(MemorySegmentAndConsumerId finishedSegment)
+            throws IOException {
         int consumerId = finishedSegment.getChannelIndex();
         int tierIndex = subpartitionWriterIndex[consumerId];
         // For the first buffer

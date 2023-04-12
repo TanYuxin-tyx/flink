@@ -44,7 +44,7 @@ public class SubpartitionCachedBuffer {
 
     private final CacheBufferOperation cacheBufferOperation;
 
-    private final Consumer<List<MemorySegmentAndChannel>> finishedBufferListener;
+    private final Consumer<List<MemorySegmentAndConsumerId>> finishedBufferListener;
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
@@ -52,7 +52,7 @@ public class SubpartitionCachedBuffer {
     public SubpartitionCachedBuffer(
             int consumerId,
             int bufferSize,
-            Consumer<List<MemorySegmentAndChannel>> finishedBufferListener,
+            Consumer<List<MemorySegmentAndConsumerId>> finishedBufferListener,
             CacheBufferOperation cacheBufferOperation) {
         this.consumerId = consumerId;
         this.bufferSize = bufferSize;
@@ -85,7 +85,7 @@ public class SubpartitionCachedBuffer {
 
         // store Events in adhoc heap segments, for network memory efficiency
         MemorySegment data = MemorySegmentFactory.wrap(event.array());
-        addFinishedBuffer(new MemorySegmentAndChannel(data, consumerId, dataType, data.size()));
+        addFinishedBuffer(new MemorySegmentAndConsumerId(data, consumerId, dataType, data.size()));
     }
 
     private void writeRecord(ByteBuffer record, Buffer.DataType dataType)
@@ -147,7 +147,7 @@ public class SubpartitionCachedBuffer {
         currentWritingBuffer.close();
         bufferConsumer.close();
         addFinishedBuffer(
-                new MemorySegmentAndChannel(
+                new MemorySegmentAndConsumerId(
                         buffer.getMemorySegment(),
                         consumerId,
                         buffer.getDataType(),
@@ -157,7 +157,7 @@ public class SubpartitionCachedBuffer {
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    private void addFinishedBuffer(MemorySegmentAndChannel buffer) {
+    private void addFinishedBuffer(MemorySegmentAndConsumerId buffer) {
         finishedBufferListener.accept(Collections.singletonList(buffer));
     }
 }
