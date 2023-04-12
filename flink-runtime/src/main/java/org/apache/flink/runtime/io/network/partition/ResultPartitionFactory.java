@@ -387,7 +387,7 @@ public class ResultPartitionFactory {
         if (storeConfiguration.getUpstreamTierTypes().length > 0) {
             upstreamTieredStorageFactory =
                     storeShuffleEnvironment.createUpstreamTieredStorageFactory(
-                            storeConfiguration.getUpstreamTierTypes(),
+                            storeConfiguration.getUpstreamTierIndexes(),
                             id,
                             subpartitions.length,
                             minReservedDiskSpaceFraction,
@@ -401,7 +401,7 @@ public class ResultPartitionFactory {
         if (storeConfiguration.getRemoteTierTypes().length > 0) {
             remoteTieredStorageFactory =
                     storeShuffleEnvironment.createRemoteTieredStorageFactory(
-                            storeConfiguration.getRemoteTierTypes(), tieredStorageWriterFactory);
+                            storeConfiguration.getRemoteTierIndexes(), tieredStorageWriterFactory);
         }
         checkState(upstreamTieredStorageFactory != null || remoteTieredStorageFactory != null);
         TierStorage[] tierStorages;

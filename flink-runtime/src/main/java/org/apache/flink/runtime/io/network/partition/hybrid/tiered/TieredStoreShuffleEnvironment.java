@@ -36,8 +36,17 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 
 public class TieredStoreShuffleEnvironment {
 
+    private enum TierType {
+        IN_MEM,
+        IN_DISK,
+        IN_REMOTE,
+    }
+
+    private static final TierType[] tierIndexTypes =
+            new TierType[] {TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE};
+
     public UpstreamTieredStorageFactory createUpstreamTieredStorageFactory(
-            TierType[] tierTypes,
+            int[] tierIndexes,
             ResultPartitionID resultPartitionID,
             int numSubpartitions,
             float minReservedDiskSpaceFraction,
@@ -48,7 +57,7 @@ public class TieredStoreShuffleEnvironment {
             TieredStorageWriterFactory tieredStorageWriterFactory) {
         UpstreamTieredStorageFactory tierStorageFactory =
                 new UpstreamTieredStorageFactory(
-                        tierTypes,
+                        tierIndexes,
                         resultPartitionID,
                         numSubpartitions,
                         minReservedDiskSpaceFraction,
@@ -62,14 +71,14 @@ public class TieredStoreShuffleEnvironment {
     }
 
     public RemoteTieredStorageFactory createRemoteTieredStorageFactory(
-            TierType[] tierTypes, TieredStorageWriterFactory tieredStorageWriterFactory) {
+            int[] tierIndexes, TieredStorageWriterFactory tieredStorageWriterFactory) {
         RemoteTieredStorageFactory tierStorageFactory =
-                new RemoteTieredStorageFactory(tierTypes, tieredStorageWriterFactory);
+                new RemoteTieredStorageFactory(tierIndexes, tieredStorageWriterFactory);
         tierStorageFactory.setup();
         return tierStorageFactory;
     }
 
-    public void createStorageTierReaderFactory(){}
+    public void createStorageTierReaderFactory() {}
 
     public List<TierStorageReleaser> createStorageTierReleasers(
             JobID jobID, String baseRemoteStoragePath) {

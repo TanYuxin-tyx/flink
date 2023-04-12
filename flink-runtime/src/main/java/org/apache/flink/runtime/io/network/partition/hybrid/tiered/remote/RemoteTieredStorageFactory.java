@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.remote;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageWriterFactory;
@@ -32,19 +31,19 @@ public class RemoteTieredStorageFactory {
 
     private final TierStorage[] tierStorages;
 
-    private final TierType[] tierTypes;
+    private final int[] tierIndexes;
 
     public RemoteTieredStorageFactory(
-            TierType[] tierTypes, TieredStorageWriterFactory tieredStorageWriterFactory) {
-        this.tierTypes = tierTypes;
-        this.tierStorages = new TierStorage[tierTypes.length];
+            int[] tierIndexes, TieredStorageWriterFactory tieredStorageWriterFactory) {
+        this.tierIndexes = tierIndexes;
+        this.tierStorages = new TierStorage[tierIndexes.length];
         this.tieredStorageWriterFactory = tieredStorageWriterFactory;
     }
 
     public void setup() {
         try {
-            for (int i = 0; i < tierTypes.length; i++) {
-                tierStorages[i] = createTierStorage(tierTypes[i]);
+            for (int i = 0; i < tierIndexes.length; i++) {
+                tierStorages[i] = createTierStorage(tierIndexes[i]);
             }
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
@@ -55,14 +54,14 @@ public class RemoteTieredStorageFactory {
         return tierStorages;
     }
 
-    private TierStorage createTierStorage(TierType tierType) throws IOException {
+    private TierStorage createTierStorage(int tierIndex) throws IOException {
         TierStorageFactory tierStorageFactory;
-        switch (tierType) {
-            case IN_REMOTE:
+        switch (tierIndex) {
+            case 2:
                 tierStorageFactory = getRemoteTierStorageFactory();
                 break;
             default:
-                throw new IllegalArgumentException("Illegal tier type " + tierType);
+                throw new IllegalArgumentException("Illegal tier type " + tierIndex);
         }
         TierStorage tierStorage = tierStorageFactory.createTierStorage();
         tierStorage.setup();

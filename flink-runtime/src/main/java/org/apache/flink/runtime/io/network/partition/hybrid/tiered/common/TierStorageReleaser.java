@@ -18,7 +18,9 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
+/** Use {@link TierStorageReleaser} to recycle all resources of the {@link TierStorage}. */
 public interface TierStorageReleaser {
 
+    /** Releases all resources of the {@link TierStorage}. */
     void releaseTierStorage();
 }

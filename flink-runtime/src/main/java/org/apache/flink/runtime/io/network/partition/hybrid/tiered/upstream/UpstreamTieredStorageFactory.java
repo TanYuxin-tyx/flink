@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream;
 
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageWriterFactory;
@@ -39,7 +38,7 @@ public class UpstreamTieredStorageFactory {
     private final UpstreamTieredStoreMemoryManager storeMemoryManager;
     private final TieredStorageWriterFactory tieredStorageWriterFactory;
 
-    private final TierType[] tierTypes;
+    private final int[] tierIndexes;
     private final int numSubpartitions;
     private final float minReservedDiskSpaceFraction;
 
@@ -50,7 +49,7 @@ public class UpstreamTieredStorageFactory {
     private final ResultPartitionID resultPartitionID;
 
     public UpstreamTieredStorageFactory(
-            TierType[] tierTypes,
+            int[] tierIndexes,
             ResultPartitionID resultPartitionID,
             int numSubpartitions,
             float minReservedDiskSpaceFraction,
@@ -59,7 +58,7 @@ public class UpstreamTieredStorageFactory {
             PartitionFileManager partitionFileManager,
             UpstreamTieredStoreMemoryManager storeMemoryManager,
             TieredStorageWriterFactory tieredStorageWriterFactory) {
-        this.tierTypes = tierTypes;
+        this.tierIndexes = tierIndexes;
         this.numSubpartitions = numSubpartitions;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.dataFileBasePath = dataFileBasePath;
@@ -67,14 +66,14 @@ public class UpstreamTieredStorageFactory {
         this.partitionFileManager = partitionFileManager;
         this.storeMemoryManager = storeMemoryManager;
         this.tieredStorageWriterFactory = tieredStorageWriterFactory;
-        this.tierStorages = new TierStorage[tierTypes.length];
+        this.tierStorages = new TierStorage[tierIndexes.length];
         this.resultPartitionID = resultPartitionID;
     }
 
     public void setup() {
         try {
-            for (int i = 0; i < tierTypes.length; i++) {
-                tierStorages[i] = createTierStorage(tierTypes[i]);
+            for (int i = 0; i < tierIndexes.length; i++) {
+                tierStorages[i] = createTierStorage(tierIndexes[i]);
             }
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
@@ -85,17 +84,17 @@ public class UpstreamTieredStorageFactory {
         return tierStorages;
     }
 
-    private TierStorage createTierStorage(TierType tierType) throws IOException {
+    private TierStorage createTierStorage(int tierIndex) throws IOException {
         TierStorageFactory tierStorageFactory;
-        switch (tierType) {
-            case IN_MEM:
+        switch (tierIndex) {
+            case 0:
                 tierStorageFactory = getMemoryTierStorageFactory();
                 break;
-            case IN_DISK:
+            case 1:
                 tierStorageFactory = getDiskTierStorageFactory();
                 break;
             default:
-                throw new IllegalArgumentException("Illegal tier type " + tierType);
+                throw new IllegalArgumentException("Illegal tier type " + tierIndex);
         }
         TierStorage tierStorage = tierStorageFactory.createTierStorage();
         tierStorage.setup();

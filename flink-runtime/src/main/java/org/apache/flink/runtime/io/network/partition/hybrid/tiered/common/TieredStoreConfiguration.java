@@ -244,8 +244,38 @@ public class TieredStoreConfiguration {
         return upstreamTierTypes;
     }
 
+    public int[] getUpstreamTierIndexes() {
+        // TODO, use indexes directly
+        int[] tierIndexes = new int[upstreamTierTypes.length];
+        for (int i = 0; i < upstreamTierTypes.length; i++) {
+            if (upstreamTierTypes[i] == TierType.IN_MEM) {
+                tierIndexes[i] = 0;
+            } else if (upstreamTierTypes[i] == TierType.IN_DISK) {
+                tierIndexes[i] = 1;
+            } else if (upstreamTierTypes[i] == TierType.IN_REMOTE) {
+                tierIndexes[i] = 2;
+            }
+        }
+        return tierIndexes;
+    }
+
     public TierType[] getRemoteTierTypes() {
         return remoteTierTypes;
+    }
+
+    public int[] getRemoteTierIndexes() {
+        // TODO, use indexes directly
+        int[] tierIndexes = new int[remoteTierTypes.length];
+        for (int i = 0; i < remoteTierTypes.length; i++) {
+            if (remoteTierTypes[i] == TierType.IN_MEM) {
+                tierIndexes[i] = 0;
+            } else if (remoteTierTypes[i] == TierType.IN_DISK) {
+                tierIndexes[i] = 1;
+            } else if (remoteTierTypes[i] == TierType.IN_REMOTE) {
+                tierIndexes[i] = 2;
+            }
+        }
+        return tierIndexes;
     }
 
     public static TierType[] memoryOnlyTierType() {
