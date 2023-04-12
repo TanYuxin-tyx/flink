@@ -74,7 +74,6 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
     @Override
     public void setup() throws IOException {
         this.memoryWriter = tieredStorageWriterFactory.createTierStorageWriter(TierType.IN_MEM);
-        this.memoryWriter.setup();
     }
 
     /**

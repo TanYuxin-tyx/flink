@@ -97,9 +97,6 @@ public class MemoryTierStorageWriter implements TierStorageWriter, MemoryDataWri
     }
 
     @Override
-    public void setup() throws IOException {}
-
-    @Override
     public void startSegment(int consumerId, int segmentId) {
         subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(consumerId, segmentId);
     }

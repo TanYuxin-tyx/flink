@@ -56,9 +56,6 @@ public class RemoteTierStorageWriter implements TierStorageWriter {
     }
 
     @Override
-    public void setup() throws IOException {}
-
-    @Override
     public void startSegment(int consumerId, int segmentId) {
         if (!segmentIndexTracker.hasCurrentSegment(consumerId, segmentId)) {
             segmentIndexTracker.addSubpartitionSegmentIndex(consumerId, segmentId);

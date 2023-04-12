@@ -28,8 +28,6 @@ import java.io.IOException;
  */
 public interface TierStorageWriter {
 
-    void setup() throws IOException;
-
     void startSegment(int consumerId, int segmentId);
 
     boolean write(int consumerId, Buffer finishedBuffer) throws IOException;

@@ -54,9 +54,6 @@ public class DiskTierStorageWriter implements TierStorageWriter {
     }
 
     @Override
-    public void setup() throws IOException {}
-
-    @Override
     public void startSegment(int consumerId, int segmentId) {
         segmentIndexTracker.addSubpartitionSegmentIndex(consumerId, segmentId);
     }
