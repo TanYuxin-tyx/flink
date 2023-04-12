@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
@@ -45,7 +46,8 @@ public class RemoteTieredStorageFactory extends BaseTieredStorageFactory {
             boolean isBroadcast,
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
-            UpstreamTieredStoreMemoryManager storeMemoryManager)
+            UpstreamTieredStoreMemoryManager storeMemoryManager,
+            CacheFlushManager cacheFlushManager)
             throws IOException {
         super(
                 tierTypes,
@@ -55,7 +57,8 @@ public class RemoteTieredStorageFactory extends BaseTieredStorageFactory {
                 isBroadcast,
                 bufferCompressor,
                 partitionFileManager,
-                storeMemoryManager);
+                storeMemoryManager,
+                cacheFlushManager);
         this.baseRemoteStoragePath = baseRemoteStoragePath;
     }
 

@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TierReaderFactoryImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
 import org.apache.flink.util.ExceptionUtils;
@@ -54,7 +55,8 @@ public class TieredStoreShuffleEnvironment {
             boolean isBroadcast,
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
-            UpstreamTieredStoreMemoryManager storeMemoryManager) {
+            UpstreamTieredStoreMemoryManager storeMemoryManager,
+            CacheFlushManager cacheFlushManager) {
         UpstreamTieredStorageFactory tierStorageFactory = null;
         try {
             tierStorageFactory =
@@ -68,7 +70,8 @@ public class TieredStoreShuffleEnvironment {
                             isBroadcast,
                             bufferCompressor,
                             partitionFileManager,
-                            storeMemoryManager);
+                            storeMemoryManager,
+                            cacheFlushManager);
             tierStorageFactory.setup();
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
@@ -84,7 +87,8 @@ public class TieredStoreShuffleEnvironment {
             boolean isBroadcast,
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
-            UpstreamTieredStoreMemoryManager storeMemoryManager) {
+            UpstreamTieredStoreMemoryManager storeMemoryManager,
+            CacheFlushManager cacheFlushManager) {
         RemoteTieredStorageFactory tierStorageFactory = null;
         try {
             tierStorageFactory =
@@ -97,7 +101,8 @@ public class TieredStoreShuffleEnvironment {
                             isBroadcast,
                             bufferCompressor,
                             partitionFileManager,
-                            storeMemoryManager);
+                            storeMemoryManager,
+                            cacheFlushManager);
             tierStorageFactory.setup();
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);

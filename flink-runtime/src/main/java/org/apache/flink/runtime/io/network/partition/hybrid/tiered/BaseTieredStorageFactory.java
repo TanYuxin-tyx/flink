@@ -64,7 +64,8 @@ public abstract class BaseTieredStorageFactory implements TieredStorageFactory {
             boolean isBroadcast,
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
-            UpstreamTieredStoreMemoryManager storeMemoryManager)
+            UpstreamTieredStoreMemoryManager storeMemoryManager,
+            CacheFlushManager cacheFlushManager)
             throws IOException {
         this.tierTypes = tierTypes;
         this.resultPartitionID = resultPartitionID;
@@ -74,7 +75,7 @@ public abstract class BaseTieredStorageFactory implements TieredStorageFactory {
         this.bufferCompressor = bufferCompressor;
         this.tierStorages = new TierStorage[tierTypes.length];
         this.tierExclusiveBuffers = new HashMap<>();
-        this.cacheFlushManager = new CacheFlushManager();
+        this.cacheFlushManager = cacheFlushManager;
         this.partitionFileManager = partitionFileManager;
         this.storeMemoryManager = storeMemoryManager;
     }

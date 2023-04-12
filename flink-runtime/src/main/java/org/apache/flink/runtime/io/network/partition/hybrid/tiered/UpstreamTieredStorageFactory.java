@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.UpstreamTieredStoreMemoryManager;
@@ -47,7 +48,8 @@ public class UpstreamTieredStorageFactory extends BaseTieredStorageFactory {
             boolean isBroadcast,
             @Nullable BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager,
-            UpstreamTieredStoreMemoryManager storeMemoryManager)
+            UpstreamTieredStoreMemoryManager storeMemoryManager,
+            CacheFlushManager cacheFlushManager)
             throws IOException {
         super(
                 tierTypes,
@@ -57,7 +59,8 @@ public class UpstreamTieredStorageFactory extends BaseTieredStorageFactory {
                 isBroadcast,
                 bufferCompressor,
                 partitionFileManager,
-                storeMemoryManager);
+                storeMemoryManager,
+                cacheFlushManager);
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.dataFileBasePath = dataFileBasePath;
     }
