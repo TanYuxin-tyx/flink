@@ -41,7 +41,7 @@ public class RemoteTierStorage implements TierStorage {
     public void setup() throws IOException {}
 
     @Override
-    public TierStorageWriter createPartitionTierWriter() {
+    public TierStorageWriter createTierStorageWriter() {
         try {
             tierStorageWriter =
                     tieredStorageWriterFactory.createTierStorageWriter(TierType.IN_REMOTE);

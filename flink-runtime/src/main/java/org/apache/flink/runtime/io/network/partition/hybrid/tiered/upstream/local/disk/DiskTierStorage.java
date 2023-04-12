@@ -94,7 +94,7 @@ public class DiskTierStorage implements TierStorage, NettyBasedTierConsumerViewP
      * and the subpartitionId is not used. So return directly.
      */
     @Override
-    public TierStorageWriter createPartitionTierWriter() {
+    public TierStorageWriter createTierStorageWriter() {
         return diskTierWriter;
     }
 

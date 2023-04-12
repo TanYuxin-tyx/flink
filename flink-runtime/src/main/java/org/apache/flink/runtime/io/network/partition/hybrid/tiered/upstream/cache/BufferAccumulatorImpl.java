@@ -98,11 +98,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         this.tierTypes = new TierType[tierStorages.length];
 
         for (int i = 0; i < tierStorages.length; i++) {
-            tierStorageWriters[i] = tierStorages[i].createPartitionTierWriter();
+            tierStorageWriters[i] = tierStorages[i].createTierStorageWriter();
         }
 
         for (int i = 0; i < tierStorages.length; i++) {
-            tierStorageWriters[i] = tierStorages[i].createPartitionTierWriter();
+            tierStorageWriters[i] = tierStorages[i].createTierStorageWriter();
             tierTypes[i] = tierStorages[i].getTierType();
             TierType tierType = tierTypes[i];
             bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tierType);

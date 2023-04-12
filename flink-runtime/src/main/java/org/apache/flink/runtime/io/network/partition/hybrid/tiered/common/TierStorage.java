@@ -30,7 +30,7 @@ public interface TierStorage {
 
     void setup() throws IOException;
 
-    TierStorageWriter createPartitionTierWriter();
+    TierStorageWriter createTierStorageWriter();
 
     boolean canStoreNextSegment(int consumerId);
 
