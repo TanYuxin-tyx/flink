@@ -19,10 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.disk;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTracker.ReadableRegion;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTracker.SpilledBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.disk.RegionBufferIndexTracker.ReadableRegion;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.disk.RegionBufferIndexTracker.SpilledBuffer;
 import org.apache.flink.util.TestLoggerExtension;
 
 import org.junit.jupiter.api.BeforeEach;

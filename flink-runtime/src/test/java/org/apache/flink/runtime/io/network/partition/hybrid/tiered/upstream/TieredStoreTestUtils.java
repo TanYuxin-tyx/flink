@@ -26,8 +26,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.BufferIndexAndSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.OutputMetrics;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;

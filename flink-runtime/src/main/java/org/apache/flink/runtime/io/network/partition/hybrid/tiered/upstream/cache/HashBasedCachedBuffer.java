@@ -21,8 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cac
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.MemorySegmentAndChannel;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreMemoryManager;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -48,10 +47,7 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
         }
     }
 
-    public void append(
-            ByteBuffer record,
-            int consumerId,
-            Buffer.DataType dataType)
+    public void append(ByteBuffer record, int consumerId, Buffer.DataType dataType)
             throws IOException {
         try {
             getCachedBuffer(consumerId).append(record, dataType);

@@ -3,7 +3,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.com
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
@@ -25,7 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreUtils.generateBufferWithHeaders;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreUtils.generateBufferWithHeaders;
 
 /** THe implementation of {@link PartitionFileWriter} with merged logic. */
 public class ProducerMergePartitionFileWriter implements PartitionFileWriter {

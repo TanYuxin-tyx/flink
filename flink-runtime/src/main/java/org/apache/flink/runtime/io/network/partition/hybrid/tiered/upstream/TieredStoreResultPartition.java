@@ -33,11 +33,11 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorage;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreProducer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service.TieredStoreNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service.TieredStoreNettyServiceImpl;
@@ -157,10 +157,7 @@ public class TieredStoreResultPartition extends ResultPartition {
     }
 
     private void emit(
-            ByteBuffer record,
-            int consumerId,
-            Buffer.DataType dataType,
-            boolean isBroadcast)
+            ByteBuffer record, int consumerId, Buffer.DataType dataType, boolean isBroadcast)
             throws IOException {
         checkNotNull(tieredStoreProducer).emit(record, consumerId, dataType, isBroadcast);
     }

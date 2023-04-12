@@ -19,8 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulator;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreProducer;
 
 import java.io.IOException;
@@ -47,10 +47,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     @Override
     public void emit(
-            ByteBuffer record,
-            int consumerId,
-            Buffer.DataType dataType,
-            boolean isBroadcast)
+            ByteBuffer record, int consumerId, Buffer.DataType dataType, boolean isBroadcast)
             throws IOException {
 
         if (isBroadcast && !isBroadcastOnly) {

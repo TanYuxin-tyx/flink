@@ -19,8 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.MemorySegmentAndChannel;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreProducer;
 
 import java.io.IOException;
@@ -33,19 +32,14 @@ public interface BufferAccumulator {
      * Receives the records from {@link TieredStoreProducer}, these records will be accumulated and
      * transformed into finished {@link MemorySegmentAndChannel}s.
      */
-    void receive(
-            ByteBuffer record,
-            int consumerId,
-            Buffer.DataType dataType)
-            throws IOException;
+    void receive(ByteBuffer record, int consumerId, Buffer.DataType dataType) throws IOException;
 
     /**
      * The finished {@link MemorySegmentAndChannel}s will be emitted to corresponding tiers. Before
      * emitting the finished buffers, the {@link BufferAccumulator} will firstly choose an
      * appreciate tier, then emit the buffers to this chosen tier.
      */
-    void writeFinishedBuffer(
-            List<MemorySegmentAndChannel> memorySegmentAndChannels);
+    void writeFinishedBuffer(List<MemorySegmentAndChannel> memorySegmentAndChannels);
 
     void setMetricGroup(OutputMetrics metrics);
 

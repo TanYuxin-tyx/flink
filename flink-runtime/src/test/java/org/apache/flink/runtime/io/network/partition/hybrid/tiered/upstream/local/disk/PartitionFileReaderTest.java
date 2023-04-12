@@ -24,15 +24,13 @@ import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.ProducerMergePartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.ProducerMergePartitionTierConsumer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.util.function.BiConsumerWithException;
 
 import org.junit.jupiter.api.AfterEach;
@@ -266,7 +264,9 @@ class PartitionFileReaderTest {
         assertThatThrownBy(
                         () -> {
                             partitionFileReader.registerTierReader(
-                                    0, NettyBasedTierConsumerViewId.DEFAULT, nettyBasedTierConsumerView);
+                                    0,
+                                    NettyBasedTierConsumerViewId.DEFAULT,
+                                    nettyBasedTierConsumerView);
                             ioExecutor.trigger();
                         })
                 .isInstanceOf(IllegalStateException.class)

@@ -3,8 +3,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.com
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.tier.local.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.disk.RegionBufferIndexTracker;
 
 import java.nio.file.Path;
 import java.util.concurrent.ScheduledExecutorService;

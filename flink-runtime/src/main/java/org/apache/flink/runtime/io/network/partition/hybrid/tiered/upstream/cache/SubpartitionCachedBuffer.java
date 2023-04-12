@@ -23,7 +23,6 @@ import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.MemorySegmentAndChannel;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -86,8 +85,7 @@ public class SubpartitionCachedBuffer {
 
         // store Events in adhoc heap segments, for network memory efficiency
         MemorySegment data = MemorySegmentFactory.wrap(event.array());
-        addFinishedBuffer(
-                new MemorySegmentAndChannel(data, consumerId, dataType, data.size()));
+        addFinishedBuffer(new MemorySegmentAndChannel(data, consumerId, dataType, data.size()));
     }
 
     private void writeRecord(ByteBuffer record, Buffer.DataType dataType)
