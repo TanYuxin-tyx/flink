@@ -38,7 +38,7 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
             return Optional.empty();
         }
         BufferAndAvailability bufferData = bufferAndAvailability.get();
-        if (bufferData.buffer().getDataType() == Buffer.DataType.SEGMENT_EVENT) {
+        if (bufferData.buffer().getDataType() == Buffer.DataType.ADD_SEGMENT_ID_EVENT) {
             currentSegmentId++;
             bufferData.buffer().recycleBuffer();
             queueChannelReceiver.accept(inputChannel.getChannelIndex());

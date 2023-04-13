@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -83,11 +83,11 @@ public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerVie
                 Optional<BufferAndBacklog> bufferToConsume =
                         nettyBasedTierConsumer.getNextBuffer(consumingOffset + 1);
                 updateConsumingStatus(bufferToConsume);
-                return bufferToConsume.map(this::handleBacklog).orElse(null);
+                return bufferToConsume.orElse(null);
             }
         } catch (Throwable cause) {
             releaseInternal(cause);
-            throw new IOException("Failed to get next buffer from tier reader.", cause);
+            throw new IOException("Failed to get next buffer.", cause);
         }
     }
 
@@ -191,16 +191,6 @@ public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerVie
             return 0;
         }
         return nettyBasedTierConsumer.getBacklog();
-    }
-
-    private BufferAndBacklog handleBacklog(BufferAndBacklog bufferToConsume) {
-        return bufferToConsume.buffersInBacklog() == 0
-                ? new BufferAndBacklog(
-                bufferToConsume.buffer(),
-                getSubpartitionBacklog(),
-                bufferToConsume.getNextDataType(),
-                bufferToConsume.getSequenceNumber())
-                : bufferToConsume;
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

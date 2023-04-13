@@ -27,7 +27,7 @@ import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 
-import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
+import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEGMENT_ID_EVENT;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */
@@ -80,7 +80,7 @@ public class DiskTierStorageWriter implements TierStorageWriter {
             diskCacheManager.appendSegmentEvent(
                     EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE),
                     targetChannel,
-                    SEGMENT_EVENT);
+                    ADD_SEGMENT_ID_EVENT);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to emitEndOfSegmentEvent");
         }

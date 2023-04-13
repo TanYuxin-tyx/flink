@@ -8,7 +8,6 @@ import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
@@ -24,11 +23,10 @@ import org.junit.rules.TemporaryFolder;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Collections;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.DATA_BUFFER;
-import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
+import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEGMENT_ID_EVENT;
 import static org.apache.flink.runtime.io.network.partition.InputChannelTestUtils.createSingleInputGate;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreUtils.createBaseSubpartitionPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreUtils.writeSegmentFinishFile;
@@ -80,7 +78,7 @@ public class NettyBasedTierConsumerTest {
                 localTierClient, inputChannel3, true, DATA_BUFFER, SEGMENT_ID, true);
         inputChannel3.readSegmentInfo();
         verifyLocalTierClientResult(
-                localTierClient, inputChannel3, true, SEGMENT_EVENT, SEGMENT_ID, true);
+                localTierClient, inputChannel3, true, ADD_SEGMENT_ID_EVENT, SEGMENT_ID, true);
         inputChannel3.readBuffer();
         verifyLocalTierClientResult(localTierClient, inputChannel3, true, DATA_BUFFER, 1, true);
         assertThat(inputChannel3.getRequiredSegmentId()).isEqualTo(1L);

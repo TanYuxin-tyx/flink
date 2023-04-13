@@ -21,8 +21,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.ser
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewProvider;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreConsumerFailureCause;
 
 import javax.annotation.Nullable;
@@ -30,7 +28,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 
-import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.SEGMENT_EVENT;
+import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEGMENT_ID_EVENT;
 
 /**
  * The {@link TieredStoreResultSubpartitionView} is the implementation of {@link
@@ -76,7 +74,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         BufferAndBacklog bufferAndBacklog =
                 registeredTierConsumerViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
         if (bufferAndBacklog != null) {
-            stopSendingData = bufferAndBacklog.buffer().getDataType() == SEGMENT_EVENT;
+            stopSendingData = bufferAndBacklog.buffer().getDataType() == ADD_SEGMENT_ID_EVENT;
             bufferAndBacklog.setSequenceNumber(currentSequenceNumber);
             currentSequenceNumber++;
         }

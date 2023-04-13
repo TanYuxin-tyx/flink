@@ -16,11 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.BufferContext;
 import org.apache.flink.util.function.SupplierWithException;
 
 import java.util.Deque;

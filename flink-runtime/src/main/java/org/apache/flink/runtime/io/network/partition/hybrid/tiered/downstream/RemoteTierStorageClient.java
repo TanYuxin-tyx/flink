@@ -62,7 +62,7 @@ public class RemoteTierStorageClient implements TierStorageClient {
             return Optional.of(
                     new InputChannel.BufferAndAvailability(
                             buildEndOfSegmentBuffer(latestSegmentId + 1),
-                            Buffer.DataType.SEGMENT_EVENT,
+                            Buffer.DataType.ADD_SEGMENT_ID_EVENT,
                             0,
                             0));
         } else {
@@ -122,7 +122,7 @@ public class RemoteTierStorageClient implements TierStorageClient {
                 MemorySegmentFactory.wrap(
                         EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE).array());
         return new NetworkBuffer(
-                data, FreeingBufferRecycler.INSTANCE, Buffer.DataType.SEGMENT_EVENT, data.size());
+                data, FreeingBufferRecycler.INSTANCE, Buffer.DataType.ADD_SEGMENT_ID_EVENT, data.size());
     }
 
     private void recycle(MemorySegment memorySegment) {

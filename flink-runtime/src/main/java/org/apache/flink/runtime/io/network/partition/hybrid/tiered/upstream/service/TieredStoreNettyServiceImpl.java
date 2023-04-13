@@ -2,8 +2,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.ser
 
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBasedTierConsumerViewProvider;
 
 import java.io.IOException;
 import java.util.ArrayList;

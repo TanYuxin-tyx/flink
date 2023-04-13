@@ -294,7 +294,7 @@ public interface Buffer {
         /**
          * Indicates that this buffer contains the segment meta information for Tiered Store.
          */
-        SEGMENT_EVENT(false, true, false, false, false);
+        ADD_SEGMENT_ID_EVENT(false, true, false, false, false);
 
         private final boolean isBuffer;
         private final boolean isEvent;
