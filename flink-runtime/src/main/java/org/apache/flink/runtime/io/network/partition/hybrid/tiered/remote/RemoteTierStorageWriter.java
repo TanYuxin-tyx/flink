@@ -39,7 +39,7 @@ public class RemoteTierStorageWriter implements TierStorageWriter {
     private final RemoteCacheManager cacheDataManager;
 
     // TODO, Make this configurable.
-    private int numBytesInASegment = 4; // 4 M
+    private int numBytesInASegment = 4 * 1024 * 1024; // 4 M
 
     private final int[] subpartitionLastestSegmentId;
 
@@ -52,7 +52,6 @@ public class RemoteTierStorageWriter implements TierStorageWriter {
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.subpartitionLastestSegmentId = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
-        this.numBytesInASegment = 4;
     }
 
     @Override
