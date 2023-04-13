@@ -152,7 +152,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private void writeFinishedBuffer(MemorySegmentAndConsumerId finishedSegment)
             throws IOException {
-        int consumerId = finishedSegment.getChannelIndex();
+        int consumerId = finishedSegment.getConsumerId();
         int tierIndex = subpartitionWriterIndex[consumerId];
         // For the first buffer
         if (tierIndex == -1) {

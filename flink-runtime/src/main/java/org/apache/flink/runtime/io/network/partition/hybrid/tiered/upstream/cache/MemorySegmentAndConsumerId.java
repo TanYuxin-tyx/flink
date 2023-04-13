@@ -24,16 +24,16 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 public class MemorySegmentAndConsumerId {
     private final MemorySegment buffer;
 
-    private final int channelIndex;
+    private final int consumerId;
 
     private final Buffer.DataType dataType;
 
     private final int dataSize;
 
     public MemorySegmentAndConsumerId(
-            MemorySegment buffer, int channelIndex, Buffer.DataType dataType, int dataSize) {
+            MemorySegment buffer, int consumerId, Buffer.DataType dataType, int dataSize) {
         this.buffer = buffer;
-        this.channelIndex = channelIndex;
+        this.consumerId = consumerId;
         this.dataType = dataType;
         this.dataSize = dataSize;
     }
@@ -42,8 +42,8 @@ public class MemorySegmentAndConsumerId {
         return buffer;
     }
 
-    public int getChannelIndex() {
-        return channelIndex;
+    public int getConsumerId() {
+        return consumerId;
     }
 
     public Buffer.DataType getDataType() {
