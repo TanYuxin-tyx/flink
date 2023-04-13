@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service;
 
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 
 import java.io.IOException;
 
@@ -28,6 +29,14 @@ import java.io.IOException;
  */
 public interface TieredStoreNettyService {
 
-    TieredStoreResultSubpartitionView register(
+    /**
+     * Register the availabilityListener and get the buffer through view.
+     *
+     * @param subpartitionId indicate the index of consumed subpartition.
+     * @param availabilityListener is used to notify the available status.
+     * @return the {@link ResultSubpartitionView}
+     * @throws IOException if the availabilityListener cannot be registered.
+     */
+    ResultSubpartitionView register(
             int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
 }

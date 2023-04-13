@@ -28,8 +28,23 @@ import java.io.IOException;
  */
 public interface NettyBasedTierConsumerViewProvider {
 
+    /**
+     * Create the netty based consumer view.
+     *
+     * @param subpartitionId indicate the index of consumed subpartition.
+     * @param availabilityListener is used to notify the available status.
+     * @return the netty based consumer view
+     * @throws IOException if the consumer view cannot be created.
+     */
     NettyBasedTierConsumerView createNettyBasedTierConsumerView(
             int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
 
-    boolean hasCurrentSegment(int subpartitionId, int segmentIndex);
+    /**
+     * Query the provider for the existence of a segment.
+     *
+     * @param subpartitionId indicate the index of consumed subpartition.
+     * @param segmentId indicate the id of segment.
+     * @return whether the provider has the segment id.
+     */
+    boolean hasCurrentSegment(int subpartitionId, int segmentId);
 }
