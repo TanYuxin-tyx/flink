@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 
 import java.io.IOException;
 

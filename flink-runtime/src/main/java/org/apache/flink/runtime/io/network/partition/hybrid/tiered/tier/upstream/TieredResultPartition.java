@@ -36,7 +36,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.cache.BufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.TieredStorageProducerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.TieredStoreNettyService;

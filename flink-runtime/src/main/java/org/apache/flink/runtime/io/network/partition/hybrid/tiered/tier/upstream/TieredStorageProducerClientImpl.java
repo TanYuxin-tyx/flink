@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstrea
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.cache.BufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.TieredStorageProducerClient;
 
 import java.io.IOException;

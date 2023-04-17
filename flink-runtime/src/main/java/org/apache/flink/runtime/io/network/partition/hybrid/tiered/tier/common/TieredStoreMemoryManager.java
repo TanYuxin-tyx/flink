@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 
 /**
  * The helper allocating and recycling buffer from {@link LocalBufferPool} to different tiers,

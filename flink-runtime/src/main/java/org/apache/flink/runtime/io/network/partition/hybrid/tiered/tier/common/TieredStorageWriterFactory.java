@@ -1,7 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common;
 
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteCacheManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;

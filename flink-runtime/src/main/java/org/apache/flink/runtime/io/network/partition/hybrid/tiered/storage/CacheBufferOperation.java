@@ -16,11 +16,18 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-/** The store mode for Tiered Store. */
-public enum TierType {
-    IN_MEM,
-    IN_DISK,
-    IN_REMOTE,
+import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
+
+public interface CacheBufferOperation {
+
+    /**
+     * Get the current size of buffer pool. *
+     *
+     * <p>/** Request buffer from buffer pool.
+     *
+     * @return requested buffer.
+     */
+    BufferBuilder requestBufferFromPool() throws InterruptedException;
 }

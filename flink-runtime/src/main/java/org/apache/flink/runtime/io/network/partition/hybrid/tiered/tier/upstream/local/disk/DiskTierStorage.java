@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstrea
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageWriterFactory;
