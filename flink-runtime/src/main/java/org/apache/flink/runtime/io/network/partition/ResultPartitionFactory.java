@@ -33,6 +33,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierTy
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreShuffleEnvironment;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreConfiguration;
@@ -296,9 +297,11 @@ public class ResultPartitionFactory {
                                 storeMemoryManager,
                                 cacheFlushManager);
 
+                TierProducerAgent[] tierProducerAgents = createTierProducerAgents(tierStorages);
                 BufferAccumulator bufferAccumulator =
                         new BufferAccumulatorImpl(
                                 tierStorages,
+                                tierProducerAgents,
                                 subpartitions.length,
                                 networkBufferSize,
                                 isBroadcast,
@@ -349,6 +352,14 @@ public class ResultPartitionFactory {
         LOG.debug("{}: Initialized {}", taskNameWithSubtaskAndId, this);
 
         return partition;
+    }
+
+    private TierProducerAgent[] createTierProducerAgents(TierStorage[] tierStorages) {
+        TierProducerAgent[] tierProducerAgents = new TierProducerAgent[tierStorages.length];
+        for (int i = 0; i < tierStorages.length; i++) {
+            tierProducerAgents[i] = tierStorages[i].createTierStorageWriter();
+        }
+        return tierProducerAgents;
     }
 
     @SuppressWarnings("checkstyle:EmptyLineSeparator")

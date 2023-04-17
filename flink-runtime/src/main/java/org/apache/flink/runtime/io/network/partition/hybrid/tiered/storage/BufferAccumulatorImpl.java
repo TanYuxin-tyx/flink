@@ -26,8 +26,8 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.TieredStorageProducerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.DiskTierStorage;
@@ -80,16 +80,17 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     public BufferAccumulatorImpl(
             TierStorage[] tierStorages,
+            TierProducerAgent[] tierProducerAgents,
             int numConsumers,
             int bufferSize,
             boolean isBroadcastOnly,
             TieredStoreMemoryManager storeMemoryManager,
             @Nullable BufferCompressor bufferCompressor) {
         this.tierStorages = tierStorages;
+        this.tierProducerAgents = tierProducerAgents;
         this.storeMemoryManager = storeMemoryManager;
         this.bufferCompressor = bufferCompressor;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.tierProducerAgents = new TierProducerAgent[tierStorages.length];
         this.subpartitionSegmentIndexes = new int[numConsumers];
         this.lastSubpartitionSegmentIndexes = new int[numConsumers];
         Arrays.fill(lastSubpartitionSegmentIndexes, -1);
@@ -98,11 +99,6 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         this.tierTypes = new TierType[tierStorages.length];
 
         for (int i = 0; i < tierStorages.length; i++) {
-            tierProducerAgents[i] = tierStorages[i].createTierStorageWriter();
-        }
-
-        for (int i = 0; i < tierStorages.length; i++) {
-            tierProducerAgents[i] = tierStorages[i].createTierStorageWriter();
             tierTypes[i] = tierStorages[i].getTierType();
             TierType tierType = tierTypes[i];
             bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tierType);
