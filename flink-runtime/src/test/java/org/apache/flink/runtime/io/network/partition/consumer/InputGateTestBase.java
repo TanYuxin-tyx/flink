@@ -22,8 +22,8 @@ import org.apache.flink.runtime.io.PullingAsyncDataInput;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStoreShuffleEnvironment;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStorageConsumerClient;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreShuffleEnvironment;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.downstream.TieredStorageConsumerClient;
 
 import org.junit.Before;
 

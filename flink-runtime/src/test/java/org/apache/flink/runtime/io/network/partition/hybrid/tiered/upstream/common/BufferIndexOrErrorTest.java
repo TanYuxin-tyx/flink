@@ -1,6 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferIndexOrError;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreTestUtils;
 
 import org.junit.jupiter.api.Test;

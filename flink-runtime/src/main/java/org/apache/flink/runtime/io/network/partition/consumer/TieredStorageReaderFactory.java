@@ -3,7 +3,7 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreBufferReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.downstream.TieredStoreBufferReader;
 
 import java.util.List;
 import java.util.function.Consumer;
