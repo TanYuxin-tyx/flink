@@ -46,11 +46,12 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.TieredResultPartition;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.TieredStorageProducerClientImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TestingTieredStoreMemoryManager;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
@@ -438,8 +439,7 @@ class TieredStoreResultPartitionTest {
         final int numBuffers = 1;
 
         BufferPool bufferPool = globalPool.createBufferPool(numBuffers, numBuffers);
-        TieredResultPartition partition =
-                createTieredStoreResultPartition(1, bufferPool, false);
+        TieredResultPartition partition = createTieredStoreResultPartition(1, bufferPool, false);
 
         partition.close();
         // receive data to closed partition will throw exception.
@@ -704,6 +704,9 @@ class TieredStoreResultPartitionTest {
                         isBroadcastOnly,
                         storeMemoryManager,
                         null);
+        TieredStorageProducerClientImpl tieredStorageProducerClient =
+                new TieredStorageProducerClientImpl(
+                        numSubpartitions, isBroadcastOnly, bufferAccumulator);
         TieredResultPartition tieredResultPartition =
                 new TieredResultPartition(
                         "TieredStoreResultPartitionTest",
@@ -713,12 +716,11 @@ class TieredStoreResultPartitionTest {
                         numSubpartitions,
                         numSubpartitions,
                         new ResultPartitionManager(),
-                        isBroadcastOnly,
                         tierStorages,
                         storeMemoryManager,
                         new CacheFlushManager(),
                         new BufferCompressor(bufferSize, "LZ4"),
-                        bufferAccumulator,
+                        tieredStorageProducerClient,
                         () -> bufferPool);
         taskIOMetricGroup =
                 UnregisteredMetricGroups.createUnregisteredTaskMetricGroup().getIOMetricGroup();
@@ -788,7 +790,7 @@ class TieredStoreResultPartitionTest {
     /** Create multiple consumer and bufferAvailabilityListener for single subpartition. */
     private Tuple2<ResultSubpartitionView, TestingBufferAvailabilityListener>[]
             createMultipleConsumerView(
-            TieredResultPartition partition, int subpartitionId, int numConsumers)
+                    TieredResultPartition partition, int subpartitionId, int numConsumers)
                     throws Exception {
         Tuple2<ResultSubpartitionView, TestingBufferAvailabilityListener>[] viewAndListeners =
                 new Tuple2[numConsumers];

@@ -36,7 +36,6 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.TieredStorageProducerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.TieredStoreNettyService;
@@ -55,21 +54,17 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * {@link TieredResultPartition} appends records and events to the tiered store, which supports
- * the upstream dynamically switches storage tier for writing shuffle data, and the downstream will
- * read data from the relevant storage tier.
+ * {@link TieredResultPartition} appends records and events to the tiered store, which supports the
+ * upstream dynamically switches storage tier for writing shuffle data, and the downstream will read
+ * data from the relevant storage tier.
  */
 public class TieredResultPartition extends ResultPartition {
-
-    private final boolean isBroadcast;
 
     private final CacheFlushManager cacheFlushManager;
 
     private final TierStorage[] tierStorages;
 
-    private final BufferAccumulator bufferAccumulator;
-
-    private TieredStorageProducerClient tieredStorageProducerClient;
+    private final TieredStorageProducerClient tieredStorageProducerClient;
 
     private boolean hasNotifiedEndOfUserRecords;
 
@@ -85,12 +80,11 @@ public class TieredResultPartition extends ResultPartition {
             int numSubpartitions,
             int numTargetKeyGroups,
             ResultPartitionManager partitionManager,
-            boolean isBroadcast,
             TierStorage[] tierStorages,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
             @Nullable BufferCompressor bufferCompressor,
-            BufferAccumulator bufferAccumulator,
+            TieredStorageProducerClient tieredStorageProducerClient,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory) {
         super(
                 owningTaskName,
@@ -103,11 +97,10 @@ public class TieredResultPartition extends ResultPartition {
                 bufferCompressor,
                 bufferPoolFactory);
 
-        this.isBroadcast = isBroadcast;
         this.tierStorages = tierStorages;
-        this.bufferAccumulator = bufferAccumulator;
         this.tieredStoreMemoryManager = tieredStoreMemoryManager;
         this.cacheFlushManager = cacheFlushManager;
+        this.tieredStorageProducerClient = tieredStorageProducerClient;
     }
 
     // Called by task thread.
@@ -117,8 +110,6 @@ public class TieredResultPartition extends ResultPartition {
             throw new IOException("Result partition has been released.");
         }
         tieredStoreMemoryManager.setBufferPool(bufferPool);
-        tieredStorageProducerClient =
-                new TieredStorageProducerClientImpl(numSubpartitions, isBroadcast, bufferAccumulator);
         tieredStoreNettyService = new TieredStoreNettyServiceImpl(tierStorages);
     }
 

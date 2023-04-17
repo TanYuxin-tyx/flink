@@ -31,14 +31,15 @@ import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreShuffleEnvironment;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTieredStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.TieredResultPartition;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.TieredStorageProducerClientImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.UpstreamTieredStorageFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
@@ -303,6 +304,9 @@ public class ResultPartitionFactory {
                                 isBroadcast,
                                 storeMemoryManager,
                                 bufferCompressor);
+                TieredStorageProducerClientImpl tieredStorageProducerClient =
+                        new TieredStorageProducerClientImpl(
+                                subpartitions.length, isBroadcast, bufferAccumulator);
                 partition =
                         new TieredResultPartition(
                                 taskNameWithSubtaskAndId,
@@ -312,12 +316,11 @@ public class ResultPartitionFactory {
                                 subpartitions.length,
                                 maxParallelism,
                                 partitionManager,
-                                isBroadcast,
                                 tierStorages,
                                 storeMemoryManager,
                                 cacheFlushManager,
                                 bufferCompressor,
-                                bufferAccumulator,
+                                tieredStorageProducerClient,
                                 bufferPoolFactory);
             } else {
                 partition =
