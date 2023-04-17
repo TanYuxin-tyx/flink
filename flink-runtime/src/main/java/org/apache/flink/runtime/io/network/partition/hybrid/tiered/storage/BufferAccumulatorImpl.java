@@ -51,7 +51,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class BufferAccumulatorImpl implements BufferAccumulator {
 
-    private final TierStorage[] tierStorages;
+    private final List<TierStorage> tierStorages;
 
     private final TierProducerAgent[] tierProducerAgents;
 
@@ -79,7 +79,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     @Nullable private OutputMetrics outputMetrics;
 
     public BufferAccumulatorImpl(
-            TierStorage[] tierStorages,
+            List<TierStorage> tierStorages,
             TierProducerAgent[] tierProducerAgents,
             int numConsumers,
             int bufferSize,
@@ -95,11 +95,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         this.lastSubpartitionSegmentIndexes = new int[numConsumers];
         Arrays.fill(lastSubpartitionSegmentIndexes, -1);
         this.subpartitionWriterIndex = new int[numConsumers];
-        this.bufferRecyclers = new BufferRecycler[tierStorages.length];
-        this.tierTypes = new TierType[tierStorages.length];
+        this.bufferRecyclers = new BufferRecycler[tierStorages.size()];
+        this.tierTypes = new TierType[tierStorages.size()];
 
-        for (int i = 0; i < tierStorages.length; i++) {
-            tierTypes[i] = tierStorages[i].getTierType();
+        for (int i = 0; i < tierStorages.size(); i++) {
+            tierTypes[i] = tierStorages.get(i).getTierType();
             TierType tierType = tierTypes[i];
             bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tierType);
         }
@@ -137,7 +137,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     public void release() {
-        Arrays.stream(tierStorages).forEach(TierStorage::release);
+        tierStorages.forEach(TierStorage::release);
     }
 
     void writeBuffers(List<MemorySegmentAndConsumerId> finishedSegments) throws IOException {
@@ -186,24 +186,24 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     private int chooseStorageTierIndex(int targetSubpartition) throws IOException {
-        if (tierStorages.length == 1) {
+        if (tierStorages.size() == 1) {
             return 0;
         }
         // only for test case Memory and Disk
-        if (tierStorages.length == 2
-                && tierStorages[0] instanceof MemoryTierStorage
-                && tierStorages[1] instanceof DiskTierStorage) {
-            if (!isBroadcastOnly && tierStorages[0].canStoreNextSegment(targetSubpartition)) {
+        if (tierStorages.size() == 2
+                && tierStorages.get(0) instanceof MemoryTierStorage
+                && tierStorages.get(1) instanceof DiskTierStorage) {
+            if (!isBroadcastOnly && tierStorages.get(0).canStoreNextSegment(targetSubpartition)) {
                 return 0;
             }
             return 1;
         }
-        for (int tierIndex = 0; tierIndex < tierStorages.length; ++tierIndex) {
-            TierStorage tierStorage = tierStorages[tierIndex];
+        for (int tierIndex = 0; tierIndex < tierStorages.size(); ++tierIndex) {
+            TierStorage tierStorage = tierStorages.get(tierIndex);
             if (isBroadcastOnly && tierStorage instanceof MemoryTierStorage) {
                 continue;
             }
-            if (tierStorages[tierIndex].canStoreNextSegment(targetSubpartition)) {
+            if (tierStorages.get(tierIndex).canStoreNextSegment(targetSubpartition)) {
                 return tierIndex;
             }
         }

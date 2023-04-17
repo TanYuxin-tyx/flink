@@ -37,15 +37,16 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.T
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTieredStorageFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.TieredStorageProducerClientImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.UpstreamTieredStorageFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManagerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.DiskTierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.memory.MemoryTierStorage;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -59,14 +60,15 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreUtils.DATA_FILE_SUFFIX;
 import static org.apache.flink.runtime.shuffle.NettyShuffleUtils.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /** Factory for {@link ResultPartition} to use in {@link NettyShuffleEnvironment}. */
 public class ResultPartitionFactory {
@@ -285,7 +287,7 @@ public class ResultPartitionFactory {
                                 storeConfiguration.getTierTypes(),
                                 storeConfiguration.getNumBuffersTriggerFlushRatio(),
                                 cacheFlushManager);
-                TierStorage[] tierStorages =
+                List<TierStorage> tierStorages =
                         createTierStorages(
                                 jobID,
                                 id,
@@ -354,16 +356,16 @@ public class ResultPartitionFactory {
         return partition;
     }
 
-    private TierProducerAgent[] createTierProducerAgents(TierStorage[] tierStorages) {
-        TierProducerAgent[] tierProducerAgents = new TierProducerAgent[tierStorages.length];
-        for (int i = 0; i < tierStorages.length; i++) {
-            tierProducerAgents[i] = tierStorages[i].createTierStorageWriter();
+    private TierProducerAgent[] createTierProducerAgents(List<TierStorage> tierStorages) {
+        TierProducerAgent[] tierProducerAgents = new TierProducerAgent[tierStorages.size()];
+        for (int i = 0; i < tierStorages.size(); i++) {
+            tierProducerAgents[i] = tierStorages.get(i).createTierStorageWriter();
         }
         return tierProducerAgents;
     }
 
     @SuppressWarnings("checkstyle:EmptyLineSeparator")
-    private TierStorage[] createTierStorages(
+    private List<TierStorage> createTierStorages(
             JobID jobID,
             ResultPartitionID id,
             boolean isBroadcast,
@@ -397,45 +399,42 @@ public class ResultPartitionFactory {
                         cacheFlushManager,
                         partitionFileManager);
 
-        UpstreamTieredStorageFactory upstreamTieredStorageFactory = null;
-        if (storeConfiguration.getUpstreamTierTypes().length > 0) {
-            upstreamTieredStorageFactory =
-                    storeShuffleEnvironment.createUpstreamTieredStorageFactory(
-                            storeConfiguration.getUpstreamTierIndexes(),
-                            id,
-                            subpartitions.length,
-                            minReservedDiskSpaceFraction,
-                            dataFileBasePath,
-                            isBroadcast,
-                            partitionFileManager,
-                            storeMemoryManager,
-                            tieredStorageWriterFactory);
+        List<TierStorage> storageList = new ArrayList<>();
+        int[] upstreamTierIndexes = storeConfiguration.getUpstreamTierIndexes();
+        if (storeConfiguration.getUpstreamTierIndexes().length > 0) {
+            for (int i = 0; i < upstreamTierIndexes.length; i++) {
+                int upstreamTierIndex = upstreamTierIndexes[i];
+                if (upstreamTierIndex == 0) {
+                    storageList.add(
+                            new MemoryTierStorage(
+                                    subpartitions.length,
+                                    storeMemoryManager,
+                                    isBroadcast,
+                                    tieredStorageWriterFactory));
+                } else if (upstreamTierIndex == 1) {
+                    storageList.add(
+                            new DiskTierStorage(
+                                    subpartitions.length,
+                                    id,
+                                    dataFileBasePath,
+                                    minReservedDiskSpaceFraction,
+                                    isBroadcast,
+                                    partitionFileManager,
+                                    tieredStorageWriterFactory));
+                }
+            }
         }
-        RemoteTieredStorageFactory remoteTieredStorageFactory = null;
         if (storeConfiguration.getRemoteTierTypes().length > 0) {
-            remoteTieredStorageFactory =
-                    storeShuffleEnvironment.createRemoteTieredStorageFactory(
-                            storeConfiguration.getRemoteTierIndexes(), tieredStorageWriterFactory);
+            storageList.add(new RemoteTierStorage(tieredStorageWriterFactory));
         }
-        checkState(upstreamTieredStorageFactory != null || remoteTieredStorageFactory != null);
-        TierStorage[] tierStorages;
-        if (upstreamTieredStorageFactory == null) {
-            tierStorages = remoteTieredStorageFactory.getTierStorages();
-        } else if (remoteTieredStorageFactory == null) {
-            tierStorages = upstreamTieredStorageFactory.getTierStorages();
-        } else {
-            TierStorage[] upstreamTierStorages = upstreamTieredStorageFactory.getTierStorages();
-            TierStorage[] remoteTierStorages = remoteTieredStorageFactory.getTierStorages();
-            tierStorages = new TierStorage[upstreamTierStorages.length + remoteTierStorages.length];
-            System.arraycopy(upstreamTierStorages, 0, tierStorages, 0, upstreamTierStorages.length);
-            System.arraycopy(
-                    remoteTierStorages,
-                    0,
-                    tierStorages,
-                    upstreamTierStorages.length,
-                    remoteTierStorages.length);
+        for (TierStorage tierStorage : storageList) {
+            try {
+                tierStorage.setup();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
         }
-        return tierStorages;
+        return storageList;
     }
 
     private UpstreamTieredStoreMemoryManager createStoreMemoryManager(

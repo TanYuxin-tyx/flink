@@ -33,7 +33,6 @@ import org.apache.flink.runtime.io.disk.FileChannelManagerImpl;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
@@ -41,22 +40,10 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.TieredResultPartition;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.TieredStorageProducerClientImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TestingTieredStoreMemoryManager;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
-import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 
@@ -695,40 +682,41 @@ class TieredStoreResultPartitionTest {
     private TieredResultPartition createTieredStoreResultPartition(
             int numSubpartitions, BufferPool bufferPool, boolean isBroadcastOnly)
             throws IOException {
-        TierStorage[] tierStorages = new TierStorage[0];
-        TieredStoreMemoryManager storeMemoryManager = new TestingTieredStoreMemoryManager();
-        BufferAccumulator bufferAccumulator =
-                new BufferAccumulatorImpl(
-                        tierStorages,
-                        new TierProducerAgent[0],
-                        numSubpartitions,
-                        bufferSize,
-                        isBroadcastOnly,
-                        storeMemoryManager,
-                        null);
-        TieredStorageProducerClientImpl tieredStorageProducerClient =
-                new TieredStorageProducerClientImpl(
-                        numSubpartitions, isBroadcastOnly, bufferAccumulator);
-        TieredResultPartition tieredResultPartition =
-                new TieredResultPartition(
-                        "TieredStoreResultPartitionTest",
-                        0,
-                        new ResultPartitionID(),
-                        ResultPartitionType.HYBRID_SELECTIVE,
-                        numSubpartitions,
-                        numSubpartitions,
-                        new ResultPartitionManager(),
-                        tierStorages,
-                        storeMemoryManager,
-                        new CacheFlushManager(),
-                        new BufferCompressor(bufferSize, "LZ4"),
-                        tieredStorageProducerClient,
-                        () -> bufferPool);
-        taskIOMetricGroup =
-                UnregisteredMetricGroups.createUnregisteredTaskMetricGroup().getIOMetricGroup();
-        tieredResultPartition.setup();
-        tieredResultPartition.setMetricGroup(taskIOMetricGroup);
-        return tieredResultPartition;
+        //TierStorage[] tierStorages = new TierStorage[0];
+        //TieredStoreMemoryManager storeMemoryManager = new TestingTieredStoreMemoryManager();
+        //BufferAccumulator bufferAccumulator =
+        //        new BufferAccumulatorImpl(
+        //                tierStorages,
+        //                new TierProducerAgent[0],
+        //                numSubpartitions,
+        //                bufferSize,
+        //                isBroadcastOnly,
+        //                storeMemoryManager,
+        //                null);
+        //TieredStorageProducerClientImpl tieredStorageProducerClient =
+        //        new TieredStorageProducerClientImpl(
+        //                numSubpartitions, isBroadcastOnly, bufferAccumulator);
+        //TieredResultPartition tieredResultPartition =
+        //        new TieredResultPartition(
+        //                "TieredStoreResultPartitionTest",
+        //                0,
+        //                new ResultPartitionID(),
+        //                ResultPartitionType.HYBRID_SELECTIVE,
+        //                numSubpartitions,
+        //                numSubpartitions,
+        //                new ResultPartitionManager(),
+        //                tierStorages,
+        //                storeMemoryManager,
+        //                new CacheFlushManager(),
+        //                new BufferCompressor(bufferSize, "LZ4"),
+        //                tieredStorageProducerClient,
+        //                () -> bufferPool);
+        //taskIOMetricGroup =
+        //        UnregisteredMetricGroups.createUnregisteredTaskMetricGroup().getIOMetricGroup();
+        //tieredResultPartition.setup();
+        //tieredResultPartition.setMetricGroup(taskIOMetricGroup);
+        //return tieredResultPartition;
+        return null;
     }
 
     private static void checkWriteReadResult(

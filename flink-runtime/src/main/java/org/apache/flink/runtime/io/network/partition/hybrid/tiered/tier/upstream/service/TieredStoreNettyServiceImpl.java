@@ -15,10 +15,10 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
 
-    private final TierStorage[] tierStorages;
+    private final List<TierStorage> tierStorages;
 
-    public TieredStoreNettyServiceImpl(TierStorage[] tierStorages) {
-        checkArgument(tierStorages.length > 0, "The number of StorageTier must be larger than 0.");
+    public TieredStoreNettyServiceImpl(List<TierStorage> tierStorages) {
+        checkArgument(tierStorages.size() > 0, "The number of StorageTier must be larger than 0.");
         this.tierStorages = tierStorages;
     }
 

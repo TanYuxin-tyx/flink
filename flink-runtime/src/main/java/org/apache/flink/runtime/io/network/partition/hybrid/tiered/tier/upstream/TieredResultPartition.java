@@ -48,6 +48,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -62,7 +63,7 @@ public class TieredResultPartition extends ResultPartition {
 
     private final CacheFlushManager cacheFlushManager;
 
-    private final TierStorage[] tierStorages;
+    private final List<TierStorage> tierStorages;
 
     private final TieredStorageProducerClient tieredStorageProducerClient;
 
@@ -80,7 +81,7 @@ public class TieredResultPartition extends ResultPartition {
             int numSubpartitions,
             int numTargetKeyGroups,
             ResultPartitionManager partitionManager,
-            TierStorage[] tierStorages,
+            List<TierStorage> tierStorages,
             TieredStoreMemoryManager tieredStoreMemoryManager,
             CacheFlushManager cacheFlushManager,
             @Nullable BufferCompressor bufferCompressor,
