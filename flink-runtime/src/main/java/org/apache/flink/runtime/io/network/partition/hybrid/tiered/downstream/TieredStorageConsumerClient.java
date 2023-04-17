@@ -7,8 +7,8 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-/** The interface of {@link TieredStoreReader} in Tiered Store. */
-public interface TieredStoreReader {
+/** The interface of {@link TieredStorageConsumerClient} in Tiered Store. */
+public interface TieredStorageConsumerClient {
 
     void setup(InputChannel[] inputChannels, Consumer<InputChannel> channelEnqueuer);
 

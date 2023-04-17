@@ -3,13 +3,13 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.remote.RemoteCacheManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.remote.RemoteTierStorageWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.remote.RemoteTierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.disk.DiskCacheManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.disk.DiskTierStorageWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.memory.MemoryTierStorageWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.disk.DiskTierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.memory.MemoryTierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.memory.SubpartitionMemoryDataManager;
 
 import java.io.IOException;
@@ -49,26 +49,26 @@ public class TieredStorageWriterFactory {
         this.partitionFileManager = partitionFileManager;
     }
 
-    public TierStorageWriter createTierStorageWriter(TierType tierType) throws IOException {
-        TierStorageWriter tierStorageWriter;
+    public TierProducerAgent createTierStorageWriter(TierType tierType) throws IOException {
+        TierProducerAgent tierProducerAgent;
         switch (tierType) {
             case IN_MEM:
-                tierStorageWriter = getMemoryTierStorageWriter();
+                tierProducerAgent = getMemoryTierStorageWriter();
                 break;
             case IN_DISK:
-                tierStorageWriter = getDiskTierStorageWriter();
+                tierProducerAgent = getDiskTierStorageWriter();
                 break;
             case IN_REMOTE:
-                tierStorageWriter = getRemoteTierStorageWriter();
+                tierProducerAgent = getRemoteTierStorageWriter();
                 break;
             default:
                 throw new IllegalArgumentException("Illegal tier type " + tierType);
         }
-        return tierStorageWriter;
+        return tierProducerAgent;
     }
 
-    private TierStorageWriter getMemoryTierStorageWriter() {
-        return new MemoryTierStorageWriter(
+    private TierProducerAgent getMemoryTierStorageWriter() {
+        return new MemoryTierProducerAgent(
                 isBroadcastOnly ? 1 : numSubpartitions,
                 networkBufferSize,
                 tieredStoreMemoryManager,
@@ -79,8 +79,8 @@ public class TieredStorageWriterFactory {
                 new SubpartitionMemoryDataManager[numSubpartitions]);
     }
 
-    private TierStorageWriter getRemoteTierStorageWriter() {
-        return new RemoteTierStorageWriter(
+    private TierProducerAgent getRemoteTierStorageWriter() {
+        return new RemoteTierProducerAgent(
                 numSubpartitions,
                 new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly),
                 new RemoteCacheManager(
@@ -93,8 +93,8 @@ public class TieredStorageWriterFactory {
                                 PartitionFileType.PRODUCER_HASH)));
     }
 
-    private TierStorageWriter getDiskTierStorageWriter() {
-        return new DiskTierStorageWriter(
+    private TierProducerAgent getDiskTierStorageWriter() {
+        return new DiskTierProducerAgent(
                 new int[numSubpartitions],
                 new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly),
                 new DiskCacheManager(

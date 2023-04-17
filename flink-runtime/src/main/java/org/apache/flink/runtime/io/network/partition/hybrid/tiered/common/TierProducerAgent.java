@@ -16,23 +16,21 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
-/** The producer interface of Tiered Store, data can be written to different store tiers. */
-public interface TieredStoreProducer {
+/**
+ * This {@link TierProducerAgent} is the writer for specific tier. Each tier may contain data of all
+ * subpartitions.
+ */
+public interface TierProducerAgent {
 
-    void emit(ByteBuffer record, int consumerId, Buffer.DataType dataType, boolean isBroadcast)
-            throws IOException;
+    void startSegment(int consumerId, int segmentId);
 
-    void setMetricGroup(OutputMetrics metrics);
+    boolean write(int consumerId, Buffer finishedBuffer) throws IOException;
 
     void close();
-
-    void release();
 }

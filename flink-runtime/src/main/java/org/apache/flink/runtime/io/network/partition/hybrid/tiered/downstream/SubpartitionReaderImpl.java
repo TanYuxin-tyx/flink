@@ -14,12 +14,12 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
 
     private final Consumer<Integer> queueChannelReceiver;
 
-    private final List<TierStorageClient> clientList;
+    private final List<TierConsumerAgent> clientList;
 
     private int currentSegmentId = 0;
 
     public SubpartitionReaderImpl(
-            List<TierStorageClient> clientList, Consumer<Integer> queueChannelReceiver) {
+            List<TierConsumerAgent> clientList, Consumer<Integer> queueChannelReceiver) {
         this.clientList = clientList;
         this.queueChannelReceiver = queueChannelReceiver;
     }
@@ -28,7 +28,7 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
     public Optional<BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException {
         Optional<BufferAndAvailability> bufferAndAvailability = Optional.empty();
-        for (TierStorageClient client : clientList) {
+        for (TierConsumerAgent client : clientList) {
             bufferAndAvailability = client.getNextBuffer(inputChannel, currentSegmentId);
             if (bufferAndAvailability.isPresent()) {
                 break;
@@ -49,7 +49,7 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
 
     @Override
     public void close() throws IOException {
-        for (TierStorageClient client : clientList) {
+        for (TierConsumerAgent client : clientList) {
             client.close();
         }
     }

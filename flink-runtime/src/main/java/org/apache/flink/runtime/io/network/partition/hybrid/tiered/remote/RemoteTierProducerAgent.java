@@ -20,16 +20,16 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorageWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierProducerAgent;
 
 import java.io.IOException;
 import java.util.Arrays;
 
 /**
- * Through the {@link RemoteTierStorageWriter}, records from {@link RemoteTierStorage} is written to
+ * Through the {@link RemoteTierProducerAgent}, records from {@link RemoteTierStorage} is written to
  * cached buffers.
  */
-public class RemoteTierStorageWriter implements TierStorageWriter {
+public class RemoteTierProducerAgent implements TierProducerAgent {
 
     // Record the byte number currently written to each sub partition.
     private final int[] numSubpartitionEmitBytes;
@@ -43,7 +43,7 @@ public class RemoteTierStorageWriter implements TierStorageWriter {
 
     private final int[] subpartitionLastestSegmentId;
 
-    public RemoteTierStorageWriter(
+    public RemoteTierProducerAgent(
             int numSubpartitions,
             SubpartitionSegmentIndexTracker segmentIndexTracker,
             RemoteCacheManager remoteCacheManager) {

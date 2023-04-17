@@ -23,7 +23,7 @@ import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorageWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service.NettyBasedTierConsumer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service.NettyBasedTierConsumerView;
@@ -64,7 +64,7 @@ public class DiskTierStorage implements TierStorage, NettyBasedTierConsumerViewP
 
     private volatile boolean isReleased;
 
-    private TierStorageWriter diskTierWriter;
+    private TierProducerAgent diskTierWriter;
 
     public DiskTierStorage(
             int numSubpartitions,
@@ -94,7 +94,7 @@ public class DiskTierStorage implements TierStorage, NettyBasedTierConsumerViewP
      * and the subpartitionId is not used. So return directly.
      */
     @Override
-    public TierStorageWriter createTierStorageWriter() {
+    public TierProducerAgent createTierStorageWriter() {
         return diskTierWriter;
     }
 
@@ -137,7 +137,7 @@ public class DiskTierStorage implements TierStorage, NettyBasedTierConsumerViewP
 
     @Override
     public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
-        return ((DiskTierStorageWriter) diskTierWriter)
+        return ((DiskTierProducerAgent) diskTierWriter)
                 .getSegmentIndexTracker()
                 .hasCurrentSegment(subpartitionId, segmentIndex);
     }
@@ -156,8 +156,8 @@ public class DiskTierStorage implements TierStorage, NettyBasedTierConsumerViewP
         // 3. release all data in memory.
         if (!isReleased) {
             partitionFileReader.release();
-            ((DiskTierStorageWriter) diskTierWriter).getDiskCacheManager().release();
-            ((DiskTierStorageWriter) diskTierWriter).getSegmentIndexTracker().release();
+            ((DiskTierProducerAgent) diskTierWriter).getDiskCacheManager().release();
+            ((DiskTierProducerAgent) diskTierWriter).getSegmentIndexTracker().release();
             isReleased = true;
         }
     }

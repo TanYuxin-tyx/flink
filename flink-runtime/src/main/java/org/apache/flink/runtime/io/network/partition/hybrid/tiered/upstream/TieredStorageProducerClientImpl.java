@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulator;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreProducer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStorageProducerClient;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -30,7 +30,7 @@ import java.nio.ByteBuffer;
  * This is a common entrypoint of the emitted records. These records will be emitted to the {@link
  * BufferAccumulator} to accumulate and transform into finished buffers.
  */
-public class TieredStoreProducerImpl implements TieredStoreProducer {
+public class TieredStorageProducerClientImpl implements TieredStorageProducerClient {
 
     private final boolean isBroadcastOnly;
 
@@ -38,7 +38,7 @@ public class TieredStoreProducerImpl implements TieredStoreProducer {
 
     private final BufferAccumulator bufferAccumulator;
 
-    public TieredStoreProducerImpl(
+    public TieredStorageProducerClientImpl(
             int numConsumers, boolean isBroadcastOnly, BufferAccumulator bufferAccumulator) {
         this.isBroadcastOnly = isBroadcastOnly;
         this.numConsumers = numConsumers;

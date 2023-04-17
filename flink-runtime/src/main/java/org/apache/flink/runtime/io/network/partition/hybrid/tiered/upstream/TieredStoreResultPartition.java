@@ -38,7 +38,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierSt
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cache.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreProducer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStorageProducerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service.TieredStoreNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service.TieredStoreNettyServiceImpl;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
@@ -69,7 +69,7 @@ public class TieredStoreResultPartition extends ResultPartition {
 
     private final BufferAccumulator bufferAccumulator;
 
-    private TieredStoreProducer tieredStoreProducer;
+    private TieredStorageProducerClient tieredStorageProducerClient;
 
     private boolean hasNotifiedEndOfUserRecords;
 
@@ -117,15 +117,15 @@ public class TieredStoreResultPartition extends ResultPartition {
             throw new IOException("Result partition has been released.");
         }
         tieredStoreMemoryManager.setBufferPool(bufferPool);
-        tieredStoreProducer =
-                new TieredStoreProducerImpl(numSubpartitions, isBroadcast, bufferAccumulator);
+        tieredStorageProducerClient =
+                new TieredStorageProducerClientImpl(numSubpartitions, isBroadcast, bufferAccumulator);
         tieredStoreNettyService = new TieredStoreNettyServiceImpl(tierStorages);
     }
 
     @Override
     public void setMetricGroup(TaskIOMetricGroup metrics) {
         super.setMetricGroup(metrics);
-        tieredStoreProducer.setMetricGroup(new OutputMetrics(numBytesOut, numBuffersOut));
+        tieredStorageProducerClient.setMetricGroup(new OutputMetrics(numBytesOut, numBuffersOut));
     }
 
     @Override
@@ -159,7 +159,7 @@ public class TieredStoreResultPartition extends ResultPartition {
     private void emit(
             ByteBuffer record, int consumerId, Buffer.DataType dataType, boolean isBroadcast)
             throws IOException {
-        checkNotNull(tieredStoreProducer).emit(record, consumerId, dataType, isBroadcast);
+        checkNotNull(tieredStorageProducerClient).emit(record, consumerId, dataType, isBroadcast);
     }
 
     @Override
@@ -182,8 +182,8 @@ public class TieredStoreResultPartition extends ResultPartition {
         // close is called when task is finished or failed.
         super.close();
         // first close the writer
-        if (tieredStoreProducer != null) {
-            tieredStoreProducer.close();
+        if (tieredStorageProducerClient != null) {
+            tieredStorageProducerClient.close();
         }
         if (tieredStoreMemoryManager != null) {
             tieredStoreMemoryManager.close();
@@ -202,7 +202,7 @@ public class TieredStoreResultPartition extends ResultPartition {
         // 3. release all data in memory.
 
         // first release the writer
-        tieredStoreProducer.release();
+        tieredStorageProducerClient.release();
         tieredStoreMemoryManager.release();
     }
 

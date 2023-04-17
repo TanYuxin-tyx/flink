@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-/** The implementation of {@link TieredStoreReader} interface. */
+/** The implementation of {@link TieredStorageConsumerClient} interface. */
 public class TieredStoreBufferReader implements SingInputGateBufferReader {
 
     private final SubpartitionReader[] subpartitionReaders;
@@ -86,14 +86,14 @@ public class TieredStoreBufferReader implements SingInputGateBufferReader {
         return false;
     }
 
-    private List<TierStorageClient> getClientList() {
-        List<TierStorageClient> clientList = new ArrayList<>();
+    private List<TierConsumerAgent> getClientList() {
+        List<TierConsumerAgent> clientList = new ArrayList<>();
         if (baseRemoteStoragePath != null) {
-            clientList.add(new LocalTierStorageClient());
+            clientList.add(new LocalTierConsumerAgent());
             clientList.add(
-                    new RemoteTierStorageClient(tieredStoreMemoryManager, remoteTierMonitor));
+                    new RemoteTierConsumerAgent(tieredStoreMemoryManager, remoteTierMonitor));
         } else {
-            clientList.add(new LocalTierStorageClient());
+            clientList.add(new LocalTierConsumerAgent());
         }
         return clientList;
     }

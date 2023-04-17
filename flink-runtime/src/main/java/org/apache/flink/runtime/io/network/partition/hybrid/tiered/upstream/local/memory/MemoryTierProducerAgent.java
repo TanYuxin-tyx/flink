@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorageWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service.NettyBasedTierConsumer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service.NettyBasedTierConsumerView;
@@ -45,7 +45,7 @@ import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEG
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.memory.MemoryTierStorage.MEMORY_TIER_SEGMENT_BYTES;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
-public class MemoryTierStorageWriter implements TierStorageWriter, MemoryDataWriterOperation {
+public class MemoryTierProducerAgent implements TierProducerAgent, MemoryDataWriterOperation {
 
     private final int numSubpartitions;
 
@@ -69,7 +69,7 @@ public class MemoryTierStorageWriter implements TierStorageWriter, MemoryDataWri
 
     private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
 
-    public MemoryTierStorageWriter(
+    public MemoryTierProducerAgent(
             int numSubpartitions,
             int bufferSize,
             TieredStoreMemoryManager tieredStoreMemoryManager,
@@ -148,7 +148,7 @@ public class MemoryTierStorageWriter implements TierStorageWriter, MemoryDataWri
                 .registerNewConsumer(nettyBasedTierConsumerViewId);
     }
 
-    /** Close this {@link MemoryTierStorageWriter}, it means no data will be appended to memory. */
+    /** Close this {@link MemoryTierProducerAgent}, it means no data will be appended to memory. */
     @Override
     public void close() {}
 

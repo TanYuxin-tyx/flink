@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.util.Optional;
 
 /** The data client is used to fetch data from Local tier. */
-public class LocalTierStorageClient implements TierStorageClient {
+public class LocalTierConsumerAgent implements TierConsumerAgent {
 
     private int latestSegmentId = 0;
 

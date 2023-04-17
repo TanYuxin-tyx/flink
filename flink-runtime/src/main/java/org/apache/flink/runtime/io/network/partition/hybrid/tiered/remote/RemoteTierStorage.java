@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.remote;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorageWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageWriterFactory;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -31,7 +31,7 @@ public class RemoteTierStorage implements TierStorage {
 
     private final TieredStorageWriterFactory tieredStorageWriterFactory;
 
-    private TierStorageWriter tierStorageWriter;
+    private TierProducerAgent tierProducerAgent;
 
     public RemoteTierStorage(TieredStorageWriterFactory tieredStorageWriterFactory) {
         this.tieredStorageWriterFactory = tieredStorageWriterFactory;
@@ -41,14 +41,14 @@ public class RemoteTierStorage implements TierStorage {
     public void setup() throws IOException {}
 
     @Override
-    public TierStorageWriter createTierStorageWriter() {
+    public TierProducerAgent createTierStorageWriter() {
         try {
-            tierStorageWriter =
+            tierProducerAgent =
                     tieredStorageWriterFactory.createTierStorageWriter(TierType.IN_REMOTE);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to craete remote tier writer");
         }
-        return tierStorageWriter;
+        return tierProducerAgent;
     }
 
     @Override
@@ -63,7 +63,7 @@ public class RemoteTierStorage implements TierStorage {
 
     @Override
     public void release() {
-        ((RemoteTierStorageWriter) tierStorageWriter).getRemoteCacheManager().release();
-        ((RemoteTierStorageWriter) tierStorageWriter).getSegmentIndexTracker().release();
+        ((RemoteTierProducerAgent) tierProducerAgent).getRemoteCacheManager().release();
+        ((RemoteTierProducerAgent) tierProducerAgent).getSegmentIndexTracker().release();
     }
 }

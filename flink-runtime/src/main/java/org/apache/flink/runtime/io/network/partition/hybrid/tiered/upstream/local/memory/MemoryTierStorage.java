@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.loc
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorageWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.service.NettyBasedTierConsumer;
@@ -51,7 +51,7 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
 
     private final TieredStorageWriterFactory tieredStorageWriterFactory;
 
-    private TierStorageWriter memoryWriter;
+    private TierProducerAgent memoryWriter;
 
     public static final int MEMORY_TIER_SEGMENT_BYTES = 10 * 32 * 1024;
 
@@ -81,7 +81,7 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
      * and the subpartitionId is not used. So return directly.
      */
     @Override
-    public TierStorageWriter createTierStorageWriter() {
+    public TierProducerAgent createTierStorageWriter() {
         return memoryWriter;
     }
 
@@ -104,7 +104,7 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
         lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
 
         NettyBasedTierConsumer memoryConsumer =
-                ((MemoryTierStorageWriter) checkNotNull(memoryWriter))
+                ((MemoryTierProducerAgent) checkNotNull(memoryWriter))
                         .registerNewConsumer(
                                 subpartitionId, nettyBasedTierConsumerViewId, memoryReaderView);
 
@@ -115,13 +115,13 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
     @Override
     public boolean canStoreNextSegment(int consumerId) {
         return tieredStoreMemoryManager.numAvailableBuffers(TierType.IN_MEM) > bufferNumberInSegment
-                && ((MemoryTierStorageWriter) checkNotNull(memoryWriter))
+                && ((MemoryTierProducerAgent) checkNotNull(memoryWriter))
                         .isConsumerRegistered(consumerId);
     }
 
     @Override
     public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
-        return ((MemoryTierStorageWriter) checkNotNull(memoryWriter))
+        return ((MemoryTierProducerAgent) checkNotNull(memoryWriter))
                 .getSegmentIndexTracker()
                 .hasCurrentSegment(subpartitionId, segmentIndex);
     }
@@ -129,7 +129,7 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
     @Override
     public void release() {
         for (int i = 0; i < numSubpartitions; i++) {
-            ((MemoryTierStorageWriter) checkNotNull(memoryWriter))
+            ((MemoryTierProducerAgent) checkNotNull(memoryWriter))
                     .getSubpartitionMemoryDataManagers()[i].release();
         }
 
@@ -140,7 +140,7 @@ public class MemoryTierStorage implements TierStorage, NettyBasedTierConsumerVie
         // 3. release all data in memory.
 
         if (!isReleased) {
-            ((MemoryTierStorageWriter) checkNotNull(memoryWriter))
+            ((MemoryTierProducerAgent) checkNotNull(memoryWriter))
                     .getSegmentIndexTracker()
                     .release();
             isReleased = true;

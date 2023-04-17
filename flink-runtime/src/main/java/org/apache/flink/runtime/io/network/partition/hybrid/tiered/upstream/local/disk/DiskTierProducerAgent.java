@@ -22,7 +22,7 @@ import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorageWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
@@ -31,7 +31,7 @@ import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEG
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */
-public class DiskTierStorageWriter implements TierStorageWriter {
+public class DiskTierProducerAgent implements TierProducerAgent {
 
     private final int[] numSubpartitionEmitBytes;
 
@@ -44,7 +44,7 @@ public class DiskTierStorageWriter implements TierStorageWriter {
 
     private volatile boolean isClosed;
 
-    public DiskTierStorageWriter(
+    public DiskTierProducerAgent(
             int[] numSubpartitionEmitBytes,
             SubpartitionSegmentIndexTracker segmentIndexTracker,
             DiskCacheManager diskCacheManager) {

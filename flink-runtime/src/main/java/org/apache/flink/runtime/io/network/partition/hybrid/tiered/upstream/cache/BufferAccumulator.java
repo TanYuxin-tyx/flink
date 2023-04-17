@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.cac
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreProducer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStorageProducerClient;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -29,7 +29,7 @@ import java.util.List;
 public interface BufferAccumulator {
 
     /**
-     * Receives the records from {@link TieredStoreProducer}, these records will be accumulated and
+     * Receives the records from {@link TieredStorageProducerClient}, these records will be accumulated and
      * transformed into finished {@link MemorySegmentAndConsumerId}s.
      */
     void receive(ByteBuffer record, int consumerId, Buffer.DataType dataType) throws IOException;

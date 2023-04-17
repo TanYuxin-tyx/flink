@@ -32,7 +32,7 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreUtils.writeSegmentFinishFile;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** The test for {@link LocalTierStorageClient}. */
+/** The test for {@link LocalTierConsumerAgent}. */
 public class NettyBasedTierConsumerTest {
 
     private static final int SEGMENT_ID = 0;
@@ -63,7 +63,7 @@ public class NettyBasedTierConsumerTest {
 
     @Test
     void testSingleChannelLocalTierClient() throws IOException, InterruptedException {
-        LocalTierStorageClient localTierClient = new LocalTierStorageClient();
+        LocalTierConsumerAgent localTierClient = new LocalTierConsumerAgent();
         final SingleInputGate inputGate = createSingleInputGate(2);
         InputChannel inputChannel1 =
                 new InputChannelBuilder().setChannelIndex(0).buildRemoteRecoveredChannel(inputGate);
@@ -111,7 +111,7 @@ public class NettyBasedTierConsumerTest {
     }
 
     private void verifyLocalTierClientResult(
-            LocalTierStorageClient client,
+            LocalTierConsumerAgent client,
             InputChannel inputChannel,
             boolean isPresent,
             Buffer.DataType expectedDataType,
@@ -133,7 +133,7 @@ public class NettyBasedTierConsumerTest {
     }
 
     private void verifyRemoteTierClientResult(
-            RemoteTierStorageClient client,
+            RemoteTierConsumerAgent client,
             InputChannel inputChannel,
             boolean isPresent,
             Buffer.DataType expectedDataType,

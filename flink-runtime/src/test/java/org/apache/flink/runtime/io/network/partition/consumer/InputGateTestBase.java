@@ -23,7 +23,7 @@ import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TieredStoreShuffleEnvironment;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStoreReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream.TieredStorageConsumerClient;
 
 import org.junit.Before;
 
@@ -136,14 +136,14 @@ public abstract class InputGateTestBase {
 
         TieredStoreShuffleEnvironment storeShuffleEnvironment = new TieredStoreShuffleEnvironment();
 
-        TieredStoreReader tieredStoreReader = null;
+        TieredStorageConsumerClient tieredStorageConsumerClient = null;
 
         SingleInputGateBuilder builder =
                 new SingleInputGateBuilder()
                         .setNumberOfChannels(numberOfInputChannels)
                         .setSingleInputGateIndex(gateIndex++)
                         .setResultPartitionType(partitionType)
-                        .setTieredStoreReader(tieredStoreReader)
+                        .setTieredStoreReader(tieredStorageConsumerClient)
                         .setupBufferPoolFactory(environment)
                         .setBufferDecompressor(bufferDecompressor);
 

@@ -27,9 +27,9 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierStorageWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStoreProducer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.TieredStorageProducerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.disk.DiskTierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.local.memory.MemoryTierStorage;
 import org.apache.flink.util.ExceptionUtils;
@@ -45,7 +45,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * The implementation of the {@link BufferAccumulator}. The {@link BufferAccumulator} receives the
- * records from {@link TieredStoreProducer} and the records will accumulate and transform to
+ * records from {@link TieredStorageProducerClient} and the records will accumulate and transform to
  * finished {@link MemorySegment}s. The finished memory segments will be transferred to the
  * corresponding tier dynamically.
  */
@@ -53,7 +53,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private final TierStorage[] tierStorages;
 
-    private final TierStorageWriter[] tierStorageWriters;
+    private final TierProducerAgent[] tierProducerAgents;
 
     private final TierType[] tierTypes;
 
@@ -89,7 +89,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         this.storeMemoryManager = storeMemoryManager;
         this.bufferCompressor = bufferCompressor;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.tierStorageWriters = new TierStorageWriter[tierStorages.length];
+        this.tierProducerAgents = new TierProducerAgent[tierStorages.length];
         this.subpartitionSegmentIndexes = new int[numConsumers];
         this.lastSubpartitionSegmentIndexes = new int[numConsumers];
         Arrays.fill(lastSubpartitionSegmentIndexes, -1);
@@ -98,11 +98,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         this.tierTypes = new TierType[tierStorages.length];
 
         for (int i = 0; i < tierStorages.length; i++) {
-            tierStorageWriters[i] = tierStorages[i].createTierStorageWriter();
+            tierProducerAgents[i] = tierStorages[i].createTierStorageWriter();
         }
 
         for (int i = 0; i < tierStorages.length; i++) {
-            tierStorageWriters[i] = tierStorages[i].createTierStorageWriter();
+            tierProducerAgents[i] = tierStorages[i].createTierStorageWriter();
             tierTypes[i] = tierStorages[i].getTierType();
             TierType tierType = tierTypes[i];
             bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tierType);
@@ -137,7 +137,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     public void close() {
-        Arrays.stream(tierStorageWriters).forEach(TierStorageWriter::close);
+        Arrays.stream(tierProducerAgents).forEach(TierProducerAgent::close);
     }
 
     public void release() {
@@ -176,11 +176,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         Buffer compressedBuffer = compressBufferIfPossible(finishedBuffer);
         updateStatistics(compressedBuffer);
         if (segmentIndex != lastSubpartitionSegmentIndexes[consumerId]) {
-            tierStorageWriters[tierIndex].startSegment(consumerId, segmentIndex);
+            tierProducerAgents[tierIndex].startSegment(consumerId, segmentIndex);
             lastSubpartitionSegmentIndexes[consumerId] = segmentIndex;
         }
         boolean isLastBufferInSegment =
-                tierStorageWriters[tierIndex].write(consumerId, compressedBuffer);
+                tierProducerAgents[tierIndex].write(consumerId, compressedBuffer);
         storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(consumerId);
