@@ -303,7 +303,12 @@ public class ResultPartitionFactory {
                                 bufferCompressor);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(
-                                subpartitions.length, isBroadcast, bufferAccumulator);
+                                subpartitions.length,
+                                isBroadcast,
+                                bufferAccumulator,
+                                bufferCompressor,
+                                storeMemoryManager,
+                                tierProducerAgents);
                 partition =
                         new TieredResultPartition(
                                 taskNameWithSubtaskAndId,

@@ -186,6 +186,14 @@ public class TieredResultPartition extends ResultPartition {
     }
 
     @Override
+    public void notifyEndOfData(StopMode mode) throws IOException {
+        if (!hasNotifiedEndOfUserRecords) {
+            broadcastEvent(new EndOfData(mode), false);
+            hasNotifiedEndOfUserRecords = true;
+        }
+    }
+
+    @Override
     protected void releaseInternal() {
         // release is called when release by scheduler, later than close.
         // mainly work :
@@ -245,13 +253,5 @@ public class TieredResultPartition extends ResultPartition {
     public int getNumberOfQueuedBuffers(int consumerId) {
         // Nothing to do.
         return 0;
-    }
-
-    @Override
-    public void notifyEndOfData(StopMode mode) throws IOException {
-        if (!hasNotifiedEndOfUserRecords) {
-            broadcastEvent(new EndOfData(mode), false);
-            hasNotifiedEndOfUserRecords = true;
-        }
     }
 }

@@ -26,24 +26,30 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.T
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 public class HashBasedCachedBuffer implements CacheBufferOperation {
+
+    private final int numConsumers;
+
     private final SubpartitionCachedBuffer[] subpartitionCachedBuffers;
 
     private final TieredStoreMemoryManager storeMemoryManager;
 
     HashBasedCachedBuffer(
-            int numConsumers,
-            int bufferSize,
-            TieredStoreMemoryManager storeMemoryManager,
-            Consumer<List<MemorySegmentAndConsumerId>> finishedBufferListener) {
+            int numConsumers, int bufferSize, TieredStoreMemoryManager storeMemoryManager) {
+        this.numConsumers = numConsumers;
         this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numConsumers];
         this.storeMemoryManager = storeMemoryManager;
 
         for (int i = 0; i < numConsumers; i++) {
-            subpartitionCachedBuffers[i] =
-                    new SubpartitionCachedBuffer(i, bufferSize, finishedBufferListener, this);
+            subpartitionCachedBuffers[i] = new SubpartitionCachedBuffer(i, bufferSize, this);
+        }
+    }
+
+    public void setup(BiConsumer<Integer, List<MemorySegmentAndConsumerId>> bufferFlusher) {
+        for (int i = 0; i < numConsumers; i++) {
+            subpartitionCachedBuffers[i].setup(bufferFlusher);
         }
     }
 

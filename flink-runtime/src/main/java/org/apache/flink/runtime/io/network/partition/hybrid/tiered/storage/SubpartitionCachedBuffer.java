@@ -31,7 +31,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -44,20 +44,20 @@ public class SubpartitionCachedBuffer {
 
     private final CacheBufferOperation cacheBufferOperation;
 
-    private final Consumer<List<MemorySegmentAndConsumerId>> finishedBufferListener;
+    private BiConsumer<Integer, List<MemorySegmentAndConsumerId>> bufferFlusher;
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
     public SubpartitionCachedBuffer(
-            int consumerId,
-            int bufferSize,
-            Consumer<List<MemorySegmentAndConsumerId>> finishedBufferListener,
-            CacheBufferOperation cacheBufferOperation) {
+            int consumerId, int bufferSize, CacheBufferOperation cacheBufferOperation) {
         this.consumerId = consumerId;
         this.bufferSize = bufferSize;
         this.cacheBufferOperation = cacheBufferOperation;
-        this.finishedBufferListener = finishedBufferListener;
+    }
+
+    public void setup(BiConsumer<Integer, List<MemorySegmentAndConsumerId>> bufferFlusher) {
+        this.bufferFlusher = bufferFlusher;
     }
 
     // ------------------------------------------------------------------------
@@ -158,6 +158,6 @@ public class SubpartitionCachedBuffer {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     private void addFinishedBuffer(MemorySegmentAndConsumerId buffer) {
-        finishedBufferListener.accept(Collections.singletonList(buffer));
+        bufferFlusher.accept(consumerId, Collections.singletonList(buffer));
     }
 }

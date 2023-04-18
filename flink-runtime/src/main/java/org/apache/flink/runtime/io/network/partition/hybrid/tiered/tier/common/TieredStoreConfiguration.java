@@ -432,6 +432,11 @@ public class TieredStoreConfiguration {
             return this;
         }
 
+        public TieredStoreConfiguration.Builder setTierTypes(TierType[] tierTypes) {
+            this.tierTypes = tierTypes;
+            return this;
+        }
+
         private TierType[] getConfiguredTierTypes(
                 String configuredStoreTiers, ResultPartitionType partitionType) {
             switch (configuredStoreTiers) {

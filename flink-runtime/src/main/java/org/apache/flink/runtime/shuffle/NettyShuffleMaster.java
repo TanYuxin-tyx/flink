@@ -24,7 +24,11 @@ import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreShuffleEnvironment;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMasterClient;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorageReleaser;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreConfiguration;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor.LocalExecutionPartitionConnectionInfo;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor.NetworkPartitionConnectionInfo;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor.PartitionConnectionInfo;
@@ -33,6 +37,8 @@ import org.apache.flink.runtime.util.ConfigurationParserUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -55,6 +61,10 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
     private final int sortShuffleMinBuffers;
 
     private final int networkBufferSize;
+
+    private final ResourceRegistry resourceRegistry;
+
+    private final String tieredStoreTiers;
 
     private final String baseDfsPath;
 
@@ -82,7 +92,8 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
         enableTieredStoreForHybridShuffle =
                 conf.getBoolean(
                         NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE);
-
+        resourceRegistry = new ResourceRegistry();
+        tieredStoreTiers = conf.get(NettyShuffleEnvironmentOptions.TIERED_STORE_TIERS);
         checkArgument(
                 !maxRequiredBuffersPerGate.isPresent() || maxRequiredBuffersPerGate.get() >= 1,
                 String.format(
@@ -114,6 +125,18 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                                 producerDescriptor, partitionDescriptor.getConnectionIndex()),
                         resultPartitionID,
                         partitionDescriptor.isBroadcast());
+
+        List<TierMasterAgent> tierMasterAgents = new LinkedList<>();
+        TieredStoreConfiguration tieredStoreConfiguration =
+                TieredStoreConfiguration.builder(1, 1)
+                        .setBaseDfsHomePath(baseDfsPath)
+                        //
+                        // .setTierTypes(TieredStoreConfiguration.memoryDiskRemoteTierTypes())
+                        .setTierTypes(tieredStoreTiers, partitionDescriptor.getPartitionType())
+                        .build();
+
+        TieredStorageMasterClient tieredStorageMasterClient =
+                new TieredStorageMasterClient(tierMasterAgents);
 
         return CompletableFuture.completedFuture(shuffleDeploymentDescriptor);
     }

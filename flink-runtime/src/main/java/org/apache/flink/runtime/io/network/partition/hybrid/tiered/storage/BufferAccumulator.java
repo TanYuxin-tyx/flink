@@ -25,21 +25,25 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 public interface BufferAccumulator {
 
     /**
-     * Receives the records from {@link TieredStorageProducerClient}, these records will be accumulated and
-     * transformed into finished {@link MemorySegmentAndConsumerId}s.
+     * Setup the accumulator.
+     *
+     * @param numSubpartitions number of subpartitions
+     * @param flusher accepts the accumulated buffers. The index of the outer list corresponds to
+     *     the subpartition ids, while each inner list contains accumulated buffers in order for
+     *     that subpartition.
      */
-    void receive(ByteBuffer record, int consumerId, Buffer.DataType dataType) throws IOException;
+    void setup(BiConsumer<Integer, List<MemorySegmentAndConsumerId>> bufferFlusher);
 
     /**
-     * The finished {@link MemorySegmentAndConsumerId}s will be emitted to corresponding tiers.
-     * Before emitting the finished buffers, the {@link BufferAccumulator} will firstly choose an
-     * appreciate tier, then emit the buffers to this chosen tier.
+     * Receives the records from {@link TieredStorageProducerClient}, these records will be
+     * accumulated and transformed into finished {@link MemorySegmentAndConsumerId}s.
      */
-    void writeFinishedBuffer(List<MemorySegmentAndConsumerId> memorySegmentAndConsumerIds);
+    void receive(ByteBuffer record, int consumerId, Buffer.DataType dataType) throws IOException;
 
     void setMetricGroup(OutputMetrics metrics);
 
