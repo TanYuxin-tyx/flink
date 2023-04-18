@@ -1,7 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service;
 
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorage;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -15,11 +15,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
 
-    private final List<TierStorage> tierStorages;
+    private final List<TierProducerAgent> tierProducerAgents;
 
-    public TieredStoreNettyServiceImpl(List<TierStorage> tierStorages) {
-        checkArgument(tierStorages.size() > 0, "The number of StorageTier must be larger than 0.");
-        this.tierStorages = tierStorages;
+    public TieredStoreNettyServiceImpl(List<TierProducerAgent> tierProducerAgents) {
+        checkArgument(tierProducerAgents.size() > 0, "The number of StorageTier must be larger than 0.");
+        this.tierProducerAgents = tierProducerAgents;
     }
 
     @Override
@@ -28,10 +28,10 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
             throws IOException {
         List<NettyBasedTierConsumerViewProvider> registeredTiers = new ArrayList<>();
         List<NettyBasedTierConsumerView> registeredTierConsumerViews = new ArrayList<>();
-        for (TierStorage tierStorage : tierStorages) {
-            if (tierStorage instanceof NettyBasedTierConsumerViewProvider) {
+        for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
+            if (tierProducerAgent instanceof NettyBasedTierConsumerViewProvider) {
                 NettyBasedTierConsumerViewProvider tierConsumerViewProvider =
-                        (NettyBasedTierConsumerViewProvider) tierStorage;
+                        (NettyBasedTierConsumerViewProvider) tierProducerAgent;
                 NettyBasedTierConsumerView nettyBasedTierConsumerView =
                         checkNotNull(
                                 tierConsumerViewProvider.createNettyBasedTierConsumerView(

@@ -19,16 +19,20 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileType;
 
 import java.io.IOException;
 import java.util.Arrays;
 
-/**
- * Through the {@link RemoteTierProducerAgent}, records from {@link RemoteTierStorage} is written to
- * cached buffers.
- */
+/** The DataManager of DFS. */
 public class RemoteTierProducerAgent implements TierProducerAgent {
 
     // Record the byte number currently written to each sub partition.
@@ -45,13 +49,42 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     public RemoteTierProducerAgent(
             int numSubpartitions,
-            SubpartitionSegmentIndexTracker segmentIndexTracker,
-            RemoteCacheManager remoteCacheManager) {
-        this.segmentIndexTracker = segmentIndexTracker;
-        this.cacheDataManager = remoteCacheManager;
+            boolean isBroadcastOnly,
+            int networkBufferSize,
+            TieredStoreMemoryManager tieredStoreMemoryManager,
+            CacheFlushManager cacheFlushManager,
+            BufferCompressor bufferCompressor,
+            PartitionFileManager partitionFileManager) {
+        this.segmentIndexTracker =
+                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
+        this.cacheDataManager =
+                new RemoteCacheManager(
+                        isBroadcastOnly ? 1 : numSubpartitions,
+                        networkBufferSize,
+                        tieredStoreMemoryManager,
+                        cacheFlushManager,
+                        bufferCompressor,
+                        partitionFileManager.createPartitionFileWriter(
+                                PartitionFileType.PRODUCER_HASH));
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.subpartitionLastestSegmentId = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
+    }
+
+    @Override
+    public boolean canStoreNextSegment(int consumerId) {
+        return true;
+    }
+
+    @Override
+    public TierType getTierType() {
+        return TierType.IN_REMOTE;
+    }
+
+    @Override
+    public void release() {
+        getRemoteCacheManager().release();
+        getSegmentIndexTracker().release();
     }
 
     @Override

@@ -20,5 +20,5 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common;
 
 public interface TierStorageFactory {
 
-    TierStorage createTierStorage();
+    TierProducerAgent createTierStorage();
 }

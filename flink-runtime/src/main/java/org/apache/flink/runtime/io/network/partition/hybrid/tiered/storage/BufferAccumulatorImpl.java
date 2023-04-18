@@ -27,11 +27,10 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.TieredStorageProducerClient;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.DiskTierStorage;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.memory.MemoryTierStorage;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.DiskTierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.memory.MemoryTierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
@@ -51,9 +50,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class BufferAccumulatorImpl implements BufferAccumulator {
 
-    private final List<TierStorage> tierStorages;
-
-    private final TierProducerAgent[] tierProducerAgents;
+    private final List<TierProducerAgent> tierProducerAgents;
 
     private final TierType[] tierTypes;
 
@@ -79,14 +76,12 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     @Nullable private OutputMetrics outputMetrics;
 
     public BufferAccumulatorImpl(
-            List<TierStorage> tierStorages,
-            TierProducerAgent[] tierProducerAgents,
+            List<TierProducerAgent> tierProducerAgents,
             int numConsumers,
             int bufferSize,
             boolean isBroadcastOnly,
             TieredStoreMemoryManager storeMemoryManager,
             @Nullable BufferCompressor bufferCompressor) {
-        this.tierStorages = tierStorages;
         this.tierProducerAgents = tierProducerAgents;
         this.storeMemoryManager = storeMemoryManager;
         this.bufferCompressor = bufferCompressor;
@@ -95,11 +90,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         this.lastSubpartitionSegmentIndexes = new int[numConsumers];
         Arrays.fill(lastSubpartitionSegmentIndexes, -1);
         this.subpartitionWriterIndex = new int[numConsumers];
-        this.bufferRecyclers = new BufferRecycler[tierStorages.size()];
-        this.tierTypes = new TierType[tierStorages.size()];
+        this.bufferRecyclers = new BufferRecycler[tierProducerAgents.size()];
+        this.tierTypes = new TierType[tierProducerAgents.size()];
 
-        for (int i = 0; i < tierStorages.size(); i++) {
-            tierTypes[i] = tierStorages.get(i).getTierType();
+        for (int i = 0; i < tierProducerAgents.size(); i++) {
+            tierTypes[i] = tierProducerAgents.get(i).getTierType();
             TierType tierType = tierTypes[i];
             bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tierType);
         }
@@ -133,11 +128,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     public void close() {
-        Arrays.stream(tierProducerAgents).forEach(TierProducerAgent::close);
+        tierProducerAgents.forEach(TierProducerAgent::close);
     }
 
     public void release() {
-        tierStorages.forEach(TierStorage::release);
+        tierProducerAgents.forEach(TierProducerAgent::release);
     }
 
     void writeBuffers(List<MemorySegmentAndConsumerId> finishedSegments) throws IOException {
@@ -172,11 +167,11 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         Buffer compressedBuffer = compressBufferIfPossible(finishedBuffer);
         updateStatistics(compressedBuffer);
         if (segmentIndex != lastSubpartitionSegmentIndexes[consumerId]) {
-            tierProducerAgents[tierIndex].startSegment(consumerId, segmentIndex);
+            tierProducerAgents.get(tierIndex).startSegment(consumerId, segmentIndex);
             lastSubpartitionSegmentIndexes[consumerId] = segmentIndex;
         }
         boolean isLastBufferInSegment =
-                tierProducerAgents[tierIndex].write(consumerId, compressedBuffer);
+                tierProducerAgents.get(tierIndex).write(consumerId, compressedBuffer);
         storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(consumerId);
@@ -186,24 +181,24 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     private int chooseStorageTierIndex(int targetSubpartition) throws IOException {
-        if (tierStorages.size() == 1) {
+        if (tierProducerAgents.size() == 1) {
             return 0;
         }
         // only for test case Memory and Disk
-        if (tierStorages.size() == 2
-                && tierStorages.get(0) instanceof MemoryTierStorage
-                && tierStorages.get(1) instanceof DiskTierStorage) {
-            if (!isBroadcastOnly && tierStorages.get(0).canStoreNextSegment(targetSubpartition)) {
+        if (tierProducerAgents.size() == 2
+                && tierProducerAgents.get(0) instanceof MemoryTierProducerAgent
+                && tierProducerAgents.get(1) instanceof DiskTierProducerAgent) {
+            if (!isBroadcastOnly && tierProducerAgents.get(0).canStoreNextSegment(targetSubpartition)) {
                 return 0;
             }
             return 1;
         }
-        for (int tierIndex = 0; tierIndex < tierStorages.size(); ++tierIndex) {
-            TierStorage tierStorage = tierStorages.get(tierIndex);
-            if (isBroadcastOnly && tierStorage instanceof MemoryTierStorage) {
+        for (int tierIndex = 0; tierIndex < tierProducerAgents.size(); ++tierIndex) {
+            TierProducerAgent tierProducerAgent = tierProducerAgents.get(tierIndex);
+            if (isBroadcastOnly && tierProducerAgent instanceof MemoryTierProducerAgent) {
                 continue;
             }
-            if (tierStorages.get(tierIndex).canStoreNextSegment(targetSubpartition)) {
+            if (tierProducerAgents.get(tierIndex).canStoreNextSegment(targetSubpartition)) {
                 return tierIndex;
             }
         }

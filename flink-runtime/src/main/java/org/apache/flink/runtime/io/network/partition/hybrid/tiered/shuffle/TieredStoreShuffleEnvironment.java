@@ -20,14 +20,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorageReleaser;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageWriterFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierStorageReleaser;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTieredStorageFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.UpstreamTieredStorageFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.UpstreamTieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
 
 import java.util.Collections;
 import java.util.List;
@@ -44,39 +38,6 @@ public class TieredStoreShuffleEnvironment {
 
     private static final TierType[] tierIndexTypes =
             new TierType[] {TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE};
-
-    public UpstreamTieredStorageFactory createUpstreamTieredStorageFactory(
-            int[] tierIndexes,
-            ResultPartitionID resultPartitionID,
-            int numSubpartitions,
-            float minReservedDiskSpaceFraction,
-            String dataFileBasePath,
-            boolean isBroadcast,
-            PartitionFileManager partitionFileManager,
-            UpstreamTieredStoreMemoryManager storeMemoryManager,
-            TieredStorageWriterFactory tieredStorageWriterFactory) {
-        UpstreamTieredStorageFactory tierStorageFactory =
-                new UpstreamTieredStorageFactory(
-                        tierIndexes,
-                        resultPartitionID,
-                        numSubpartitions,
-                        minReservedDiskSpaceFraction,
-                        dataFileBasePath,
-                        isBroadcast,
-                        partitionFileManager,
-                        storeMemoryManager,
-                        tieredStorageWriterFactory);
-        tierStorageFactory.setup();
-        return tierStorageFactory;
-    }
-
-    public RemoteTieredStorageFactory createRemoteTieredStorageFactory(
-            int[] tierIndexes, TieredStorageWriterFactory tieredStorageWriterFactory) {
-        RemoteTieredStorageFactory tierStorageFactory =
-                new RemoteTieredStorageFactory(tierIndexes, tieredStorageWriterFactory);
-        tierStorageFactory.setup();
-        return tierStorageFactory;
-    }
 
     public void createStorageTierReaderFactory() {}
 

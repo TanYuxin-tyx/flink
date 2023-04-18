@@ -244,7 +244,7 @@ public class TieredStoreConfiguration {
         return upstreamTierTypes;
     }
 
-    public int[] getUpstreamTierIndexes() {
+    public int[] getTierIndexes() {
         // TODO, use indexes directly
         int[] tierIndexes = new int[upstreamTierTypes.length];
         for (int i = 0; i < upstreamTierTypes.length; i++) {

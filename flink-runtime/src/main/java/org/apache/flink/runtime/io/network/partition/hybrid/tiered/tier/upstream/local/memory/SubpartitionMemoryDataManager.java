@@ -50,10 +50,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/**
- * This class is responsible for managing the data in a single subpartition. One {@link
- * MemoryTierProducerAgent} will hold multiple {@link MemoryTierConsumer}.
- */
+/** TODO. */
 public class SubpartitionMemoryDataManager {
 
     private final int targetChannel;

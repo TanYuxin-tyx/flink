@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream
 import java.util.Collection;
 
 /**
- * This interface is used by {@link MemoryTierConsumer} to operate {@link MemoryTierProducerAgent}.
+ * This interface is used by {@link MemoryTierConsumer} to operate {@link MemoryTierProducerAgentWriter}.
  * Spilling decision may be made and handled inside these operations.
  */
 public interface MemoryDataWriterOperation {

@@ -19,14 +19,21 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 
 import java.io.IOException;
 
 /**
- * This {@link TierProducerAgent} is the writer for specific tier. Each tier may contain data of all
- * subpartitions.
+ * The gate for a single tiered data. The gate is used to create {@link TierProducerAgentWriter}. The
+ * writing and reading data processes happen in the writer and reader.
  */
 public interface TierProducerAgent {
+
+    boolean canStoreNextSegment(int consumerId);
+
+    TierType getTierType();
+
+    void release();
 
     void startSegment(int consumerId, int segmentId);
 

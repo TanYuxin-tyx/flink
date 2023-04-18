@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.Tier
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.UpstreamTieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierStorage;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,7 +34,7 @@ import java.io.IOException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Tests for {@link RemoteTierStorage}. */
+/** Tests for {@link RemoteTierProducerAgent}. */
 class RemoteTierStorageTest {
 
     private static final int NUM_BUFFERS = 10;
@@ -55,11 +55,11 @@ class RemoteTierStorageTest {
 
     @Test
     void testDataManagerStoreSegment() throws Exception {
-        RemoteTierStorage dataManager = createRemoteTier();
+        RemoteTierProducerAgent dataManager = createRemoteTier();
         assertThat(dataManager.canStoreNextSegment(0)).isTrue();
     }
 
-    private RemoteTierStorage createRemoteTier() throws IOException {
+    private RemoteTierProducerAgent createRemoteTier() throws IOException {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, BUFFER_SIZE);
         BufferPool bufferPool = networkBufferPool.createBufferPool(NUM_BUFFERS, NUM_BUFFERS);
         TieredStoreMemoryManager tieredStoreMemoryManager =
