@@ -47,7 +47,7 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
         }
     }
 
-    public void setup(BiConsumer<Integer, List<MemorySegmentAndConsumerId>> bufferFlusher) {
+    public void setup(BiConsumer<Integer, List<Buffer>> bufferFlusher) {
         for (int i = 0; i < numConsumers; i++) {
             subpartitionCachedBuffers[i].setup(bufferFlusher);
         }

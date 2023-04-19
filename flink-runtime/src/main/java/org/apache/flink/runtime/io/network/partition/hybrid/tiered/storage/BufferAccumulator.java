@@ -33,15 +33,15 @@ public interface BufferAccumulator {
      * Setup the accumulator.
      *
      * @param numSubpartitions number of subpartitions
-     * @param flusher accepts the accumulated buffers. The index of the outer list corresponds to
-     *     the subpartition ids, while each inner list contains accumulated buffers in order for
+     * @param bufferFlusher accepts the accumulated buffers. The index of the outer list corresponds
+     *     to the subpartition ids, while each inner list contains accumulated buffers in order for
      *     that subpartition.
      */
-    void setup(BiConsumer<Integer, List<MemorySegmentAndConsumerId>> bufferFlusher);
+    void setup(int numSubpartitions, BiConsumer<Integer, List<Buffer>> bufferFlusher);
 
     /**
      * Receives the records from {@link TieredStorageProducerClient}, these records will be
-     * accumulated and transformed into finished {@link MemorySegmentAndConsumerId}s.
+     * accumulated and transformed into finished buffers.
      */
     void receive(ByteBuffer record, int consumerId, Buffer.DataType dataType) throws IOException;
 

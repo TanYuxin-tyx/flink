@@ -23,6 +23,8 @@ import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
+import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -44,7 +46,7 @@ public class SubpartitionCachedBuffer {
 
     private final CacheBufferOperation cacheBufferOperation;
 
-    private BiConsumer<Integer, List<MemorySegmentAndConsumerId>> bufferFlusher;
+    private BiConsumer<Integer, List<Buffer>> bufferFlusher;
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
@@ -56,7 +58,7 @@ public class SubpartitionCachedBuffer {
         this.cacheBufferOperation = cacheBufferOperation;
     }
 
-    public void setup(BiConsumer<Integer, List<MemorySegmentAndConsumerId>> bufferFlusher) {
+    public void setup(BiConsumer<Integer, List<Buffer>> bufferFlusher) {
         this.bufferFlusher = bufferFlusher;
     }
 
@@ -85,7 +87,9 @@ public class SubpartitionCachedBuffer {
 
         // store Events in adhoc heap segments, for network memory efficiency
         MemorySegment data = MemorySegmentFactory.wrap(event.array());
-        addFinishedBuffer(new MemorySegmentAndConsumerId(data, consumerId, dataType, data.size()));
+        addFinishedBuffer(
+                // Note that the buffer recycler should be replaced before writing to the tiers.
+                new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size()));
     }
 
     private void writeRecord(ByteBuffer record, Buffer.DataType dataType)
@@ -147,9 +151,11 @@ public class SubpartitionCachedBuffer {
         currentWritingBuffer.close();
         bufferConsumer.close();
         addFinishedBuffer(
-                new MemorySegmentAndConsumerId(
+                new NetworkBuffer(
                         buffer.getMemorySegment(),
-                        consumerId,
+                        // Note that the buffer recycler should be replaced before writing to the
+                        // tiers.
+                        FreeingBufferRecycler.INSTANCE,
                         buffer.getDataType(),
                         buffer.getSize()));
     }
@@ -157,7 +163,7 @@ public class SubpartitionCachedBuffer {
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    private void addFinishedBuffer(MemorySegmentAndConsumerId buffer) {
-        bufferFlusher.accept(consumerId, Collections.singletonList(buffer));
+    private void addFinishedBuffer(Buffer finishedBuffer) {
+        bufferFlusher.accept(consumerId, Collections.singletonList(finishedBuffer));
     }
 }

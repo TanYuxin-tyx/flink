@@ -25,7 +25,6 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.MemorySegmentAndConsumerId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
@@ -104,7 +103,7 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         Arrays.fill(lastSubpartitionSegmentIndexes, -1);
         Arrays.fill(subpartitionWriterIndex, -1);
 
-        bufferAccumulator.setup(this::writeFinishedBuffer);
+        bufferAccumulator.setup(numConsumers, this::writeFinishedBuffers);
     }
 
     @Override
@@ -137,57 +136,54 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         bufferAccumulator.release();
     }
 
-    public void writeFinishedBuffer(
-            int subpartitionId, List<MemorySegmentAndConsumerId> memorySegmentAndConsumerIds) {
+    public void writeFinishedBuffers(int subpartitionId, List<Buffer> finishedBuffers) {
         try {
-            writeBuffers(memorySegmentAndConsumerIds);
+            writeBuffers(subpartitionId, finishedBuffers);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
     }
 
-    void writeBuffers(List<MemorySegmentAndConsumerId> finishedSegments) throws IOException {
-        for (MemorySegmentAndConsumerId finishedSegment : finishedSegments) {
-            writeFinishedBuffer(finishedSegment);
+    void writeBuffers(int subpartitionId, List<Buffer> finishedBuffers) throws IOException {
+        for (Buffer finishedBuffer : finishedBuffers) {
+            writeFinishedBuffer(subpartitionId, finishedBuffer);
         }
     }
 
-    private void writeFinishedBuffer(MemorySegmentAndConsumerId finishedSegment)
-            throws IOException {
-        int consumerId = finishedSegment.getConsumerId();
-        int tierIndex = subpartitionWriterIndex[consumerId];
+    private void writeFinishedBuffer(int subpartitionId, Buffer finishedBuffer) throws IOException {
+        int tierIndex = subpartitionWriterIndex[subpartitionId];
         // For the first buffer
         if (tierIndex == -1) {
-            tierIndex = chooseStorageTierIndex(consumerId);
-            subpartitionWriterIndex[consumerId] = tierIndex;
+            tierIndex = chooseStorageTierIndex(subpartitionId);
+            subpartitionWriterIndex[subpartitionId] = tierIndex;
         }
 
-        int segmentIndex = subpartitionSegmentIndexes[consumerId];
-        if (finishedSegment.getDataType().isBuffer()) {
+        int segmentIndex = subpartitionSegmentIndexes[subpartitionId];
+        if (finishedBuffer.getDataType().isBuffer()) {
             storeMemoryManager.decRequestedBufferInAccumulator();
             storeMemoryManager.incNumRequestedBuffer(tierTypes[tierIndex]);
         }
-        Buffer finishedBuffer =
+        Buffer networkBuffer =
                 new NetworkBuffer(
-                        finishedSegment.getBuffer(),
-                        finishedSegment.getDataType().isBuffer()
+                        finishedBuffer.getMemorySegment(),
+                        finishedBuffer.getDataType().isBuffer()
                                 ? bufferRecyclers[tierIndex]
                                 : FreeingBufferRecycler.INSTANCE,
-                        finishedSegment.getDataType(),
-                        finishedSegment.getDataSize());
-        Buffer compressedBuffer = compressBufferIfPossible(finishedBuffer);
+                        finishedBuffer.getDataType(),
+                        finishedBuffer.getSize());
+        Buffer compressedBuffer = compressBufferIfPossible(networkBuffer);
         updateStatistics(compressedBuffer);
-        if (segmentIndex != lastSubpartitionSegmentIndexes[consumerId]) {
-            tierProducerAgents.get(tierIndex).startSegment(consumerId, segmentIndex);
-            lastSubpartitionSegmentIndexes[consumerId] = segmentIndex;
+        if (segmentIndex != lastSubpartitionSegmentIndexes[subpartitionId]) {
+            tierProducerAgents.get(tierIndex).startSegment(subpartitionId, segmentIndex);
+            lastSubpartitionSegmentIndexes[subpartitionId] = segmentIndex;
         }
         boolean isLastBufferInSegment =
-                tierProducerAgents.get(tierIndex).write(consumerId, compressedBuffer);
+                tierProducerAgents.get(tierIndex).write(subpartitionId, compressedBuffer);
         storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
-            tierIndex = chooseStorageTierIndex(consumerId);
-            subpartitionWriterIndex[consumerId] = tierIndex;
-            subpartitionSegmentIndexes[consumerId] = (segmentIndex + 1);
+            tierIndex = chooseStorageTierIndex(subpartitionId);
+            subpartitionWriterIndex[subpartitionId] = tierIndex;
+            subpartitionSegmentIndexes[subpartitionId] = (segmentIndex + 1);
         }
     }
 

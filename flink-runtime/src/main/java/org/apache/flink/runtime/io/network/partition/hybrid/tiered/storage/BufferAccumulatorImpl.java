@@ -69,8 +69,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     /** Record the index of tier writer currently used by each subpartition. */
     private final int[] subpartitionWriterIndex;
 
-    private BiConsumer<Integer, List<MemorySegmentAndConsumerId>> bufferFlusher;
-
+    private int numSubpartitions;
     @Nullable private OutputMetrics outputMetrics;
 
     public BufferAccumulatorImpl(
@@ -104,7 +103,8 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     }
 
     @Override
-    public void setup(BiConsumer<Integer, List<MemorySegmentAndConsumerId>> bufferFlusher) {
+    public void setup(int numSubpartitions, BiConsumer<Integer, List<Buffer>> bufferFlusher) {
+        this.numSubpartitions = numSubpartitions;
         cachedBuffer.setup(bufferFlusher);
     }
 
