@@ -57,7 +57,7 @@ public class SubpartitionMemoryDataManager {
 
     private final int bufferSize;
 
-    private final MemoryDataWriterOperation memoryDataWriterOperation;
+    private final MemoryTierProducerAgentOperation memoryTierProducerAgentOperation;
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
@@ -82,10 +82,10 @@ public class SubpartitionMemoryDataManager {
             int targetChannel,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
-            MemoryDataWriterOperation memoryDataWriterOperation) {
+            MemoryTierProducerAgentOperation memoryTierProducerAgentOperation) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
-        this.memoryDataWriterOperation = memoryDataWriterOperation;
+        this.memoryTierProducerAgentOperation = memoryTierProducerAgentOperation;
         this.bufferCompressor = bufferCompressor;
         this.consumerMap = new HashMap<>();
     }
@@ -124,7 +124,7 @@ public class SubpartitionMemoryDataManager {
                                     subpartitionLock.readLock(),
                                     targetChannel,
                                     nettyBasedTierConsumerViewId,
-                                    memoryDataWriterOperation);
+                                    memoryTierProducerAgentOperation);
                     newConsumer.addInitialBuffers(allBuffers);
                     consumerMap.put(nettyBasedTierConsumerViewId, newConsumer);
                     return newConsumer;
@@ -218,7 +218,7 @@ public class SubpartitionMemoryDataManager {
                         }
                     }
                 });
-        memoryDataWriterOperation.onDataAvailable(targetChannel, needNotify);
+        memoryTierProducerAgentOperation.onDataAvailable(targetChannel, needNotify);
     }
 
     private <E extends Exception> void runWithLock(ThrowingRunnable<E> runnable) throws E {

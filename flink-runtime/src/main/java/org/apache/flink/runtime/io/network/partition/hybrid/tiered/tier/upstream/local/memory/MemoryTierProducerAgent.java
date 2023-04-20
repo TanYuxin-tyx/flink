@@ -33,7 +33,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewProvider;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 
@@ -50,9 +50,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
 public class MemoryTierProducerAgent
-        implements TierProducerAgent,
-                NettyBasedTierConsumerViewProvider,
-                MemoryDataWriterOperation {
+        implements TierProducerAgent, NettyServiceViewProvider, MemoryTierProducerAgentOperation {
 
     public static final int BROADCAST_CHANNEL = 0;
 
@@ -100,7 +98,8 @@ public class MemoryTierProducerAgent
         Arrays.fill(numSubpartitionEmitBytes, 0);
         this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
         this.subpartitionMemoryDataManagers = new SubpartitionMemoryDataManager[numSubpartitions];
-        this.subpartitionSegmentIndexTracker = new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
+        this.subpartitionSegmentIndexTracker =
+                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionMemoryDataManagers[subpartitionId] =
                     new SubpartitionMemoryDataManager(
@@ -127,8 +126,8 @@ public class MemoryTierProducerAgent
                 NettyBasedTierConsumerViewId.newId(lastNettyBasedTierConsumerViewId);
         lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
 
-        NettyBasedTierConsumer memoryConsumer = registerNewConsumer(
-                                subpartitionId, nettyBasedTierConsumerViewId, memoryReaderView);
+        NettyBasedTierConsumer memoryConsumer =
+                registerNewConsumer(subpartitionId, nettyBasedTierConsumerViewId, memoryReaderView);
 
         memoryReaderView.setConsumer(memoryConsumer);
         return memoryReaderView;
@@ -142,8 +141,7 @@ public class MemoryTierProducerAgent
 
     @Override
     public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
-        return getSegmentIndexTracker()
-                .hasCurrentSegment(subpartitionId, segmentIndex);
+        return getSegmentIndexTracker().hasCurrentSegment(subpartitionId, segmentIndex);
     }
 
     @Override
@@ -159,8 +157,7 @@ public class MemoryTierProducerAgent
         // 3. release all data in memory.
 
         if (!isReleased) {
-            getSegmentIndexTracker()
-                    .release();
+            getSegmentIndexTracker().release();
             isReleased = true;
         }
     }
@@ -177,7 +174,6 @@ public class MemoryTierProducerAgent
                 "Memory Tier does not support multiple consumers");
     }
 
-
     @Override
     public void startSegment(int consumerId, int segmentId) {
         subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(consumerId, segmentId);
@@ -187,7 +183,8 @@ public class MemoryTierProducerAgent
     public boolean write(int consumerId, Buffer finishedBuffer) {
         boolean isLastBufferInSegment = false;
         numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
-        if (numSubpartitionEmitBytes[consumerId] >= MemoryTierProducerAgent.MEMORY_TIER_SEGMENT_BYTES) {
+        if (numSubpartitionEmitBytes[consumerId]
+                >= MemoryTierProducerAgent.MEMORY_TIER_SEGMENT_BYTES) {
             isLastBufferInSegment = true;
             numSubpartitionEmitBytes[consumerId] = 0;
         }
@@ -230,7 +227,10 @@ public class MemoryTierProducerAgent
                 .registerNewConsumer(nettyBasedTierConsumerViewId);
     }
 
-    /** Close this {@link MemoryTierProducerAgentWriter}, it means no data will be appended to memory. */
+    /**
+     * Close this {@link MemoryTierProducerAgentWriter}, it means no data will be appended to
+     * memory.
+     */
     @Override
     public void close() {}
 

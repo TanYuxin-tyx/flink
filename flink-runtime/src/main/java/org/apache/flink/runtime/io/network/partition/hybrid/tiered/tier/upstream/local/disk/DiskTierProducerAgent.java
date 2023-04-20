@@ -38,7 +38,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewProvider;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.File;
@@ -52,7 +52,7 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.c
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */
-public class DiskTierProducerAgent implements TierProducerAgent, NettyBasedTierConsumerViewProvider {
+public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceViewProvider {
 
     public static final int BROADCAST_CHANNEL = 0;
 

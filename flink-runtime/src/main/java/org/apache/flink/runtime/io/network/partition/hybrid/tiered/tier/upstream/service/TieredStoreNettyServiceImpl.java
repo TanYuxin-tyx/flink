@@ -26,12 +26,12 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     public TieredStoreResultSubpartitionView register(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
-        List<NettyBasedTierConsumerViewProvider> registeredTiers = new ArrayList<>();
+        List<NettyServiceViewProvider> registeredTiers = new ArrayList<>();
         List<NettyBasedTierConsumerView> registeredTierConsumerViews = new ArrayList<>();
         for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
-            if (tierProducerAgent instanceof NettyBasedTierConsumerViewProvider) {
-                NettyBasedTierConsumerViewProvider tierConsumerViewProvider =
-                        (NettyBasedTierConsumerViewProvider) tierProducerAgent;
+            if (tierProducerAgent instanceof NettyServiceViewProvider) {
+                NettyServiceViewProvider tierConsumerViewProvider =
+                        (NettyServiceViewProvider) tierProducerAgent;
                 NettyBasedTierConsumerView nettyBasedTierConsumerView =
                         checkNotNull(
                                 tierConsumerViewProvider.createNettyBasedTierConsumerView(

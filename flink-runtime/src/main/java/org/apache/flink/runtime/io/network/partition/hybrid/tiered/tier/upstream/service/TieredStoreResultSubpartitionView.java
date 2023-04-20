@@ -40,7 +40,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final int subpartitionId;
 
-    private final List<NettyBasedTierConsumerViewProvider> registeredTiers;
+    private final List<NettyServiceViewProvider> registeredTiers;
 
     private final List<NettyBasedTierConsumerView> registeredTierConsumerViews;
 
@@ -57,7 +57,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     public TieredStoreResultSubpartitionView(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            List<NettyBasedTierConsumerViewProvider> registeredTiers,
+            List<NettyServiceViewProvider> registeredTiers,
             List<NettyBasedTierConsumerView> registeredTierConsumerViews) {
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
@@ -173,7 +173,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             nettyBasedTierConsumerView.updateNeedNotifyStatus();
         }
         for (int viewIndex = 0; viewIndex < registeredTiers.size(); viewIndex++) {
-            NettyBasedTierConsumerViewProvider tierConsumerViewProvider =
+            NettyServiceViewProvider tierConsumerViewProvider =
                     registeredTiers.get(viewIndex);
             if (tierConsumerViewProvider.hasCurrentSegment(subpartitionId, requiredSegmentId)) {
                 viewIndexContainsCurrentSegment = viewIndex;

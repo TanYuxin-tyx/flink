@@ -30,21 +30,21 @@ public class MemoryTierConsumer extends NettyBasedTierConsumerImpl {
 
     private final int subpartitionId;
 
-    private final MemoryDataWriterOperation memoryDataWriterOperation;
+    private final MemoryTierProducerAgentOperation memoryTierProducerAgentOperation;
 
     public MemoryTierConsumer(
             Lock consumerLock,
             int subpartitionId,
             NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
-            MemoryDataWriterOperation memoryDataWriterOperation) {
+            MemoryTierProducerAgentOperation memoryTierProducerAgentOperation) {
         super(consumerLock);
         this.subpartitionId = subpartitionId;
         this.nettyBasedTierConsumerViewId = nettyBasedTierConsumerViewId;
-        this.memoryDataWriterOperation = memoryDataWriterOperation;
+        this.memoryTierProducerAgentOperation = memoryTierProducerAgentOperation;
     }
 
     @Override
     public void release() {
-        memoryDataWriterOperation.onConsumerReleased(subpartitionId, nettyBasedTierConsumerViewId);
+        memoryTierProducerAgentOperation.onConsumerReleased(subpartitionId, nettyBasedTierConsumerViewId);
     }
 }
