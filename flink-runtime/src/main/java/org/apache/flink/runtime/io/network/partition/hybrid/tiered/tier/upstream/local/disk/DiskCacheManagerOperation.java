@@ -18,11 +18,9 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk;
 
-import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
 
-import java.util.Collection;
 import java.util.List;
 
 /**
@@ -41,26 +39,6 @@ public interface DiskCacheManagerOperation {
     List<BufferContext> getBuffersInOrder(int subpartitionId);
 
     /**
-     * Get the current size of buffer pool. *
-     *
-     * <p>/** Request buffer from buffer pool.
-     *
-     * @return requested buffer.
-     */
-    BufferBuilder requestBufferFromPool() throws InterruptedException;
-
-    /**
-     * This method is called when subpartition data become available.
-     *
-     * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param nettyBasedTierConsumerViewIds the consumer's identifier which need notify data
-     *     available.
-     */
-    void onDataAvailable(
-            int subpartitionId,
-            Collection<NettyBasedTierConsumerViewId> nettyBasedTierConsumerViewIds);
-
-    /**
      * This method is called when consumer is decided to released.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
@@ -68,12 +46,4 @@ public interface DiskCacheManagerOperation {
      */
     void onConsumerReleased(
             int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId);
-
-    /**
-     * This method is called when consumer is get next buffer.
-     *
-     * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param bufferIndex the index the consumer needs.
-     */
-    boolean isLastBufferInSegment(int subpartitionId, int bufferIndex);
 }

@@ -24,7 +24,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
 import org.apache.flink.util.function.SupplierWithException;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.function.BiConsumer;
 
@@ -62,24 +61,9 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
     }
 
     @Override
-    public BufferBuilder requestBufferFromPool() throws InterruptedException {
-        return requestBufferFromPoolSupplier.get();
-    }
-
-    @Override
-    public void onDataAvailable(
-            int subpartitionId, Collection<NettyBasedTierConsumerViewId> nettyBasedTierConsumerViewIds) {
-        onDataAvailableRunnable.run();
-    }
-
-    @Override
-    public void onConsumerReleased(int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
+    public void onConsumerReleased(
+            int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
         onConsumerReleasedBiConsumer.accept(subpartitionId, nettyBasedTierConsumerViewId);
-    }
-
-    @Override
-    public boolean isLastBufferInSegment(int subpartitionId, int bufferIndex) {
-        return false;
     }
 
     public static Builder builder() {

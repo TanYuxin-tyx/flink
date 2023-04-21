@@ -21,7 +21,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstrea
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
@@ -36,7 +35,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -160,44 +158,9 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
     // ------------------------------------
 
     @Override
-    public BufferBuilder requestBufferFromPool() throws InterruptedException {
-        MemorySegment segment = storageMemoryManager.requestBufferBlocking(tierIndex);
-        tryCheckFlushCacheBuffers();
-        return new BufferBuilder(segment, this::recycleBuffer);
-    }
-
-    private void tryCheckFlushCacheBuffers() {
-        if (hasFlushCompleted.isDone()) {
-            cacheFlushManager.checkNeedTriggerFlushCachedBuffers();
-        }
-    }
-
-    @Override
-    public void onDataAvailable(
-            int subpartitionId,
-            Collection<NettyBasedTierConsumerViewId> nettyBasedTierConsumerViewIds) {
-        Map<NettyBasedTierConsumerViewId, NettyBasedTierConsumerView> consumerViewMap =
-                tierReaderViewMap.get(subpartitionId);
-        nettyBasedTierConsumerViewIds.forEach(
-                consumerId -> {
-                    NettyBasedTierConsumerView consumerView = consumerViewMap.get(consumerId);
-                    if (consumerView != null) {
-                        consumerView.notifyDataAvailable();
-                    }
-                });
-    }
-
-    @Override
     public void onConsumerReleased(
             int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
         tierReaderViewMap.get(subpartitionId).remove(nettyBasedTierConsumerViewId);
-    }
-
-    @Override
-    public boolean isLastBufferInSegment(int subpartitionId, int bufferIndex) {
-        return getSubpartitionCacheDataManager(subpartitionId)
-                .getLastBufferIndexOfSegments()
-                .contains(bufferIndex);
     }
 
     // ------------------------------------
