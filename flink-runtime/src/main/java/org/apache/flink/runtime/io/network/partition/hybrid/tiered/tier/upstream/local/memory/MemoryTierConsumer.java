@@ -18,13 +18,13 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.memory;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProviderImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
 
 import java.util.concurrent.locks.Lock;
 
 /** The {@link MemoryTierConsumer} is used to consume data from Memory Tier. */
-public class MemoryTierConsumer extends NettyBasedTierConsumerImpl {
+public class MemoryTierConsumer extends NettyServiceProviderImpl {
 
     private final NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId;
 

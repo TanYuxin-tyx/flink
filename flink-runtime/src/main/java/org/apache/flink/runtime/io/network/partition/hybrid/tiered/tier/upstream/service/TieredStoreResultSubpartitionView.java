@@ -42,7 +42,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final List<NettyServiceViewProvider> registeredTiers;
 
-    private final List<NettyBasedTierConsumerView> registeredTierConsumerViews;
+    private final List<NettyServiceView> registeredTierConsumerViews;
 
     private boolean isReleased = false;
 
@@ -58,7 +58,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
             List<NettyServiceViewProvider> registeredTiers,
-            List<NettyBasedTierConsumerView> registeredTierConsumerViews) {
+            List<NettyServiceView> registeredTierConsumerViews) {
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
         this.registeredTiers = registeredTiers;
@@ -105,8 +105,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return;
         }
         isReleased = true;
-        for (NettyBasedTierConsumerView nettyBasedTierConsumerView : registeredTierConsumerViews) {
-            nettyBasedTierConsumerView.release();
+        for (NettyServiceView nettyServiceView : registeredTierConsumerViews) {
+            nettyServiceView.release();
         }
         registeredTierConsumerViews.clear();
         registeredTiers.clear();
@@ -120,8 +120,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     @Override
     public Throwable getFailureCause() {
         TieredStoreConsumerFailureCause failureCause = new TieredStoreConsumerFailureCause();
-        for (NettyBasedTierConsumerView nettyBasedTierConsumerView : registeredTierConsumerViews) {
-            failureCause.appendException(nettyBasedTierConsumerView.getFailureCause());
+        for (NettyServiceView nettyServiceView : registeredTierConsumerViews) {
+            failureCause.appendException(nettyServiceView.getFailureCause());
         }
         return failureCause.isEmpty() ? null : failureCause;
     }
@@ -169,8 +169,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     // -------------------------------
 
     private boolean findTierReaderViewIndex() {
-        for (NettyBasedTierConsumerView nettyBasedTierConsumerView : registeredTierConsumerViews) {
-            nettyBasedTierConsumerView.updateNeedNotifyStatus();
+        for (NettyServiceView nettyServiceView : registeredTierConsumerViews) {
+            nettyServiceView.updateNeedNotifyStatus();
         }
         for (int viewIndex = 0; viewIndex < registeredTiers.size(); viewIndex++) {
             NettyServiceViewProvider tierConsumerViewProvider =

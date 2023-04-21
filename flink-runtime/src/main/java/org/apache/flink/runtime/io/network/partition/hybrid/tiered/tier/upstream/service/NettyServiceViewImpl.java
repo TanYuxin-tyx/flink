@@ -33,8 +33,8 @@ import java.util.Optional;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The implementation of {@link NettyBasedTierConsumerView}. */
-public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerView {
+/** The implementation of {@link NettyServiceView}. */
+public class NettyServiceViewImpl implements NettyServiceView {
 
     private final Object viewLock = new Object();
 
@@ -59,18 +59,18 @@ public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerVie
 
     @Nullable
     @GuardedBy("viewLock")
-    private NettyBasedTierConsumer nettyBasedTierConsumer;
+    private NettyServiceProvider nettyServiceProvider;
 
-    public NettyBasedTierConsumerViewImpl(BufferAvailabilityListener availabilityListener) {
+    public NettyServiceViewImpl(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 
     @Override
-    public void setConsumer(NettyBasedTierConsumer nettyBasedTierConsumer) {
+    public void setConsumer(NettyServiceProvider nettyServiceProvider) {
         synchronized (viewLock) {
             checkState(
-                    this.nettyBasedTierConsumer == null, "Repeatedly set consumer is not allowed.");
-            this.nettyBasedTierConsumer = nettyBasedTierConsumer;
+                    this.nettyServiceProvider == null, "Repeatedly set consumer is not allowed.");
+            this.nettyServiceProvider = nettyServiceProvider;
         }
     }
 
@@ -79,9 +79,9 @@ public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerVie
     public BufferAndBacklog getNextBuffer() throws IOException {
         try {
             synchronized (viewLock) {
-                checkNotNull(nettyBasedTierConsumer, "Consumer must be not null.");
+                checkNotNull(nettyServiceProvider, "Consumer must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume =
-                        nettyBasedTierConsumer.getNextBuffer(consumingOffset + 1);
+                        nettyServiceProvider.getNextBuffer(consumingOffset + 1);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.orElse(null);
             }
@@ -187,10 +187,10 @@ public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerVie
 
     @SuppressWarnings("FieldAccessNotGuarded")
     private int getSubpartitionBacklog() {
-        if (nettyBasedTierConsumer == null) {
+        if (nettyServiceProvider == null) {
             return 0;
         }
-        return nettyBasedTierConsumer.getBacklog();
+        return nettyServiceProvider.getBacklog();
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -219,10 +219,10 @@ public class NettyBasedTierConsumerViewImpl implements NettyBasedTierConsumerVie
             }
             isReleased = true;
             failureCause = throwable;
-            releaseConsumer = nettyBasedTierConsumer != null;
+            releaseConsumer = nettyServiceProvider != null;
         }
         if (releaseConsumer) {
-            nettyBasedTierConsumer.release();
+            nettyServiceProvider.release();
         }
     }
 }

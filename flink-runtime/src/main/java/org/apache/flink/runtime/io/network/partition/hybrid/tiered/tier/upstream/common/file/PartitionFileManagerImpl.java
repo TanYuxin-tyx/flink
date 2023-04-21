@@ -74,15 +74,14 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
 
     @Override
     public PartitionFileReader createPartitionFileReader(PartitionFileType partitionFileType) {
-        switch (partitionFileType) {
-            case PRODUCER_MERGE:
-                return new ProducerMergePartitionFileReader(
-                        readBufferPool,
-                        readIOExecutor,
-                        producerMergeIndex,
-                        producerMergeShuffleFilePath,
-                        ProducerMergePartitionTierConsumerImpl.Factory.INSTANCE,
-                        storeConfiguration);
+        if (partitionFileType == PartitionFileType.PRODUCER_MERGE) {
+            return new ProducerMergePartitionFileReader(
+                    readBufferPool,
+                    readIOExecutor,
+                    producerMergeIndex,
+                    producerMergeShuffleFilePath,
+                    ProducerMergePartitionTierSubpartitionReader.Factory.INSTANCE,
+                    storeConfiguration);
         }
         throw new UnsupportedOperationException(
                 "PartitionFileManager doesn't support the type of partition file: "

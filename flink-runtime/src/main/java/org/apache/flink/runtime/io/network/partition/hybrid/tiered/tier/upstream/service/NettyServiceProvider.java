@@ -23,10 +23,10 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAn
 import java.util.Optional;
 
 /**
- * The {@link NettyBasedTierConsumer} is invoked by {@link NettyBasedTierConsumerView} to get buffer
+ * The {@link NettyServiceProvider} is invoked by {@link NettyServiceView} to get buffer
  * and backlog from a tier.
  */
-public interface NettyBasedTierConsumer {
+public interface NettyServiceProvider {
 
     /**
      * Get buffer from the tier.

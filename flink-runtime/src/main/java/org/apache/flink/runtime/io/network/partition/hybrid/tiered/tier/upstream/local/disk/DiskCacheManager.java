@@ -29,8 +29,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -53,8 +53,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
 
     private final CacheFlushManager cacheFlushManager;
 
-    private final List<Map<NettyBasedTierConsumerViewId, NettyBasedTierConsumerView>>
-            tierReaderViewMap;
+    private final List<Map<NettyBasedTierConsumerViewId, NettyServiceView>> tierReaderViewMap;
 
     private volatile CompletableFuture<Void> hasFlushCompleted =
             CompletableFuture.completedFuture(null);

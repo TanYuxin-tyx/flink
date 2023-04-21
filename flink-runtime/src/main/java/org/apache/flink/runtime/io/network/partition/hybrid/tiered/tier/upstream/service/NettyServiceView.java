@@ -26,14 +26,14 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 
 /**
- * For each {@link NettyBasedTierConsumer}, there will be a corresponding {@link
- * NettyBasedTierConsumerView}, which will get buffer and backlog from {@link
- * NettyBasedTierConsumer} and be aware of the available status of {@link NettyBasedTierConsumer}.
+ * For each {@link NettyServiceProvider}, there will be a corresponding {@link
+ * NettyServiceView}, which will get buffer and backlog from {@link
+ * NettyServiceProvider} and be aware of the available status of {@link NettyServiceProvider}.
  */
-public interface NettyBasedTierConsumerView {
+public interface NettyServiceView {
 
     /**
-     * Get buffer and backlog from {@link NettyBasedTierConsumer}.
+     * Get buffer and backlog from {@link NettyServiceProvider}.
      *
      * @return buffer and backlog.
      * @throws IOException is thrown if there is a failure.
@@ -42,7 +42,7 @@ public interface NettyBasedTierConsumerView {
     ResultSubpartition.BufferAndBacklog getNextBuffer() throws IOException;
 
     /**
-     * Get availability and backlog of {@link NettyBasedTierConsumer}.
+     * Get availability and backlog of {@link NettyServiceProvider}.
      *
      * @param numCreditsAvailable is the available credit.
      * @return availability and backlog.
@@ -53,14 +53,14 @@ public interface NettyBasedTierConsumerView {
     /**
      * Set the tier reader to the view.
      *
-     * @param nettyBasedTierConsumer is the tier reader.
+     * @param nettyServiceProvider is the tier reader.
      */
-    void setConsumer(NettyBasedTierConsumer nettyBasedTierConsumer);
+    void setConsumer(NettyServiceProvider nettyServiceProvider);
 
-    /** Update the need notify status of {@link NettyBasedTierConsumer}. */
+    /** Update the need notify status of {@link NettyServiceProvider}. */
     void updateNeedNotifyStatus();
 
-    /** Notify that {@link NettyBasedTierConsumer} is available. */
+    /** Notify that {@link NettyServiceProvider} is available. */
     void notifyDataAvailable();
 
     /**
@@ -72,21 +72,21 @@ public interface NettyBasedTierConsumerView {
     int getConsumingOffset(boolean withLock);
 
     /**
-     * Get the number of queued buffers in {@link NettyBasedTierConsumer} unsynchronizedly.
+     * Get the number of queued buffers in {@link NettyServiceProvider} unsynchronizedly.
      *
      * @return the number of queued buffers.
      */
     int unsynchronizedGetNumberOfQueuedBuffers();
 
     /**
-     * Get the number of queued buffers in {@link NettyBasedTierConsumer} synchronizedly.
+     * Get the number of queued buffers in {@link NettyServiceProvider} synchronizedly.
      *
      * @return the number of queued buffers.
      */
     int getNumberOfQueuedBuffers();
 
     /**
-     * Release the {@link NettyBasedTierConsumerView}.
+     * Release the {@link NettyServiceView}.
      *
      * @throws IOException happened during releasing the view.
      */

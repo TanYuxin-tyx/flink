@@ -19,20 +19,20 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
 
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
 import org.apache.flink.util.function.FunctionWithException;
 
 import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
- * The {@link TestingNettyBasedTierConsumer} is used to mock the implementation of {@link
- * NettyBasedTierConsumer}.
+ * The {@link TestingNettyServiceProvider} is used to mock the implementation of {@link
+ * NettyServiceProvider}.
  */
-public class TestingNettyBasedTierConsumer implements NettyBasedTierConsumer {
+public class TestingNettyServiceProvider implements NettyServiceProvider {
 
-    public static final TestingNettyBasedTierConsumer NO_OP =
-            TestingNettyBasedTierConsumer.builder().build();
+    public static final TestingNettyServiceProvider NO_OP =
+            TestingNettyServiceProvider.builder().build();
 
     private final FunctionWithException<
                     Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
@@ -42,7 +42,7 @@ public class TestingNettyBasedTierConsumer implements NettyBasedTierConsumer {
 
     private final Runnable releaseRunnable;
 
-    private TestingNettyBasedTierConsumer(
+    private TestingNettyServiceProvider(
             FunctionWithException<Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
                     consumeBufferFunction,
             Supplier<Integer> getBacklogSupplier,
@@ -72,7 +72,7 @@ public class TestingNettyBasedTierConsumer implements NettyBasedTierConsumer {
         releaseRunnable.run();
     }
 
-    /** Builder for {@link TestingNettyBasedTierConsumer}. */
+    /** Builder for {@link TestingNettyServiceProvider}. */
     public static class Builder {
 
         private FunctionWithException<
@@ -103,8 +103,8 @@ public class TestingNettyBasedTierConsumer implements NettyBasedTierConsumer {
             return this;
         }
 
-        public TestingNettyBasedTierConsumer build() {
-            return new TestingNettyBasedTierConsumer(
+        public TestingNettyServiceProvider build() {
+            return new TestingNettyServiceProvider(
                     consumeBufferFunction, getBacklogSupplier, releaseRunnable);
         }
     }

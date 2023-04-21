@@ -23,7 +23,7 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import java.io.IOException;
 
 /**
- * {@link NettyServiceViewProvider} is used to create the view of {@link NettyBasedTierConsumer} for
+ * {@link NettyServiceViewProvider} is used to create the view of {@link NettyServiceProvider} for
  * each tier.
  */
 public interface NettyServiceViewProvider {
@@ -36,7 +36,7 @@ public interface NettyServiceViewProvider {
      * @return the netty based consumer view
      * @throws IOException if the consumer view cannot be created.
      */
-    NettyBasedTierConsumerView createNettyBasedTierConsumerView(
+    NettyServiceView createNettyBasedTierConsumerView(
             int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
 
     /**

@@ -28,8 +28,8 @@ import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListen
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView.AvailabilityWithBacklog;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewImpl;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -40,34 +40,34 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Tests for {@link NettyBasedTierConsumerView}. */
+/** Tests for {@link NettyServiceView}. */
 class NettyBasedTierConsumerViewTest {
 
     @Test
     void testGetNextBuffer() throws IOException {
-        NettyBasedTierConsumerView nettyBasedTierConsumerView = createNettyBasedTierConsumerView();
+        NettyServiceView nettyServiceView = createNettyBasedTierConsumerView();
         BufferAndBacklog bufferAndBacklog = createBufferAndBacklog(1, DataType.DATA_BUFFER, 0);
-        TestingNettyBasedTierConsumer testingNettyBasedTierConsumer =
-                TestingNettyBasedTierConsumer.builder()
+        TestingNettyServiceProvider testingNettyBasedTierConsumer =
+                TestingNettyServiceProvider.builder()
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(bufferAndBacklog))
                         .build();
-        nettyBasedTierConsumerView.setConsumer(testingNettyBasedTierConsumer);
-        BufferAndBacklog nextBuffer = nettyBasedTierConsumerView.getNextBuffer();
+        nettyServiceView.setConsumer(testingNettyBasedTierConsumer);
+        BufferAndBacklog nextBuffer = nettyServiceView.getNextBuffer();
         assertThat(nextBuffer).isSameAs(bufferAndBacklog);
     }
 
     @Test
     void testGetNextDataTypeIsNone() throws IOException {
-        NettyBasedTierConsumerView nettyBasedTierConsumerView = createNettyBasedTierConsumerView();
+        NettyServiceView nettyServiceView = createNettyBasedTierConsumerView();
         BufferAndBacklog bufferAndBacklog = createBufferAndBacklog(0, DataType.NONE, 0);
-        TestingNettyBasedTierConsumer testingNettyBasedTierConsumer =
-                TestingNettyBasedTierConsumer.builder()
+        TestingNettyServiceProvider testingNettyBasedTierConsumer =
+                TestingNettyServiceProvider.builder()
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(bufferAndBacklog))
                         .build();
-        nettyBasedTierConsumerView.setConsumer(testingNettyBasedTierConsumer);
-        BufferAndBacklog nextBuffer = nettyBasedTierConsumerView.getNextBuffer();
+        nettyServiceView.setConsumer(testingNettyBasedTierConsumer);
+        BufferAndBacklog nextBuffer = nettyServiceView.getNextBuffer();
         assertThat(nextBuffer).isNotNull();
         assertThat(nextBuffer.buffer()).isSameAs(bufferAndBacklog.buffer());
         assertThat(nextBuffer.buffersInBacklog()).isEqualTo(bufferAndBacklog.buffersInBacklog());
@@ -77,32 +77,32 @@ class NettyBasedTierConsumerViewTest {
 
     @Test
     void testGetNextBufferThrowException() {
-        NettyBasedTierConsumerView nettyBasedTierConsumerView = createNettyBasedTierConsumerView();
-        TestingNettyBasedTierConsumer testingNettyBasedTierConsumer =
-                TestingNettyBasedTierConsumer.builder()
+        NettyServiceView nettyServiceView = createNettyBasedTierConsumerView();
+        TestingNettyServiceProvider testingNettyBasedTierConsumer =
+                TestingNettyServiceProvider.builder()
                         .setConsumeBufferFunction(
                                 (nextToConsume) -> {
                                     throw new RuntimeException("expected exception.");
                                 })
                         .build();
-        nettyBasedTierConsumerView.setConsumer(testingNettyBasedTierConsumer);
-        assertThatThrownBy(nettyBasedTierConsumerView::getNextBuffer)
+        nettyServiceView.setConsumer(testingNettyBasedTierConsumer);
+        assertThatThrownBy(nettyServiceView::getNextBuffer)
                 .hasStackTraceContaining("expected exception.");
     }
 
     @Test
     void testGetNextBufferZeroBacklog() throws IOException {
-        NettyBasedTierConsumerView nettyBasedTierConsumerView = createNettyBasedTierConsumerView();
+        NettyServiceView nettyServiceView = createNettyBasedTierConsumerView();
         int backlog = 0;
         BufferAndBacklog targetBufferAndBacklog =
                 createBufferAndBacklog(backlog, DataType.DATA_BUFFER, 0);
-        TestingNettyBasedTierConsumer testingNettyBasedTierConsumer =
-                TestingNettyBasedTierConsumer.builder()
+        TestingNettyServiceProvider testingNettyBasedTierConsumer =
+                TestingNettyServiceProvider.builder()
                         .setConsumeBufferFunction(
                                 (bufferToConsume) -> Optional.of(targetBufferAndBacklog))
                         .build();
-        nettyBasedTierConsumerView.setConsumer(testingNettyBasedTierConsumer);
-        assertThat(nettyBasedTierConsumerView.getNextBuffer())
+        nettyServiceView.setConsumer(testingNettyBasedTierConsumer);
+        assertThat(nettyServiceView.getNextBuffer())
                 .satisfies(
                         (bufferAndBacklog -> {
                             // backlog is reset to maximum backlog of memory and disk.
@@ -120,50 +120,50 @@ class NettyBasedTierConsumerViewTest {
     @Test
     void testNotifyDataAvailableNeedNotify() throws IOException {
         CompletableFuture<Void> notifyAvailableFuture = new CompletableFuture<>();
-        NettyBasedTierConsumerView nettyBasedTierConsumerView =
+        NettyServiceView nettyServiceView =
                 createNettyBasedTierConsumerView(() -> notifyAvailableFuture.complete(null));
-        nettyBasedTierConsumerView.setConsumer(TestingNettyBasedTierConsumer.NO_OP);
-        nettyBasedTierConsumerView.getNextBuffer();
-        nettyBasedTierConsumerView.notifyDataAvailable();
+        nettyServiceView.setConsumer(TestingNettyServiceProvider.NO_OP);
+        nettyServiceView.getNextBuffer();
+        nettyServiceView.notifyDataAvailable();
         assertThat(notifyAvailableFuture).isCompleted();
     }
 
     @Test
     void testNotifyDataAvailableNotNeedNotify() throws IOException {
         CompletableFuture<Void> notifyAvailableFuture = new CompletableFuture<>();
-        NettyBasedTierConsumerView nettyBasedTierConsumerView =
+        NettyServiceView nettyServiceView =
                 createNettyBasedTierConsumerView(() -> notifyAvailableFuture.complete(null));
-        nettyBasedTierConsumerView.setConsumer(TestingNettyBasedTierConsumer.NO_OP);
-        nettyBasedTierConsumerView.getNextBuffer();
-        nettyBasedTierConsumerView.notifyDataAvailable();
+        nettyServiceView.setConsumer(TestingNettyServiceProvider.NO_OP);
+        nettyServiceView.getNextBuffer();
+        nettyServiceView.notifyDataAvailable();
         assertThat(notifyAvailableFuture).isCompleted();
     }
 
     @Test
     void testGetZeroBacklogNeedNotify() {
         CompletableFuture<Void> notifyAvailableFuture = new CompletableFuture<>();
-        NettyBasedTierConsumerView nettyBasedTierConsumerView =
+        NettyServiceView nettyServiceView =
                 createNettyBasedTierConsumerView(() -> notifyAvailableFuture.complete(null));
-        nettyBasedTierConsumerView.setConsumer(
-                TestingNettyBasedTierConsumer.builder().setGetBacklogSupplier(() -> 0).build());
+        nettyServiceView.setConsumer(
+                TestingNettyServiceProvider.builder().setGetBacklogSupplier(() -> 0).build());
         AvailabilityWithBacklog availabilityAndBacklog =
-                nettyBasedTierConsumerView.getAvailabilityAndBacklog(0);
+                nettyServiceView.getAvailabilityAndBacklog(0);
         assertThat(availabilityAndBacklog.getBacklog()).isZero();
         assertThat(notifyAvailableFuture).isNotCompleted();
-        nettyBasedTierConsumerView.notifyDataAvailable();
+        nettyServiceView.notifyDataAvailable();
         assertThat(notifyAvailableFuture).isCompleted();
     }
 
     @Test
     void testGetAvailabilityAndBacklogPositiveCredit() {
-        NettyBasedTierConsumerView nettyBasedTierConsumerView = createNettyBasedTierConsumerView();
+        NettyServiceView nettyServiceView = createNettyBasedTierConsumerView();
         int backlog = 2;
-        nettyBasedTierConsumerView.setConsumer(
-                TestingNettyBasedTierConsumer.builder()
+        nettyServiceView.setConsumer(
+                TestingNettyServiceProvider.builder()
                         .setGetBacklogSupplier(() -> backlog)
                         .build());
         AvailabilityWithBacklog availabilityAndBacklog =
-                nettyBasedTierConsumerView.getAvailabilityAndBacklog(1);
+                nettyServiceView.getAvailabilityAndBacklog(1);
         assertThat(availabilityAndBacklog.getBacklog()).isEqualTo(backlog);
         // positive credit always available.
         assertThat(availabilityAndBacklog.isAvailable()).isTrue();
@@ -172,14 +172,14 @@ class NettyBasedTierConsumerViewTest {
     @Test
     void testGetAvailabilityAndBacklogNonPositiveCreditNextIsData() throws IOException {
         int backlog = 2;
-        NettyBasedTierConsumerView nettyBasedTierConsumerView = createNettyBasedTierConsumerView();
-        nettyBasedTierConsumerView.setConsumer(
-                TestingNettyBasedTierConsumer.builder()
+        NettyServiceView nettyServiceView = createNettyBasedTierConsumerView();
+        nettyServiceView.setConsumer(
+                TestingNettyServiceProvider.builder()
                         .setGetBacklogSupplier(() -> backlog)
                         .build());
-        nettyBasedTierConsumerView.getNextBuffer();
+        nettyServiceView.getNextBuffer();
         AvailabilityWithBacklog availabilityAndBacklog =
-                nettyBasedTierConsumerView.getAvailabilityAndBacklog(0);
+                nettyServiceView.getAvailabilityAndBacklog(0);
         assertThat(availabilityAndBacklog.getBacklog()).isEqualTo(backlog);
         // if credit is non-positive, only event can be available.
         assertThat(availabilityAndBacklog.isAvailable()).isFalse();
@@ -188,53 +188,53 @@ class NettyBasedTierConsumerViewTest {
     @Test
     void testGetAvailabilityAndBacklogNonPositiveCreditNextIsEvent() throws IOException {
         int backlog = 2;
-        NettyBasedTierConsumerView nettyBasedTierConsumerView = createNettyBasedTierConsumerView();
-        nettyBasedTierConsumerView.setConsumer(
-                TestingNettyBasedTierConsumer.builder()
+        NettyServiceView nettyServiceView = createNettyBasedTierConsumerView();
+        nettyServiceView.setConsumer(
+                TestingNettyServiceProvider.builder()
                         .setGetBacklogSupplier(() -> backlog)
                         .build());
-        nettyBasedTierConsumerView.getNextBuffer();
+        nettyServiceView.getNextBuffer();
         AvailabilityWithBacklog availabilityAndBacklog =
-                nettyBasedTierConsumerView.getAvailabilityAndBacklog(0);
+                nettyServiceView.getAvailabilityAndBacklog(0);
         assertThat(availabilityAndBacklog.getBacklog()).isEqualTo(backlog);
         assertThat(availabilityAndBacklog.isAvailable()).isFalse();
     }
 
     @Test
     void testUpdateNeedNotifyStatus() {
-        NettyBasedTierConsumerView nettyBasedTierConsumerView = createNettyBasedTierConsumerView();
-        nettyBasedTierConsumerView.notifyDataAvailable();
+        NettyServiceView nettyServiceView = createNettyBasedTierConsumerView();
+        nettyServiceView.notifyDataAvailable();
         assertThat(
-                        ((NettyBasedTierConsumerViewImpl) nettyBasedTierConsumerView)
+                        ((NettyServiceViewImpl) nettyServiceView)
                                 .getNeedNotifyStatus())
                 .isFalse();
-        nettyBasedTierConsumerView.updateNeedNotifyStatus();
+        nettyServiceView.updateNeedNotifyStatus();
         assertThat(
-                        ((NettyBasedTierConsumerViewImpl) nettyBasedTierConsumerView)
+                        ((NettyServiceViewImpl) nettyServiceView)
                                 .getNeedNotifyStatus())
                 .isTrue();
     }
 
     @Test
     void testRelease() throws Exception {
-        NettyBasedTierConsumerView nettyBasedTierConsumerView = createNettyBasedTierConsumerView();
+        NettyServiceView nettyServiceView = createNettyBasedTierConsumerView();
         CompletableFuture<Void> releaseFuture = new CompletableFuture<>();
-        TestingNettyBasedTierConsumer testingNettyBasedTierConsumer =
-                TestingNettyBasedTierConsumer.builder()
+        TestingNettyServiceProvider testingNettyBasedTierConsumer =
+                TestingNettyServiceProvider.builder()
                         .setReleaseDataViewRunnable(() -> releaseFuture.complete(null))
                         .build();
-        nettyBasedTierConsumerView.setConsumer(testingNettyBasedTierConsumer);
-        nettyBasedTierConsumerView.release();
-        assertThat(nettyBasedTierConsumerView.isReleased()).isTrue();
+        nettyServiceView.setConsumer(testingNettyBasedTierConsumer);
+        nettyServiceView.release();
+        assertThat(nettyServiceView.isReleased()).isTrue();
         assertThat(releaseFuture).isCompleted();
     }
 
     @Test
     void testGetConsumingOffset() throws IOException {
         AtomicInteger nextBufferIndex = new AtomicInteger(0);
-        NettyBasedTierConsumerView nettyBasedTierConsumerView = createNettyBasedTierConsumerView();
-        TestingNettyBasedTierConsumer testingNettyBasedTierConsumer =
-                TestingNettyBasedTierConsumer.builder()
+        NettyServiceView nettyServiceView = createNettyBasedTierConsumerView();
+        TestingNettyServiceProvider testingNettyBasedTierConsumer =
+                TestingNettyServiceProvider.builder()
                         .setConsumeBufferFunction(
                                 (toConsumeBuffer) ->
                                         Optional.of(
@@ -243,21 +243,21 @@ class NettyBasedTierConsumerViewTest {
                                                         DataType.DATA_BUFFER,
                                                         nextBufferIndex.getAndIncrement())))
                         .build();
-        nettyBasedTierConsumerView.setConsumer(testingNettyBasedTierConsumer);
-        assertThat(nettyBasedTierConsumerView.getConsumingOffset(true)).isEqualTo(-1);
-        nettyBasedTierConsumerView.getNextBuffer();
-        assertThat(nettyBasedTierConsumerView.getConsumingOffset(true)).isEqualTo(0);
-        nettyBasedTierConsumerView.getNextBuffer();
-        assertThat(nettyBasedTierConsumerView.getConsumingOffset(true)).isEqualTo(1);
+        nettyServiceView.setConsumer(testingNettyBasedTierConsumer);
+        assertThat(nettyServiceView.getConsumingOffset(true)).isEqualTo(-1);
+        nettyServiceView.getNextBuffer();
+        assertThat(nettyServiceView.getConsumingOffset(true)).isEqualTo(0);
+        nettyServiceView.getNextBuffer();
+        assertThat(nettyServiceView.getConsumingOffset(true)).isEqualTo(1);
     }
 
-    private static NettyBasedTierConsumerView createNettyBasedTierConsumerView() {
-        return new NettyBasedTierConsumerViewImpl(new NoOpBufferAvailablityListener());
+    private static NettyServiceView createNettyBasedTierConsumerView() {
+        return new NettyServiceViewImpl(new NoOpBufferAvailablityListener());
     }
 
-    private static NettyBasedTierConsumerView createNettyBasedTierConsumerView(
+    private static NettyServiceView createNettyBasedTierConsumerView(
             BufferAvailabilityListener bufferAvailabilityListener) {
-        return new NettyBasedTierConsumerViewImpl(bufferAvailabilityListener);
+        return new NettyServiceViewImpl(bufferAvailabilityListener);
     }
 
     private static BufferAndBacklog createBufferAndBacklog(

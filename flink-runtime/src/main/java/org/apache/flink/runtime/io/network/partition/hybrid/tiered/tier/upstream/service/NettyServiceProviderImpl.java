@@ -33,16 +33,16 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * The {@link NettyBasedTierConsumerImpl} is the default implementation of {@link
- * NettyBasedTierConsumer}.
+ * The {@link NettyServiceProviderImpl} is the default implementation of {@link
+ * NettyServiceProvider}.
  */
-public abstract class NettyBasedTierConsumerImpl implements NettyBasedTierConsumer {
+public abstract class NettyServiceProviderImpl implements NettyServiceProvider {
 
     protected final Deque<BufferContext> unConsumedBuffers = new LinkedList<>();
 
     private final Lock readerLock;
 
-    public NettyBasedTierConsumerImpl(Lock readerLock) {
+    public NettyServiceProviderImpl(Lock readerLock) {
         this.readerLock = readerLock;
     }
 

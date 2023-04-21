@@ -29,10 +29,10 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.S
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewProvider;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
@@ -78,7 +78,7 @@ public class MemoryTierProducerAgent
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<NettyBasedTierConsumerViewId, NettyBasedTierConsumerView>>
+    private final List<Map<NettyBasedTierConsumerViewId, NettyServiceView>>
             subpartitionViewOperationsMap;
 
     private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
@@ -113,14 +113,14 @@ public class MemoryTierProducerAgent
     }
 
     @Override
-    public NettyBasedTierConsumerView createNettyBasedTierConsumerView(
+    public NettyServiceView createNettyBasedTierConsumerView(
             int subpartitionId, BufferAvailabilityListener availabilityListener) {
         // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        NettyBasedTierConsumerViewImpl memoryReaderView =
-                new NettyBasedTierConsumerViewImpl(availabilityListener);
+        NettyServiceViewImpl memoryReaderView =
+                new NettyServiceViewImpl(availabilityListener);
         NettyBasedTierConsumerViewId lastNettyBasedTierConsumerViewId =
                 lastNettyBasedTierConsumerViewIds[subpartitionId];
         checkMultipleConsumerIsAllowed(lastNettyBasedTierConsumerViewId);
@@ -130,7 +130,7 @@ public class MemoryTierProducerAgent
                 NettyBasedTierConsumerViewId.newId(lastNettyBasedTierConsumerViewId);
         lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
 
-        NettyBasedTierConsumer memoryConsumer =
+        NettyServiceProvider memoryConsumer =
                 registerNewConsumer(subpartitionId, nettyBasedTierConsumerViewId, memoryReaderView);
 
         memoryReaderView.setConsumer(memoryConsumer);
@@ -222,11 +222,11 @@ public class MemoryTierProducerAgent
         getSubpartitionMemoryDataManager(targetChannel).addFinishedBuffer(finishedBuffer);
     }
 
-    public NettyBasedTierConsumer registerNewConsumer(
+    public NettyServiceProvider registerNewConsumer(
             int subpartitionId,
             NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
-            NettyBasedTierConsumerView viewOperations) {
-        NettyBasedTierConsumerView oldView =
+            NettyServiceView viewOperations) {
+        NettyServiceView oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
                         .put(nettyBasedTierConsumerViewId, viewOperations);
@@ -260,14 +260,14 @@ public class MemoryTierProducerAgent
     public void onDataAvailable(
             int subpartitionId,
             Collection<NettyBasedTierConsumerViewId> nettyBasedTierConsumerViewIds) {
-        Map<NettyBasedTierConsumerViewId, NettyBasedTierConsumerView> consumerViewMap =
+        Map<NettyBasedTierConsumerViewId, NettyServiceView> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
         nettyBasedTierConsumerViewIds.forEach(
                 consumerId -> {
-                    NettyBasedTierConsumerView nettyBasedTierConsumerView =
+                    NettyServiceView nettyServiceView =
                             consumerViewMap.get(consumerId);
-                    if (nettyBasedTierConsumerView != null) {
-                        nettyBasedTierConsumerView.notifyDataAvailable();
+                    if (nettyServiceView != null) {
+                        nettyServiceView.notifyDataAvailable();
                     }
                 });
     }

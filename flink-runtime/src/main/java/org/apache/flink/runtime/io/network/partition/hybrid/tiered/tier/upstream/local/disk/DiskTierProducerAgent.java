@@ -34,10 +34,10 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewProvider;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -120,7 +120,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
     }
 
     @Override
-    public NettyBasedTierConsumerView createNettyBasedTierConsumerView(
+    public NettyServiceView createNettyBasedTierConsumerView(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         // If data file is not readable, throw PartitionNotFoundException to mark this result
@@ -133,8 +133,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        NettyBasedTierConsumerViewImpl diskTierReaderView =
-                new NettyBasedTierConsumerViewImpl(availabilityListener);
+        NettyServiceViewImpl diskTierReaderView =
+                new NettyServiceViewImpl(availabilityListener);
         NettyBasedTierConsumerViewId lastNettyBasedTierConsumerViewId =
                 lastNettyBasedTierConsumerViewIds[subpartitionId];
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
@@ -142,7 +142,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
         NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId =
                 NettyBasedTierConsumerViewId.newId(lastNettyBasedTierConsumerViewId);
         lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
-        NettyBasedTierConsumer diskConsumer =
+        NettyServiceProvider diskConsumer =
                 partitionFileReader.registerTierReader(
                         subpartitionId, nettyBasedTierConsumerViewId, diskTierReaderView);
         diskTierReaderView.setConsumer(diskConsumer);

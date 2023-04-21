@@ -24,7 +24,7 @@ import java.util.Objects;
 
 /**
  * {@link NettyBasedTierConsumerViewId} represents the identifier of {@link
- * NettyBasedTierConsumerView}, Every {@link NettyBasedTierConsumerView} has a specific id.
+ * NettyServiceView}, Every {@link NettyServiceView} has a specific id.
  */
 public class NettyBasedTierConsumerViewId {
 
