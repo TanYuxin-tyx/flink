@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstrea
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferIndexOrError;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
 
 import java.util.Deque;
@@ -29,18 +29,18 @@ import java.util.Optional;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-public class DiskServiceProvider implements NettyServiceProvider {
+/** The implementation of {@link NettyServiceProvider}. */
+public class NettyServiceProviderImpl implements NettyServiceProvider {
 
-    private final Deque<BufferIndexOrError> loadedBuffers;
+    private final Deque<BufferContext> loadedBuffers;
 
-    private final Runnable diskServiceReleaser;
+    private final Runnable nettyServiceProviderReleaser;
 
-    public DiskServiceProvider(
-            Deque<BufferIndexOrError> loadedBuffers, Runnable diskServiceReleaser) {
+    public NettyServiceProviderImpl(
+            Deque<BufferContext> loadedBuffers, Runnable nettyServiceProviderReleaser) {
         this.loadedBuffers = loadedBuffers;
-        this.diskServiceReleaser = diskServiceReleaser;
+        this.nettyServiceProviderReleaser = nettyServiceProviderReleaser;
     }
-
 
     @Override
     public Optional<ResultSubpartition.BufferAndBacklog> getNextBuffer(int nextBufferToConsume)
@@ -48,35 +48,26 @@ public class DiskServiceProvider implements NettyServiceProvider {
         if (!checkAndGetFirstBufferIndexOrError(nextBufferToConsume).isPresent()) {
             return Optional.empty();
         }
-
-        // already ensure that peek element is not null and not throwable.
-        BufferIndexOrError current = checkNotNull(loadedBuffers.poll());
-
-        BufferIndexOrError next = loadedBuffers.peek();
-
-        Buffer.DataType nextDataType = next == null ? Buffer.DataType.NONE : next.getDataType();
+        BufferContext current = checkNotNull(loadedBuffers.poll());
+        BufferContext next = loadedBuffers.peek();
+        Buffer.DataType nextDataType =
+                next == null ? Buffer.DataType.NONE : checkNotNull(next.getBuffer()).getDataType();
         int backlog = loadedBuffers.size();
-        int bufferIndex = current.getIndex();
-        Buffer buffer =
-                current.getBuffer()
-                        .orElseThrow(
-                                () ->
-                                        new NullPointerException(
-                                                "Get a non-throwable and non-buffer bufferIndexOrError, which is not allowed"));
+        int bufferIndex = checkNotNull(current.getBufferIndexAndChannel()).getBufferIndex();
         return Optional.of(
                 ResultSubpartition.BufferAndBacklog.fromBufferAndLookahead(
-                        buffer, nextDataType, backlog, bufferIndex));
+                        current.getBuffer(), nextDataType, backlog, bufferIndex));
     }
 
     @Override
     public void release() {
-        BufferIndexOrError bufferIndexOrError;
-        while ((bufferIndexOrError = loadedBuffers.pollLast()) != null) {
-            if (bufferIndexOrError.getBuffer().isPresent()) {
-                checkNotNull(bufferIndexOrError.getBuffer().get()).recycleBuffer();
+        BufferContext bufferContext;
+        while ((bufferContext = loadedBuffers.pollLast()) != null) {
+            if (bufferContext.getBuffer() != null) {
+                checkNotNull(bufferContext.getBuffer()).recycleBuffer();
             }
         }
-        diskServiceReleaser.run();
+        nettyServiceProviderReleaser.run();
     }
 
     @Override
@@ -88,17 +79,19 @@ public class DiskServiceProvider implements NettyServiceProvider {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private Optional<BufferIndexOrError> checkAndGetFirstBufferIndexOrError(int expectedBufferIndex)
+    private Optional<BufferContext> checkAndGetFirstBufferIndexOrError(int expectedBufferIndex)
             throws Throwable {
         if (loadedBuffers.isEmpty()) {
             return Optional.empty();
         }
 
-        BufferIndexOrError peek = loadedBuffers.peek();
-        if (peek.getThrowable().isPresent()) {
-            throw peek.getThrowable().get();
+        BufferContext peek = loadedBuffers.peek();
+        if (peek.getThrowable() != null) {
+            throw peek.getThrowable();
         }
-        checkState(peek.getIndex() == expectedBufferIndex);
+        checkState(
+                checkNotNull(peek.getBufferIndexAndChannel()).getBufferIndex()
+                        == expectedBufferIndex);
         return Optional.of(peek);
     }
 }

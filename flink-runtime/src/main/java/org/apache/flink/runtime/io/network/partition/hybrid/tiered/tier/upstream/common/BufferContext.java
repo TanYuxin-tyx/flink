@@ -20,20 +20,33 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstrea
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 
+import javax.annotation.Nullable;
+
 /**
  * The {@link BufferContext} represents a combination of buffer, buffer index, and its subpartition
  * id.
  */
 public class BufferContext {
 
-    private final Buffer buffer;
+    @Nullable private final Buffer buffer;
 
-    private final BufferIndexAndSubpartitionId bufferIndexAndSubpartitionId;
+    @Nullable private final BufferIndexAndSubpartitionId bufferIndexAndSubpartitionId;
+
+    @Nullable private Throwable throwable;
 
     public BufferContext(Buffer buffer, int bufferIndex, int subpartitionId) {
         this.bufferIndexAndSubpartitionId =
                 new BufferIndexAndSubpartitionId(bufferIndex, subpartitionId);
         this.buffer = buffer;
+    }
+
+    public BufferContext(
+            @Nullable Buffer buffer,
+            @Nullable BufferIndexAndSubpartitionId bufferIndexAndSubpartitionId,
+            @Nullable Throwable throwable) {
+        this.buffer = buffer;
+        this.bufferIndexAndSubpartitionId = bufferIndexAndSubpartitionId;
+        this.throwable = throwable;
     }
 
     public Buffer getBuffer() {
@@ -42,5 +55,10 @@ public class BufferContext {
 
     public BufferIndexAndSubpartitionId getBufferIndexAndChannel() {
         return bufferIndexAndSubpartitionId;
+    }
+
+    @Nullable
+    public Throwable getThrowable() {
+        return throwable;
     }
 }

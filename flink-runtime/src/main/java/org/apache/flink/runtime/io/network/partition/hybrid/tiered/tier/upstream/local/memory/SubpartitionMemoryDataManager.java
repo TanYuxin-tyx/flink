@@ -29,7 +29,9 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.NettyServiceProviderImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
 import org.apache.flink.util.function.SupplierWithException;
 import org.apache.flink.util.function.ThrowingRunnable;
 
@@ -44,6 +46,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -66,13 +69,13 @@ public class SubpartitionMemoryDataManager {
     private int finishedBufferIndex;
 
     @GuardedBy("subpartitionLock")
-    private final Deque<BufferContext> allBuffers = new LinkedList<>();
+    private final Deque<BufferContext> allBuffers = new LinkedBlockingDeque<>();
 
     /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
     private final ReentrantReadWriteLock subpartitionLock = new ReentrantReadWriteLock();
 
     @GuardedBy("subpartitionLock")
-    private final Map<NettyBasedTierConsumerViewId, MemoryTierConsumer> consumerMap;
+    private final Map<NettyBasedTierConsumerViewId, NettyServiceProvider> consumerMap;
 
     @Nullable private final BufferCompressor bufferCompressor;
 
@@ -114,20 +117,19 @@ public class SubpartitionMemoryDataManager {
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
-    public MemoryTierConsumer registerNewConsumer(
+    public NettyServiceProvider registerNewConsumer(
             NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
         return callWithLock(
                 () -> {
                     checkState(!consumerMap.containsKey(nettyBasedTierConsumerViewId));
-                    MemoryTierConsumer newConsumer =
-                            new MemoryTierConsumer(
-                                    subpartitionLock.readLock(),
-                                    targetChannel,
-                                    nettyBasedTierConsumerViewId,
-                                    memoryTierProducerAgentOperation);
-                    newConsumer.addInitialBuffers(allBuffers);
-                    consumerMap.put(nettyBasedTierConsumerViewId, newConsumer);
-                    return newConsumer;
+                    NettyServiceProviderImpl nettyServiceProviderImpl =
+                            new NettyServiceProviderImpl(
+                                    allBuffers,
+                                    () ->
+                                            memoryTierProducerAgentOperation.onConsumerReleased(
+                                                    targetChannel, nettyBasedTierConsumerViewId));
+                    consumerMap.put(nettyBasedTierConsumerViewId, nettyServiceProviderImpl);
+                    return nettyServiceProviderImpl;
                 });
     }
 
@@ -208,12 +210,10 @@ public class SubpartitionMemoryDataManager {
         runWithLock(
                 () -> {
                     finishedBufferIndex++;
-                    if (consumerMap.size() == 0) {
-                        allBuffers.add(bufferContext);
-                    }
-                    for (Map.Entry<NettyBasedTierConsumerViewId, MemoryTierConsumer> consumerEntry :
-                            consumerMap.entrySet()) {
-                        if (consumerEntry.getValue().addBuffer(bufferContext)) {
+                    allBuffers.add(bufferContext);
+                    for (Map.Entry<NettyBasedTierConsumerViewId, NettyServiceProvider>
+                            consumerEntry : consumerMap.entrySet()) {
+                        if (allBuffers.size() <= 1) {
                             needNotify.add(consumerEntry.getKey());
                         }
                     }

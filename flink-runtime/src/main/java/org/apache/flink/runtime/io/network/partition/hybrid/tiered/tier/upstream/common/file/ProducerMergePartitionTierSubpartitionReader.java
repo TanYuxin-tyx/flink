@@ -23,7 +23,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferIndexOrError;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
@@ -45,7 +45,8 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-public class ProducerMergePartitionTierSubpartitionReader implements Comparable<ProducerMergePartitionTierSubpartitionReader> {
+public class ProducerMergePartitionTierSubpartitionReader
+        implements Comparable<ProducerMergePartitionTierSubpartitionReader> {
 
     private final ByteBuffer headerBuf;
 
@@ -61,7 +62,7 @@ public class ProducerMergePartitionTierSubpartitionReader implements Comparable<
 
     private final BufferIndexManager bufferIndexManager;
 
-    private final Deque<BufferIndexOrError> loadedBuffers = new LinkedBlockingDeque<>();
+    private final Deque<BufferContext> loadedBuffers = new LinkedBlockingDeque<>();
 
     private final Consumer<ProducerMergePartitionTierSubpartitionReader> diskTierReaderReleaser;
 
@@ -87,7 +88,7 @@ public class ProducerMergePartitionTierSubpartitionReader implements Comparable<
     }
 
     public NettyServiceProvider getNettyServiceProvider() {
-        return new DiskServiceProvider(loadedBuffers, () -> diskTierReaderReleaser.accept(this));
+        return new NettyServiceProviderImpl(loadedBuffers, () -> diskTierReaderReleaser.accept(this));
     }
 
     public synchronized void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
@@ -126,7 +127,7 @@ public class ProducerMergePartitionTierSubpartitionReader implements Comparable<
                 buffers.add(segment);
                 throw throwable;
             }
-            loadedBuffers.add(BufferIndexOrError.newBuffer(buffer, indexToLoad));
+            loadedBuffers.add(new BufferContext(buffer, indexToLoad, subpartitionId));
             bufferIndexManager.updateLastLoaded(indexToLoad);
             cachedRegionManager.advance(
                     buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
@@ -142,14 +143,14 @@ public class ProducerMergePartitionTierSubpartitionReader implements Comparable<
             return;
         }
         isFailed = true;
-        BufferIndexOrError bufferIndexOrError;
+        BufferContext bufferIndexOrError;
         // empty from tail, in-case subpartition view consumes concurrently and gets the wrong order
         while ((bufferIndexOrError = loadedBuffers.pollLast()) != null) {
-            if (bufferIndexOrError.getBuffer().isPresent()) {
-                checkNotNull(bufferIndexOrError.getBuffer().get()).recycleBuffer();
+            if (bufferIndexOrError.getBuffer() != null) {
+                checkNotNull(bufferIndexOrError.getBuffer()).recycleBuffer();
             }
         }
-        loadedBuffers.add(BufferIndexOrError.newError(failureCause));
+        loadedBuffers.add(new BufferContext(null, null, failureCause));
         tierConsumerView.notifyDataAvailable();
     }
 
@@ -182,30 +183,12 @@ public class ProducerMergePartitionTierSubpartitionReader implements Comparable<
 
     public int compareTo(ProducerMergePartitionTierSubpartitionReader that) {
         checkArgument(that != null);
-        return Long.compare(
-                getNextOffsetToLoad(),
-                that.getNextOffsetToLoad());
+        return Long.compare(getNextOffsetToLoad(), that.getNextOffsetToLoad());
     }
-
-
 
     // ------------------------------------------------------------------------
     //  Internal Methods
     // ------------------------------------------------------------------------
-
-    private Optional<BufferIndexOrError> checkAndGetFirstBufferIndexOrError(int expectedBufferIndex)
-            throws Throwable {
-        if (loadedBuffers.isEmpty()) {
-            return Optional.empty();
-        }
-
-        BufferIndexOrError peek = loadedBuffers.peek();
-        if (peek.getThrowable().isPresent()) {
-            throw peek.getThrowable().get();
-        }
-        checkState(peek.getIndex() == expectedBufferIndex);
-        return Optional.of(peek);
-    }
 
     private void moveFileOffsetToBuffer(int bufferIndex) throws IOException {
         Tuple2<Integer, Long> indexAndOffset =
