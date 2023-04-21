@@ -94,7 +94,7 @@ class RemoteDiskCacheManagerTest {
                         .createBufferPool(POOL_SIZE, POOL_SIZE);
 
         StorageMemoryManager storageMemoryManager =
-                new ProducerStorageMemoryManager(NUM_SUBPARTITIONS, new ArrayList<>());
+                new ProducerStorageMemoryManager(new ArrayList<>());
         storageMemoryManager.setup(localBufferPool);
         RemoteCacheManager cacheDataManager =
                 new RemoteCacheManager(

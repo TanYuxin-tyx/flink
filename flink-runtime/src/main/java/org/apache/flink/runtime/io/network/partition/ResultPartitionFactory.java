@@ -278,8 +278,7 @@ public class ResultPartitionFactory {
                 TieredStoreConfiguration storeConfiguration =
                         getStoreConfiguration(numberOfSubpartitions, type);
                 ProducerStorageMemoryManager storageMemoryManager =
-                        new ProducerStorageMemoryManager(
-                                subpartitions.length, storeConfiguration.getTierMemorySpecs());
+                        new ProducerStorageMemoryManager(storeConfiguration.getTierMemorySpecs());
                 CacheFlushManager cacheFlushManager =
                         new CacheFlushManager(storeConfiguration.getNumBuffersTriggerFlushRatio());
                 List<TierProducerAgent> tierProducerAgents =

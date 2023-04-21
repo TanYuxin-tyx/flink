@@ -84,10 +84,6 @@ public class CacheFlushManager {
         }
     }
 
-    public float numBuffersTriggerFlushRatio() {
-        return numBuffersTriggerFlushRatio;
-    }
-
     public void close() {
         executor.shutdown();
         try {

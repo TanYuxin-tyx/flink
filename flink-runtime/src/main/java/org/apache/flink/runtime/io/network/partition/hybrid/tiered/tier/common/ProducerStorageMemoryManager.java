@@ -42,8 +42,7 @@ public class ProducerStorageMemoryManager implements StorageMemoryManager {
 
     private BufferPool bufferPool;
 
-    public ProducerStorageMemoryManager(
-            int numSubpartitions, List<TierMemorySpec> tierMemorySpecs) {
+    public ProducerStorageMemoryManager(List<TierMemorySpec> tierMemorySpecs) {
         this.tierMemorySpecMap = new HashMap<>();
         this.tierRequestedBuffersCounter = new HashMap<>();
         this.numRequestedBuffersInAccumulator = new AtomicInteger(0);
