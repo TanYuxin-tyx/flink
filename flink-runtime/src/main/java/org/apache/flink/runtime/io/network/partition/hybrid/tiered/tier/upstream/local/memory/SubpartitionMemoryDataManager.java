@@ -27,13 +27,10 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.NettyServiceProviderImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
-import org.apache.flink.util.function.SupplierWithException;
-import org.apache.flink.util.function.ThrowingRunnable;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -47,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -71,15 +67,9 @@ public class SubpartitionMemoryDataManager {
     @GuardedBy("subpartitionLock")
     private final Deque<BufferContext> allBuffers = new LinkedBlockingDeque<>();
 
-    /** DO NOT USE DIRECTLY. Use {@link #runWithLock} or {@link #callWithLock} instead. */
-    private final ReentrantReadWriteLock subpartitionLock = new ReentrantReadWriteLock();
-
-    @GuardedBy("subpartitionLock")
     private final Map<NettyBasedTierConsumerViewId, NettyServiceProvider> consumerMap;
 
     @Nullable private final BufferCompressor bufferCompressor;
-
-    @Nullable private OutputMetrics outputMetrics;
 
     public SubpartitionMemoryDataManager(
             int targetChannel,
@@ -97,45 +87,35 @@ public class SubpartitionMemoryDataManager {
     //  Called by MemoryDataManager
     // ------------------------------------------------------------------------
 
-    /**
-     * Append record to {@link MemoryTierConsumer}.
-     *
-     * @param record to be managed by this class.
-     * @param dataType the type of this record. In other words, is it data or event.
-     */
     public void appendSegmentEvent(ByteBuffer record, DataType dataType) {
         writeEvent(record, dataType);
     }
 
     public void release() {
         for (BufferContext bufferContext : allBuffers) {
-            if (!bufferContext.getBuffer().isRecycled()) {
+            if (!checkNotNull(bufferContext.getBuffer()).isRecycled()) {
                 bufferContext.getBuffer().recycleBuffer();
             }
         }
         allBuffers.clear();
     }
 
-    @SuppressWarnings("FieldAccessNotGuarded")
     public NettyServiceProvider registerNewConsumer(
             NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
-        return callWithLock(
-                () -> {
-                    checkState(!consumerMap.containsKey(nettyBasedTierConsumerViewId));
-                    NettyServiceProviderImpl nettyServiceProviderImpl =
-                            new NettyServiceProviderImpl(
-                                    allBuffers,
-                                    () ->
-                                            memoryTierProducerAgentOperation.onConsumerReleased(
-                                                    targetChannel, nettyBasedTierConsumerViewId));
-                    consumerMap.put(nettyBasedTierConsumerViewId, nettyServiceProviderImpl);
-                    return nettyServiceProviderImpl;
-                });
+        checkState(!consumerMap.containsKey(nettyBasedTierConsumerViewId));
+        NettyServiceProviderImpl nettyServiceProviderImpl =
+                new NettyServiceProviderImpl(
+                        allBuffers,
+                        () ->
+                                memoryTierProducerAgentOperation.onConsumerReleased(
+                                        targetChannel, nettyBasedTierConsumerViewId));
+        consumerMap.put(nettyBasedTierConsumerViewId, nettyServiceProviderImpl);
+        return nettyServiceProviderImpl;
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
     public void releaseConsumer(NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
-        runWithLock(() -> checkNotNull(consumerMap.remove(nettyBasedTierConsumerViewId)));
+        checkNotNull(consumerMap.remove(nettyBasedTierConsumerViewId));
     }
 
     // ------------------------------------------------------------------------
@@ -202,40 +182,16 @@ public class SubpartitionMemoryDataManager {
         addFinishedBuffer(toAddBuffer);
     }
 
-    @SuppressWarnings("FieldAccessNotGuarded")
-    // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
-    // subpartitionLock.
     private void addFinishedBuffer(BufferContext bufferContext) {
         List<NettyBasedTierConsumerViewId> needNotify = new ArrayList<>(consumerMap.size());
-        runWithLock(
-                () -> {
-                    finishedBufferIndex++;
-                    allBuffers.add(bufferContext);
-                    for (Map.Entry<NettyBasedTierConsumerViewId, NettyServiceProvider>
-                            consumerEntry : consumerMap.entrySet()) {
-                        if (allBuffers.size() <= 1) {
-                            needNotify.add(consumerEntry.getKey());
-                        }
-                    }
-                });
+        finishedBufferIndex++;
+        allBuffers.add(bufferContext);
+        for (Map.Entry<NettyBasedTierConsumerViewId, NettyServiceProvider> consumerEntry :
+                consumerMap.entrySet()) {
+            if (allBuffers.size() <= 1) {
+                needNotify.add(consumerEntry.getKey());
+            }
+        }
         memoryTierProducerAgentOperation.onDataAvailable(targetChannel, needNotify);
-    }
-
-    private <E extends Exception> void runWithLock(ThrowingRunnable<E> runnable) throws E {
-        try {
-            subpartitionLock.writeLock().lock();
-            runnable.run();
-        } finally {
-            subpartitionLock.writeLock().unlock();
-        }
-    }
-
-    private <R, E extends Exception> R callWithLock(SupplierWithException<R, E> callable) throws E {
-        try {
-            subpartitionLock.writeLock().lock();
-            return callable.get();
-        } finally {
-            subpartitionLock.writeLock().unlock();
-        }
     }
 }
