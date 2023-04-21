@@ -19,7 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.memory;
 
 import org.apache.flink.core.memory.MemorySegment;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewId;
 
 import java.util.Collection;
 
@@ -39,21 +39,21 @@ public interface MemoryTierProducerAgentOperation {
      * This method is called when subpartition data become available.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param nettyBasedTierConsumerViewIds the consumer's identifier which need notify data
+     * @param nettyServiceViewIds the consumer's identifier which need notify data
      *     available.
      */
     void onDataAvailable(
             int subpartitionId,
-            Collection<NettyBasedTierConsumerViewId> nettyBasedTierConsumerViewIds);
+            Collection<NettyServiceViewId> nettyServiceViewIds);
 
     /**
      * This method is called when consumer is decided to released.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param nettyBasedTierConsumerViewId the consumer's identifier which decided to be released.
+     * @param nettyServiceViewId the consumer's identifier which decided to be released.
      */
     void onConsumerReleased(
-            int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId);
+            int subpartitionId, NettyServiceViewId nettyServiceViewId);
 
     boolean isConsumerRegistered(int subpartitionId);
 }

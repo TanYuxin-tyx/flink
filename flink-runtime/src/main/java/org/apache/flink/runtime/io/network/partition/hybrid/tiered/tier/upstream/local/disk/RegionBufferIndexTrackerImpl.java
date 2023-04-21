@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewId;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -38,7 +38,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
     @GuardedBy("lock")
     private final List<List<InternalRegion>> subpartitionFirstBufferIndexInternalRegions;
 
-    private final List<Map<NettyBasedTierConsumerViewId, Integer>> lastestIndexOfReader;
+    private final List<Map<NettyServiceViewId, Integer>> lastestIndexOfReader;
 
     private final Object lock = new Object();
 
@@ -58,9 +58,9 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
             int subpartitionId,
             int bufferIndex,
             int consumingOffset,
-            NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
+            NettyServiceViewId nettyServiceViewId) {
         synchronized (lock) {
-            return getInternalRegion(subpartitionId, bufferIndex, nettyBasedTierConsumerViewId)
+            return getInternalRegion(subpartitionId, bufferIndex, nettyServiceViewId)
                     .map(
                             internalRegion ->
                                     internalRegion.toReadableRegion(bufferIndex, consumingOffset))
@@ -95,7 +95,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
     private Optional<InternalRegion> getInternalRegion(
             int subpartitionId,
             int bufferIndex,
-            NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
+            NettyServiceViewId nettyServiceViewId) {
         if (isReleased) {
             return Optional.empty();
         }
@@ -103,7 +103,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
         int currentRegionIndex =
                 lastestIndexOfReader
                         .get(subpartitionId)
-                        .getOrDefault(nettyBasedTierConsumerViewId, 0);
+                        .getOrDefault(nettyServiceViewId, 0);
         List<InternalRegion> currentRegions =
                 subpartitionFirstBufferIndexInternalRegions.get(subpartitionId);
         while (currentRegionIndex < currentRegions.size()) {
@@ -114,7 +114,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
             ++currentRegionIndex;
             lastestIndexOfReader
                     .get(subpartitionId)
-                    .put(nettyBasedTierConsumerViewId, currentRegionIndex);
+                    .put(nettyServiceViewId, currentRegionIndex);
         }
         return Optional.empty();
     }

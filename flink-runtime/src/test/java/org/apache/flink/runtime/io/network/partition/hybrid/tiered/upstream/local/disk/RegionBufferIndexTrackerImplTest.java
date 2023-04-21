@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.loc
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTracker.ReadableRegion;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTracker.SpilledBuffer;
 import org.apache.flink.util.TestLoggerExtension;
@@ -58,10 +58,10 @@ class RegionBufferIndexTrackerImplTest {
     void testGetReadableRegionBufferNotExist() {
         regionBufferIndexTracker.addBuffers(createSpilledBuffers(0, Arrays.asList(0, 2)));
         // subpartition 0 does not have buffer with index 1
-        assertThat(regionBufferIndexTracker.getReadableRegion(0, 1, -1, NettyBasedTierConsumerViewId.DEFAULT))
+        assertThat(regionBufferIndexTracker.getReadableRegion(0, 1, -1, NettyServiceViewId.DEFAULT))
                 .isNotPresent();
         // subpartition 1 has no buffer
-        assertThat(regionBufferIndexTracker.getReadableRegion(1, 0, -1, NettyBasedTierConsumerViewId.DEFAULT))
+        assertThat(regionBufferIndexTracker.getReadableRegion(1, 0, -1, NettyServiceViewId.DEFAULT))
                 .isNotPresent();
     }
 
@@ -70,7 +70,7 @@ class RegionBufferIndexTrackerImplTest {
     void testGetReadableRegionNotReadable() {
         regionBufferIndexTracker.addBuffers(createSpilledBuffers(0, Collections.singletonList(0)));
         // 0-0 is not readable as consuming offset is bigger than 0.
-        assertThat(regionBufferIndexTracker.getReadableRegion(0, 0, 1, NettyBasedTierConsumerViewId.DEFAULT))
+        assertThat(regionBufferIndexTracker.getReadableRegion(0, 0, 1, NettyServiceViewId.DEFAULT))
                 .isNotPresent();
     }
 

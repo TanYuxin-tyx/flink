@@ -29,7 +29,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;
 
 import java.io.IOException;
@@ -53,7 +53,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
 
     private final CacheFlushManager cacheFlushManager;
 
-    private final List<Map<NettyBasedTierConsumerViewId, NettyServiceView>> tierReaderViewMap;
+    private final List<Map<NettyServiceViewId, NettyServiceView>> tierReaderViewMap;
 
     private volatile CompletableFuture<Void> hasFlushCompleted =
             CompletableFuture.completedFuture(null);
@@ -158,8 +158,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
 
     @Override
     public void onConsumerReleased(
-            int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
-        tierReaderViewMap.get(subpartitionId).remove(nettyBasedTierConsumerViewId);
+            int subpartitionId, NettyServiceViewId nettyServiceViewId) {
+        tierReaderViewMap.get(subpartitionId).remove(nettyServiceViewId);
     }
 
     // ------------------------------------

@@ -31,7 +31,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.S
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBufferQueue;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewProvider;
 import org.apache.flink.util.ExceptionUtils;
@@ -63,7 +63,7 @@ public class MemoryTierProducerAgent
     private final boolean isBroadcastOnly;
 
     /** Record the last assigned consumerId for each subpartition. */
-    private final NettyBasedTierConsumerViewId[] lastNettyBasedTierConsumerViewIds;
+    private final NettyServiceViewId[] lastNettyServiceViewIds;
 
     public static final int MEMORY_TIER_SEGMENT_BYTES = 10 * 32 * 1024;
 
@@ -78,7 +78,7 @@ public class MemoryTierProducerAgent
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<NettyBasedTierConsumerViewId, NettyServiceView>>
+    private final List<Map<NettyServiceViewId, NettyServiceView>>
             subpartitionViewOperationsMap;
 
     private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
@@ -96,7 +96,7 @@ public class MemoryTierProducerAgent
         this.numSubpartitions = numSubpartitions;
         this.isBroadcastOnly = isBroadcastOnly;
         this.storageMemoryManager = storageMemoryManager;
-        this.lastNettyBasedTierConsumerViewIds = new NettyBasedTierConsumerViewId[numSubpartitions];
+        this.lastNettyServiceViewIds = new NettyServiceViewId[numSubpartitions];
 
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
@@ -121,17 +121,17 @@ public class MemoryTierProducerAgent
 
         NettyServiceViewImpl memoryReaderView =
                 new NettyServiceViewImpl(availabilityListener);
-        NettyBasedTierConsumerViewId lastNettyBasedTierConsumerViewId =
-                lastNettyBasedTierConsumerViewIds[subpartitionId];
-        checkMultipleConsumerIsAllowed(lastNettyBasedTierConsumerViewId);
+        NettyServiceViewId lastNettyServiceViewId =
+                lastNettyServiceViewIds[subpartitionId];
+        checkMultipleConsumerIsAllowed(lastNettyServiceViewId);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
-        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId =
-                NettyBasedTierConsumerViewId.newId(lastNettyBasedTierConsumerViewId);
-        lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
+        NettyServiceViewId nettyServiceViewId =
+                NettyServiceViewId.newId(lastNettyServiceViewId);
+        lastNettyServiceViewIds[subpartitionId] = nettyServiceViewId;
 
         NettyBufferQueue nettyBufferQueue =
-                createMemoryNettyBufferQueue(subpartitionId, nettyBasedTierConsumerViewId, memoryReaderView);
+                createMemoryNettyBufferQueue(subpartitionId, nettyServiceViewId, memoryReaderView);
 
         memoryReaderView.setNettyBufferQueue(nettyBufferQueue);
         return memoryReaderView;
@@ -177,9 +177,9 @@ public class MemoryTierProducerAgent
     }
 
     private static void checkMultipleConsumerIsAllowed(
-            NettyBasedTierConsumerViewId lastNettyBasedTierConsumerViewId) {
+            NettyServiceViewId lastNettyServiceViewId) {
         checkState(
-                lastNettyBasedTierConsumerViewId == null,
+                lastNettyServiceViewId == null,
                 "Memory Tier does not support multiple consumers");
     }
 
@@ -224,16 +224,16 @@ public class MemoryTierProducerAgent
 
     public NettyBufferQueue createMemoryNettyBufferQueue(
             int subpartitionId,
-            NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
+            NettyServiceViewId nettyServiceViewId,
             NettyServiceView viewOperations) {
         NettyServiceView oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
-                        .put(nettyBasedTierConsumerViewId, viewOperations);
+                        .put(nettyServiceViewId, viewOperations);
         Preconditions.checkState(
                 oldView == null, "Each subpartition view should have unique consumerId.");
         return getSubpartitionMemoryDataManager(subpartitionId)
-                .registerNewConsumer(nettyBasedTierConsumerViewId);
+                .registerNewConsumer(nettyServiceViewId);
     }
 
     @Override
@@ -259,10 +259,10 @@ public class MemoryTierProducerAgent
     @Override
     public void onDataAvailable(
             int subpartitionId,
-            Collection<NettyBasedTierConsumerViewId> nettyBasedTierConsumerViewIds) {
-        Map<NettyBasedTierConsumerViewId, NettyServiceView> consumerViewMap =
+            Collection<NettyServiceViewId> nettyServiceViewIds) {
+        Map<NettyServiceViewId, NettyServiceView> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
-        nettyBasedTierConsumerViewIds.forEach(
+        nettyServiceViewIds.forEach(
                 consumerId -> {
                     NettyServiceView nettyServiceView =
                             consumerViewMap.get(consumerId);
@@ -274,10 +274,10 @@ public class MemoryTierProducerAgent
 
     @Override
     public void onConsumerReleased(
-            int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
-        subpartitionViewOperationsMap.get(subpartitionId).remove(nettyBasedTierConsumerViewId);
+            int subpartitionId, NettyServiceViewId nettyServiceViewId) {
+        subpartitionViewOperationsMap.get(subpartitionId).remove(nettyServiceViewId);
         getSubpartitionMemoryDataManager(subpartitionId)
-                .releaseConsumer(nettyBasedTierConsumerViewId);
+                .releaseConsumer(nettyServiceViewId);
     }
 
     // ------------------------------------

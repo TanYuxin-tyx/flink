@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.loc
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.DiskCacheManagerOperation;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewId;
 import org.apache.flink.util.function.SupplierWithException;
 
 import java.util.List;
@@ -36,14 +36,14 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
 
     private final Runnable onDataAvailableRunnable;
 
-    private final BiConsumer<Integer, NettyBasedTierConsumerViewId> onConsumerReleasedBiConsumer;
+    private final BiConsumer<Integer, NettyServiceViewId> onConsumerReleasedBiConsumer;
 
     private TestingDiskCacheManagerOperation(
             SupplierWithException<BufferBuilder, InterruptedException>
                     requestBufferFromPoolSupplier,
             BiConsumer<Integer, Integer> markBufferReadableConsumer,
             Runnable onDataAvailableRunnable,
-            BiConsumer<Integer, NettyBasedTierConsumerViewId> onConsumerReleasedBiConsumer) {
+            BiConsumer<Integer, NettyServiceViewId> onConsumerReleasedBiConsumer) {
         this.requestBufferFromPoolSupplier = requestBufferFromPoolSupplier;
         this.markBufferReadableConsumer = markBufferReadableConsumer;
         this.onDataAvailableRunnable = onDataAvailableRunnable;
@@ -62,8 +62,8 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
 
     @Override
     public void onConsumerReleased(
-            int subpartitionId, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
-        onConsumerReleasedBiConsumer.accept(subpartitionId, nettyBasedTierConsumerViewId);
+            int subpartitionId, NettyServiceViewId nettyServiceViewId) {
+        onConsumerReleasedBiConsumer.accept(subpartitionId, nettyServiceViewId);
     }
 
     public static Builder builder() {
@@ -79,7 +79,7 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
 
         private Runnable onDataAvailableRunnable = () -> {};
 
-        private BiConsumer<Integer, NettyBasedTierConsumerViewId> onConsumerReleasedBiConsumer =
+        private BiConsumer<Integer, NettyServiceViewId> onConsumerReleasedBiConsumer =
                 (ignore1, ignore2) -> {};
 
         public Builder setRequestBufferFromPoolSupplier(
@@ -101,7 +101,7 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
         }
 
         public Builder setOnConsumerReleasedBiConsumer(
-                BiConsumer<Integer, NettyBasedTierConsumerViewId> onConsumerReleasedBiConsumer) {
+                BiConsumer<Integer, NettyServiceViewId> onConsumerReleasedBiConsumer) {
             this.onConsumerReleasedBiConsumer = onConsumerReleasedBiConsumer;
             return this;
         }

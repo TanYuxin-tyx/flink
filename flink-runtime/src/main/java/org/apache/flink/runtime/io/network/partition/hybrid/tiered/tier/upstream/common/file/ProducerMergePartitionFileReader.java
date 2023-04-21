@@ -9,7 +9,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.T
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBufferQueue;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewId;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
 
@@ -166,7 +166,7 @@ public class ProducerMergePartitionFileReader
     @Override
     public NettyBufferQueue createNettyBufferQueue(
             int subpartitionId,
-            NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
+            NettyServiceViewId nettyServiceViewId,
             NettyServiceView tierConsumerView)
             throws IOException {
         synchronized (lock) {
@@ -176,7 +176,7 @@ public class ProducerMergePartitionFileReader
             ProducerMergePartitionTierSubpartitionReader subpartitionReader =
                     fileReaderFactory.createFileReader(
                             subpartitionId,
-                            nettyBasedTierConsumerViewId,
+                            nettyServiceViewId,
                             dataFileChannel,
                             tierConsumerView,
                             dataIndex,

@@ -23,24 +23,24 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
- * {@link NettyBasedTierConsumerViewId} represents the identifier of {@link
+ * {@link NettyServiceViewId} represents the identifier of {@link
  * NettyServiceView}, Every {@link NettyServiceView} has a specific id.
  */
-public class NettyBasedTierConsumerViewId {
+public class NettyServiceViewId {
 
     /** This is the first consumer view id of a single subpartition. */
-    public static final NettyBasedTierConsumerViewId DEFAULT = new NettyBasedTierConsumerViewId(0);
+    public static final NettyServiceViewId DEFAULT = new NettyServiceViewId(0);
 
     /** This is a unique field for each consumer view of a single subpartition. */
     private final int id;
 
-    private NettyBasedTierConsumerViewId(int id) {
+    private NettyServiceViewId(int id) {
         this.id = id;
     }
 
-    public static NettyBasedTierConsumerViewId newId(
-            @Nullable NettyBasedTierConsumerViewId lastId) {
-        return lastId == null ? DEFAULT : new NettyBasedTierConsumerViewId(lastId.id + 1);
+    public static NettyServiceViewId newId(
+            @Nullable NettyServiceViewId lastId) {
+        return lastId == null ? DEFAULT : new NettyServiceViewId(lastId.id + 1);
     }
 
     @Override
@@ -51,7 +51,7 @@ public class NettyBasedTierConsumerViewId {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        NettyBasedTierConsumerViewId that = (NettyBasedTierConsumerViewId) o;
+        NettyServiceViewId that = (NettyServiceViewId) o;
         return id == that.id;
     }
 

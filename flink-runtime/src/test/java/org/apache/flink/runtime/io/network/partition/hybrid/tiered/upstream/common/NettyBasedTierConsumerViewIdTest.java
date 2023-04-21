@@ -18,36 +18,36 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewId;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Tests for {@link NettyBasedTierConsumerViewId}. */
+/** Tests for {@link NettyServiceViewId}. */
 class NettyBasedTierConsumerViewIdTest {
 
     @Test
     void testNewIdFromNull() {
-        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId =
-                NettyBasedTierConsumerViewId.newId(null);
-        assertThat(nettyBasedTierConsumerViewId)
+        NettyServiceViewId nettyServiceViewId =
+                NettyServiceViewId.newId(null);
+        assertThat(nettyServiceViewId)
                 .isNotNull()
-                .isEqualTo(NettyBasedTierConsumerViewId.DEFAULT);
+                .isEqualTo(NettyServiceViewId.DEFAULT);
     }
 
     @Test
     void testConsumerIdEquals() {
-        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId =
-                NettyBasedTierConsumerViewId.newId(null);
-        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId1 =
-                NettyBasedTierConsumerViewId.newId(nettyBasedTierConsumerViewId);
-        NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId2 =
-                NettyBasedTierConsumerViewId.newId(nettyBasedTierConsumerViewId);
-        assertThat(nettyBasedTierConsumerViewId1.hashCode())
-                .isEqualTo(nettyBasedTierConsumerViewId2.hashCode());
-        assertThat(nettyBasedTierConsumerViewId1).isEqualTo(nettyBasedTierConsumerViewId2);
+        NettyServiceViewId nettyServiceViewId =
+                NettyServiceViewId.newId(null);
+        NettyServiceViewId nettyServiceViewId1 =
+                NettyServiceViewId.newId(nettyServiceViewId);
+        NettyServiceViewId nettyServiceViewId2 =
+                NettyServiceViewId.newId(nettyServiceViewId);
+        assertThat(nettyServiceViewId1.hashCode())
+                .isEqualTo(nettyServiceViewId2.hashCode());
+        assertThat(nettyServiceViewId1).isEqualTo(nettyServiceViewId2);
 
-        assertThat(NettyBasedTierConsumerViewId.newId(nettyBasedTierConsumerViewId2))
-                .isNotEqualTo(nettyBasedTierConsumerViewId2);
+        assertThat(NettyServiceViewId.newId(nettyServiceViewId2))
+                .isNotEqualTo(nettyServiceViewId2);
     }
 }

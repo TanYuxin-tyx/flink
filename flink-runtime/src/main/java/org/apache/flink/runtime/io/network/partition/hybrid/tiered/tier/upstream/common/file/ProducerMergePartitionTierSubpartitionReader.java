@@ -25,8 +25,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBufferQueue;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBufferQueueImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;
 
 import java.io.IOException;
@@ -52,7 +53,7 @@ public class ProducerMergePartitionTierSubpartitionReader
 
     private final int subpartitionId;
 
-    private final NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId;
+    private final NettyServiceViewId nettyServiceViewId;
 
     private final FileChannel dataFileChannel;
 
@@ -70,7 +71,7 @@ public class ProducerMergePartitionTierSubpartitionReader
 
     public ProducerMergePartitionTierSubpartitionReader(
             int subpartitionId,
-            NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
+            NettyServiceViewId nettyServiceViewId,
             FileChannel dataFileChannel,
             NettyServiceView tierConsumerView,
             RegionBufferIndexTracker dataIndex,
@@ -78,7 +79,7 @@ public class ProducerMergePartitionTierSubpartitionReader
             Consumer<ProducerMergePartitionTierSubpartitionReader> diskTierReaderReleaser,
             ByteBuffer headerBuf) {
         this.subpartitionId = subpartitionId;
-        this.nettyBasedTierConsumerViewId = nettyBasedTierConsumerViewId;
+        this.nettyServiceViewId = nettyServiceViewId;
         this.dataFileChannel = dataFileChannel;
         this.tierConsumerView = tierConsumerView;
         this.headerBuf = headerBuf;
@@ -104,7 +105,7 @@ public class ProducerMergePartitionTierSubpartitionReader
         }
         int numRemainingBuffer =
                 cachedRegionManager.getRemainingBuffersInRegion(
-                        firstBufferToLoad, nettyBasedTierConsumerViewId);
+                        firstBufferToLoad, nettyServiceViewId);
         // If there is no data in index, skip this time.
         if (numRemainingBuffer == 0) {
             return;
@@ -174,12 +175,12 @@ public class ProducerMergePartitionTierSubpartitionReader
         ProducerMergePartitionTierSubpartitionReader that =
                 (ProducerMergePartitionTierSubpartitionReader) o;
         return subpartitionId == that.subpartitionId
-                && Objects.equals(nettyBasedTierConsumerViewId, that.nettyBasedTierConsumerViewId);
+                && Objects.equals(nettyServiceViewId, that.nettyServiceViewId);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(subpartitionId, nettyBasedTierConsumerViewId);
+        return Objects.hash(subpartitionId, nettyServiceViewId);
     }
 
     public int compareTo(ProducerMergePartitionTierSubpartitionReader that) {
@@ -267,8 +268,8 @@ public class ProducerMergePartitionTierSubpartitionReader
         }
 
         private int getRemainingBuffersInRegion(
-                int bufferIndex, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
-            updateCachedRegionIfNeeded(bufferIndex, nettyBasedTierConsumerViewId);
+                int bufferIndex, NettyServiceViewId nettyServiceViewId) {
+            updateCachedRegionIfNeeded(bufferIndex, nettyServiceViewId);
 
             return numReadable;
         }
@@ -305,7 +306,7 @@ public class ProducerMergePartitionTierSubpartitionReader
 
         /** Points the cursors to the given buffer index, if possible. */
         private void updateCachedRegionIfNeeded(
-                int bufferIndex, NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
+                int bufferIndex, NettyServiceViewId nettyServiceViewId) {
             if (isInCachedRegion(bufferIndex)) {
                 int numAdvance = bufferIndex - currentBufferIndex;
                 numSkip += numAdvance;
@@ -319,7 +320,7 @@ public class ProducerMergePartitionTierSubpartitionReader
                             subpartitionId,
                             bufferIndex,
                             consumingOffset,
-                            nettyBasedTierConsumerViewId);
+                            nettyServiceViewId);
             if (!lookupResultOpt.isPresent()) {
                 currentBufferIndex = -1;
                 numReadable = 0;
@@ -348,7 +349,7 @@ public class ProducerMergePartitionTierSubpartitionReader
 
         public ProducerMergePartitionTierSubpartitionReader createFileReader(
                 int subpartitionId,
-                NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
+                NettyServiceViewId nettyServiceViewId,
                 FileChannel dataFileChannel,
                 NettyServiceView tierConsumerView,
                 RegionBufferIndexTracker dataIndex,
@@ -357,7 +358,7 @@ public class ProducerMergePartitionTierSubpartitionReader
                 ByteBuffer headerBuffer) {
             return new ProducerMergePartitionTierSubpartitionReader(
                     subpartitionId,
-                    nettyBasedTierConsumerViewId,
+                    nettyServiceViewId,
                     dataFileChannel,
                     tierConsumerView,
                     dataIndex,
