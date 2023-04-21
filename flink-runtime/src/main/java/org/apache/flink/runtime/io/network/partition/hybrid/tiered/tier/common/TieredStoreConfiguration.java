@@ -23,15 +23,21 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsFullSpillingStrategy;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsSelectiveSpillingStrategy;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
+import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.StringUtils;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.HYBRID_SELECTIVE;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The configuration for TieredStore. */
 public class TieredStoreConfiguration {
+
+    static TierType[] allTierTypes =
+            new TierType[] {TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE};
 
     private static final int DEFAULT_MAX_BUFFERS_READ_AHEAD = 5;
 
@@ -108,6 +114,9 @@ public class TieredStoreConfiguration {
 
     private final TierType[] remoteTierTypes;
 
+    private final List<TierConfSpec> tierConfSpecs;
+    private final List<TierMemorySpec> tierMemorySpecs;
+
     private TieredStoreConfiguration(
             int maxBuffersReadAhead,
             Duration bufferRequestTimeout,
@@ -126,7 +135,9 @@ public class TieredStoreConfiguration {
             int configuredNetworkBuffersPerChannel,
             TierType[] tierTypes,
             TierType[] upstreamTierTypes,
-            TierType[] remoteTierTypes) {
+            TierType[] remoteTierTypes,
+            List<TierConfSpec> tierConfSpecs,
+            List<TierMemorySpec> tierMemorySpecs) {
         this.maxBuffersReadAhead = maxBuffersReadAhead;
         this.bufferRequestTimeout = bufferRequestTimeout;
         this.maxRequestedBuffers = maxRequestedBuffers;
@@ -146,6 +157,8 @@ public class TieredStoreConfiguration {
         this.tierTypes = tierTypes;
         this.upstreamTierTypes = upstreamTierTypes;
         this.remoteTierTypes = remoteTierTypes;
+        this.tierConfSpecs = tierConfSpecs;
+        this.tierMemorySpecs = tierMemorySpecs;
     }
 
     public static TieredStoreConfiguration.Builder builder(
@@ -290,6 +303,14 @@ public class TieredStoreConfiguration {
         return MEMORY_DISK_REMOTE_TIER_TYPES;
     }
 
+    public List<TierConfSpec> getTierConfSpecs() {
+        return tierConfSpecs;
+    }
+
+    public List<TierMemorySpec> getTierMemorySpecs() {
+        return tierMemorySpecs;
+    }
+
     /** Builder for {@link TieredStoreConfiguration}. */
     public static class Builder {
         private int maxBuffersReadAhead = DEFAULT_MAX_BUFFERS_READ_AHEAD;
@@ -324,6 +345,8 @@ public class TieredStoreConfiguration {
 
         private TierType[] tierTypes;
 
+        private int[] tierIndexes;
+
         private TierType[] upstreamTierTypes;
 
         private TierType[] remoteTierTypes;
@@ -331,6 +354,10 @@ public class TieredStoreConfiguration {
         private String tieredStoreSpillingType;
 
         private final int numSubpartitions;
+
+        private List<TierConfSpec> tierConfSpecs;
+
+        private final List<TierMemorySpec> tierMemorySpecs = new ArrayList<>();
 
         private final int numBuffersPerRequest;
 
@@ -429,11 +456,49 @@ public class TieredStoreConfiguration {
                     getConfiguredUpstreamTierTypes(configuredStoreTiers, partitionType);
             this.remoteTierTypes =
                     getConfiguredRemoteTierTypes(configuredStoreTiers, partitionType);
+            // After the method is replaced, these generation of tierConfSpecs is useless.
+            this.tierConfSpecs = new ArrayList<>();
+            for (int i = 0; i < tierTypes.length; i++) {
+                tierConfSpecs.add(
+                        new TierConfSpec(
+                                tierTypes[i],
+                                NettyShuffleUtils.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(
+                                        tierTypes[i]),
+                                tierTypes[i] != TierType.IN_MEM));
+            }
             return this;
         }
 
         public TieredStoreConfiguration.Builder setTierTypes(TierType[] tierTypes) {
             this.tierTypes = tierTypes;
+            return this;
+        }
+
+        public TieredStoreConfiguration.Builder setTierSpecs(List<TierConfSpec> tierConfSpecs) {
+            this.tierConfSpecs = tierConfSpecs;
+            this.tierTypes = new TierType[tierConfSpecs.size()];
+            this.tierIndexes = new int[tierConfSpecs.size()];
+            for (int i = 0; i < tierConfSpecs.size(); i++) {
+                tierTypes[i] = tierConfSpecs.get(i).getTierType();
+                tierIndexes[i] = getTierIndexFromType(tierTypes[i]);
+                TierMemorySpec tierMemorySpec =
+                        new TierMemorySpec(
+                                i,
+                                tierConfSpecs.get(i).getNumExclusiveBuffers(),
+                                tierConfSpecs.get(i).canUseSharedBuffers());
+                tierMemorySpecs.add(tierMemorySpec);
+            }
+            return this;
+        }
+
+        public TieredStoreConfiguration.Builder setDefaultTierMemorySpecs() {
+            tierMemorySpecs.clear();
+            for (int i = 0; i < tierTypes.length; i++) {
+                int numExclusive =
+                        NettyShuffleUtils.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(tierTypes[i]);
+                tierMemorySpecs.add(
+                        new TierMemorySpec(i, numExclusive, tierTypes[i] != TierType.IN_MEM));
+            }
             return this;
         }
 
@@ -534,7 +599,9 @@ public class TieredStoreConfiguration {
                     configuredNetworkBuffersPerChannel,
                     tierTypes,
                     upstreamTierTypes,
-                    remoteTierTypes);
+                    remoteTierTypes,
+                    tierConfSpecs,
+                    tierMemorySpecs);
         }
 
         private void validateConfiguredOptions() {
@@ -548,5 +615,14 @@ public class TieredStoreConfiguration {
             }
             checkState(tierTypes.length == upstreamTierTypes.length + remoteTierTypes.length);
         }
+    }
+
+    private static int getTierIndexFromType(TierType tierType) {
+        for (int i = 0; i < allTierTypes.length; i++) {
+            if (tierType == allTierTypes[i]) {
+                return i;
+            }
+        }
+        throw new IllegalArgumentException("No such a tier type " + tierType);
     }
 }

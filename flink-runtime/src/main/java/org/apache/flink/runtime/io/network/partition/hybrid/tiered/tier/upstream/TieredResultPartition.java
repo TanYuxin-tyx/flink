@@ -34,8 +34,8 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.TieredStorageProducerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.TieredStoreNettyService;
@@ -69,7 +69,7 @@ public class TieredResultPartition extends ResultPartition {
 
     private boolean hasNotifiedEndOfUserRecords;
 
-    private final TieredStoreMemoryManager tieredStoreMemoryManager;
+    private final StorageMemoryManager storageMemoryManager;
 
     private TieredStoreNettyService tieredStoreNettyService;
 
@@ -82,7 +82,7 @@ public class TieredResultPartition extends ResultPartition {
             int numTargetKeyGroups,
             ResultPartitionManager partitionManager,
             List<TierProducerAgent> tierProducerAgents,
-            TieredStoreMemoryManager tieredStoreMemoryManager,
+            StorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager,
             @Nullable BufferCompressor bufferCompressor,
             TieredStorageProducerClient tieredStorageProducerClient,
@@ -99,7 +99,7 @@ public class TieredResultPartition extends ResultPartition {
                 bufferPoolFactory);
 
         this.tierProducerAgents = tierProducerAgents;
-        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
+        this.storageMemoryManager = storageMemoryManager;
         this.cacheFlushManager = cacheFlushManager;
         this.tieredStorageProducerClient = tieredStorageProducerClient;
     }
@@ -110,7 +110,8 @@ public class TieredResultPartition extends ResultPartition {
         if (isReleased()) {
             throw new IOException("Result partition has been released.");
         }
-        tieredStoreMemoryManager.setBufferPool(bufferPool);
+        storageMemoryManager.setup(bufferPool);
+        cacheFlushManager.setup(storageMemoryManager);
         tieredStoreNettyService = new TieredStoreNettyServiceImpl(tierProducerAgents);
     }
 
@@ -177,9 +178,7 @@ public class TieredResultPartition extends ResultPartition {
         if (tieredStorageProducerClient != null) {
             tieredStorageProducerClient.close();
         }
-        if (tieredStoreMemoryManager != null) {
-            tieredStoreMemoryManager.close();
-        }
+
         if (cacheFlushManager != null) {
             cacheFlushManager.close();
         }
@@ -203,7 +202,7 @@ public class TieredResultPartition extends ResultPartition {
 
         // first release the writer
         tieredStorageProducerClient.release();
-        tieredStoreMemoryManager.release();
+        storageMemoryManager.close();
     }
 
     @Override

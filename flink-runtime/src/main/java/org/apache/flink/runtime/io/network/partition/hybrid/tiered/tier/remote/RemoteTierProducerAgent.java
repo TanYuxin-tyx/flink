@@ -21,10 +21,10 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileType;
@@ -47,11 +47,13 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     private final int[] subpartitionLastestSegmentId;
 
+    private int tierIndex;
+
     public RemoteTierProducerAgent(
             int numSubpartitions,
             boolean isBroadcastOnly,
             int networkBufferSize,
-            TieredStoreMemoryManager tieredStoreMemoryManager,
+            StorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager,
             BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager) {
@@ -61,7 +63,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
                 new RemoteCacheManager(
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
-                        tieredStoreMemoryManager,
+                        storageMemoryManager,
                         cacheFlushManager,
                         bufferCompressor,
                         partitionFileManager.createPartitionFileWriter(
@@ -79,6 +81,16 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     @Override
     public TierType getTierType() {
         return TierType.IN_REMOTE;
+    }
+
+    // Only for test, this should be removed in production code.
+    public void setTierIndex(int tierIndex) {
+        this.tierIndex = tierIndex;
+    }
+
+    @Override
+    public int getTierIndex() {
+        return tierIndex;
     }
 
     @Override

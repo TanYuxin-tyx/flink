@@ -32,6 +32,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfigu
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.ProducerStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierConfSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
@@ -275,13 +277,11 @@ public class ResultPartitionFactory {
             if (enableTieredStoreForHybridShuffle) {
                 TieredStoreConfiguration storeConfiguration =
                         getStoreConfiguration(numberOfSubpartitions, type);
-                CacheFlushManager cacheFlushManager = new CacheFlushManager();
-                UpstreamTieredStoreMemoryManager storeMemoryManager =
-                        createStoreMemoryManager(
-                                subpartitions.length,
-                                storeConfiguration.getTierTypes(),
-                                storeConfiguration.getNumBuffersTriggerFlushRatio(),
-                                cacheFlushManager);
+                ProducerStorageMemoryManager storageMemoryManager =
+                        new ProducerStorageMemoryManager(
+                                subpartitions.length, storeConfiguration.getTierMemorySpecs());
+                CacheFlushManager cacheFlushManager =
+                        new CacheFlushManager(storeConfiguration.getNumBuffersTriggerFlushRatio());
                 List<TierProducerAgent> tierProducerAgents =
                         createTierStorages(
                                 jobID,
@@ -290,7 +290,7 @@ public class ResultPartitionFactory {
                                 bufferCompressor,
                                 subpartitions,
                                 storeConfiguration,
-                                storeMemoryManager,
+                                storageMemoryManager,
                                 cacheFlushManager);
 
                 BufferAccumulator bufferAccumulator =
@@ -299,7 +299,7 @@ public class ResultPartitionFactory {
                                 subpartitions.length,
                                 networkBufferSize,
                                 isBroadcast,
-                                storeMemoryManager,
+                                storageMemoryManager,
                                 bufferCompressor);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(
@@ -307,7 +307,8 @@ public class ResultPartitionFactory {
                                 isBroadcast,
                                 bufferAccumulator,
                                 bufferCompressor,
-                                storeMemoryManager,
+                                storageMemoryManager,
+                                cacheFlushManager,
                                 tierProducerAgents);
                 partition =
                         new TieredResultPartition(
@@ -319,7 +320,7 @@ public class ResultPartitionFactory {
                                 maxParallelism,
                                 partitionManager,
                                 tierProducerAgents,
-                                storeMemoryManager,
+                                storageMemoryManager,
                                 cacheFlushManager,
                                 bufferCompressor,
                                 tieredStorageProducerClient,
@@ -361,7 +362,7 @@ public class ResultPartitionFactory {
             BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
             TieredStoreConfiguration storeConfiguration,
-            UpstreamTieredStoreMemoryManager storeMemoryManager,
+            ProducerStorageMemoryManager storeMemoryManager,
             CacheFlushManager cacheFlushManager) {
         String dataFileBasePath = channelManager.createChannel().getPath();
         PartitionFileManager partitionFileManager =
@@ -378,11 +379,25 @@ public class ResultPartitionFactory {
 
         List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
         int[] upstreamTierIndexes = storeConfiguration.getTierIndexes();
+        // Use this method in the production code
+        //        tierProducerAgents = TieredStoreUtils.createTierProducerAgents(
+        //                id,
+        //                isBroadcast,
+        //                bufferCompressor,
+        //                subpartitions,
+        //                storeConfiguration,
+        //                storeMemoryManager,
+        //                cacheFlushManager,
+        //                dataFileBasePath,
+        //                networkBufferSize,
+        //                minReservedDiskSpaceFraction,
+        //                partitionFileManager);
         if (storeConfiguration.getTierIndexes().length > 0) {
             for (int upstreamTierIndex : upstreamTierIndexes) {
                 if (upstreamTierIndex == 0) {
                     tierProducerAgents.add(
                             new MemoryTierProducerAgent(
+                                    upstreamTierIndex,
                                     subpartitions.length,
                                     storeMemoryManager,
                                     isBroadcast,
@@ -391,6 +406,7 @@ public class ResultPartitionFactory {
                 } else if (upstreamTierIndex == 1) {
                     tierProducerAgents.add(
                             new DiskTierProducerAgent(
+                                    upstreamTierIndex,
                                     subpartitions.length,
                                     id,
                                     dataFileBasePath,
@@ -451,9 +467,18 @@ public class ResultPartitionFactory {
     private TieredStoreConfiguration getStoreConfiguration(
             int numberOfSubpartitions, ResultPartitionType type) {
 
+        List<TierConfSpec> tierConfSpecs = new ArrayList<>();
+        // TODO, If the teirtype can not be accessed here, use a String instead.
+        tierConfSpecs.add(new TierConfSpec(TierType.IN_MEM, 100, false));
+        tierConfSpecs.add(new TierConfSpec(TierType.IN_DISK, 1, false));
+        tierConfSpecs.add(new TierConfSpec(TierType.IN_REMOTE, 1, true));
+
         return TieredStoreConfiguration.builder(
                         numberOfSubpartitions, batchShuffleReadBufferPool.getNumBuffersPerRequest())
                 .setTierTypes(tieredStoreTiers, type)
+                .setDefaultTierMemorySpecs()
+                // TODO, Replace these previous two lines with the setTierSpecs
+                //                .setTierSpecs(tierConfSpecs)
                 .setBaseDfsHomePath(baseRemoteStorageHomePath)
                 .setConfiguredNetworkBuffersPerChannel(configuredNetworkBuffersPerChannel)
                 .build();

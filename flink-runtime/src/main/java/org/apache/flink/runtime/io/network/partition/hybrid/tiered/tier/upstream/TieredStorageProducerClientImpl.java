@@ -26,8 +26,9 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.TieredStorageProducerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.DiskTierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.memory.MemoryTierProducerAgent;
@@ -56,7 +57,9 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
 
     private final BufferCompressor bufferCompressor;
 
-    private final TieredStoreMemoryManager storeMemoryManager;
+    private final StorageMemoryManager storageMemoryManager;
+
+    private final CacheFlushManager cacheFlushManager;
 
     private final List<TierProducerAgent> tierProducerAgents;
 
@@ -80,13 +83,15 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             boolean isBroadcastOnly,
             BufferAccumulator bufferAccumulator,
             @Nullable BufferCompressor bufferCompressor,
-            TieredStoreMemoryManager storeMemoryManager,
+            StorageMemoryManager storageMemoryManager,
+            CacheFlushManager cacheFlushManager,
             List<TierProducerAgent> tierProducerAgents) {
         this.isBroadcastOnly = isBroadcastOnly;
         this.numConsumers = numConsumers;
         this.bufferAccumulator = bufferAccumulator;
         this.bufferCompressor = bufferCompressor;
-        this.storeMemoryManager = storeMemoryManager;
+        this.storageMemoryManager = storageMemoryManager;
+        this.cacheFlushManager = cacheFlushManager;
         this.tierProducerAgents = tierProducerAgents;
         this.subpartitionSegmentIndexes = new int[numConsumers];
         this.lastSubpartitionSegmentIndexes = new int[numConsumers];
@@ -97,7 +102,8 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         for (int i = 0; i < tierProducerAgents.size(); i++) {
             tierTypes[i] = tierProducerAgents.get(i).getTierType();
             TierType tierType = tierTypes[i];
-            bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tierType);
+            final int tierIndex = i;
+            bufferRecyclers[i] = buffer -> storageMemoryManager.recycleBuffer(buffer, tierIndex);
         }
         Arrays.fill(subpartitionSegmentIndexes, 0);
         Arrays.fill(lastSubpartitionSegmentIndexes, -1);
@@ -160,8 +166,8 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
 
         int segmentIndex = subpartitionSegmentIndexes[subpartitionId];
         if (finishedBuffer.getDataType().isBuffer()) {
-            storeMemoryManager.decRequestedBufferInAccumulator();
-            storeMemoryManager.incNumRequestedBuffer(tierTypes[tierIndex]);
+            storageMemoryManager.decNumRequestedBufferInAccumulator();
+            storageMemoryManager.incNumRequestedBuffer(tierIndex);
         }
         Buffer networkBuffer =
                 new NetworkBuffer(
@@ -179,7 +185,7 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         }
         boolean isLastBufferInSegment =
                 tierProducerAgents.get(tierIndex).write(subpartitionId, compressedBuffer);
-        storeMemoryManager.checkNeedTriggerFlushCachedBuffers();
+        cacheFlushManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(subpartitionId);
             subpartitionWriterIndex[subpartitionId] = tierIndex;

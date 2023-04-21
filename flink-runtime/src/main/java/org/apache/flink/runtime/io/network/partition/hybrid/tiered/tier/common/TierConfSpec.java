@@ -18,28 +18,31 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common;
 
-import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 
-import java.io.IOException;
+public class TierConfSpec {
 
-/**
- * The gate for a single tiered data. The gate is used to create {@link TierProducerAgentWriter}.
- * The writing and reading data processes happen in the writer and reader.
- */
-public interface TierProducerAgent {
+    private final TierType tierType;
 
-    boolean canStoreNextSegment(int consumerId);
+    private final int numExclusiveBuffers;
 
-    TierType getTierType();
+    private final boolean canUseSharedBuffers;
 
-    int getTierIndex();
+    public TierConfSpec(TierType tierType, int numExclusiveBuffers, boolean canUseSharedBuffers) {
+        this.tierType = tierType;
+        this.numExclusiveBuffers = numExclusiveBuffers;
+        this.canUseSharedBuffers = canUseSharedBuffers;
+    }
 
-    void release();
+    public TierType getTierType() {
+        return tierType;
+    }
 
-    void startSegment(int consumerId, int segmentId);
+    public int getNumExclusiveBuffers() {
+        return numExclusiveBuffers;
+    }
 
-    boolean write(int consumerId, Buffer finishedBuffer) throws IOException;
-
-    void close();
+    public boolean canUseSharedBuffers() {
+        return canUseSharedBuffers;
+    }
 }

@@ -20,12 +20,12 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.loc
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManagerImpl;
-
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.DiskCacheManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTrackerImpl;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -50,14 +50,15 @@ class DiskCacheManagerTest {
         this.dataFilePath = tempDir.resolve(".data");
     }
 
-    private DiskCacheManager createCacheDataManager(
-            TieredStoreMemoryManager tieredStoreMemoryManager) throws Exception {
+    private DiskCacheManager createCacheDataManager(StorageMemoryManager storageMemoryManager)
+            throws Exception {
         DiskCacheManager diskCacheManager =
                 new DiskCacheManager(
+                        0,
                         NUM_SUBPARTITIONS,
                         bufferSize,
-                        tieredStoreMemoryManager,
-                        new CacheFlushManager(),
+                        storageMemoryManager,
+                        new CacheFlushManager(0.5f),
                         null,
                         new PartitionFileManagerImpl(
                                 dataFilePath,

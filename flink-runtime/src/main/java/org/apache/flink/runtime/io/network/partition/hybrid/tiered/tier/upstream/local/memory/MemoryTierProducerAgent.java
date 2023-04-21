@@ -25,10 +25,10 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
@@ -54,9 +54,11 @@ public class MemoryTierProducerAgent
 
     public static final int BROADCAST_CHANNEL = 0;
 
+    private final int tierIndex;
+
     private final int numSubpartitions;
 
-    private final TieredStoreMemoryManager tieredStoreMemoryManager;
+    private final StorageMemoryManager storageMemoryManager;
 
     private final boolean isBroadcastOnly;
 
@@ -84,14 +86,16 @@ public class MemoryTierProducerAgent
     private final SubpartitionSegmentIndexTracker subpartitionSegmentIndexTracker;
 
     public MemoryTierProducerAgent(
+            int tierIndex,
             int numSubpartitions,
-            TieredStoreMemoryManager tieredStoreMemoryManager,
+            StorageMemoryManager storageMemoryManager,
             boolean isBroadcastOnly,
             BufferCompressor bufferCompressor,
             int bufferSize) {
+        this.tierIndex = tierIndex;
         this.numSubpartitions = numSubpartitions;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
+        this.storageMemoryManager = storageMemoryManager;
         this.lastNettyBasedTierConsumerViewIds = new NettyBasedTierConsumerViewId[numSubpartitions];
 
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
@@ -135,7 +139,7 @@ public class MemoryTierProducerAgent
 
     @Override
     public boolean canStoreNextSegment(int consumerId) {
-        return tieredStoreMemoryManager.numAvailableBuffers(TierType.IN_MEM) > bufferNumberInSegment
+        return storageMemoryManager.numAvailableBuffers(tierIndex) > bufferNumberInSegment
                 && isConsumerRegistered(consumerId);
     }
 
@@ -165,6 +169,11 @@ public class MemoryTierProducerAgent
     @Override
     public TierType getTierType() {
         return TierType.IN_MEM;
+    }
+
+    @Override
+    public int getTierIndex() {
+        return tierIndex;
     }
 
     private static void checkMultipleConsumerIsAllowed(
@@ -227,10 +236,6 @@ public class MemoryTierProducerAgent
                 .registerNewConsumer(nettyBasedTierConsumerViewId);
     }
 
-    /**
-     * Close this {@link MemoryTierProducerAgentWriter}, it means no data will be appended to
-     * memory.
-     */
     @Override
     public void close() {}
 
@@ -248,7 +253,7 @@ public class MemoryTierProducerAgent
 
     @Override
     public MemorySegment requestBufferFromPool(int subpartitionId) {
-        return tieredStoreMemoryManager.requestMemorySegmentBlocking(TierType.IN_MEM);
+        return storageMemoryManager.requestBufferBlocking(tierIndex);
     }
 
     @Override

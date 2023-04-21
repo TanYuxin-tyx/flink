@@ -18,8 +18,19 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreUtils;
+import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FatalExitExceptionHandler;
+
+import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * A service to check whether the cached buffers need to be flushed. When initializing the tier
@@ -29,10 +40,29 @@ import java.util.List;
  */
 public class CacheFlushManager {
 
+    private final float numBuffersTriggerFlushRatio;
+
     private final List<CacheBufferFlushTrigger> spillTriggers;
 
-    public CacheFlushManager() {
+    private StorageMemoryManager storageMemoryManager;
+
+    private final ScheduledExecutorService executor =
+            Executors.newSingleThreadScheduledExecutor(
+                    new ThreadFactoryBuilder()
+                            .setNameFormat("cache flush trigger")
+                            .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
+                            .build());
+
+    public CacheFlushManager(float numBuffersTriggerFlushRatio) {
+        this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
         this.spillTriggers = new ArrayList<>();
+
+        executor.scheduleWithFixedDelay(
+                this::checkNeedTriggerFlushCachedBuffers, 10, 50, TimeUnit.MILLISECONDS);
+    }
+
+    public void setup(StorageMemoryManager storageMemoryManager) {
+        this.storageMemoryManager = storageMemoryManager;
     }
 
     public void registerCacheBufferFlushTrigger(CacheBufferFlushTrigger cacheBufferFlushTrigger) {
@@ -43,7 +73,30 @@ public class CacheFlushManager {
         spillTriggers.forEach(CacheBufferFlushTrigger::notifyFlushCachedBuffers);
     }
 
+    public void checkNeedTriggerFlushCachedBuffers() {
+        if (storageMemoryManager == null) {
+            return;
+        }
+
+        if (TieredStoreUtils.needFlushCacheBuffers(
+                storageMemoryManager, numBuffersTriggerFlushRatio)) {
+            triggerFlushCachedBuffers();
+        }
+    }
+
+    public float numBuffersTriggerFlushRatio() {
+        return numBuffersTriggerFlushRatio;
+    }
+
     public void close() {
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(5L, TimeUnit.MINUTES)) {
+                throw new TimeoutException("Shutdown cache flusher thread timeout.");
+            }
+        } catch (Exception e) {
+            ExceptionUtils.rethrow(e);
+        }
         spillTriggers.clear();
     }
 }

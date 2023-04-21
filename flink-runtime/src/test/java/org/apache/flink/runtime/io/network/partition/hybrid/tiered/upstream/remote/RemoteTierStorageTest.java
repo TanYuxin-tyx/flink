@@ -20,11 +20,11 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.rem
 
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreTestUtils;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.UpstreamTieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreTestUtils;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -67,10 +67,10 @@ class RemoteTierStorageTest {
                         TieredStoreTestUtils.getTierExclusiveBuffers(),
                         NUM_SUBPARTITIONS,
                         NUM_BUFFERS_TRIGGER_FLUSH_RATIO,
-                        new CacheFlushManager());
+                        new CacheFlushManager(NUM_BUFFERS_TRIGGER_FLUSH_RATIO));
         tieredStoreMemoryManager.setBufferPool(bufferPool);
 
-        //return new RemoteTierStorage(
+        // return new RemoteTierStorage(
         //        NUM_SUBPARTITIONS,
         //        1024,
         //        tieredStoreMemoryManager,

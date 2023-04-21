@@ -30,15 +30,6 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.c
 
 public class TieredStoreShuffleEnvironment {
 
-    private enum TierType {
-        IN_MEM,
-        IN_DISK,
-        IN_REMOTE,
-    }
-
-    private static final TierType[] tierIndexTypes =
-            new TierType[] {TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE};
-
     public void createStorageTierReaderFactory() {}
 
     public List<TierStorageReleaser> createStorageTierReleasers(

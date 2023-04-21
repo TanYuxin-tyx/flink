@@ -23,16 +23,15 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -48,11 +47,15 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.c
 /** This class is responsible for managing cached buffers data before flush to local files. */
 public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferFlushTrigger {
 
+    private final int tierIndex;
+
     private final int numSubpartitions;
 
     private final SubpartitionDiskCacheManager[] subpartitionDiskCacheManagers;
 
-    private final TieredStoreMemoryManager tieredStoreMemoryManager;
+    private final StorageMemoryManager storageMemoryManager;
+
+    private final CacheFlushManager cacheFlushManager;
 
     private final List<Map<NettyBasedTierConsumerViewId, NettyBasedTierConsumerView>>
             tierReaderViewMap;
@@ -63,14 +66,16 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
     PartitionFileWriter partitionFileWriter;
 
     public DiskCacheManager(
+            int tierIndex,
             int numSubpartitions,
             int bufferSize,
-            TieredStoreMemoryManager tieredStoreMemoryManager,
+            StorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager,
             BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager) {
+        this.tierIndex = tierIndex;
         this.numSubpartitions = numSubpartitions;
-        this.tieredStoreMemoryManager = tieredStoreMemoryManager;
+        this.storageMemoryManager = storageMemoryManager;
         this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
         this.tierReaderViewMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
@@ -81,6 +86,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
         this.partitionFileWriter =
                 partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
         cacheFlushManager.registerCacheBufferFlushTrigger(this::flushCacheBuffers);
+        this.cacheFlushManager = cacheFlushManager;
     }
 
     // ------------------------------------
@@ -157,20 +163,21 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
 
     @Override
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
-        MemorySegment segment =
-                tieredStoreMemoryManager.requestMemorySegmentBlocking(TierType.IN_DISK);
+        MemorySegment segment = storageMemoryManager.requestBufferBlocking(tierIndex);
         tryCheckFlushCacheBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
     }
 
     private void tryCheckFlushCacheBuffers() {
         if (hasFlushCompleted.isDone()) {
-            checkFlushCacheBuffers(tieredStoreMemoryManager, this);
+            checkFlushCacheBuffers(
+                    storageMemoryManager, this, cacheFlushManager.numBuffersTriggerFlushRatio());
         }
     }
 
     private void flushCacheBuffers() {
-        checkFlushCacheBuffers(tieredStoreMemoryManager, this);
+        checkFlushCacheBuffers(
+                storageMemoryManager, this, cacheFlushManager.numBuffersTriggerFlushRatio());
     }
 
     @Override
@@ -236,7 +243,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
     }
 
     private void recycleBuffer(MemorySegment buffer) {
-        tieredStoreMemoryManager.recycleBuffer(buffer, TierType.IN_DISK);
+        storageMemoryManager.recycleBuffer(buffer, tierIndex);
     }
 
     @VisibleForTesting

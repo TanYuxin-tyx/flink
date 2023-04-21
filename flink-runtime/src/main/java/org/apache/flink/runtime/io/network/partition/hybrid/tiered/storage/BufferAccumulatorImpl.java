@@ -21,11 +21,10 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.TieredStorageProducerClient;
 
 import javax.annotation.Nullable;
@@ -56,9 +55,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private final HashBasedCachedBuffer cachedBuffer;
 
-    private final TieredStoreMemoryManager storeMemoryManager;
-
-    private final BufferRecycler[] bufferRecyclers;
+    private final StorageMemoryManager storageMemoryManager;
 
     /** Records the newest segment index belonged to each subpartition. */
     private final int[] subpartitionSegmentIndexes;
@@ -77,26 +74,25 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
             int numConsumers,
             int bufferSize,
             boolean isBroadcastOnly,
-            TieredStoreMemoryManager storeMemoryManager,
+            StorageMemoryManager storageMemoryManager,
             @Nullable BufferCompressor bufferCompressor) {
         this.tierProducerAgents = tierProducerAgents;
-        this.storeMemoryManager = storeMemoryManager;
+        this.storageMemoryManager = storageMemoryManager;
         this.bufferCompressor = bufferCompressor;
         this.isBroadcastOnly = isBroadcastOnly;
         this.subpartitionSegmentIndexes = new int[numConsumers];
         this.lastSubpartitionSegmentIndexes = new int[numConsumers];
         Arrays.fill(lastSubpartitionSegmentIndexes, -1);
         this.subpartitionWriterIndex = new int[numConsumers];
-        this.bufferRecyclers = new BufferRecycler[tierProducerAgents.size()];
         this.tierTypes = new TierType[tierProducerAgents.size()];
 
         for (int i = 0; i < tierProducerAgents.size(); i++) {
             tierTypes[i] = tierProducerAgents.get(i).getTierType();
             TierType tierType = tierTypes[i];
-            bufferRecyclers[i] = buffer -> storeMemoryManager.recycleBuffer(buffer, tierType);
         }
 
-        this.cachedBuffer = new HashBasedCachedBuffer(numConsumers, bufferSize, storeMemoryManager);
+        this.cachedBuffer =
+                new HashBasedCachedBuffer(numConsumers, bufferSize, storageMemoryManager);
 
         Arrays.fill(subpartitionSegmentIndexes, 0);
         Arrays.fill(subpartitionWriterIndex, -1);

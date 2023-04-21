@@ -22,11 +22,10 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.ProducerStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteCacheManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreTestUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileType;
@@ -36,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -92,19 +92,16 @@ class RemoteDiskCacheManagerTest {
         BufferPool localBufferPool =
                 new NetworkBufferPool(NUM_BUFFERS, BUFFER_SIZE)
                         .createBufferPool(POOL_SIZE, POOL_SIZE);
-        TieredStoreMemoryManager tieredStoreMemoryManager =
-                new UpstreamTieredStoreMemoryManager(
-                        TieredStoreTestUtils.getTierExclusiveBuffers(),
-                        NUM_SUBPARTITIONS,
-                        NUM_BUFFERS_TRIGGER_FLUSH_RATIO,
-                        new CacheFlushManager());
-        tieredStoreMemoryManager.setBufferPool(localBufferPool);
+
+        StorageMemoryManager storageMemoryManager =
+                new ProducerStorageMemoryManager(NUM_SUBPARTITIONS, new ArrayList<>());
+        storageMemoryManager.setup(localBufferPool);
         RemoteCacheManager cacheDataManager =
                 new RemoteCacheManager(
                         NUM_SUBPARTITIONS,
                         BUFFER_SIZE,
-                        tieredStoreMemoryManager,
-                        new CacheFlushManager(),
+                        storageMemoryManager,
+                        new CacheFlushManager(0.5f),
                         null,
                         partitionFileManager.createPartitionFileWriter(
                                 PartitionFileType.PRODUCER_HASH));

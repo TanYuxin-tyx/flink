@@ -26,10 +26,10 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileReader;
@@ -56,6 +56,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
 
     public static final int BROADCAST_CHANNEL = 0;
 
+    private final int tierIndex;
+
     private final ResultPartitionID resultPartitionID;
 
     private final Path dataFilePath;
@@ -71,7 +73,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
 
     private volatile boolean isReleased;
 
-
     private final int[] numSubpartitionEmitBytes;
 
     private final SubpartitionSegmentIndexTracker segmentIndexTracker;
@@ -84,6 +85,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
     private volatile boolean isClosed;
 
     public DiskTierProducerAgent(
+            int tierIndex,
             int numSubpartitions,
             ResultPartitionID resultPartitionID,
             String dataFileBasePath,
@@ -91,9 +93,10 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
             int networkBufferSize,
-            TieredStoreMemoryManager tieredStoreMemoryManager,
+            StorageMemoryManager storageMemoryManager,
             BufferCompressor bufferCompressor,
             CacheFlushManager cacheFlushManager) {
+        this.tierIndex = tierIndex;
         this.resultPartitionID = resultPartitionID;
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
@@ -102,13 +105,15 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
         this.partitionFileReader =
                 partitionFileManager.createPartitionFileReader(PartitionFileType.PRODUCER_MERGE);
 
-
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
-        this.segmentIndexTracker = new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
-        this.diskCacheManager = new DiskCacheManager(
+        this.segmentIndexTracker =
+                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
+        this.diskCacheManager =
+                new DiskCacheManager(
+                        tierIndex,
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
-                        tieredStoreMemoryManager,
+                        storageMemoryManager,
                         cacheFlushManager,
                         bufferCompressor,
                         partitionFileManager);
@@ -153,13 +158,17 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
 
     @Override
     public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
-        return getSegmentIndexTracker()
-                .hasCurrentSegment(subpartitionId, segmentIndex);
+        return getSegmentIndexTracker().hasCurrentSegment(subpartitionId, segmentIndex);
     }
 
     @Override
     public TierType getTierType() {
         return TierType.IN_DISK;
+    }
+
+    @Override
+    public int getTierIndex() {
+        return tierIndex;
     }
 
     @Override
@@ -176,7 +185,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
             isReleased = true;
         }
     }
-
 
     @Override
     public void startSegment(int consumerId, int segmentId) {
