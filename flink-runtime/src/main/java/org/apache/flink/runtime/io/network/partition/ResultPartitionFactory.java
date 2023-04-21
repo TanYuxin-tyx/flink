@@ -300,6 +300,7 @@ public class ResultPartitionFactory {
                                 networkBufferSize,
                                 isBroadcast,
                                 storageMemoryManager,
+                                cacheFlushManager,
                                 bufferCompressor);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(

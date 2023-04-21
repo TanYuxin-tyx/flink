@@ -22,6 +22,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -36,11 +37,17 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
 
     private final StorageMemoryManager storageMemoryManager;
 
+    private final CacheFlushManager cacheFlushManager;
+
     HashBasedCachedBuffer(
-            int numConsumers, int bufferSize, StorageMemoryManager storageMemoryManager) {
+            int numConsumers,
+            int bufferSize,
+            StorageMemoryManager storageMemoryManager,
+            CacheFlushManager cacheFlushManager) {
         this.numConsumers = numConsumers;
         this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numConsumers];
         this.storageMemoryManager = storageMemoryManager;
+        this.cacheFlushManager = cacheFlushManager;
 
         for (int i = 0; i < numConsumers; i++) {
             subpartitionCachedBuffers[i] = new SubpartitionCachedBuffer(i, bufferSize, this);
@@ -65,6 +72,7 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
     @Override
     public BufferBuilder requestBufferFromPool() throws InterruptedException {
         MemorySegment segment = storageMemoryManager.requestBufferInAccumulator();
+        cacheFlushManager.checkNeedTriggerFlushCachedBuffers();
         return new BufferBuilder(segment, this::recycleBuffer);
     }
 

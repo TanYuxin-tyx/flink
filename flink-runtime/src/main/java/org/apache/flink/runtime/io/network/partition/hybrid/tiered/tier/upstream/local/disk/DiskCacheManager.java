@@ -42,8 +42,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreUtils.checkFlushCacheBuffers;
-
 /** This class is responsible for managing cached buffers data before flush to local files. */
 public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferFlushTrigger {
 
@@ -85,7 +83,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
         }
         this.partitionFileWriter =
                 partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
-        cacheFlushManager.registerCacheBufferFlushTrigger(this::flushCacheBuffers);
+        cacheFlushManager.registerCacheBufferFlushTrigger(this);
         this.cacheFlushManager = cacheFlushManager;
     }
 
@@ -170,14 +168,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
 
     private void tryCheckFlushCacheBuffers() {
         if (hasFlushCompleted.isDone()) {
-            checkFlushCacheBuffers(
-                    storageMemoryManager, this, cacheFlushManager.numBuffersTriggerFlushRatio());
+            cacheFlushManager.checkNeedTriggerFlushCachedBuffers();
         }
-    }
-
-    private void flushCacheBuffers() {
-        checkFlushCacheBuffers(
-                storageMemoryManager, this, cacheFlushManager.numBuffersTriggerFlushRatio());
     }
 
     @Override

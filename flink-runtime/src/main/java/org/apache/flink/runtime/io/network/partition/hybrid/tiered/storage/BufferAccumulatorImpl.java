@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierTy
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.TieredStorageProducerClient;
 
 import javax.annotation.Nullable;
@@ -75,6 +76,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
             int bufferSize,
             boolean isBroadcastOnly,
             StorageMemoryManager storageMemoryManager,
+            CacheFlushManager cacheFlushManager,
             @Nullable BufferCompressor bufferCompressor) {
         this.tierProducerAgents = tierProducerAgents;
         this.storageMemoryManager = storageMemoryManager;
@@ -92,7 +94,8 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
         }
 
         this.cachedBuffer =
-                new HashBasedCachedBuffer(numConsumers, bufferSize, storageMemoryManager);
+                new HashBasedCachedBuffer(
+                        numConsumers, bufferSize, storageMemoryManager, cacheFlushManager);
 
         Arrays.fill(subpartitionSegmentIndexes, 0);
         Arrays.fill(subpartitionWriterIndex, -1);
