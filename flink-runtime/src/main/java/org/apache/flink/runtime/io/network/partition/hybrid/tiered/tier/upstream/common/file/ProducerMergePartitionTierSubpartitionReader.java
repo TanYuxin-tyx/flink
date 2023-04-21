@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBufferQueue;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;
 
 import java.io.IOException;
@@ -87,8 +87,9 @@ public class ProducerMergePartitionTierSubpartitionReader
         this.diskTierReaderReleaser = diskTierReaderReleaser;
     }
 
-    public NettyServiceProvider getNettyServiceProvider() {
-        return new NettyServiceProviderImpl(loadedBuffers, () -> diskTierReaderReleaser.accept(this));
+    public NettyBufferQueue createNettyBufferQueue() {
+        return new NettyBufferQueueImpl(
+                loadedBuffers, () -> diskTierReaderReleaser.accept(this));
     }
 
     public synchronized void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)

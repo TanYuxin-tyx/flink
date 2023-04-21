@@ -34,7 +34,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBufferQueue;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewImpl;
@@ -142,10 +142,10 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
         NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId =
                 NettyBasedTierConsumerViewId.newId(lastNettyBasedTierConsumerViewId);
         lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
-        NettyServiceProvider diskConsumer =
-                partitionFileReader.registerTierReader(
+        NettyBufferQueue diskConsumer =
+                partitionFileReader.createNettyBufferQueue(
                         subpartitionId, nettyBasedTierConsumerViewId, diskTierReaderView);
-        diskTierReaderView.setConsumer(diskConsumer);
+        diskTierReaderView.setNettyBufferQueue(diskConsumer);
         return diskTierReaderView;
     }
 

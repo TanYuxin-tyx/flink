@@ -23,7 +23,7 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import java.io.IOException;
 
 /**
- * {@link NettyServiceViewProvider} is used to create the view of {@link NettyServiceProvider} for
+ * {@link NettyServiceViewProvider} is used to create the view of {@link NettyBufferQueue} for
  * each tier.
  */
 public interface NettyServiceViewProvider {

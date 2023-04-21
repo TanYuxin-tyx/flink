@@ -26,14 +26,14 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 
 /**
- * For each {@link NettyServiceProvider}, there will be a corresponding {@link
+ * For each {@link NettyBufferQueue}, there will be a corresponding {@link
  * NettyServiceView}, which will get buffer and backlog from {@link
- * NettyServiceProvider} and be aware of the available status of {@link NettyServiceProvider}.
+ * NettyBufferQueue} and be aware of the available status of {@link NettyBufferQueue}.
  */
 public interface NettyServiceView {
 
     /**
-     * Get buffer and backlog from {@link NettyServiceProvider}.
+     * Get buffer and backlog from {@link NettyBufferQueue}.
      *
      * @return buffer and backlog.
      * @throws IOException is thrown if there is a failure.
@@ -42,7 +42,7 @@ public interface NettyServiceView {
     ResultSubpartition.BufferAndBacklog getNextBuffer() throws IOException;
 
     /**
-     * Get availability and backlog of {@link NettyServiceProvider}.
+     * Get availability and backlog of {@link NettyBufferQueue}.
      *
      * @param numCreditsAvailable is the available credit.
      * @return availability and backlog.
@@ -53,14 +53,14 @@ public interface NettyServiceView {
     /**
      * Set the tier reader to the view.
      *
-     * @param nettyServiceProvider is the tier reader.
+     * @param nettyBufferQueue is the tier reader.
      */
-    void setConsumer(NettyServiceProvider nettyServiceProvider);
+    void setNettyBufferQueue(NettyBufferQueue nettyBufferQueue);
 
-    /** Update the need notify status of {@link NettyServiceProvider}. */
+    /** Update the need notify status of {@link NettyBufferQueue}. */
     void updateNeedNotifyStatus();
 
-    /** Notify that {@link NettyServiceProvider} is available. */
+    /** Notify that {@link NettyBufferQueue} is available. */
     void notifyDataAvailable();
 
     /**
@@ -72,14 +72,14 @@ public interface NettyServiceView {
     int getConsumingOffset(boolean withLock);
 
     /**
-     * Get the number of queued buffers in {@link NettyServiceProvider} unsynchronizedly.
+     * Get the number of queued buffers in {@link NettyBufferQueue} unsynchronizedly.
      *
      * @return the number of queued buffers.
      */
     int unsynchronizedGetNumberOfQueuedBuffers();
 
     /**
-     * Get the number of queued buffers in {@link NettyServiceProvider} synchronizedly.
+     * Get the number of queued buffers in {@link NettyBufferQueue} synchronizedly.
      *
      * @return the number of queued buffers.
      */

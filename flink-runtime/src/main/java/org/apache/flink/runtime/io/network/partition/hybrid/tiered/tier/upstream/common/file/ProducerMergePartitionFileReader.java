@@ -7,7 +7,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBufferQueue;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
 import org.apache.flink.util.FatalExitExceptionHandler;
@@ -127,15 +127,44 @@ public class ProducerMergePartitionFileReader
     }
 
     @Override
-    // Note, this method is synchronized on `this`, not `lock`. The purpose here is to prevent
-    // concurrent `run()` executions. Concurrent calls to other methods are allowed.
     public synchronized void run() {
-        int numBuffersRead = tryRead();
+        int numBuffersRead = read();
         endCurrentRoundOfReading(numBuffersRead);
     }
 
-    /** This method only called by result partition to create subpartitionFileReader. */
-    public NettyServiceProvider registerTierReader(
+    @Override
+    public int read() {
+        List<ProducerMergePartitionTierSubpartitionReader> availableReaders =
+                prepareAndGetAvailableReaders();
+        if (availableReaders.isEmpty()) {
+            return 0;
+        }
+
+        Queue<MemorySegment> buffers;
+        try {
+            buffers = allocateBuffers();
+        } catch (Exception exception) {
+            // fail all pending subpartition readers immediately if any exception occurs
+            failSubpartitionReaders(availableReaders, exception);
+            LOG.error("Failed to request buffers for data reading.", exception);
+            return 0;
+        }
+
+        int numBuffersAllocated = buffers.size();
+        if (numBuffersAllocated <= 0) {
+            return 0;
+        }
+
+        readData(availableReaders, buffers);
+        int numBuffersRead = numBuffersAllocated - buffers.size();
+
+        releaseBuffers(buffers);
+
+        return numBuffersRead;
+    }
+
+    @Override
+    public NettyBufferQueue createNettyBufferQueue(
             int subpartitionId,
             NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
             NettyServiceView tierConsumerView)
@@ -158,7 +187,7 @@ public class ProducerMergePartitionFileReader
             allReaders.add(subpartitionReader);
 
             mayTriggerReading();
-            return subpartitionReader.getNettyServiceProvider();
+            return subpartitionReader.createNettyBufferQueue();
         }
     }
 
@@ -167,7 +196,8 @@ public class ProducerMergePartitionFileReader
     }
 
     /**
-     * Release specific {@link ProducerMergePartitionTierSubpartitionReader} from {@link PartitionFileReader}.
+     * Release specific {@link ProducerMergePartitionTierSubpartitionReader} from {@link
+     * PartitionFileReader}.
      *
      * @param producerMergePartitionTierReaderView to release.
      */
@@ -196,35 +226,6 @@ public class ProducerMergePartitionFileReader
     // ------------------------------------------------------------------------
 
     /** @return number of buffers read. */
-    private int tryRead() {
-        List<ProducerMergePartitionTierSubpartitionReader> availableReaders = prepareAndGetAvailableReaders();
-        if (availableReaders.isEmpty()) {
-            return 0;
-        }
-
-        Queue<MemorySegment> buffers;
-        try {
-            buffers = allocateBuffers();
-        } catch (Exception exception) {
-            // fail all pending subpartition readers immediately if any exception occurs
-            failSubpartitionReaders(availableReaders, exception);
-            LOG.error("Failed to request buffers for data reading.", exception);
-            return 0;
-        }
-
-        int numBuffersAllocated = buffers.size();
-        if (numBuffersAllocated <= 0) {
-            return 0;
-        }
-
-        readData(availableReaders, buffers);
-        int numBuffersRead = numBuffersAllocated - buffers.size();
-
-        releaseBuffers(buffers);
-
-        return numBuffersRead;
-    }
-
     @SuppressWarnings("FieldAccessNotGuarded")
     // read-only access to volatile isReleased and numRequestedBuffers
     private Queue<MemorySegment> allocateBuffers() throws Exception {
@@ -339,7 +340,8 @@ public class ProducerMergePartitionFileReader
     }
 
     private void failSubpartitionReaders(
-            Collection<ProducerMergePartitionTierSubpartitionReader> readers, Throwable failureCause) {
+            Collection<ProducerMergePartitionTierSubpartitionReader> readers,
+            Throwable failureCause) {
         synchronized (lock) {
             removeSubpartitionReaders(readers);
         }
@@ -350,7 +352,8 @@ public class ProducerMergePartitionFileReader
     }
 
     @GuardedBy("lock")
-    private void removeSubpartitionReaders(Collection<ProducerMergePartitionTierSubpartitionReader> readers) {
+    private void removeSubpartitionReaders(
+            Collection<ProducerMergePartitionTierSubpartitionReader> readers) {
         allReaders.removeAll(readers);
         if (allReaders.isEmpty()) {
             bufferPool.unregisterRequester(this);

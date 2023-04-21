@@ -115,7 +115,7 @@
 //                (requestedBuffers, readBuffers) -> readBuffers.addAll(requestedBuffers));
 //        factory.allReaders.add(reader);
 //        assertThat(reader.readBuffers).isEmpty();
-//        partitionFileReader.registerTierReader(
+//        partitionFileReader.createNettyBufferQueue(
 //                0, NettyBasedTierConsumerViewId.DEFAULT, nettyServiceView);
 //        ioExecutor.trigger();
 //        assertThat(reader.readBuffers).hasSize(BUFFER_POOL_SIZE);
@@ -133,7 +133,7 @@
 //                    }
 //                });
 //        factory.allReaders.add(reader);
-//        partitionFileReader.registerTierReader(
+//        partitionFileReader.createNettyBufferQueue(
 //                0, NettyBasedTierConsumerViewId.DEFAULT, nettyServiceView);
 //        ioExecutor.trigger();
 //        assertThat(reader.readBuffers).hasSize(BUFFER_POOL_SIZE);
@@ -162,7 +162,7 @@
 //                    readBuffers.add(requestedBuffers.poll());
 //                });
 //        factory.allReaders.add(reader);
-//        partitionFileReader.registerTierReader(
+//        partitionFileReader.createNettyBufferQueue(
 //                0, NettyBasedTierConsumerViewId.DEFAULT, nettyServiceView);
 //        ioExecutor.trigger();
 //        // not used buffer should be recycled.
@@ -193,9 +193,9 @@
 //        reader2.setPriority(2);
 //        factory.allReaders.add(reader1);
 //        factory.allReaders.add(reader2);
-//        partitionFileReader.registerTierReader(
+//        partitionFileReader.createNettyBufferQueue(
 //                0, NettyBasedTierConsumerViewId.DEFAULT, nettyServiceView);
-//        partitionFileReader.registerTierReader(
+//        partitionFileReader.createNettyBufferQueue(
 //                1, NettyBasedTierConsumerViewId.DEFAULT, nettyServiceView);
 //        // trigger run.
 //        ioExecutor.trigger();
@@ -225,7 +225,7 @@
 //        reader.setPrepareForSchedulingRunnable(() -> prepareForSchedulingFinished.complete(null));
 //        reader.setFailConsumer((cause::complete));
 //        factory.allReaders.add(reader);
-//        partitionFileReader.registerTierReader(
+//        partitionFileReader.createNettyBufferQueue(
 //                0, NettyBasedTierConsumerViewId.DEFAULT, nettyServiceView);
 //        ioExecutor.trigger();
 //        assertThat(prepareForSchedulingFinished).isCompleted();
@@ -247,7 +247,7 @@
 //                    throw new IOException("expected exception.");
 //                });
 //        factory.allReaders.add(reader);
-//        partitionFileReader.registerTierReader(
+//        partitionFileReader.createNettyBufferQueue(
 //                0, NettyBasedTierConsumerViewId.DEFAULT, nettyServiceView);
 //        ioExecutor.trigger();
 //        assertThat(cause).isCompleted();
@@ -265,7 +265,7 @@
 //        partitionFileReader.release();
 //        assertThatThrownBy(
 //                        () -> {
-//                            partitionFileReader.registerTierReader(
+//                            partitionFileReader.createNettyBufferQueue(
 //                                    0,
 //                                    NettyBasedTierConsumerViewId.DEFAULT,
 //                                    nettyServiceView);

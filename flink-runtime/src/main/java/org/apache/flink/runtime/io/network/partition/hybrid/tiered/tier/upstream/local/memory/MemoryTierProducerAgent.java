@@ -29,7 +29,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.S
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBufferQueue;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceViewImpl;
@@ -130,10 +130,10 @@ public class MemoryTierProducerAgent
                 NettyBasedTierConsumerViewId.newId(lastNettyBasedTierConsumerViewId);
         lastNettyBasedTierConsumerViewIds[subpartitionId] = nettyBasedTierConsumerViewId;
 
-        NettyServiceProvider memoryConsumer =
-                registerNewConsumer(subpartitionId, nettyBasedTierConsumerViewId, memoryReaderView);
+        NettyBufferQueue nettyBufferQueue =
+                createMemoryNettyBufferQueue(subpartitionId, nettyBasedTierConsumerViewId, memoryReaderView);
 
-        memoryReaderView.setConsumer(memoryConsumer);
+        memoryReaderView.setNettyBufferQueue(nettyBufferQueue);
         return memoryReaderView;
     }
 
@@ -222,7 +222,7 @@ public class MemoryTierProducerAgent
         getSubpartitionMemoryDataManager(targetChannel).addFinishedBuffer(finishedBuffer);
     }
 
-    public NettyServiceProvider registerNewConsumer(
+    public NettyBufferQueue createMemoryNettyBufferQueue(
             int subpartitionId,
             NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId,
             NettyServiceView viewOperations) {

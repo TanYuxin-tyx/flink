@@ -28,9 +28,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.NettyServiceProviderImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.NettyBufferQueueImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBasedTierConsumerViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBufferQueue;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -67,7 +67,7 @@ public class SubpartitionMemoryDataManager {
     @GuardedBy("subpartitionLock")
     private final Deque<BufferContext> allBuffers = new LinkedBlockingDeque<>();
 
-    private final Map<NettyBasedTierConsumerViewId, NettyServiceProvider> consumerMap;
+    private final Map<NettyBasedTierConsumerViewId, NettyBufferQueue> consumerMap;
 
     @Nullable private final BufferCompressor bufferCompressor;
 
@@ -100,11 +100,11 @@ public class SubpartitionMemoryDataManager {
         allBuffers.clear();
     }
 
-    public NettyServiceProvider registerNewConsumer(
+    public NettyBufferQueue registerNewConsumer(
             NettyBasedTierConsumerViewId nettyBasedTierConsumerViewId) {
         checkState(!consumerMap.containsKey(nettyBasedTierConsumerViewId));
-        NettyServiceProviderImpl nettyServiceProviderImpl =
-                new NettyServiceProviderImpl(
+        NettyBufferQueueImpl nettyServiceProviderImpl =
+                new NettyBufferQueueImpl(
                         allBuffers,
                         () ->
                                 memoryTierProducerAgentOperation.onConsumerReleased(
@@ -186,7 +186,7 @@ public class SubpartitionMemoryDataManager {
         List<NettyBasedTierConsumerViewId> needNotify = new ArrayList<>(consumerMap.size());
         finishedBufferIndex++;
         allBuffers.add(bufferContext);
-        for (Map.Entry<NettyBasedTierConsumerViewId, NettyServiceProvider> consumerEntry :
+        for (Map.Entry<NettyBasedTierConsumerViewId, NettyBufferQueue> consumerEntry :
                 consumerMap.entrySet()) {
             if (allBuffers.size() <= 1) {
                 needNotify.add(consumerEntry.getKey());

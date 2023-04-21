@@ -59,18 +59,18 @@ public class NettyServiceViewImpl implements NettyServiceView {
 
     @Nullable
     @GuardedBy("viewLock")
-    private NettyServiceProvider nettyServiceProvider;
+    private NettyBufferQueue nettyBufferQueue;
 
     public NettyServiceViewImpl(BufferAvailabilityListener availabilityListener) {
         this.availabilityListener = availabilityListener;
     }
 
     @Override
-    public void setConsumer(NettyServiceProvider nettyServiceProvider) {
+    public void setNettyBufferQueue(NettyBufferQueue nettyBufferQueue) {
         synchronized (viewLock) {
             checkState(
-                    this.nettyServiceProvider == null, "Repeatedly set consumer is not allowed.");
-            this.nettyServiceProvider = nettyServiceProvider;
+                    this.nettyBufferQueue == null, "Repeatedly set consumer is not allowed.");
+            this.nettyBufferQueue = nettyBufferQueue;
         }
     }
 
@@ -79,9 +79,9 @@ public class NettyServiceViewImpl implements NettyServiceView {
     public BufferAndBacklog getNextBuffer() throws IOException {
         try {
             synchronized (viewLock) {
-                checkNotNull(nettyServiceProvider, "Consumer must be not null.");
+                checkNotNull(nettyBufferQueue, "Consumer must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume =
-                        nettyServiceProvider.getNextBuffer(consumingOffset + 1);
+                        nettyBufferQueue.getNextBuffer(consumingOffset + 1);
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume.orElse(null);
             }
@@ -187,10 +187,10 @@ public class NettyServiceViewImpl implements NettyServiceView {
 
     @SuppressWarnings("FieldAccessNotGuarded")
     private int getSubpartitionBacklog() {
-        if (nettyServiceProvider == null) {
+        if (nettyBufferQueue == null) {
             return 0;
         }
-        return nettyServiceProvider.getBacklog();
+        return nettyBufferQueue.getBacklog();
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
@@ -219,10 +219,10 @@ public class NettyServiceViewImpl implements NettyServiceView {
             }
             isReleased = true;
             failureCause = throwable;
-            releaseConsumer = nettyServiceProvider != null;
+            releaseConsumer = nettyBufferQueue != null;
         }
         if (releaseConsumer) {
-            nettyServiceProvider.release();
+            nettyBufferQueue.release();
         }
     }
 }

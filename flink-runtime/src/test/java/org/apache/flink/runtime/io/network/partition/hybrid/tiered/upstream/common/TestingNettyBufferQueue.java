@@ -19,20 +19,20 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
 
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBufferQueue;
 import org.apache.flink.util.function.FunctionWithException;
 
 import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
- * The {@link TestingNettyServiceProvider} is used to mock the implementation of {@link
- * NettyServiceProvider}.
+ * The {@link TestingNettyBufferQueue} is used to mock the implementation of {@link
+ * NettyBufferQueue}.
  */
-public class TestingNettyServiceProvider implements NettyServiceProvider {
+public class TestingNettyBufferQueue implements NettyBufferQueue {
 
-    public static final TestingNettyServiceProvider NO_OP =
-            TestingNettyServiceProvider.builder().build();
+    public static final TestingNettyBufferQueue NO_OP =
+            TestingNettyBufferQueue.builder().build();
 
     private final FunctionWithException<
                     Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
@@ -42,7 +42,7 @@ public class TestingNettyServiceProvider implements NettyServiceProvider {
 
     private final Runnable releaseRunnable;
 
-    private TestingNettyServiceProvider(
+    private TestingNettyBufferQueue(
             FunctionWithException<Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
                     consumeBufferFunction,
             Supplier<Integer> getBacklogSupplier,
@@ -72,7 +72,7 @@ public class TestingNettyServiceProvider implements NettyServiceProvider {
         releaseRunnable.run();
     }
 
-    /** Builder for {@link TestingNettyServiceProvider}. */
+    /** Builder for {@link TestingNettyBufferQueue}. */
     public static class Builder {
 
         private FunctionWithException<
@@ -103,8 +103,8 @@ public class TestingNettyServiceProvider implements NettyServiceProvider {
             return this;
         }
 
-        public TestingNettyServiceProvider build() {
-            return new TestingNettyServiceProvider(
+        public TestingNettyBufferQueue build() {
+            return new TestingNettyBufferQueue(
                     consumeBufferFunction, getBacklogSupplier, releaseRunnable);
         }
     }

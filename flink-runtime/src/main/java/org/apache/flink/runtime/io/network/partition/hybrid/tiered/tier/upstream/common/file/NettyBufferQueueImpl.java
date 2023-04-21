@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstrea
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyBufferQueue;
 
 import java.util.Deque;
 import java.util.Optional;
@@ -29,14 +29,14 @@ import java.util.Optional;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The implementation of {@link NettyServiceProvider}. */
-public class NettyServiceProviderImpl implements NettyServiceProvider {
+/** The implementation of {@link NettyBufferQueue}. */
+public class NettyBufferQueueImpl implements NettyBufferQueue {
 
     private final Deque<BufferContext> loadedBuffers;
 
     private final Runnable nettyServiceProviderReleaser;
 
-    public NettyServiceProviderImpl(
+    public NettyBufferQueueImpl(
             Deque<BufferContext> loadedBuffers, Runnable nettyServiceProviderReleaser) {
         this.loadedBuffers = loadedBuffers;
         this.nettyServiceProviderReleaser = nettyServiceProviderReleaser;
