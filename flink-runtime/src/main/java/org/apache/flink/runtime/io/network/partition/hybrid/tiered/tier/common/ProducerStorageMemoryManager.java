@@ -34,25 +34,17 @@ public class ProducerStorageMemoryManager implements StorageMemoryManager {
 
     private final Map<Integer, TierMemorySpec> tierMemorySpecMap;
 
-    private final Map<Integer, Integer> tierExclusiveBuffers;
-
     private final Map<Integer, AtomicInteger> tierRequestedBuffersCounter;
 
     private final AtomicInteger numRequestedBuffersInAccumulator;
 
     private final AtomicInteger numRequestedBuffers;
 
-    private final int numSubpartitions;
-
-    private int numTotalExclusiveBuffers;
-
     private BufferPool bufferPool;
 
     public ProducerStorageMemoryManager(
             int numSubpartitions, List<TierMemorySpec> tierMemorySpecs) {
-        this.numSubpartitions = numSubpartitions;
         this.tierMemorySpecMap = new HashMap<>();
-        this.tierExclusiveBuffers = new HashMap<>();
         this.tierRequestedBuffersCounter = new HashMap<>();
         this.numRequestedBuffersInAccumulator = new AtomicInteger(0);
         this.numRequestedBuffers = new AtomicInteger(0);
@@ -62,10 +54,7 @@ public class ProducerStorageMemoryManager implements StorageMemoryManager {
                     !tierMemorySpecMap.containsKey(tierMemorySpec.getTierIndex()),
                     "Duplicate tier indexes.");
             tierMemorySpecMap.put(tierMemorySpec.getTierIndex(), tierMemorySpec);
-            tierExclusiveBuffers.put(
-                    tierMemorySpec.getTierIndex(), tierMemorySpec.getNumExclusiveBuffers());
             tierRequestedBuffersCounter.put(tierMemorySpec.getTierIndex(), new AtomicInteger(0));
-            numTotalExclusiveBuffers += tierMemorySpec.getNumExclusiveBuffers();
         }
     }
 
@@ -161,7 +150,7 @@ public class ProducerStorageMemoryManager implements StorageMemoryManager {
     }
 
     @Override
-    public void close() {
+    public void release() {
         tierRequestedBuffersCounter.forEach(
                 (k, v) -> checkState(v.get() == 0, "Leaking buffers in tier " + k));
         checkState(

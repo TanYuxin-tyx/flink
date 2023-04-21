@@ -202,7 +202,7 @@ public class TieredResultPartition extends ResultPartition {
 
         // first release the writer
         tieredStorageProducerClient.release();
-        storageMemoryManager.close();
+        storageMemoryManager.release();
     }
 
     @Override

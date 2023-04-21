@@ -53,5 +53,5 @@ public interface StorageMemoryManager {
     /** Returns the total requested buffers. */
     int numRequestedBuffers();
 
-    void close();
+    void release();
 }
