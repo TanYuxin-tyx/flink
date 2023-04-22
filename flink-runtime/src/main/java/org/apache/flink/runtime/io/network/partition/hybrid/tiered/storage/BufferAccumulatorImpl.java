@@ -23,8 +23,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.TieredStorageProducerClient;
 
@@ -56,7 +56,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private final HashBasedCachedBuffer cachedBuffer;
 
-    private final StorageMemoryManager storageMemoryManager;
+    private final TieredStorageMemoryManager storageMemoryManager;
 
     /** Records the newest segment index belonged to each subpartition. */
     private final int[] subpartitionSegmentIndexes;
@@ -75,7 +75,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
             int numConsumers,
             int bufferSize,
             boolean isBroadcastOnly,
-            StorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager,
             @Nullable BufferCompressor bufferCompressor) {
         this.tierProducerAgents = tierProducerAgents;

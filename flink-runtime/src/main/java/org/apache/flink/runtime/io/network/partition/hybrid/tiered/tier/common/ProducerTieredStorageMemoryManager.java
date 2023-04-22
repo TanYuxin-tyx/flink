@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-public class ProducerStorageMemoryManager implements StorageMemoryManager {
+public class ProducerTieredStorageMemoryManager implements TieredStorageMemoryManager {
 
     private final Map<Integer, TierMemorySpec> tierMemorySpecMap;
 
@@ -42,7 +42,7 @@ public class ProducerStorageMemoryManager implements StorageMemoryManager {
 
     private BufferPool bufferPool;
 
-    public ProducerStorageMemoryManager(List<TierMemorySpec> tierMemorySpecs) {
+    public ProducerTieredStorageMemoryManager(List<TierMemorySpec> tierMemorySpecs) {
         this.tierMemorySpecMap = new HashMap<>();
         this.tierRequestedBuffersCounter = new HashMap<>();
         this.numRequestedBuffersInAccumulator = new AtomicInteger(0);

@@ -26,10 +26,10 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileReader;
@@ -93,7 +93,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
             int networkBufferSize,
-            StorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager storageMemoryManager,
             BufferCompressor bufferCompressor,
             CacheFlushManager cacheFlushManager) {
         this.tierIndex = tierIndex;
@@ -133,14 +133,11 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        NettyServiceViewImpl diskTierReaderView =
-                new NettyServiceViewImpl(availabilityListener);
-        NettyServiceViewId lastNettyServiceViewId =
-                lastNettyServiceViewIds[subpartitionId];
+        NettyServiceViewImpl diskTierReaderView = new NettyServiceViewImpl(availabilityListener);
+        NettyServiceViewId lastNettyServiceViewId = lastNettyServiceViewIds[subpartitionId];
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
-        NettyServiceViewId nettyServiceViewId =
-                NettyServiceViewId.newId(lastNettyServiceViewId);
+        NettyServiceViewId nettyServiceViewId = NettyServiceViewId.newId(lastNettyServiceViewId);
         lastNettyServiceViewIds[subpartitionId] = nettyServiceViewId;
         NettyBufferQueue diskConsumer =
                 partitionFileReader.createNettyBufferQueue(

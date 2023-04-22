@@ -32,7 +32,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfigu
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.ProducerStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.ProducerTieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierConfSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreConfiguration;
@@ -277,8 +277,9 @@ public class ResultPartitionFactory {
             if (enableTieredStoreForHybridShuffle) {
                 TieredStoreConfiguration storeConfiguration =
                         getStoreConfiguration(numberOfSubpartitions, type);
-                ProducerStorageMemoryManager storageMemoryManager =
-                        new ProducerStorageMemoryManager(storeConfiguration.getTierMemorySpecs());
+                ProducerTieredStorageMemoryManager storageMemoryManager =
+                        new ProducerTieredStorageMemoryManager(
+                                storeConfiguration.getTierMemorySpecs());
                 CacheFlushManager cacheFlushManager =
                         new CacheFlushManager(storeConfiguration.getNumBuffersTriggerFlushRatio());
                 List<TierProducerAgent> tierProducerAgents =
@@ -362,7 +363,7 @@ public class ResultPartitionFactory {
             BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
             TieredStoreConfiguration storeConfiguration,
-            ProducerStorageMemoryManager storeMemoryManager,
+            ProducerTieredStorageMemoryManager storeMemoryManager,
             CacheFlushManager cacheFlushManager) {
         String dataFileBasePath = channelManager.createChannel().getPath();
         PartitionFileManager partitionFileManager =

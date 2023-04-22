@@ -22,7 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.DiskCacheManager;
@@ -59,7 +59,7 @@ public class RemoteCacheManager {
     public RemoteCacheManager(
             int numSubpartitions,
             int bufferSize,
-            StorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager,
             BufferCompressor bufferCompressor,
             PartitionFileWriter partitionFileWriter) {

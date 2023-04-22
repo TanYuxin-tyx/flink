@@ -22,7 +22,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 
-public interface StorageMemoryManager {
+public interface TieredStorageMemoryManager {
 
     void setup(BufferPool bufferPool);
 

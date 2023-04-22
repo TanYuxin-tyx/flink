@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
@@ -44,7 +44,7 @@ public class CacheFlushManager {
 
     private final List<CacheBufferFlushTrigger> spillTriggers;
 
-    private StorageMemoryManager storageMemoryManager;
+    private TieredStorageMemoryManager storageMemoryManager;
 
     private final ScheduledExecutorService executor =
             Executors.newSingleThreadScheduledExecutor(
@@ -61,7 +61,7 @@ public class CacheFlushManager {
                 this::checkNeedTriggerFlushCachedBuffers, 10, 50, TimeUnit.MILLISECONDS);
     }
 
-    public void setup(StorageMemoryManager storageMemoryManager) {
+    public void setup(TieredStorageMemoryManager storageMemoryManager) {
         this.storageMemoryManager = storageMemoryManager;
     }
 

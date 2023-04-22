@@ -22,7 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
@@ -49,7 +49,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
 
     private final SubpartitionDiskCacheManager[] subpartitionDiskCacheManagers;
 
-    private final StorageMemoryManager storageMemoryManager;
+    private final TieredStorageMemoryManager storageMemoryManager;
 
     private final CacheFlushManager cacheFlushManager;
 
@@ -64,7 +64,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
             int tierIndex,
             int numSubpartitions,
             int bufferSize,
-            StorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager,
             BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager) {

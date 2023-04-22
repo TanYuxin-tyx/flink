@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 
 import java.io.IOException;
@@ -35,14 +35,14 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
 
     private final SubpartitionCachedBuffer[] subpartitionCachedBuffers;
 
-    private final StorageMemoryManager storageMemoryManager;
+    private final TieredStorageMemoryManager storageMemoryManager;
 
     private final CacheFlushManager cacheFlushManager;
 
     HashBasedCachedBuffer(
             int numConsumers,
             int bufferSize,
-            StorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager) {
         this.numConsumers = numConsumers;
         this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numConsumers];

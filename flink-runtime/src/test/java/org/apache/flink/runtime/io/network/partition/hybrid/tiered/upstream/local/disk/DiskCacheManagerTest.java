@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.loc
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.StorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.DiskCacheManager;
@@ -50,7 +50,7 @@ class DiskCacheManagerTest {
         this.dataFilePath = tempDir.resolve(".data");
     }
 
-    private DiskCacheManager createCacheDataManager(StorageMemoryManager storageMemoryManager)
+    private DiskCacheManager createCacheDataManager(TieredStorageMemoryManager storageMemoryManager)
             throws Exception {
         DiskCacheManager diskCacheManager =
                 new DiskCacheManager(

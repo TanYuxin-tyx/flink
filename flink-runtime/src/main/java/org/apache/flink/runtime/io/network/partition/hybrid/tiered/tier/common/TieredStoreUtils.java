@@ -102,7 +102,7 @@ public class TieredStoreUtils {
     }
 
     public static void checkFlushCacheBuffers(
-            StorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager storageMemoryManager,
             CacheBufferFlushTrigger cacheBufferFlushTrigger,
             float numBuffersTriggerFlushRatio) {
         if (needFlushCacheBuffers(storageMemoryManager, numBuffersTriggerFlushRatio)) {
@@ -111,7 +111,8 @@ public class TieredStoreUtils {
     }
 
     public static boolean needFlushCacheBuffers(
-            StorageMemoryManager tieredStoreMemoryManager, float numBuffersTriggerFlushRatio) {
+            TieredStorageMemoryManager tieredStoreMemoryManager,
+            float numBuffersTriggerFlushRatio) {
         int numTotal = tieredStoreMemoryManager.numTotalBuffers();
         int numRequested = tieredStoreMemoryManager.numRequestedBuffers();
         return numRequested >= numTotal
@@ -124,7 +125,7 @@ public class TieredStoreUtils {
             BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
             TieredStoreConfiguration storeConfiguration,
-            StorageMemoryManager storeMemoryManager,
+            TieredStorageMemoryManager storeMemoryManager,
             CacheFlushManager cacheFlushManager,
             String dataFileBasePath,
             int networkBufferSize,
