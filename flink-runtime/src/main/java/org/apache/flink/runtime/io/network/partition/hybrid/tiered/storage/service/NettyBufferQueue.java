@@ -23,13 +23,13 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAn
 import java.util.Optional;
 
 /**
- * The {@link NettyBufferQueue} is invoked by {@link NettyServiceView} to get buffer
- * and backlog from a tier.
+ * The {@link NettyBufferQueue} is a queue containing data buffers. It provides buffer and backlog
+ * number to the netty service.
  */
 public interface NettyBufferQueue {
 
     /**
-     * Get buffer from the tier.
+     * Get buffer from the queue.
      *
      * @param bufferIndex the buffer index to consume.
      * @return the required buffer.
@@ -38,12 +38,12 @@ public interface NettyBufferQueue {
     Optional<BufferAndBacklog> getNextBuffer(int bufferIndex) throws Throwable;
 
     /**
-     * Get backlog in the tier.
+     * Get the number of backlog in the queue.
      *
      * @return backlog number.
      */
     int getBacklog();
 
-    /** Release the consumer. */
+    /** Release the buffer queue. */
     void release();
 }
