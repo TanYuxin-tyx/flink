@@ -44,7 +44,9 @@ public class SubpartitionCachedBuffer {
 
     private final int bufferSize;
 
-    private final CacheBufferOperation cacheBufferOperation;
+    private final TieredStorageMemoryManager storageMemoryManager;
+
+    private final CacheFlushManager cacheFlushManager;
 
     private BiConsumer<Integer, List<Buffer>> bufferFlusher;
 
@@ -52,10 +54,14 @@ public class SubpartitionCachedBuffer {
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
     public SubpartitionCachedBuffer(
-            int consumerId, int bufferSize, CacheBufferOperation cacheBufferOperation) {
+            int consumerId,
+            int bufferSize,
+            TieredStorageMemoryManager storageMemoryManager,
+            CacheFlushManager cacheFlushManager) {
         this.consumerId = consumerId;
         this.bufferSize = bufferSize;
-        this.cacheBufferOperation = cacheBufferOperation;
+        this.storageMemoryManager = storageMemoryManager;
+        this.cacheFlushManager = cacheFlushManager;
     }
 
     public void setup(BiConsumer<Integer, List<Buffer>> bufferFlusher) {
@@ -113,7 +119,7 @@ public class SubpartitionCachedBuffer {
 
         while (availableBytes < numRecordBytes) {
             // request unfinished buffer.
-            BufferBuilder bufferBuilder = cacheBufferOperation.requestBufferFromPool();
+            BufferBuilder bufferBuilder = requestBufferFromPool();
             unfinishedBuffers.add(bufferBuilder);
             availableBytes += bufferSize;
         }
@@ -165,5 +171,15 @@ public class SubpartitionCachedBuffer {
     // subpartitionLock.
     private void addFinishedBuffer(Buffer finishedBuffer) {
         bufferFlusher.accept(consumerId, Collections.singletonList(finishedBuffer));
+    }
+
+    public BufferBuilder requestBufferFromPool() {
+        MemorySegment segment = storageMemoryManager.requestBufferInAccumulator();
+        cacheFlushManager.checkNeedTriggerFlushCachedBuffers();
+        return new BufferBuilder(segment, this::recycleBuffer);
+    }
+
+    private void recycleBuffer(MemorySegment buffer) {
+        storageMemoryManager.recycleBufferInAccumulator(buffer);
     }
 }

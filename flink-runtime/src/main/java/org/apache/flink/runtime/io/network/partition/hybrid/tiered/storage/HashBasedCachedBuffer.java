@@ -18,24 +18,18 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.function.BiConsumer;
 
-public class HashBasedCachedBuffer implements CacheBufferOperation {
+public class HashBasedCachedBuffer {
 
     private final int numConsumers;
 
     private final SubpartitionCachedBuffer[] subpartitionCachedBuffers;
-
-    private final TieredStorageMemoryManager storageMemoryManager;
-
-    private final CacheFlushManager cacheFlushManager;
 
     HashBasedCachedBuffer(
             int numConsumers,
@@ -44,11 +38,11 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
             CacheFlushManager cacheFlushManager) {
         this.numConsumers = numConsumers;
         this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numConsumers];
-        this.storageMemoryManager = storageMemoryManager;
-        this.cacheFlushManager = cacheFlushManager;
 
         for (int i = 0; i < numConsumers; i++) {
-            subpartitionCachedBuffers[i] = new SubpartitionCachedBuffer(i, bufferSize, this);
+            subpartitionCachedBuffers[i] =
+                    new SubpartitionCachedBuffer(
+                            i, bufferSize, storageMemoryManager, cacheFlushManager);
         }
     }
 
@@ -65,17 +59,6 @@ public class HashBasedCachedBuffer implements CacheBufferOperation {
         } catch (InterruptedException e) {
             throw new IOException(e);
         }
-    }
-
-    @Override
-    public BufferBuilder requestBufferFromPool() throws InterruptedException {
-        MemorySegment segment = storageMemoryManager.requestBufferInAccumulator();
-        cacheFlushManager.checkNeedTriggerFlushCachedBuffers();
-        return new BufferBuilder(segment, this::recycleBuffer);
-    }
-
-    private void recycleBuffer(MemorySegment buffer) {
-        storageMemoryManager.recycleBufferInAccumulator(buffer);
     }
 
     private SubpartitionCachedBuffer getCachedBuffer(int consumerId) {
