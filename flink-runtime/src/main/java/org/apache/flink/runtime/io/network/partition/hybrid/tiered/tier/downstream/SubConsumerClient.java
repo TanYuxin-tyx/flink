@@ -6,8 +6,8 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.Buffe
 import java.io.IOException;
 import java.util.Optional;
 
-/** The interface of {@link SubpartitionReader} in Tiered Store. */
-public interface SubpartitionReader {
+/** The interface of {@link SubConsumerClient} in Tiered Store. */
+public interface SubConsumerClient {
 
     Optional<BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException;

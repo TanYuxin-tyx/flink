@@ -7,7 +7,10 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingInputGateBufferReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierMemorySpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManagerImpl;
+import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -18,11 +21,20 @@ import java.util.function.Consumer;
 /** The implementation of {@link TieredStorageConsumerClient} interface. */
 public class TieredStoreBufferReader implements SingInputGateBufferReader {
 
-    private final SubpartitionReader[] subpartitionReaders;
+    private final SubConsumerClient[] subConsumerClients;
 
-    private final TieredStoreMemoryManager tieredStoreMemoryManager;
+    private final TieredStorageMemoryManager tieredStoreMemoryManager;
 
     private final String baseRemoteStoragePath;
+
+    private final NetworkBufferPool networkBufferPool;
+
+    private List<TierMemorySpec> tierMemorySpecs =
+            new ArrayList<TierMemorySpec>() {
+                {
+                    add(new TierMemorySpec(0, 1, false));
+                }
+            };
 
     private RemoteTierMonitor remoteTierMonitor;
 
@@ -36,7 +48,8 @@ public class TieredStoreBufferReader implements SingInputGateBufferReader {
             String baseRemoteStoragePath,
             Consumer<Integer> channelEnqueueReceiver) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
-        this.tieredStoreMemoryManager = new DownstreamTieredStoreMemoryManager(networkBufferPool);
+        this.networkBufferPool = networkBufferPool;
+        this.tieredStoreMemoryManager = new TieredStorageMemoryManagerImpl(tierMemorySpecs);
         if (baseRemoteStoragePath != null) {
             this.remoteTierMonitor =
                     new RemoteTierMonitor(
@@ -48,15 +61,20 @@ public class TieredStoreBufferReader implements SingInputGateBufferReader {
                             isUpstreamBroadcast,
                             channelEnqueueReceiver);
         }
-        this.subpartitionReaders = new SubpartitionReader[numInputChannels];
+        this.subConsumerClients = new SubConsumerClient[numInputChannels];
         for (int i = 0; i < numInputChannels; ++i) {
-            subpartitionReaders[i] =
-                    new SubpartitionReaderImpl(getClientList(), channelEnqueueReceiver);
+            subConsumerClients[i] =
+                    new SubConsumerClientImpl(getClientList(), channelEnqueueReceiver);
         }
     }
 
     @Override
     public void start() {
+        try {
+            this.tieredStoreMemoryManager.setup(networkBufferPool.createBufferPool(1, 1));
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to start.");
+        }
         if (baseRemoteStoragePath != null) {
             this.remoteTierMonitor.start();
         }
@@ -71,13 +89,13 @@ public class TieredStoreBufferReader implements SingInputGateBufferReader {
             return inputChannel.getNextBuffer();
         }
 
-        return subpartitionReaders[inputChannel.getChannelIndex()].getNextBuffer(inputChannel);
+        return subConsumerClients[inputChannel.getChannelIndex()].getNextBuffer(inputChannel);
     }
 
     @Override
     public void close() throws IOException {
-        for (SubpartitionReader subpartitionReader : subpartitionReaders) {
-            subpartitionReader.close();
+        for (SubConsumerClient subConsumerClient : subConsumerClients) {
+            subConsumerClient.close();
         }
     }
 

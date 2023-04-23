@@ -86,22 +86,6 @@ public class TieredStoreUtils {
     }
 
     public static void checkFlushCacheBuffers(
-            TieredStoreMemoryManager tieredStoreMemoryManager,
-            CacheBufferFlushTrigger cacheBufferFlushTrigger) {
-        if (needFlushCacheBuffers(tieredStoreMemoryManager)) {
-            cacheBufferFlushTrigger.notifyFlushCachedBuffers();
-        }
-    }
-
-    public static boolean needFlushCacheBuffers(TieredStoreMemoryManager tieredStoreMemoryManager) {
-        int numTotal = tieredStoreMemoryManager.numTotalBuffers();
-        int numRequested = tieredStoreMemoryManager.numRequestedBuffers();
-        return numRequested >= numTotal
-                || (numRequested * 1.0 / numTotal)
-                        >= tieredStoreMemoryManager.numBuffersTriggerFlushRatio();
-    }
-
-    public static void checkFlushCacheBuffers(
             TieredStorageMemoryManager storageMemoryManager,
             CacheBufferFlushTrigger cacheBufferFlushTrigger,
             float numBuffersTriggerFlushRatio) {

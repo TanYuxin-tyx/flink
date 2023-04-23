@@ -9,8 +9,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-/** The implementation of {@link SubpartitionReader} interface. */
-public class SubpartitionReaderImpl implements SubpartitionReader {
+/** The implementation of {@link SubConsumerClient} interface. */
+public class SubConsumerClientImpl implements SubConsumerClient {
 
     private final Consumer<Integer> queueChannelReceiver;
 
@@ -18,7 +18,7 @@ public class SubpartitionReaderImpl implements SubpartitionReader {
 
     private int currentSegmentId = 0;
 
-    public SubpartitionReaderImpl(
+    public SubConsumerClientImpl(
             List<TierConsumerAgent> clientList, Consumer<Integer> queueChannelReceiver) {
         this.clientList = clientList;
         this.queueChannelReceiver = queueChannelReceiver;

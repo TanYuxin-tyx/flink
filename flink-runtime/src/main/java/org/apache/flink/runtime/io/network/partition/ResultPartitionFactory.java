@@ -41,7 +41,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.R
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.TieredStorageProducerClientImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.UpstreamTieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.DiskTierProducerAgent;
@@ -61,14 +60,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreUtils.DATA_FILE_SUFFIX;
-import static org.apache.flink.runtime.shuffle.NettyShuffleUtils.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** Factory for {@link ResultPartition} to use in {@link NettyShuffleEnvironment}. */
 public class ResultPartitionFactory {
@@ -433,23 +428,6 @@ public class ResultPartitionFactory {
                             partitionFileManager));
         }
         return tierProducerAgents;
-    }
-
-    private UpstreamTieredStoreMemoryManager createStoreMemoryManager(
-            int numSubpartitions,
-            TierType[] tierTypes,
-            float numBuffersTriggerFlushRatio,
-            CacheFlushManager cacheFlushManager) {
-        Map<TierType, Integer> tierExclusiveBuffers = new HashMap<>();
-        for (TierType tierType : tierTypes) {
-            tierExclusiveBuffers.put(
-                    tierType, checkNotNull(HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(tierType)));
-        }
-        return new UpstreamTieredStoreMemoryManager(
-                tierExclusiveBuffers,
-                numSubpartitions,
-                numBuffersTriggerFlushRatio,
-                cacheFlushManager);
     }
 
     private HybridShuffleConfiguration getHybridShuffleConfiguration(

@@ -20,11 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.rem
 
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.UpstreamTieredStoreMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.TieredStoreTestUtils;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,13 +58,13 @@ class RemoteTierStorageTest {
     private RemoteTierProducerAgent createRemoteTier() throws IOException {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, BUFFER_SIZE);
         BufferPool bufferPool = networkBufferPool.createBufferPool(NUM_BUFFERS, NUM_BUFFERS);
-        TieredStoreMemoryManager tieredStoreMemoryManager =
-                new UpstreamTieredStoreMemoryManager(
-                        TieredStoreTestUtils.getTierExclusiveBuffers(),
-                        NUM_SUBPARTITIONS,
-                        NUM_BUFFERS_TRIGGER_FLUSH_RATIO,
-                        new CacheFlushManager(NUM_BUFFERS_TRIGGER_FLUSH_RATIO));
-        tieredStoreMemoryManager.setBufferPool(bufferPool);
+        //TieredStoreMemoryManager tieredStoreMemoryManager =
+        //        new UpstreamTieredStoreMemoryManager(
+        //                TieredStoreTestUtils.getTierExclusiveBuffers(),
+        //                NUM_SUBPARTITIONS,
+        //                NUM_BUFFERS_TRIGGER_FLUSH_RATIO,
+        //                new CacheFlushManager(NUM_BUFFERS_TRIGGER_FLUSH_RATIO));
+        //tieredStoreMemoryManager.setBufferPool(bufferPool);
 
         // return new RemoteTierStorage(
         //        NUM_SUBPARTITIONS,

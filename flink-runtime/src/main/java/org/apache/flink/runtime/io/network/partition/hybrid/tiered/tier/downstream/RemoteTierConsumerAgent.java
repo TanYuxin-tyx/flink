@@ -11,8 +11,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManager;
 
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
@@ -28,7 +27,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /** The data client is used to fetch data from DFS tier. */
 public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
-    private final TieredStoreMemoryManager memoryManager;
+    private final TieredStorageMemoryManager memoryManager;
 
     private final ByteBuffer headerBuffer;
 
@@ -39,7 +38,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     private int latestSegmentId = -1;
 
     public RemoteTierConsumerAgent(
-            TieredStoreMemoryManager memoryManager, RemoteTierMonitor remoteTierMonitor) {
+            TieredStorageMemoryManager memoryManager, RemoteTierMonitor remoteTierMonitor) {
         this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
         headerBuffer.order(ByteOrder.nativeOrder());
         this.memoryManager = memoryManager;
@@ -85,7 +84,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     private InputChannel.BufferAndAvailability getDfsBuffer(FSDataInputStream inputStream)
             throws IOException {
         MemorySegment memorySegment =
-                memoryManager.requestMemorySegmentBlocking(TierType.IN_REMOTE);
+                memoryManager.requestBufferBlocking(0);
         Buffer buffer = checkNotNull(readFromInputStream(memorySegment, inputStream));
         return new InputChannel.BufferAndAvailability(buffer, Buffer.DataType.DATA_BUFFER, 0, 0);
     }
@@ -126,7 +125,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     }
 
     private void recycle(MemorySegment memorySegment) {
-        memoryManager.recycleBuffer(memorySegment, TierType.IN_REMOTE);
+        memoryManager.recycleBuffer(memorySegment, 0);
     }
 
     @VisibleForTesting
