@@ -24,7 +24,7 @@
 //import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 //import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 //import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-//import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreConfiguration;
+//import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreConfiguration;
 //import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTracker;
 //import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.local.disk.RegionBufferIndexTrackerImpl;
 //import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.service.NettyServiceView;

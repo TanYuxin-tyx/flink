@@ -19,7 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorageReleaser;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierStorageReleaser;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreUtils.deletePath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.deletePath;
 
 public class RemoteTierStorageReleaser implements TierStorageReleaser {
 

@@ -20,13 +20,13 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierStorageReleaser;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierStorageReleaser;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierStorageReleaser;
 
 import java.util.Collections;
 import java.util.List;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreUtils.generateToReleasePath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.generateToReleasePath;
 
 public class TieredStoreShuffleEnvironment {
 

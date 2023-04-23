@@ -20,7 +20,7 @@
 //
 //import org.apache.flink.core.memory.MemorySegment;
 //import org.apache.flink.runtime.io.network.buffer.BufferPool;
-//import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
+//import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
 //import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreMemoryManager;
 //
 ///** Test implementation for {@link TieredStoreMemoryManager}. */

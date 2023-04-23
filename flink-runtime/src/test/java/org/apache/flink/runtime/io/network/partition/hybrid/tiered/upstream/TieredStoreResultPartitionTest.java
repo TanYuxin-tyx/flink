@@ -42,7 +42,7 @@ import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListen
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.TieredResultPartition;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.IOUtils;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
