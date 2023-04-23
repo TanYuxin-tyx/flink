@@ -22,8 +22,8 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.ProducerTieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteCacheManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.common.file.PartitionFileManager;
@@ -94,7 +94,7 @@ class RemoteDiskCacheManagerTest {
                         .createBufferPool(POOL_SIZE, POOL_SIZE);
 
         TieredStorageMemoryManager storageMemoryManager =
-                new ProducerTieredStorageMemoryManager(new ArrayList<>());
+                new TieredStorageMemoryManagerImpl(new ArrayList<>());
         storageMemoryManager.setup(localBufferPool);
         RemoteCacheManager cacheDataManager =
                 new RemoteCacheManager(

@@ -32,9 +32,10 @@ import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfigu
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.ProducerTieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierConfSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.upstream.TieredResultPartition;
@@ -277,9 +278,8 @@ public class ResultPartitionFactory {
             if (enableTieredStoreForHybridShuffle) {
                 TieredStoreConfiguration storeConfiguration =
                         getStoreConfiguration(numberOfSubpartitions, type);
-                ProducerTieredStorageMemoryManager storageMemoryManager =
-                        new ProducerTieredStorageMemoryManager(
-                                storeConfiguration.getTierMemorySpecs());
+                TieredStorageMemoryManager storageMemoryManager =
+                        new TieredStorageMemoryManagerImpl(storeConfiguration.getTierMemorySpecs());
                 CacheFlushManager cacheFlushManager =
                         new CacheFlushManager(storeConfiguration.getNumBuffersTriggerFlushRatio());
                 List<TierProducerAgent> tierProducerAgents =
@@ -363,7 +363,7 @@ public class ResultPartitionFactory {
             BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
             TieredStoreConfiguration storeConfiguration,
-            ProducerTieredStorageMemoryManager storeMemoryManager,
+            TieredStorageMemoryManager storeMemoryManager,
             CacheFlushManager cacheFlushManager) {
         String dataFileBasePath = channelManager.createChannel().getPath();
         PartitionFileManager partitionFileManager =
