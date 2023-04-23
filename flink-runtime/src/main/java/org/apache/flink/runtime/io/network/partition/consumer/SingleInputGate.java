@@ -212,7 +212,7 @@ public class SingleInputGate extends IndexedInputGate {
     private final ThroughputCalculator throughputCalculator;
     private final BufferDebloater bufferDebloater;
 
-    private final SingInputGateBufferReader singInputGateBufferReader;
+    private final SingInputGateConsumerClient singInputGateConsumerClient;
 
     private boolean shouldDrainOnEndOfData = true;
 
@@ -263,7 +263,7 @@ public class SingleInputGate extends IndexedInputGate {
         this.unpooledSegment = MemorySegmentFactory.allocateUnpooledSegment(segmentSize);
         this.bufferDebloater = bufferDebloater;
         this.throughputCalculator = checkNotNull(throughputCalculator);
-        this.singInputGateBufferReader =
+        this.singInputGateConsumerClient =
                 tieredStorageReaderFactory.createSingInputGateBufferReader(
                         channelIndex -> queueChannel(channels[channelIndex], null, false));
     }
@@ -320,7 +320,7 @@ public class SingleInputGate extends IndexedInputGate {
 
             requestedPartitionsFlag = true;
             // 这是因为不让 RemoteRecoveredChannel入队，否则 检查的太快，对应Channel就不入队了
-            singInputGateBufferReader.start();
+            singInputGateConsumerClient.start();
         }
     }
 
@@ -706,7 +706,7 @@ public class SingleInputGate extends IndexedInputGate {
             synchronized (inputChannelsWithData) {
                 inputChannelsWithData.notifyAll();
             }
-            singInputGateBufferReader.close();
+            singInputGateConsumerClient.close();
         }
     }
 
@@ -791,7 +791,7 @@ public class SingleInputGate extends IndexedInputGate {
                 }
                 final InputChannel inputChannel = inputChannelOpt.get();
                 Optional<BufferAndAvailability> bufferAndAvailabilityOpt;
-                bufferAndAvailabilityOpt = singInputGateBufferReader.getNextBuffer(inputChannel);
+                bufferAndAvailabilityOpt = singInputGateConsumerClient.getNextBuffer(inputChannel);
                 if (!bufferAndAvailabilityOpt.isPresent()) {
                     checkUnavailability();
                     continue;
@@ -959,7 +959,7 @@ public class SingleInputGate extends IndexedInputGate {
     @Override
     public void acknowledgeAllRecordsProcessed(InputChannelInfo channelInfo) throws IOException {
         checkState(!isFinished(), "InputGate already finished.");
-        if (singInputGateBufferReader.supportAcknowledgeUpstreamAllRecordsProcessed()) {
+        if (singInputGateConsumerClient.supportAcknowledgeUpstreamAllRecordsProcessed()) {
             channels[channelInfo.getInputChannelIdx()].acknowledgeAllRecordsProcessed();
         }
     }

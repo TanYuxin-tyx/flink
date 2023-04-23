@@ -6,7 +6,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
-import org.apache.flink.runtime.io.network.partition.consumer.SingInputGateBufferReader;
+import org.apache.flink.runtime.io.network.partition.consumer.SingInputGateConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TierMemorySpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.common.TieredStorageMemoryManagerImpl;
@@ -18,8 +18,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-/** The implementation of {@link TieredStorageConsumerClient} interface. */
-public class TieredStoreBufferReader implements SingInputGateBufferReader {
+/** The implementation of {@link SingInputGateConsumerClient} interface. */
+public class TieredStoreConsumerClient implements SingInputGateConsumerClient {
 
     private final SubConsumerClient[] subConsumerClients;
 
@@ -38,7 +38,7 @@ public class TieredStoreBufferReader implements SingInputGateBufferReader {
 
     private RemoteTierMonitor remoteTierMonitor;
 
-    public TieredStoreBufferReader(
+    public TieredStoreConsumerClient(
             boolean isUpstreamBroadcast,
             int numInputChannels,
             JobID jobID,

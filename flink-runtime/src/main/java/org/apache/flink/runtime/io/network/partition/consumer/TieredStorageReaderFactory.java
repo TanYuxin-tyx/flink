@@ -3,7 +3,7 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.downstream.TieredStoreBufferReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.downstream.TieredStoreConsumerClient;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -46,10 +46,10 @@ public class TieredStorageReaderFactory {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
     }
 
-    public SingInputGateBufferReader createSingInputGateBufferReader(
+    public SingInputGateConsumerClient createSingInputGateBufferReader(
             Consumer<Integer> channelEnqueueReceiver) {
         if (enableTieredStorage) {
-            return new TieredStoreBufferReader(
+            return new TieredStoreConsumerClient(
                     isUpstreamBroadcast,
                     numInputChannels,
                     jobID,
@@ -59,6 +59,6 @@ public class TieredStorageReaderFactory {
                     baseRemoteStoragePath,
                     channelEnqueueReceiver);
         }
-        return new DefaultBufferReader();
+        return new DefaultConsumerClient();
     }
 }

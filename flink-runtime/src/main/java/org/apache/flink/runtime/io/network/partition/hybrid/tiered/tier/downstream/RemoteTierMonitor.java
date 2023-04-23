@@ -16,8 +16,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -44,13 +42,11 @@ public class RemoteTierMonitor implements Runnable {
 
     private final String baseRemoteStoragePath;
 
-    private final Map<Integer, Boolean>[] existStatus;
+    private final int[] requiredSegmentIds;
 
-    private volatile int[] requiredSegmentIds;
+    private final int[] scanningSegmentIds;
 
-    private volatile int[] scanningSegmentIds;
-
-    private volatile int[] readingSegmentIds;
+    private final int[] readingSegmentIds;
 
     private final FSDataInputStream[] inputStreams;
 
@@ -84,8 +80,6 @@ public class RemoteTierMonitor implements Runnable {
             int numInputChannels,
             boolean isUpstreamBroadcast,
             Consumer<Integer> channelEnqueueReceiver) {
-        this.existStatus = new Map[subpartitionIndexes.size()];
-        Arrays.fill(existStatus, new ConcurrentHashMap<>());
         this.requiredSegmentIds = new int[subpartitionIndexes.size()];
         this.scanningSegmentIds = new int[subpartitionIndexes.size()];
         this.readingSegmentIds = new int[subpartitionIndexes.size()];

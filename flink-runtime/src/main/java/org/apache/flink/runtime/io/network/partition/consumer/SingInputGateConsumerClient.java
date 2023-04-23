@@ -22,8 +22,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
 
-/** {@link SingInputGateBufferReader} includes the logic of reading buffer from channel. */
-public interface SingInputGateBufferReader extends Closeable {
+/** {@link SingInputGateConsumerClient} includes the logic of reading buffer from channel. */
+public interface SingInputGateConsumerClient extends Closeable {
 
     /** Start the reader. */
     void start();

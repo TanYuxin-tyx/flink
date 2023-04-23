@@ -29,7 +29,6 @@ import org.apache.flink.runtime.io.network.buffer.NoOpBufferPool;
 import org.apache.flink.runtime.io.network.partition.InputChannelTestUtils;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.downstream.TieredStorageConsumerClient;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.taskmanager.NettyShuffleEnvironmentConfiguration;
 import org.apache.flink.runtime.throughput.BufferDebloatConfiguration;
@@ -80,8 +79,6 @@ public class SingleInputGateBuilder {
             BufferDebloatConfiguration.fromConfiguration(new Configuration());
     private Function<BufferDebloatConfiguration, ThroughputCalculator> createThroughputCalculator =
             config -> new ThroughputCalculator(SystemClock.getInstance());
-
-    @Nullable private TieredStorageConsumerClient tieredStorageConsumerClient = null;
 
     public SingleInputGateBuilder setPartitionProducerStateProvider(
             PartitionProducerStateProvider partitionProducerStateProvider) {
@@ -157,12 +154,6 @@ public class SingleInputGateBuilder {
     public SingleInputGateBuilder setThroughputCalculator(
             Function<BufferDebloatConfiguration, ThroughputCalculator> createThroughputCalculator) {
         this.createThroughputCalculator = createThroughputCalculator;
-        return this;
-    }
-
-    public SingleInputGateBuilder setTieredStoreReader(
-            @Nullable TieredStorageConsumerClient tieredStorageConsumerClient) {
-        this.tieredStorageConsumerClient = tieredStorageConsumerClient;
         return this;
     }
 

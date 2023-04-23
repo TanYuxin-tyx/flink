@@ -21,8 +21,8 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 import java.io.IOException;
 import java.util.Optional;
 
-/** {@link DefaultBufferReader} is the default buffer reader of {@link SingleInputGate}. */
-public class DefaultBufferReader implements SingInputGateBufferReader {
+/** {@link DefaultConsumerClient} is the default buffer reader of {@link SingleInputGate}. */
+public class DefaultConsumerClient implements SingInputGateConsumerClient {
 
     @Override
     public void start() {
