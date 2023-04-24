@@ -80,7 +80,6 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
                     readIOExecutor,
                     producerMergeIndex,
                     producerMergeShuffleFilePath,
-                    ProducerMergePartitionTierSubpartitionReader.Factory.INSTANCE,
                     storeConfiguration);
         }
         throw new UnsupportedOperationException(

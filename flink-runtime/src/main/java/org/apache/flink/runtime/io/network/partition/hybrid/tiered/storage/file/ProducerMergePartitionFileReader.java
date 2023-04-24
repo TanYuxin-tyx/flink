@@ -76,8 +76,6 @@ public class ProducerMergePartitionFileReader
 
     private final RegionBufferIndexTracker dataIndex;
 
-    private final ProducerMergePartitionTierSubpartitionReader.Factory fileReaderFactory;
-
     private final TieredStoreConfiguration storeConfiguration;
 
     private final ByteBuffer headerBuf = BufferReaderWriterUtil.allocatedHeaderBuffer();
@@ -109,9 +107,7 @@ public class ProducerMergePartitionFileReader
             ScheduledExecutorService ioExecutor,
             RegionBufferIndexTracker dataIndex,
             Path dataFilePath,
-            ProducerMergePartitionTierSubpartitionReader.Factory fileReaderFactory,
             TieredStoreConfiguration storeConfiguration) {
-        this.fileReaderFactory = fileReaderFactory;
         this.storeConfiguration = checkNotNull(storeConfiguration);
         this.dataIndex = checkNotNull(dataIndex);
         this.dataFilePath = checkNotNull(dataFilePath);
@@ -174,7 +170,7 @@ public class ProducerMergePartitionFileReader
             lazyInitialize();
 
             ProducerMergePartitionTierSubpartitionReader subpartitionReader =
-                    fileReaderFactory.createFileReader(
+                    new ProducerMergePartitionTierSubpartitionReader(
                             subpartitionId,
                             nettyServiceViewId,
                             dataFileChannel,
