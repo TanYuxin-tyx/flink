@@ -69,7 +69,8 @@ public class NettyServiceViewImpl implements NettyServiceView {
     public void setNettyBufferQueue(NettyBufferQueue nettyBufferQueue) {
         synchronized (viewLock) {
             checkState(
-                    this.nettyBufferQueue == null, "Repeatedly set consumer is not allowed.");
+                    this.nettyBufferQueue == null,
+                    "Repeatedly set netty buffer queue is not allowed.");
             this.nettyBufferQueue = nettyBufferQueue;
         }
     }
@@ -118,7 +119,7 @@ public class NettyServiceViewImpl implements NettyServiceView {
                     && cachedNextDataType == Buffer.DataType.EVENT_BUFFER) {
                 availability = true;
             }
-            int backlog = getSubpartitionBacklog();
+            int backlog = unsynchronizedGetNumberOfQueuedBuffers();
             if (backlog == 0) {
                 needNotify = true;
             }
@@ -129,7 +130,7 @@ public class NettyServiceViewImpl implements NettyServiceView {
     @Override
     public void updateNeedNotifyStatus() {
         synchronized (viewLock) {
-            if (getSubpartitionBacklog() == 0) {
+            if (unsynchronizedGetNumberOfQueuedBuffers() == 0) {
                 needNotify = true;
             }
         }
@@ -166,13 +167,16 @@ public class NettyServiceViewImpl implements NettyServiceView {
 
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
-        return getSubpartitionBacklog();
+        if (nettyBufferQueue == null) {
+            return 0;
+        }
+        return nettyBufferQueue.getBacklog();
     }
 
     @Override
     public int getNumberOfQueuedBuffers() {
         synchronized (viewLock) {
-            return getSubpartitionBacklog();
+            return unsynchronizedGetNumberOfQueuedBuffers();
         }
     }
 
@@ -184,14 +188,6 @@ public class NettyServiceViewImpl implements NettyServiceView {
     // -------------------------------
     //       Internal Methods
     // -------------------------------
-
-    @SuppressWarnings("FieldAccessNotGuarded")
-    private int getSubpartitionBacklog() {
-        if (nettyBufferQueue == null) {
-            return 0;
-        }
-        return nettyBufferQueue.getBacklog();
-    }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     @GuardedBy("viewLock")
