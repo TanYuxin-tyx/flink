@@ -123,27 +123,19 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceVie
     public NettyServiceView createNettyBasedTierConsumerView(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
-        // If data file is not readable, throw PartitionNotFoundException to mark this result
-        // partition failed. Otherwise, the partition data is not regenerated, so failover can not
-        // recover the job.
         if (!Files.isReadable(dataFilePath)) {
             throw new PartitionNotFoundException(resultPartitionID);
         }
-        // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
-        // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
-
-        NettyServiceViewImpl diskTierReaderView = new NettyServiceViewImpl(availabilityListener);
+        NettyServiceView nettyServiceView = new NettyServiceViewImpl(availabilityListener);
         NettyServiceViewId lastNettyServiceViewId = lastNettyServiceViewIds[subpartitionId];
-        // assign a unique id for each consumer, now it is guaranteed by the value that is one
-        // higher than the last consumerId's id field.
         NettyServiceViewId nettyServiceViewId = NettyServiceViewId.newId(lastNettyServiceViewId);
         lastNettyServiceViewIds[subpartitionId] = nettyServiceViewId;
-        NettyBufferQueue diskConsumer =
+        NettyBufferQueue bufferQueue =
                 partitionFileReader.createNettyBufferQueue(
-                        subpartitionId, nettyServiceViewId, diskTierReaderView);
-        diskTierReaderView.setNettyBufferQueue(diskConsumer);
-        return diskTierReaderView;
+                        subpartitionId, nettyServiceViewId, nettyServiceView);
+        nettyServiceView.setNettyBufferQueue(bufferQueue);
+        return nettyServiceView;
     }
 
     @Override

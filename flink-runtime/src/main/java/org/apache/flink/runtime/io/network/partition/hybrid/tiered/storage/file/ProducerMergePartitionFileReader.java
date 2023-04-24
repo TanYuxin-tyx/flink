@@ -67,6 +67,10 @@ public class ProducerMergePartitionFileReader
     private final Set<ProducerMergePartitionSubpartitionReader> allSubpartitionReaders =
             new HashSet<>();
 
+    private final int maxBufferReadAhead;
+
+    private final int maxRequestedBuffers;
+
     @GuardedBy("lock")
     private FileChannel dataFileChannel;
 
@@ -78,10 +82,6 @@ public class ProducerMergePartitionFileReader
 
     @GuardedBy("lock")
     private volatile boolean isReleased;
-
-    private final int maxBufferReadAhead;
-
-    private final int maxRequestedBuffers;
 
     public ProducerMergePartitionFileReader(
             BatchShuffleReadBufferPool bufferPool,
