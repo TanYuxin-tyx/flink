@@ -57,13 +57,12 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
     public Optional<ReadableRegion> getReadableRegion(
             int subpartitionId,
             int bufferIndex,
-            int consumingOffset,
             NettyServiceViewId nettyServiceViewId) {
         synchronized (lock) {
             return getInternalRegion(subpartitionId, bufferIndex, nettyServiceViewId)
                     .map(
                             internalRegion ->
-                                    internalRegion.toReadableRegion(bufferIndex, consumingOffset))
+                                    internalRegion.toReadableRegion(bufferIndex))
                     .filter(internalRegion -> internalRegion.numReadable > 0);
         }
     }
@@ -207,7 +206,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
             return bufferIndex >= firstBufferIndex && bufferIndex < firstBufferIndex + numBuffers;
         }
 
-        private ReadableRegion toReadableRegion(int bufferIndex, int consumingOffset) {
+        private ReadableRegion toReadableRegion(int bufferIndex) {
             int nSkip = bufferIndex - firstBufferIndex;
             int nReadable = numBuffers - nSkip;
             return new ReadableRegion(nSkip, nReadable, firstBufferOffset);

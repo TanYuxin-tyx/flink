@@ -50,9 +50,8 @@ public class TestingRegionBufferIndexTracker implements RegionBufferIndexTracker
     public Optional<ReadableRegion> getReadableRegion(
             int subpartitionId,
             int bufferIndex,
-            int consumingOffset,
             NettyServiceViewId nettyServiceViewId) {
-        return getReadableRegionFunction.apply(subpartitionId, bufferIndex, consumingOffset);
+        return getReadableRegionFunction.apply(subpartitionId, bufferIndex, 0);
     }
 
     @Override

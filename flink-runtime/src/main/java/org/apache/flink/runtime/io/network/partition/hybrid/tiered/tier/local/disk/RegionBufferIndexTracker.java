@@ -48,7 +48,6 @@ public interface RegionBufferIndexTracker {
     Optional<ReadableRegion> getReadableRegion(
             int subpartitionId,
             int bufferIndex,
-            int consumingOffset,
             NettyServiceViewId nettyServiceViewId);
 
     /**

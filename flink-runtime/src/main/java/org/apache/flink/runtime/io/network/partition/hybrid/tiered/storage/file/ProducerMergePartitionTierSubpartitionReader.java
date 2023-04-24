@@ -89,8 +89,7 @@ public class ProducerMergePartitionTierSubpartitionReader
     }
 
     public NettyBufferQueue createNettyBufferQueue() {
-        return new NettyBufferQueueImpl(
-                loadedBuffers, () -> diskTierReaderReleaser.accept(this));
+        return new NettyBufferQueueImpl(loadedBuffers, () -> diskTierReaderReleaser.accept(this));
     }
 
     public synchronized void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
@@ -161,7 +160,6 @@ public class ProducerMergePartitionTierSubpartitionReader
         // memory data manager that is already consumed.
         int consumingOffset = tierConsumerView.getConsumingOffset(true);
         bufferIndexManager.updateLastConsumed(consumingOffset);
-        cachedRegionManager.updateConsumingOffset(consumingOffset);
     }
 
     @Override
@@ -246,8 +244,6 @@ public class ProducerMergePartitionTierSubpartitionReader
         private final int subpartitionId;
         private final RegionBufferIndexTracker dataIndex;
 
-        private int consumingOffset = -1;
-
         private int currentBufferIndex;
         private int numSkip;
         private int numReadable;
@@ -257,11 +253,6 @@ public class ProducerMergePartitionTierSubpartitionReader
             this.subpartitionId = subpartitionId;
             this.dataIndex = dataIndex;
         }
-
-        public void updateConsumingOffset(int consumingOffset) {
-            this.consumingOffset = consumingOffset;
-        }
-
         /** Return Long.MAX_VALUE if region does not exist to giving the lowest priority. */
         private long getFileOffset() {
             return currentBufferIndex == -1 ? Long.MAX_VALUE : offset;
@@ -316,11 +307,7 @@ public class ProducerMergePartitionTierSubpartitionReader
             }
 
             Optional<RegionBufferIndexTracker.ReadableRegion> lookupResultOpt =
-                    dataIndex.getReadableRegion(
-                            subpartitionId,
-                            bufferIndex,
-                            consumingOffset,
-                            nettyServiceViewId);
+                    dataIndex.getReadableRegion(subpartitionId, bufferIndex, nettyServiceViewId);
             if (!lookupResultOpt.isPresent()) {
                 currentBufferIndex = -1;
                 numReadable = 0;
