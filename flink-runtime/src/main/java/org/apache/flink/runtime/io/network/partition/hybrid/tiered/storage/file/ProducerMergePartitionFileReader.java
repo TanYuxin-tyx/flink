@@ -172,13 +172,14 @@ public class ProducerMergePartitionFileReader
             ProducerMergePartitionTierSubpartitionReader subpartitionReader =
                     new ProducerMergePartitionTierSubpartitionReader(
                             subpartitionId,
+                            storeConfiguration.getMaxBuffersReadAhead(),
+                            headerBuf,
                             nettyServiceViewId,
                             dataFileChannel,
                             tierConsumerView,
                             dataIndex,
-                            storeConfiguration.getMaxBuffersReadAhead(),
-                            this::releaseSubpartitionReader,
-                            headerBuf);
+                            this::releaseSubpartitionReader
+                            );
 
             allReaders.add(subpartitionReader);
 

@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.Deque;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.function.Consumer;
@@ -52,19 +53,21 @@ public class ProducerMergePartitionTierSubpartitionReader
 
     private final ByteBuffer headerBuf;
 
-    private final int subpartitionId;
-
     private final NettyServiceViewId nettyServiceViewId;
 
     private final FileChannel dataFileChannel;
 
     private final NettyServiceView tierConsumerView;
 
-    private final CachedRegionManager cachedRegionManager;
+    private final RegionCache regionCache;
 
     private final Deque<BufferContext> loadedBuffers = new LinkedBlockingDeque<>();
 
     private final Consumer<ProducerMergePartitionTierSubpartitionReader> diskTierReaderReleaser;
+
+    private final RegionBufferIndexTracker dataIndex;
+
+    private final int subpartitionId;
 
     private final int maxBufferReadAhead;
 
@@ -74,20 +77,21 @@ public class ProducerMergePartitionTierSubpartitionReader
 
     public ProducerMergePartitionTierSubpartitionReader(
             int subpartitionId,
+            int maxBufferReadAhead,
+            ByteBuffer headerBuf,
             NettyServiceViewId nettyServiceViewId,
             FileChannel dataFileChannel,
             NettyServiceView tierConsumerView,
             RegionBufferIndexTracker dataIndex,
-            int maxBufferReadAhead,
-            Consumer<ProducerMergePartitionTierSubpartitionReader> diskTierReaderReleaser,
-            ByteBuffer headerBuf) {
+            Consumer<ProducerMergePartitionTierSubpartitionReader> diskTierReaderReleaser) {
         this.subpartitionId = subpartitionId;
         this.nettyServiceViewId = nettyServiceViewId;
         this.dataFileChannel = dataFileChannel;
         this.tierConsumerView = tierConsumerView;
         this.headerBuf = headerBuf;
         this.maxBufferReadAhead = maxBufferReadAhead;
-        this.cachedRegionManager = new CachedRegionManager(subpartitionId, dataIndex);
+        this.dataIndex = dataIndex;
+        this.regionCache = new RegionCache();
         this.diskTierReaderReleaser = diskTierReaderReleaser;
     }
 
@@ -108,7 +112,7 @@ public class ProducerMergePartitionTierSubpartitionReader
             return;
         }
         int numRemainingBuffer =
-                cachedRegionManager.getRemainingBuffersInRegion(nextToLoad, nettyServiceViewId);
+                regionCache.getRemainingBuffersInRegion(nextToLoad, nettyServiceViewId);
         // If there is no data in index, skip this time.
         if (numRemainingBuffer == 0) {
             return;
@@ -130,11 +134,9 @@ public class ProducerMergePartitionTierSubpartitionReader
                 buffers.add(segment);
                 throw throwable;
             }
-            loadedBuffers.add(new BufferContext(buffer, nextToLoad, subpartitionId));
-            cachedRegionManager.advance(
-                    buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
+            loadedBuffers.add(new BufferContext(buffer, nextToLoad++, subpartitionId));
+            regionCache.advance(buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
             ++numLoaded;
-            ++nextToLoad;
         }
         if (loadedBuffers.size() <= numLoaded) {
             tierConsumerView.notifyDataAvailable();
@@ -166,20 +168,85 @@ public class ProducerMergePartitionTierSubpartitionReader
     // ------------------------------------------------------------------------
 
     private void moveFileOffsetToBuffer() throws IOException {
-        Tuple2<Integer, Long> indexAndOffset =
-                cachedRegionManager.getNumSkipAndFileOffset();
+        Tuple2<Integer, Long> indexAndOffset = regionCache.getNumSkipAndFileOffset();
         dataFileChannel.position(indexAndOffset.f1);
         for (int i = 0; i < indexAndOffset.f0; ++i) {
             positionToNextBuffer(dataFileChannel, headerBuf);
         }
-        cachedRegionManager.skipAll(dataFileChannel.position());
+        regionCache.skipAll(dataFileChannel.position());
     }
 
     private long getNextOffsetToLoad() {
         if (nextToLoad < 0) {
             return Long.MAX_VALUE;
         } else {
-            return cachedRegionManager.getFileOffset();
+            return regionCache.getNumSkipAndFileOffset().f1;
+        }
+    }
+
+    private class RegionCache {
+
+        private int currentBufferIndex;
+        private int numSkip;
+        private int numReadable;
+        private long offset;
+
+        private int getRemainingBuffersInRegion(
+                int bufferIndex, NettyServiceViewId nettyServiceViewId) {
+            updateCachedRegionIfNeeded(bufferIndex, nettyServiceViewId);
+            return numReadable;
+        }
+
+        private Tuple2<Integer, Long> getNumSkipAndFileOffset() {
+            return new Tuple2<>(numSkip, currentBufferIndex == -1 ? Long.MAX_VALUE : offset);
+        }
+
+        private void skipAll(long newOffset) {
+            this.offset = newOffset;
+            this.numSkip = 0;
+        }
+
+        private void advance(long bufferSize) {
+            if (isInCachedRegion(currentBufferIndex + 1)) {
+                currentBufferIndex++;
+                numReadable--;
+                offset += bufferSize;
+            }
+        }
+
+        // ------------------------------------------------------------------------
+        //  Internal Methods
+        // ------------------------------------------------------------------------
+
+        private void updateCachedRegionIfNeeded(
+                int bufferIndex, NettyServiceViewId nettyServiceViewId) {
+            if (isInCachedRegion(bufferIndex)) {
+                int numAdvance = bufferIndex - currentBufferIndex;
+                numSkip += numAdvance;
+                numReadable -= numAdvance;
+                currentBufferIndex = bufferIndex;
+                return;
+            }
+
+            Optional<RegionBufferIndexTracker.ReadableRegion> lookupResultOpt =
+                    dataIndex.getReadableRegion(subpartitionId, bufferIndex, nettyServiceViewId);
+            if (!lookupResultOpt.isPresent()) {
+                currentBufferIndex = -1;
+                numReadable = 0;
+                numSkip = 0;
+                offset = -1L;
+            } else {
+                RegionBufferIndexTracker.ReadableRegion cachedRegion = lookupResultOpt.get();
+                currentBufferIndex = bufferIndex;
+                numSkip = cachedRegion.numSkip;
+                numReadable = cachedRegion.numReadable;
+                offset = cachedRegion.offset;
+            }
+        }
+
+        private boolean isInCachedRegion(int bufferIndex) {
+            return bufferIndex < currentBufferIndex + numReadable
+                    && bufferIndex >= currentBufferIndex;
         }
     }
 }
