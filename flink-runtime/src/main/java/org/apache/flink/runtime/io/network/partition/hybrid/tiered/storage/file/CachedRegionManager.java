@@ -6,10 +6,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.di
 
 import java.util.Optional;
 
-import static org.apache.flink.util.Preconditions.checkState;
-
 /** TODO nothing. */
 public class CachedRegionManager {
+
     private final int subpartitionId;
     private final RegionBufferIndexTracker dataIndex;
 
@@ -22,36 +21,29 @@ public class CachedRegionManager {
         this.subpartitionId = subpartitionId;
         this.dataIndex = dataIndex;
     }
-    /** Return Long.MAX_VALUE if region does not exist to giving the lowest priority. */
+
+    // 获取档前文件描述符的 file offset
     public long getFileOffset() {
         return currentBufferIndex == -1 ? Long.MAX_VALUE : offset;
     }
 
-    public int getRemainingBuffersInRegion(
-            int bufferIndex, NettyServiceViewId nettyServiceViewId) {
+    // 获取当前region还剩几个buffer
+    public int getRemainingBuffersInRegion(int bufferIndex, NettyServiceViewId nettyServiceViewId) {
         updateCachedRegionIfNeeded(bufferIndex, nettyServiceViewId);
-
         return numReadable;
     }
 
+    // 更新 当前的offset
     public void skipAll(long newOffset) {
         this.offset = newOffset;
         this.numSkip = 0;
     }
 
-    /**
-     * Maps the given buffer index to the offset in file.
-     *
-     * @return a tuple of {@code <numSkip,offset>}. The offset of the given buffer index can be
-     *     derived by starting from the {@code offset} and skipping {@code numSkip} buffers.
-     */
-    public Tuple2<Integer, Long> getNumSkipAndFileOffset(int bufferIndex) {
-        checkState(numSkip >= 0, "num skip must be greater than or equal to 0");
-        // Assumption: buffer index is always requested / updated increasingly
-        checkState(currentBufferIndex <= bufferIndex);
+    public Tuple2<Integer, Long> getNumSkipAndFileOffset() {
         return new Tuple2<>(numSkip, offset);
     }
 
+    // 更新掉自己的offset
     public void advance(long bufferSize) {
         if (isInCachedRegion(currentBufferIndex + 1)) {
             currentBufferIndex++;

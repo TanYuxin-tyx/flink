@@ -98,7 +98,10 @@ public class ProducerMergePartitionTierSubpartitionReader
     public synchronized void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
             throws IOException {
         if (isFailed) {
-            throw new IOException("subpartition reader has already failed.");
+            throw new IOException(
+                    "The disk reader of subpartition "
+                            + subpartitionId
+                            + " has already been failed.");
         }
         // If the number of loaded buffers achieves the limited value, skip this time.
         if (loadedBuffers.size() >= maxBufferReadAhead) {
@@ -110,7 +113,7 @@ public class ProducerMergePartitionTierSubpartitionReader
         if (numRemainingBuffer == 0) {
             return;
         }
-        moveFileOffsetToBuffer(nextToLoad);
+        moveFileOffsetToBuffer();
         int numLoaded = 0;
         while (!buffers.isEmpty()
                 && loadedBuffers.size() < maxBufferReadAhead
@@ -162,9 +165,9 @@ public class ProducerMergePartitionTierSubpartitionReader
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private void moveFileOffsetToBuffer(int bufferIndex) throws IOException {
+    private void moveFileOffsetToBuffer() throws IOException {
         Tuple2<Integer, Long> indexAndOffset =
-                cachedRegionManager.getNumSkipAndFileOffset(bufferIndex);
+                cachedRegionManager.getNumSkipAndFileOffset();
         dataFileChannel.position(indexAndOffset.f1);
         for (int i = 0; i < indexAndOffset.f0; ++i) {
             positionToNextBuffer(dataFileChannel, headerBuf);
