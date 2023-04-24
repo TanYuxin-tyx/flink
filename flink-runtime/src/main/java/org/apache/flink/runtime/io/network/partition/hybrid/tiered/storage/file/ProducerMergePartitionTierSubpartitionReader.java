@@ -24,8 +24,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyBufferQueue;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyBufferQueueImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
@@ -36,8 +34,6 @@ import java.nio.channels.FileChannel;
 import java.util.Deque;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.positionToNextBuffer;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
@@ -61,9 +57,7 @@ public class ProducerMergePartitionTierSubpartitionReader
 
     private final RegionCache regionCache;
 
-    private final Deque<BufferContext> loadedBuffers = new LinkedBlockingDeque<>();
-
-    private final Consumer<ProducerMergePartitionTierSubpartitionReader> diskTierReaderReleaser;
+    private final Deque<BufferContext> loadedBuffers;
 
     private final RegionBufferIndexTracker dataIndex;
 
@@ -78,25 +72,21 @@ public class ProducerMergePartitionTierSubpartitionReader
     public ProducerMergePartitionTierSubpartitionReader(
             int subpartitionId,
             int maxBufferReadAhead,
+            Deque<BufferContext> loadedBuffers,
             ByteBuffer headerBuf,
             NettyServiceViewId nettyServiceViewId,
             FileChannel dataFileChannel,
             NettyServiceView tierConsumerView,
-            RegionBufferIndexTracker dataIndex,
-            Consumer<ProducerMergePartitionTierSubpartitionReader> diskTierReaderReleaser) {
+            RegionBufferIndexTracker dataIndex) {
         this.subpartitionId = subpartitionId;
         this.nettyServiceViewId = nettyServiceViewId;
         this.dataFileChannel = dataFileChannel;
+        this.loadedBuffers = loadedBuffers;
         this.tierConsumerView = tierConsumerView;
         this.headerBuf = headerBuf;
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.dataIndex = dataIndex;
         this.regionCache = new RegionCache();
-        this.diskTierReaderReleaser = diskTierReaderReleaser;
-    }
-
-    public NettyBufferQueue createNettyBufferQueue() {
-        return new NettyBufferQueueImpl(loadedBuffers, () -> diskTierReaderReleaser.accept(this));
     }
 
     public synchronized void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)

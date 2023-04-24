@@ -6,10 +6,12 @@ import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreConfiguration;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyBufferQueue;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyBufferQueueImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
 
@@ -28,11 +30,13 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -131,11 +135,10 @@ public class ProducerMergePartitionFileReader
     @Override
     public int read() {
         List<ProducerMergePartitionTierSubpartitionReader> availableReaders =
-                prepareAndGetAvailableReaders();
+                sortAvailableReaders();
         if (availableReaders.isEmpty()) {
             return 0;
         }
-
         Queue<MemorySegment> buffers;
         try {
             buffers = allocateBuffers();
@@ -166,42 +169,23 @@ public class ProducerMergePartitionFileReader
             NettyServiceView tierConsumerView)
             throws IOException {
         synchronized (lock) {
-            checkState(!isReleased, "HsFileDataManager is already released.");
+            checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
             lazyInitialize();
-
+            Deque<BufferContext> bufferQueue = new LinkedBlockingDeque<>();
             ProducerMergePartitionTierSubpartitionReader subpartitionReader =
                     new ProducerMergePartitionTierSubpartitionReader(
                             subpartitionId,
                             storeConfiguration.getMaxBuffersReadAhead(),
+                            bufferQueue,
                             headerBuf,
                             nettyServiceViewId,
                             dataFileChannel,
                             tierConsumerView,
-                            dataIndex,
-                            this::releaseSubpartitionReader
-                            );
-
+                            dataIndex);
             allReaders.add(subpartitionReader);
-
             mayTriggerReading();
-            return subpartitionReader.createNettyBufferQueue();
-        }
-    }
-
-    public void deleteShuffleFile() {
-        IOUtils.deleteFileQuietly(dataFilePath);
-    }
-
-    /**
-     * Release specific {@link ProducerMergePartitionTierSubpartitionReader} from {@link
-     * PartitionFileReader}.
-     *
-     * @param producerMergePartitionTierReaderView to release.
-     */
-    public void releaseSubpartitionReader(
-            ProducerMergePartitionTierSubpartitionReader producerMergePartitionTierReaderView) {
-        synchronized (lock) {
-            removeSubpartitionReaders(Collections.singleton(producerMergePartitionTierReaderView));
+            return new NettyBufferQueueImpl(
+                    bufferQueue, () -> releaseSubpartitionReader(subpartitionReader));
         }
     }
 
@@ -304,13 +288,13 @@ public class ProducerMergePartitionFileReader
         }
     }
 
-    private List<ProducerMergePartitionTierSubpartitionReader> prepareAndGetAvailableReaders() {
+    private List<ProducerMergePartitionTierSubpartitionReader> sortAvailableReaders() {
         synchronized (lock) {
             if (isReleased) {
                 return new ArrayList<>();
             }
-            List<ProducerMergePartitionTierSubpartitionReader> availableReaders = new ArrayList<>(
-                    allReaders);
+            List<ProducerMergePartitionTierSubpartitionReader> availableReaders =
+                    new ArrayList<>(allReaders);
             Collections.sort(availableReaders);
             return availableReaders;
         }
@@ -342,16 +326,6 @@ public class ProducerMergePartitionFileReader
 
         for (ProducerMergePartitionTierSubpartitionReader reader : readers) {
             reader.fail(failureCause);
-        }
-    }
-
-    @GuardedBy("lock")
-    private void removeSubpartitionReaders(
-            Collection<ProducerMergePartitionTierSubpartitionReader> readers) {
-        allReaders.removeAll(readers);
-        if (allReaders.isEmpty()) {
-            bufferPool.unregisterRequester(this);
-            closeFileChannel();
         }
     }
 
@@ -389,6 +363,17 @@ public class ProducerMergePartitionFileReader
         }
     }
 
+    @GuardedBy("lock")
+    private void removeSubpartitionReaders(
+            Collection<ProducerMergePartitionTierSubpartitionReader> readers) {
+        allReaders.removeAll(readers);
+        if (allReaders.isEmpty()) {
+            bufferPool.unregisterRequester(this);
+            closeFileChannel();
+        }
+    }
+
+    @GuardedBy("lock")
     private FileChannel openFileChannel(Path path) throws IOException {
         return FileChannel.open(path, StandardOpenOption.READ);
     }
@@ -399,6 +384,17 @@ public class ProducerMergePartitionFileReader
 
         IOUtils.closeQuietly(dataFileChannel);
         dataFileChannel = null;
+    }
+
+    public void deleteShuffleFile() {
+        IOUtils.deleteFileQuietly(dataFilePath);
+    }
+
+    public void releaseSubpartitionReader(
+            ProducerMergePartitionTierSubpartitionReader producerMergePartitionTierReaderView) {
+        synchronized (lock) {
+            removeSubpartitionReaders(Collections.singleton(producerMergePartitionTierReaderView));
+        }
     }
 
     // ------------------------------------------------------------------------
