@@ -80,7 +80,9 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
                     readIOExecutor,
                     producerMergeIndex,
                     producerMergeShuffleFilePath,
-                    storeConfiguration);
+                    storeConfiguration.getMaxRequestedBuffers(),
+                    storeConfiguration.getBufferRequestTimeout(),
+                    storeConfiguration.getMaxBuffersReadAhead());
         }
         throw new UnsupportedOperationException(
                 "PartitionFileManager doesn't support the type of partition file: "

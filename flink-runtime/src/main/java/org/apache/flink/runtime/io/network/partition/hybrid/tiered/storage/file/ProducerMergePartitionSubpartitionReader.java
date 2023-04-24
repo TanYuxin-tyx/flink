@@ -41,11 +41,11 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
- * The {@link ProducerMergePartitionTierSubpartitionReader} is responded to load buffers of a
+ * The {@link ProducerMergePartitionSubpartitionReader} is responded to load buffers of a
  * subpartition from disk.
  */
-public class ProducerMergePartitionTierSubpartitionReader
-        implements Comparable<ProducerMergePartitionTierSubpartitionReader> {
+public class ProducerMergePartitionSubpartitionReader
+        implements Comparable<ProducerMergePartitionSubpartitionReader> {
 
     private final ByteBuffer headerBuf;
 
@@ -69,7 +69,7 @@ public class ProducerMergePartitionTierSubpartitionReader
 
     private volatile boolean isFailed;
 
-    public ProducerMergePartitionTierSubpartitionReader(
+    public ProducerMergePartitionSubpartitionReader(
             int subpartitionId,
             int maxBufferReadAhead,
             Deque<BufferContext> loadedBuffers,
@@ -148,7 +148,7 @@ public class ProducerMergePartitionTierSubpartitionReader
         tierConsumerView.notifyDataAvailable();
     }
 
-    public int compareTo(ProducerMergePartitionTierSubpartitionReader that) {
+    public int compareTo(ProducerMergePartitionSubpartitionReader that) {
         checkArgument(that != null);
         return Long.compare(getNextOffsetToLoad(), that.getNextOffsetToLoad());
     }
