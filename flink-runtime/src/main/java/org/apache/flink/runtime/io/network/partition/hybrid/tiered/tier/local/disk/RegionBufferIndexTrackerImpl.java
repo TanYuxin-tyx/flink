@@ -209,13 +209,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
 
         private ReadableRegion toReadableRegion(int bufferIndex, int consumingOffset) {
             int nSkip = bufferIndex - firstBufferIndex;
-            int nReadable = 0;
-            while (nSkip + nReadable < numBuffers) {
-                if (bufferIndex + nReadable <= consumingOffset) {
-                    break;
-                }
-                ++nReadable;
-            }
+            int nReadable = numBuffers - nSkip;
             return new ReadableRegion(nSkip, nReadable, firstBufferOffset);
         }
     }
