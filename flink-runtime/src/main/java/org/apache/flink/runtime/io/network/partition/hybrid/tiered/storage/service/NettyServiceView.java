@@ -51,9 +51,7 @@ public interface NettyServiceView {
             int numCreditsAvailable);
 
     /**
-     * Set the tier reader to the view.
-     *
-     * @param nettyBufferQueue is the tier reader.
+     * Set the {@link NettyBufferQueue} to the view.
      */
     void setNettyBufferQueue(NettyBufferQueue nettyBufferQueue);
 
