@@ -157,13 +157,6 @@ public class ProducerMergePartitionTierSubpartitionReader
         tierConsumerView.notifyDataAvailable();
     }
 
-    public void prepareForScheduling() {
-        // Access the consuming offset with lock, to prevent loading any buffer released from the
-        // memory data manager that is already consumed.
-        int consumingOffset = tierConsumerView.getConsumingOffset(true);
-        // bufferIndexManager.updateLastConsumed(consumingOffset);
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -207,37 +200,6 @@ public class ProducerMergePartitionTierSubpartitionReader
             return Long.MAX_VALUE;
         } else {
             return cachedRegionManager.getFileOffset();
-        }
-    }
-
-    static class BufferIndexManager {
-
-        private final int maxBuffersReadAhead;
-
-        /** Index of the last buffer that has ever been loaded from file. */
-        private int lastLoaded = -1;
-        /** Index of the last buffer that has been consumed by downstream, to the best knowledge. */
-        private int lastConsumed = -1;
-
-        BufferIndexManager(int maxBuffersReadAhead) {
-            this.maxBuffersReadAhead = maxBuffersReadAhead;
-        }
-
-        private void updateLastLoaded(int lastLoaded) {
-            checkState(this.lastLoaded <= lastLoaded);
-            this.lastLoaded = lastLoaded;
-        }
-
-        private void updateLastConsumed(int lastConsumed) {
-            this.lastConsumed = lastConsumed;
-        }
-
-        /** Returns a negative value if shouldn't load. */
-        private int getNextToLoad() {
-            checkState(lastLoaded >= lastConsumed);
-            int nextToLoad = lastLoaded + 1;
-            int maxToLoad = lastConsumed + maxBuffersReadAhead;
-            return nextToLoad <= maxToLoad ? nextToLoad : -1;
         }
     }
 

@@ -312,11 +312,8 @@ public class ProducerMergePartitionFileReader
             if (isReleased) {
                 return new ArrayList<>();
             }
-            List<ProducerMergePartitionTierSubpartitionReader> availableReaders = new ArrayList<>();
-            for (ProducerMergePartitionTierSubpartitionReader reader : allReaders) {
-                reader.prepareForScheduling();
-                availableReaders.add(reader);
-            }
+            List<ProducerMergePartitionTierSubpartitionReader> availableReaders = new ArrayList<>(
+                    allReaders);
             Collections.sort(availableReaders);
             return availableReaders;
         }
