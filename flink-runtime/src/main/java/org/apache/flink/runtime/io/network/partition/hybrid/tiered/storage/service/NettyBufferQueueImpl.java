@@ -19,7 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import java.util.Deque;
@@ -31,60 +31,61 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** The implementation of {@link NettyBufferQueue}. */
 public class NettyBufferQueueImpl implements NettyBufferQueue {
 
-    private final Deque<BufferContext> loadedBuffers;
+    private final Deque<BufferContext> bufferQueue;
 
-    private final Runnable nettyServiceProviderReleaser;
+    private final Runnable releaseNotifier;
 
-    public NettyBufferQueueImpl(
-            Deque<BufferContext> loadedBuffers, Runnable nettyServiceProviderReleaser) {
-        this.loadedBuffers = loadedBuffers;
-        this.nettyServiceProviderReleaser = nettyServiceProviderReleaser;
+    private boolean isReleased;
+
+    public NettyBufferQueueImpl(Deque<BufferContext> bufferQueue, Runnable releaseNotifier) {
+        this.bufferQueue = bufferQueue;
+        this.releaseNotifier = releaseNotifier;
     }
 
     @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> getNextBuffer(int nextBufferToConsume)
-            throws Throwable {
-        if (!checkAndGetFirstBufferIndexOrError(nextBufferToConsume).isPresent()) {
+    public Optional<BufferAndBacklog> getNextBuffer(int nextBufferToConsume) throws Throwable {
+        if (!checkBufferIndex(nextBufferToConsume).isPresent()) {
             return Optional.empty();
         }
-        BufferContext current = checkNotNull(loadedBuffers.poll());
-        BufferContext next = loadedBuffers.peek();
+        BufferContext current = checkNotNull(bufferQueue.poll());
+        BufferContext next = bufferQueue.peek();
         Buffer.DataType nextDataType =
                 next == null ? Buffer.DataType.NONE : checkNotNull(next.getBuffer()).getDataType();
-        int backlog = loadedBuffers.size();
+        int backlog = bufferQueue.size();
         int bufferIndex = checkNotNull(current.getBufferIndexAndChannel()).getBufferIndex();
         return Optional.of(
-                ResultSubpartition.BufferAndBacklog.fromBufferAndLookahead(
+                BufferAndBacklog.fromBufferAndLookahead(
                         current.getBuffer(), nextDataType, backlog, bufferIndex));
     }
 
     @Override
     public void release() {
-        BufferContext bufferContext;
-        while ((bufferContext = loadedBuffers.pollLast()) != null) {
-            if (bufferContext.getBuffer() != null) {
-                checkNotNull(bufferContext.getBuffer()).recycleBuffer();
+        if (!isReleased) {
+            BufferContext bufferContext;
+            while ((bufferContext = bufferQueue.pollLast()) != null) {
+                if (bufferContext.getBuffer() != null) {
+                    checkNotNull(bufferContext.getBuffer()).recycleBuffer();
+                }
             }
+            releaseNotifier.run();
+            isReleased = true;
         }
-        nettyServiceProviderReleaser.run();
     }
 
     @Override
     public int getBacklog() {
-        return loadedBuffers.size();
+        return bufferQueue.size();
     }
 
     // ------------------------------------------------------------------------
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private Optional<BufferContext> checkAndGetFirstBufferIndexOrError(int expectedBufferIndex)
-            throws Throwable {
-        if (loadedBuffers.isEmpty()) {
+    private Optional<BufferContext> checkBufferIndex(int expectedBufferIndex) throws Throwable {
+        if (bufferQueue.isEmpty()) {
             return Optional.empty();
         }
-
-        BufferContext peek = loadedBuffers.peek();
+        BufferContext peek = bufferQueue.peek();
         if (peek.getThrowable() != null) {
             throw peek.getThrowable();
         }
