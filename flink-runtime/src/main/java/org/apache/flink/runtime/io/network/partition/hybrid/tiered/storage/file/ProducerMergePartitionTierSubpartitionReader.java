@@ -46,6 +46,10 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
+/**
+ * The {@link ProducerMergePartitionTierSubpartitionReader} is responded to read data from
+ * subpartition.
+ */
 public class ProducerMergePartitionTierSubpartitionReader
         implements Comparable<ProducerMergePartitionTierSubpartitionReader> {
 
@@ -61,11 +65,13 @@ public class ProducerMergePartitionTierSubpartitionReader
 
     private final CachedRegionManager cachedRegionManager;
 
-    private final BufferIndexManager bufferIndexManager;
-
     private final Deque<BufferContext> loadedBuffers = new LinkedBlockingDeque<>();
 
     private final Consumer<ProducerMergePartitionTierSubpartitionReader> diskTierReaderReleaser;
+
+    private final int maxBufferReadAhead;
+
+    private int nextToLoad = 0;
 
     private volatile boolean isFailed;
 
@@ -83,7 +89,7 @@ public class ProducerMergePartitionTierSubpartitionReader
         this.dataFileChannel = dataFileChannel;
         this.tierConsumerView = tierConsumerView;
         this.headerBuf = headerBuf;
-        this.bufferIndexManager = new BufferIndexManager(maxBufferReadAhead);
+        this.maxBufferReadAhead = maxBufferReadAhead;
         this.cachedRegionManager = new CachedRegionManager(subpartitionId, dataIndex);
         this.diskTierReaderReleaser = diskTierReaderReleaser;
     }
@@ -98,23 +104,19 @@ public class ProducerMergePartitionTierSubpartitionReader
             throw new IOException("subpartition reader has already failed.");
         }
         // If the number of loaded buffers achieves the limited value, skip this time.
-        int firstBufferToLoad = bufferIndexManager.getNextToLoad();
-        if (firstBufferToLoad < 0) {
+        if (loadedBuffers.size() >= maxBufferReadAhead) {
             return;
         }
         int numRemainingBuffer =
-                cachedRegionManager.getRemainingBuffersInRegion(
-                        firstBufferToLoad, nettyServiceViewId);
+                cachedRegionManager.getRemainingBuffersInRegion(nextToLoad, nettyServiceViewId);
         // If there is no data in index, skip this time.
         if (numRemainingBuffer == 0) {
             return;
         }
-        moveFileOffsetToBuffer(firstBufferToLoad);
-
-        int indexToLoad;
+        moveFileOffsetToBuffer(nextToLoad);
         int numLoaded = 0;
         while (!buffers.isEmpty()
-                && (indexToLoad = bufferIndexManager.getNextToLoad()) >= 0
+                && loadedBuffers.size() < maxBufferReadAhead
                 && numRemainingBuffer-- > 0) {
             MemorySegment segment = buffers.poll();
             Buffer buffer;
@@ -128,11 +130,11 @@ public class ProducerMergePartitionTierSubpartitionReader
                 buffers.add(segment);
                 throw throwable;
             }
-            loadedBuffers.add(new BufferContext(buffer, indexToLoad, subpartitionId));
-            bufferIndexManager.updateLastLoaded(indexToLoad);
+            loadedBuffers.add(new BufferContext(buffer, nextToLoad, subpartitionId));
             cachedRegionManager.advance(
                     buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
             ++numLoaded;
+            ++nextToLoad;
         }
         if (loadedBuffers.size() <= numLoaded) {
             tierConsumerView.notifyDataAvailable();
@@ -159,7 +161,7 @@ public class ProducerMergePartitionTierSubpartitionReader
         // Access the consuming offset with lock, to prevent loading any buffer released from the
         // memory data manager that is already consumed.
         int consumingOffset = tierConsumerView.getConsumingOffset(true);
-        bufferIndexManager.updateLastConsumed(consumingOffset);
+        // bufferIndexManager.updateLastConsumed(consumingOffset);
     }
 
     @Override
@@ -201,8 +203,7 @@ public class ProducerMergePartitionTierSubpartitionReader
     }
 
     private long getNextOffsetToLoad() {
-        int bufferIndex = bufferIndexManager.getNextToLoad();
-        if (bufferIndex < 0) {
+        if (nextToLoad < 0) {
             return Long.MAX_VALUE;
         } else {
             return cachedRegionManager.getFileOffset();
