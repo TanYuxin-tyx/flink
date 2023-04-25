@@ -36,6 +36,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
@@ -167,7 +168,8 @@ public class ResultPartitionFactory {
             JobID jobID,
             String taskNameWithSubtaskAndId,
             int partitionIndex,
-            ResultPartitionDeploymentDescriptor desc) {
+            ResultPartitionDeploymentDescriptor desc,
+            ResourceRegistry resourceRegistry) {
         return create(
                 jobID,
                 taskNameWithSubtaskAndId,
@@ -177,7 +179,8 @@ public class ResultPartitionFactory {
                 desc.getNumberOfSubpartitions(),
                 desc.getMaxParallelism(),
                 desc.isBroadcast(),
-                createBufferPoolFactory(desc.getNumberOfSubpartitions(), desc.getPartitionType()));
+                createBufferPoolFactory(desc.getNumberOfSubpartitions(), desc.getPartitionType()),
+                resourceRegistry);
     }
 
     @VisibleForTesting
@@ -190,7 +193,8 @@ public class ResultPartitionFactory {
             int numberOfSubpartitions,
             int maxParallelism,
             boolean isBroadcast,
-            SupplierWithException<BufferPool, IOException> bufferPoolFactory) {
+            SupplierWithException<BufferPool, IOException> bufferPoolFactory,
+            ResourceRegistry resourceRegistry) {
         BufferCompressor bufferCompressor = null;
         if (type.supportCompression() && batchShuffleCompressionEnabled) {
             bufferCompressor = new BufferCompressor(networkBufferSize, compressionCodec);
@@ -317,7 +321,8 @@ public class ResultPartitionFactory {
                                 cacheFlushManager,
                                 bufferCompressor,
                                 tieredStorageProducerClient,
-                                bufferPoolFactory);
+                                bufferPoolFactory,
+                                resourceRegistry);
             } else {
                 partition =
                         new HsResultPartition(

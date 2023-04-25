@@ -27,15 +27,15 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory.MemoryTierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
@@ -44,7 +44,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** Utils for reading or writing to tiered store. */
@@ -57,6 +59,10 @@ public class TieredStoreUtils {
     private static final String SEGMENT_FILE_PREFIX = "seg-";
 
     private static final String SEGMENT_FINISH_FILE_SUFFIX = ".FINISH";
+
+    private static final char[] HEX_CHARS = {
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+    };
 
     public static ByteBuffer[] generateBufferWithHeaders(List<BufferContext> bufferContexts) {
         ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * bufferContexts.size()];
@@ -255,5 +261,28 @@ public class TieredStoreUtils {
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
+    }
+
+    public static byte[] randomBytes(int length) {
+        checkArgument(length > 0, "Must be positive.");
+
+        Random random = new Random();
+        byte[] bytes = new byte[length];
+        random.nextBytes(bytes);
+        return bytes;
+    }
+
+    public static String bytesToHexString(byte[] bytes) {
+        checkArgument(bytes != null, "Must be not null.");
+
+        char[] chars = new char[bytes.length * 2];
+
+        for (int i = 0; i < chars.length; i += 2) {
+            int index = i >>> 1;
+            chars[i] = HEX_CHARS[(0xF0 & bytes[index]) >>> 4];
+            chars[i + 1] = HEX_CHARS[0x0F & bytes[index]];
+        }
+
+        return new String(chars);
     }
 }

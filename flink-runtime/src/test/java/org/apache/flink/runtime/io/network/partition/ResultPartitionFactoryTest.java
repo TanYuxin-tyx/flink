@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.disk.FileChannelManager;
 import org.apache.flink.runtime.io.disk.FileChannelManagerImpl;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.shuffle.PartitionDescriptorBuilder;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.NettyShuffleDescriptorBuilder;
@@ -183,7 +184,8 @@ class ResultPartitionFactoryTest {
         // guard our test assumptions
         assertThat(descriptor.getNumberOfSubpartitions()).isEqualTo(1);
 
-        final ResultPartition partition = factory.create(new JobID(), "test", 0, descriptor);
+        final ResultPartition partition =
+                factory.create(new JobID(), "test", 0, descriptor, new ResourceRegistry());
         manager.registerResultPartition(partition);
 
         return partition;

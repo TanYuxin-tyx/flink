@@ -34,9 +34,12 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.TieredStoreNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.TieredStoreNettyServiceImpl;
@@ -71,6 +74,10 @@ public class TieredResultPartition extends ResultPartition {
 
     private final TieredStorageMemoryManager storageMemoryManager;
 
+    private final ResourceRegistry resourceRegistry;
+
+    private final TieredStoragePartitionId storagePartitionId;
+
     private TieredStoreNettyService tieredStoreNettyService;
 
     public TieredResultPartition(
@@ -86,7 +93,8 @@ public class TieredResultPartition extends ResultPartition {
             CacheFlushManager cacheFlushManager,
             @Nullable BufferCompressor bufferCompressor,
             TieredStorageProducerClient tieredStorageProducerClient,
-            SupplierWithException<BufferPool, IOException> bufferPoolFactory) {
+            SupplierWithException<BufferPool, IOException> bufferPoolFactory,
+            ResourceRegistry resourceRegistry) {
         super(
                 owningTaskName,
                 partitionIndex,
@@ -102,6 +110,8 @@ public class TieredResultPartition extends ResultPartition {
         this.storageMemoryManager = storageMemoryManager;
         this.cacheFlushManager = cacheFlushManager;
         this.tieredStorageProducerClient = tieredStorageProducerClient;
+        this.resourceRegistry = resourceRegistry;
+        this.storagePartitionId = TieredStorageIdMappingUtils.convertId(partitionId);
     }
 
     // Called by task thread.
@@ -113,6 +123,8 @@ public class TieredResultPartition extends ResultPartition {
         storageMemoryManager.setup(bufferPool);
         cacheFlushManager.setup(storageMemoryManager);
         tieredStoreNettyService = new TieredStoreNettyServiceImpl(tierProducerAgents);
+        resourceRegistry.registerResource(storagePartitionId, tieredStorageProducerClient::release);
+        resourceRegistry.registerResource(storagePartitionId, storageMemoryManager::release);
     }
 
     @Override
@@ -194,15 +206,7 @@ public class TieredResultPartition extends ResultPartition {
 
     @Override
     protected void releaseInternal() {
-        // release is called when release by scheduler, later than close.
-        // mainly work :
-        // 1. release read scheduler.
-        // 2. delete shuffle file.
-        // 3. release all data in memory.
-
-        // first release the writer
-        tieredStorageProducerClient.release();
-        storageMemoryManager.release();
+        resourceRegistry.clearResourceFor(storagePartitionId);
     }
 
     @Override

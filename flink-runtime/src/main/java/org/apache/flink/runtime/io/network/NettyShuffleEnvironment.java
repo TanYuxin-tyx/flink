@@ -41,6 +41,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGateID;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
@@ -108,6 +109,8 @@ public class NettyShuffleEnvironment
 
     private final ScheduledExecutorService batchShuffleReadIOExecutor;
 
+    private final ResourceRegistry resourceRegistry;
+
     private boolean isClosed;
 
     NettyShuffleEnvironment(
@@ -134,6 +137,7 @@ public class NettyShuffleEnvironment
         this.ioExecutor = ioExecutor;
         this.batchShuffleReadBufferPool = batchShuffleReadBufferPool;
         this.batchShuffleReadIOExecutor = batchShuffleReadIOExecutor;
+        this.resourceRegistry = new ResourceRegistry();
         this.isClosed = false;
     }
 
@@ -235,7 +239,8 @@ public class NettyShuffleEnvironment
                                 ownerContext.getJobID(),
                                 ownerContext.getOwnerName(),
                                 partitionIndex,
-                                resultPartitionDeploymentDescriptors.get(partitionIndex));
+                                resultPartitionDeploymentDescriptors.get(partitionIndex),
+                                resourceRegistry);
             }
 
             registerOutputMetrics(
