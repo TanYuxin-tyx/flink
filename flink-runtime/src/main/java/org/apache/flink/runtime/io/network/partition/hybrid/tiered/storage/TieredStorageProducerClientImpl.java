@@ -127,7 +127,7 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
 
     @Override
     public void release() {
-        bufferAccumulator.release();
+        tierProducerAgents.forEach(TierProducerAgent::release);
     }
 
     public void writeFinishedBuffers(int subpartitionId, List<Buffer> finishedBuffers) {

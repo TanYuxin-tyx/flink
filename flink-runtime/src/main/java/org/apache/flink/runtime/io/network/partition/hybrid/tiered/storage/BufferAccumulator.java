@@ -44,6 +44,4 @@ public interface BufferAccumulator {
     void receive(ByteBuffer record, int consumerId, Buffer.DataType dataType) throws IOException;
 
     void close();
-
-    void release();
 }

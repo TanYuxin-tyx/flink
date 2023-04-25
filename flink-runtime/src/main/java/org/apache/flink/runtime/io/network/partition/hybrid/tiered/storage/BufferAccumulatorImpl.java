@@ -72,8 +72,4 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     public void close() {
         tierProducerAgents.forEach(TierProducerAgent::close);
     }
-
-    public void release() {
-        tierProducerAgents.forEach(TierProducerAgent::release);
-    }
 }
