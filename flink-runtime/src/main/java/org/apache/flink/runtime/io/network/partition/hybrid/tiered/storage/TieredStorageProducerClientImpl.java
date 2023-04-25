@@ -23,7 +23,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory.MemoryTierProducerAgent;
@@ -62,8 +61,6 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
 
     private final BufferRecycler[] bufferRecyclers;
 
-    private final TierType[] tierTypes;
-
     /** Records the newest segment index belonged to each subpartition. */
     private final int[] subpartitionSegmentIndexes;
 
@@ -92,11 +89,8 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         this.lastSubpartitionSegmentIndexes = new int[numConsumers];
         this.subpartitionWriterIndex = new int[numConsumers];
         this.bufferRecyclers = new BufferRecycler[tierProducerAgents.size()];
-        this.tierTypes = new TierType[tierProducerAgents.size()];
 
         for (int i = 0; i < tierProducerAgents.size(); i++) {
-            tierTypes[i] = tierProducerAgents.get(i).getTierType();
-            TierType tierType = tierTypes[i];
             final int tierIndex = i;
             bufferRecyclers[i] = buffer -> storageMemoryManager.recycleBuffer(buffer, tierIndex);
         }
@@ -124,7 +118,6 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
     @Override
     public void setMetricGroup(OutputMetrics outputMetrics) {
         this.outputMetrics = outputMetrics;
-        bufferAccumulator.setMetricGroup(outputMetrics);
     }
 
     @Override

@@ -20,19 +20,11 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiConsumer;
-
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * The implementation of the {@link BufferAccumulator}. The {@link BufferAccumulator} receives the
@@ -44,62 +36,30 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private final List<TierProducerAgent> tierProducerAgents;
 
-    private final TierType[] tierTypes;
-
-    private final boolean isBroadcastOnly;
-
-    private final BufferCompressor bufferCompressor;
-
-    private final HashBasedCachedBuffer cachedBuffer;
+    private final int bufferSize;
 
     private final TieredStorageMemoryManager storageMemoryManager;
 
-    /** Records the newest segment index belonged to each subpartition. */
-    private final int[] subpartitionSegmentIndexes;
+    private final CacheFlushManager cacheFlushManager;
 
-    /** Records the newest segment index belonged to each subpartition. */
-    private final int[] lastSubpartitionSegmentIndexes;
-
-    /** Record the index of tier writer currently used by each subpartition. */
-    private final int[] subpartitionWriterIndex;
-
-    private int numSubpartitions;
-    @Nullable private OutputMetrics outputMetrics;
+    private HashBasedCachedBuffer cachedBuffer;
 
     public BufferAccumulatorImpl(
             List<TierProducerAgent> tierProducerAgents,
-            int numConsumers,
             int bufferSize,
-            boolean isBroadcastOnly,
             TieredStorageMemoryManager storageMemoryManager,
-            CacheFlushManager cacheFlushManager,
-            @Nullable BufferCompressor bufferCompressor) {
+            CacheFlushManager cacheFlushManager) {
         this.tierProducerAgents = tierProducerAgents;
+        this.bufferSize = bufferSize;
         this.storageMemoryManager = storageMemoryManager;
-        this.bufferCompressor = bufferCompressor;
-        this.isBroadcastOnly = isBroadcastOnly;
-        this.subpartitionSegmentIndexes = new int[numConsumers];
-        this.lastSubpartitionSegmentIndexes = new int[numConsumers];
-        Arrays.fill(lastSubpartitionSegmentIndexes, -1);
-        this.subpartitionWriterIndex = new int[numConsumers];
-        this.tierTypes = new TierType[tierProducerAgents.size()];
-
-        for (int i = 0; i < tierProducerAgents.size(); i++) {
-            tierTypes[i] = tierProducerAgents.get(i).getTierType();
-            TierType tierType = tierTypes[i];
-        }
-
-        this.cachedBuffer =
-                new HashBasedCachedBuffer(
-                        numConsumers, bufferSize, storageMemoryManager, cacheFlushManager);
-
-        Arrays.fill(subpartitionSegmentIndexes, 0);
-        Arrays.fill(subpartitionWriterIndex, -1);
+        this.cacheFlushManager = cacheFlushManager;
     }
 
     @Override
     public void setup(int numSubpartitions, BiConsumer<Integer, List<Buffer>> bufferFlusher) {
-        this.numSubpartitions = numSubpartitions;
+        cachedBuffer =
+                new HashBasedCachedBuffer(
+                        numSubpartitions, bufferSize, storageMemoryManager, cacheFlushManager);
         cachedBuffer.setup(bufferFlusher);
     }
 
@@ -107,11 +67,6 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     public void receive(ByteBuffer record, int consumerId, Buffer.DataType dataType)
             throws IOException {
         cachedBuffer.append(record, consumerId, dataType);
-    }
-
-    @Override
-    public void setMetricGroup(OutputMetrics metrics) {
-        this.outputMetrics = checkNotNull(metrics);
     }
 
     public void close() {

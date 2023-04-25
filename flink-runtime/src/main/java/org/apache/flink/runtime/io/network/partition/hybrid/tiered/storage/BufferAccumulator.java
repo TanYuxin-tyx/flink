@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -43,8 +42,6 @@ public interface BufferAccumulator {
      * accumulated and transformed into finished buffers.
      */
     void receive(ByteBuffer record, int consumerId, Buffer.DataType dataType) throws IOException;
-
-    void setMetricGroup(OutputMetrics metrics);
 
     void close();
 
