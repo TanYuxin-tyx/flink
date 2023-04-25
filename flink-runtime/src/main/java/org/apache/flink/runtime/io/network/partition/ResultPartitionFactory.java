@@ -30,9 +30,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
@@ -275,7 +275,7 @@ public class ResultPartitionFactory {
                 || type == ResultPartitionType.HYBRID_SELECTIVE) {
 
             if (enableTieredStoreForHybridShuffle) {
-                TieredStoreConfiguration storeConfiguration =
+                TieredStorageConfiguration storeConfiguration =
                         getStoreConfiguration(numberOfSubpartitions, type);
                 TieredStorageMemoryManager storageMemoryManager =
                         new TieredStorageMemoryManagerImpl(storeConfiguration.getTierMemorySpecs());
@@ -359,7 +359,7 @@ public class ResultPartitionFactory {
             boolean isBroadcast,
             BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
-            TieredStoreConfiguration storeConfiguration,
+            TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storeMemoryManager,
             CacheFlushManager cacheFlushManager) {
         String dataFileBasePath = channelManager.createChannel().getPath();
@@ -445,7 +445,7 @@ public class ResultPartitionFactory {
                 .build();
     }
 
-    private TieredStoreConfiguration getStoreConfiguration(
+    private TieredStorageConfiguration getStoreConfiguration(
             int numberOfSubpartitions, ResultPartitionType type) {
 
         List<TierConfSpec> tierConfSpecs = new ArrayList<>();
@@ -454,7 +454,7 @@ public class ResultPartitionFactory {
         tierConfSpecs.add(new TierConfSpec(TierType.IN_DISK, 1, false));
         tierConfSpecs.add(new TierConfSpec(TierType.IN_REMOTE, 1, true));
 
-        return TieredStoreConfiguration.builder(
+        return TieredStorageConfiguration.builder(
                         numberOfSubpartitions, batchShuffleReadBufferPool.getNumBuffersPerRequest())
                 .setTierTypes(tieredStoreTiers, type)
                 .setDefaultTierMemorySpecs()

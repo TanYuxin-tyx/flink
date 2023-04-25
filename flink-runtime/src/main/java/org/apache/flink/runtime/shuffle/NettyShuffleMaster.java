@@ -23,12 +23,12 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreShuffleEnvironment;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMasterClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierStorageReleaser;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMasterClient;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor.LocalExecutionPartitionConnectionInfo;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor.NetworkPartitionConnectionInfo;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor.PartitionConnectionInfo;
@@ -127,8 +127,8 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                         partitionDescriptor.isBroadcast());
 
         List<TierMasterAgent> tierMasterAgents = new LinkedList<>();
-        TieredStoreConfiguration tieredStoreConfiguration =
-                TieredStoreConfiguration.builder(1, 1)
+        TieredStorageConfiguration tieredStoreConfiguration =
+                TieredStorageConfiguration.builder(1, 1)
                         .setBaseDfsHomePath(baseDfsPath)
                         //
                         // .setTierTypes(TieredStoreConfiguration.memoryDiskRemoteTierTypes())

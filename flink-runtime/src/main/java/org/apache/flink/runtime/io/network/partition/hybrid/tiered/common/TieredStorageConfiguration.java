@@ -16,13 +16,13 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsFullSpillingStrategy;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsSelectiveSpillingStrategy;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierMemorySpec;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.StringUtils;
@@ -35,7 +35,7 @@ import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The configuration for TieredStore. */
-public class TieredStoreConfiguration {
+public class TieredStorageConfiguration {
 
     static TierType[] allTierTypes =
             new TierType[] {TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE};
@@ -118,7 +118,7 @@ public class TieredStoreConfiguration {
     private final List<TierConfSpec> tierConfSpecs;
     private final List<TierMemorySpec> tierMemorySpecs;
 
-    private TieredStoreConfiguration(
+    private TieredStorageConfiguration(
             int maxBuffersReadAhead,
             Duration bufferRequestTimeout,
             int maxRequestedBuffers,
@@ -162,9 +162,9 @@ public class TieredStoreConfiguration {
         this.tierMemorySpecs = tierMemorySpecs;
     }
 
-    public static TieredStoreConfiguration.Builder builder(
+    public static TieredStorageConfiguration.Builder builder(
             int numSubpartitions, int numBuffersPerRequest) {
-        return new TieredStoreConfiguration.Builder(numSubpartitions, numBuffersPerRequest);
+        return new TieredStorageConfiguration.Builder(numSubpartitions, numBuffersPerRequest);
     }
 
     public int getMaxRequestedBuffers() {
@@ -312,7 +312,7 @@ public class TieredStoreConfiguration {
         return tierMemorySpecs;
     }
 
-    /** Builder for {@link TieredStoreConfiguration}. */
+    /** Builder for {@link TieredStorageConfiguration}. */
     public static class Builder {
         private int maxBuffersReadAhead = DEFAULT_MAX_BUFFERS_READ_AHEAD;
 
@@ -367,90 +367,90 @@ public class TieredStoreConfiguration {
             this.numBuffersPerRequest = numBuffersPerRequest;
         }
 
-        public TieredStoreConfiguration.Builder setMaxBuffersReadAhead(int maxBuffersReadAhead) {
+        public TieredStorageConfiguration.Builder setMaxBuffersReadAhead(int maxBuffersReadAhead) {
             this.maxBuffersReadAhead = maxBuffersReadAhead;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setBufferRequestTimeout(
+        public TieredStorageConfiguration.Builder setBufferRequestTimeout(
                 Duration bufferRequestTimeout) {
             this.bufferRequestTimeout = bufferRequestTimeout;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setSelectiveStrategySpillThreshold(
+        public TieredStorageConfiguration.Builder setSelectiveStrategySpillThreshold(
                 float selectiveStrategySpillThreshold) {
             this.selectiveStrategySpillThreshold = selectiveStrategySpillThreshold;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setSelectiveStrategySpillBufferRatio(
+        public TieredStorageConfiguration.Builder setSelectiveStrategySpillBufferRatio(
                 float selectiveStrategySpillBufferRatio) {
             this.selectiveStrategySpillBufferRatio = selectiveStrategySpillBufferRatio;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setFullStrategyNumBuffersTriggerSpillingRatio(
+        public TieredStorageConfiguration.Builder setFullStrategyNumBuffersTriggerSpillingRatio(
                 float fullStrategyNumBuffersTriggerSpillingRatio) {
             this.fullStrategyNumBuffersTriggerSpillingRatio =
                     fullStrategyNumBuffersTriggerSpillingRatio;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setFullStrategyReleaseThreshold(
+        public TieredStorageConfiguration.Builder setFullStrategyReleaseThreshold(
                 float fullStrategyReleaseThreshold) {
             this.fullStrategyReleaseThreshold = fullStrategyReleaseThreshold;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setFullStrategyReleaseBufferRatio(
+        public TieredStorageConfiguration.Builder setFullStrategyReleaseBufferRatio(
                 float fullStrategyReleaseBufferRatio) {
             this.fullStrategyReleaseBufferRatio = fullStrategyReleaseBufferRatio;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setTieredStoreBufferInMemoryRatio(
+        public TieredStorageConfiguration.Builder setTieredStoreBufferInMemoryRatio(
                 float tieredStoreBufferInMemoryRatio) {
             this.tieredStoreBufferInMemoryRatio = tieredStoreBufferInMemoryRatio;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setTieredStoreFlushBufferRatio(
+        public TieredStorageConfiguration.Builder setTieredStoreFlushBufferRatio(
                 float tieredStoreFlushBufferRatio) {
             this.tieredStoreFlushBufferRatio = tieredStoreFlushBufferRatio;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setTieredStoreTriggerFlushRatio(
+        public TieredStorageConfiguration.Builder setTieredStoreTriggerFlushRatio(
                 float tieredStoreTriggerFlushRatio) {
             this.tieredStoreTriggerFlushRatio = tieredStoreTriggerFlushRatio;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setNumBuffersTriggerFlushRatio(
+        public TieredStorageConfiguration.Builder setNumBuffersTriggerFlushRatio(
                 float numBuffersTriggerFlushRatio) {
             this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setBufferPoolSizeCheckIntervalMs(
+        public TieredStorageConfiguration.Builder setBufferPoolSizeCheckIntervalMs(
                 long bufferPoolSizeCheckIntervalMs) {
             this.bufferPoolSizeCheckIntervalMs = bufferPoolSizeCheckIntervalMs;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setBaseDfsHomePath(String baseDfsHomePath) {
+        public TieredStorageConfiguration.Builder setBaseDfsHomePath(String baseDfsHomePath) {
             this.baseDfsHomePath = baseDfsHomePath;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setConfiguredNetworkBuffersPerChannel(
+        public TieredStorageConfiguration.Builder setConfiguredNetworkBuffersPerChannel(
                 int configuredNetworkBuffersPerChannel) {
             this.configuredNetworkBuffersPerChannel = configuredNetworkBuffersPerChannel;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setTierTypes(
+        public TieredStorageConfiguration.Builder setTierTypes(
                 String configuredStoreTiers, ResultPartitionType partitionType) {
             this.tierTypes = getConfiguredTierTypes(configuredStoreTiers, partitionType);
             this.upstreamTierTypes =
@@ -470,12 +470,12 @@ public class TieredStoreConfiguration {
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setTierTypes(TierType[] tierTypes) {
+        public TieredStorageConfiguration.Builder setTierTypes(TierType[] tierTypes) {
             this.tierTypes = tierTypes;
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setTierSpecs(List<TierConfSpec> tierConfSpecs) {
+        public TieredStorageConfiguration.Builder setTierSpecs(List<TierConfSpec> tierConfSpecs) {
             this.tierConfSpecs = tierConfSpecs;
             this.tierTypes = new TierType[tierConfSpecs.size()];
             this.tierIndexes = new int[tierConfSpecs.size()];
@@ -492,7 +492,7 @@ public class TieredStoreConfiguration {
             return this;
         }
 
-        public TieredStoreConfiguration.Builder setDefaultTierMemorySpecs() {
+        public TieredStorageConfiguration.Builder setDefaultTierMemorySpecs() {
             tierMemorySpecs.clear();
             for (int i = 0; i < tierTypes.length; i++) {
                 int numExclusive =
@@ -580,9 +580,9 @@ public class TieredStoreConfiguration {
             return tierTypes;
         }
 
-        public TieredStoreConfiguration build() {
+        public TieredStorageConfiguration build() {
             validateConfiguredOptions();
-            return new TieredStoreConfiguration(
+            return new TieredStorageConfiguration(
                     maxBuffersReadAhead,
                     bufferRequestTimeout,
                     Math.max(2 * numBuffersPerRequest, numSubpartitions),

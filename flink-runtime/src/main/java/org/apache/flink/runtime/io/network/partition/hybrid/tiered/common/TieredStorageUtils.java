@@ -27,7 +27,6 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
@@ -117,7 +116,7 @@ public class TieredStorageUtils {
             boolean isBroadcast,
             BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
-            TieredStoreConfiguration storeConfiguration,
+            TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storeMemoryManager,
             CacheFlushManager cacheFlushManager,
             String dataFileBasePath,
