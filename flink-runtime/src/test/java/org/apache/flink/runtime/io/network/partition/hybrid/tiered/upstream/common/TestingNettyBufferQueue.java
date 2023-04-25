@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
 
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyBufferQueue;
 import org.apache.flink.util.function.FunctionWithException;
 
@@ -31,11 +31,9 @@ import java.util.function.Supplier;
  */
 public class TestingNettyBufferQueue implements NettyBufferQueue {
 
-    public static final TestingNettyBufferQueue NO_OP =
-            TestingNettyBufferQueue.builder().build();
+    public static final TestingNettyBufferQueue NO_OP = TestingNettyBufferQueue.builder().build();
 
-    private final FunctionWithException<
-                    Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
+    private final FunctionWithException<Integer, Optional<BufferAndBacklog>, Throwable>
             consumeBufferFunction;
 
     private final Supplier<Integer> getBacklogSupplier;
@@ -43,7 +41,7 @@ public class TestingNettyBufferQueue implements NettyBufferQueue {
     private final Runnable releaseRunnable;
 
     private TestingNettyBufferQueue(
-            FunctionWithException<Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
+            FunctionWithException<Integer, Optional<BufferAndBacklog>, Throwable>
                     consumeBufferFunction,
             Supplier<Integer> getBacklogSupplier,
             Runnable releaseRunnable) {
@@ -57,8 +55,7 @@ public class TestingNettyBufferQueue implements NettyBufferQueue {
     }
 
     @Override
-    public Optional<ResultSubpartition.BufferAndBacklog> getNextBuffer(int bufferIndex)
-            throws Throwable {
+    public Optional<BufferAndBacklog> getNextBuffer(int bufferIndex) throws Throwable {
         return consumeBufferFunction.apply(bufferIndex);
     }
 
@@ -75,8 +72,7 @@ public class TestingNettyBufferQueue implements NettyBufferQueue {
     /** Builder for {@link TestingNettyBufferQueue}. */
     public static class Builder {
 
-        private FunctionWithException<
-                        Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
+        private FunctionWithException<Integer, Optional<BufferAndBacklog>, Throwable>
                 consumeBufferFunction = (ignore) -> Optional.empty();
 
         private Supplier<Integer> getBacklogSupplier = () -> 0;
@@ -86,8 +82,7 @@ public class TestingNettyBufferQueue implements NettyBufferQueue {
         private Builder() {}
 
         public Builder setConsumeBufferFunction(
-                FunctionWithException<
-                                Integer, Optional<ResultSubpartition.BufferAndBacklog>, Throwable>
+                FunctionWithException<Integer, Optional<BufferAndBacklog>, Throwable>
                         consumeBufferFunction) {
             this.consumeBufferFunction = consumeBufferFunction;
             return this;
