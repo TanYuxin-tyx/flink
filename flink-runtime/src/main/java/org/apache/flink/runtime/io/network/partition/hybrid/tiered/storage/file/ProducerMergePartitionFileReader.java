@@ -151,7 +151,7 @@ public class ProducerMergePartitionFileReader
             lazyInitialize();
             Deque<BufferContext> bufferQueue = new LinkedBlockingDeque<>();
             ProducerMergePartitionSubpartitionReader subpartitionReader =
-                    new ProducerMergePartitionSubpartitionReader(
+                    new ProducerMergePartitionSubpartitionReaderImpl(
                             subpartitionId,
                             maxBufferReadAhead,
                             bufferQueue,

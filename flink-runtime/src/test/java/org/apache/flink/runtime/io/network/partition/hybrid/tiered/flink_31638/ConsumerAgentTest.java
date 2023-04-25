@@ -1,4 +1,4 @@
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.downstream;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.flink_31638;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FSDataOutputStream;
@@ -7,16 +7,22 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
+import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelBuilder;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.TestInputChannel;
-
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierMemorySpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierConsumerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierMonitor;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,17 +31,19 @@ import org.junit.rules.TemporaryFolder;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Optional;
 
-import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.DATA_BUFFER;
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEGMENT_ID_EVENT;
+import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.DATA_BUFFER;
 import static org.apache.flink.runtime.io.network.partition.InputChannelTestUtils.createSingleInputGate;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.createBaseSubpartitionPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.writeSegmentFinishFile;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** The test for {@link LocalTierConsumerAgent}. */
-public class NettyBasedTierConsumerTest {
+public class ConsumerAgentTest {
 
     private static final int SEGMENT_ID = 0;
 
@@ -64,91 +72,97 @@ public class NettyBasedTierConsumerTest {
     }
 
     @Test
-    void testSingleChannelLocalTierClient() throws IOException, InterruptedException {
-        LocalTierConsumerAgent localTierClient = new LocalTierConsumerAgent();
+    void testLocalTierConsumerAgent() throws IOException, InterruptedException {
+        LocalTierConsumerAgent localConsumerAgent = new LocalTierConsumerAgent();
         final SingleInputGate inputGate = createSingleInputGate(2);
         InputChannel inputChannel1 =
                 new InputChannelBuilder().setChannelIndex(0).buildRemoteRecoveredChannel(inputGate);
-        verifyLocalTierClientResult(localTierClient, inputChannel1, false, null, SEGMENT_ID, false);
+        verifyLocalTierConsumerAgentResult(
+                localConsumerAgent, inputChannel1, false, null, SEGMENT_ID);
         InputChannel inputChannel2 =
                 new InputChannelBuilder().setChannelIndex(1).buildLocalRecoveredChannel(inputGate);
-        verifyLocalTierClientResult(localTierClient, inputChannel2, false, null, SEGMENT_ID, false);
+        verifyLocalTierConsumerAgentResult(
+                localConsumerAgent, inputChannel2, false, null, SEGMENT_ID);
         TestInputChannel inputChannel3 = new TestInputChannel(inputGate, SUBPARTITION_INDEX);
-        verifyLocalTierClientResult(localTierClient, inputChannel3, false, null, SEGMENT_ID, false);
+        verifyLocalTierConsumerAgentResult(
+                localConsumerAgent, inputChannel3, false, null, SEGMENT_ID);
         inputChannel3.readBuffer();
-        verifyLocalTierClientResult(
-                localTierClient, inputChannel3, true, DATA_BUFFER, SEGMENT_ID, true);
+        verifyLocalTierConsumerAgentResult(
+                localConsumerAgent, inputChannel3, true, DATA_BUFFER, SEGMENT_ID);
         inputChannel3.readSegmentInfo();
-        verifyLocalTierClientResult(
-                localTierClient, inputChannel3, true, ADD_SEGMENT_ID_EVENT, SEGMENT_ID, true);
+        verifyLocalTierConsumerAgentResult(
+                localConsumerAgent, inputChannel3, true, ADD_SEGMENT_ID_EVENT, SEGMENT_ID);
         inputChannel3.readBuffer();
-        verifyLocalTierClientResult(localTierClient, inputChannel3, true, DATA_BUFFER, 1, true);
+        verifyLocalTierConsumerAgentResult(localConsumerAgent, inputChannel3, true, DATA_BUFFER, 1);
         assertThat(inputChannel3.getRequiredSegmentId()).isEqualTo(1L);
     }
 
     @Test
-    void testSingleChannelRemoteTierClient() throws Exception {
-        //final SingleInputGate inputGate = createSingleInputGate(2, new NetworkBufferPool(1, 1));
-        //RemoteTierMonitor remoteTierMonitor =
-        //        new RemoteTierMonitor(
-        //                JOB_ID,
-        //                Collections.singletonList(RESULT_PARTITION_ID),
-        //                baseRemoteStoragePath,
-        //                Collections.singletonList(SUBPARTITION_INDEX));
-        //RemoteTierStorageClient remoteTierClient =
-        //        new RemoteTierStorageClient(
-        //                new DownstreamTieredStoreMemoryManager(new NetworkBufferPool(1, 1)),
-        //                remoteTierMonitor);
-        //InputChannel targetInputChannel =
-        //        new InputChannelBuilder()
-        //                .setChannelIndex(SUBPARTITION_INDEX)
-        //                .buildRemoteChannel(inputGate);
-        //InputChannel[] inputChannels = new InputChannel[1];
-        //inputChannels[0] = targetInputChannel;
-        //remoteTierMonitor.setup(inputChannels, channel -> {});
-        //verifyRemoteTierClientResult(remoteTierClient, targetInputChannel, false, null, -1);
-        //createShuffleFileOnRemoteStorage();
-        //verifyRemoteTierClientResult(
-        //        remoteTierClient, targetInputChannel, true, DATA_BUFFER, SEGMENT_ID);
+    void testRemoteTierConsumerAgent() throws Exception {
+        RemoteTierMonitor remoteTierMonitor =
+                new RemoteTierMonitor(
+                        JOB_ID,
+                        Collections.singletonList(RESULT_PARTITION_ID),
+                        baseRemoteStoragePath,
+                        Collections.singletonList(SUBPARTITION_INDEX),
+                        1,
+                        false,
+                        i -> {});
+        TieredStorageMemoryManager memoryManager =
+                new TieredStorageMemoryManagerImpl(
+                        new ArrayList<TierMemorySpec>() {
+                            {
+                                add(new TierMemorySpec(0, 1, false));
+                            }
+                        });
+        memoryManager.setup(new LocalBufferPool(new NetworkBufferPool(1, 1), 1));
+        RemoteTierConsumerAgent remoteConsumerAgent =
+                new RemoteTierConsumerAgent(memoryManager, remoteTierMonitor);
+        final SingleInputGate inputGate = createSingleInputGate(2, new NetworkBufferPool(1, 1));
+        InputChannel targetInputChannel =
+                new InputChannelBuilder()
+                        .setChannelIndex(SUBPARTITION_INDEX)
+                        .buildRemoteChannel(inputGate);
+        verifyRemoteTierConsumerAgentResult(
+                remoteConsumerAgent, targetInputChannel, false, null, -1);
+        createShuffleFileOnRemoteStorage();
+        verifyRemoteTierConsumerAgentResult(
+                remoteConsumerAgent, targetInputChannel, true, DATA_BUFFER, SEGMENT_ID);
     }
 
-    private void verifyLocalTierClientResult(
+    private void verifyLocalTierConsumerAgentResult(
             LocalTierConsumerAgent client,
             InputChannel inputChannel,
             boolean isPresent,
             Buffer.DataType expectedDataType,
-            int segmentId,
-            boolean hasRegistered)
+            int segmentId)
             throws IOException, InterruptedException {
         Optional<InputChannel.BufferAndAvailability> buffer =
                 client.getNextBuffer(inputChannel, segmentId);
         if (buffer.isPresent()) {
             assertThat(buffer.get().buffer().getDataType()).isEqualTo(expectedDataType);
             assertThat(client.getLatestSegmentId()).isEqualTo(segmentId);
-            // assertThat(client.hasRegistered()).isEqualTo(hasRegistered);
             buffer.get().buffer().recycleBuffer();
         } else {
             assertThat(isPresent).isFalse();
             assertThat(client.getLatestSegmentId()).isEqualTo(segmentId);
-            // assertThat(client.hasRegistered()).isEqualTo(hasRegistered);
         }
     }
 
-    private void verifyRemoteTierClientResult(
-            RemoteTierConsumerAgent client,
+    private void verifyRemoteTierConsumerAgentResult(
+            RemoteTierConsumerAgent remoteTierConsumerAgent,
             InputChannel inputChannel,
             boolean isPresent,
             Buffer.DataType expectedDataType,
             int segmentId)
             throws IOException {
-
         if (isPresent) {
             while (true) {
                 Optional<InputChannel.BufferAndAvailability> buffer =
-                        client.getNextBuffer(inputChannel, segmentId);
+                        remoteTierConsumerAgent.getNextBuffer(inputChannel, segmentId);
                 if (buffer.isPresent()) {
                     assertThat(buffer.get().buffer().getDataType()).isEqualTo(expectedDataType);
-                    assertThat(client.getLatestSegmentId()).isEqualTo(segmentId);
+                    assertThat(remoteTierConsumerAgent.getLatestSegmentId()).isEqualTo(segmentId);
                     buffer.get().buffer().recycleBuffer();
                     break;
                 }
@@ -156,8 +170,8 @@ public class NettyBasedTierConsumerTest {
 
         } else {
             Optional<InputChannel.BufferAndAvailability> buffer =
-                    client.getNextBuffer(inputChannel, segmentId);
-            assertThat(client.getLatestSegmentId()).isEqualTo(segmentId);
+                    remoteTierConsumerAgent.getNextBuffer(inputChannel, segmentId);
+            assertThat(remoteTierConsumerAgent.getLatestSegmentId()).isEqualTo(segmentId);
             assertThat(buffer.isPresent()).isFalse();
         }
     }

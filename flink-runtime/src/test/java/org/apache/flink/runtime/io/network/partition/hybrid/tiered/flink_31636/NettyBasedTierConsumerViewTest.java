@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.flink_31636;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
@@ -33,7 +33,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common.NettyBufferQueueTest.createBufferAndBacklog;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.flink_31636.NettyBufferQueueTest.createBufferAndBacklog;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

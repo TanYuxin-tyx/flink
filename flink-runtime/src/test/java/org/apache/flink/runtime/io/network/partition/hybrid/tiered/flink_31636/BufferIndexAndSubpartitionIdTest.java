@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.upstream.common;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.flink_31636;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferIndexAndSubpartitionId;
 import org.junit.jupiter.api.Test;
