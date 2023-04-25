@@ -48,7 +48,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEGMENT_ID_EVENT;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.DATA_FILE_SUFFIX;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */

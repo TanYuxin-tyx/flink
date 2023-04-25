@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
@@ -77,7 +77,7 @@ public class CacheFlushManager {
             return;
         }
 
-        if (TieredStoreUtils.needFlushCacheBuffers(
+        if (TieredStorageUtils.needFlushCacheBuffers(
                 storageMemoryManager, numBuffersTriggerFlushRatio)) {
             triggerFlushCachedBuffers();
         }

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FileSystem;
@@ -26,7 +26,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
@@ -50,7 +51,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** Utils for reading or writing to tiered store. */
-public class TieredStoreUtils {
+public class TieredStorageUtils {
 
     public static final String TIER_STORE_DIR = "tiered-store";
 

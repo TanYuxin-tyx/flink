@@ -23,7 +23,7 @@ import org.apache.flink.shaded.netty4.io.netty.buffer.ByteBuf;
 import java.io.DataInput;
 import java.io.IOException;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.bytesToHexString;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.bytesToHexString;
 
 /**
  * Identifier of a partition.

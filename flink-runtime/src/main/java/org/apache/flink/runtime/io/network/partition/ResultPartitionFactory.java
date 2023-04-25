@@ -64,7 +64,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.DATA_FILE_SUFFIX;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
 
 /** Factory for {@link ResultPartition} to use in {@link NettyShuffleEnvironment}. */
 public class ResultPartitionFactory {

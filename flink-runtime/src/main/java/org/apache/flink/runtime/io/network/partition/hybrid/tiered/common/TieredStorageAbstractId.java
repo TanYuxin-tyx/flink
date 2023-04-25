@@ -25,8 +25,8 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.Arrays;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.bytesToHexString;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.randomBytes;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.bytesToHexString;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.randomBytes;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** The abstract unique identification for the Tiered Storage. */

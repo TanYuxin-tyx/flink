@@ -25,7 +25,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
@@ -44,10 +44,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.createBaseSubpartitionPath;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.generateBufferWithHeaders;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.generateNewSegmentPath;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.writeSegmentFinishFile;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.createBaseSubpartitionPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateBufferWithHeaders;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateNewSegmentPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.writeSegmentFinishFile;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -201,7 +201,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
         }
         ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferWithIdentities);
 
-        TieredStoreUtils.writeDfsBuffers(writingChannel, expectedBytes, bufferWithHeaders);
+        TieredStorageUtils.writeDfsBuffers(writingChannel, expectedBytes, bufferWithHeaders);
         totalBytesWritten += expectedBytes;
     }
 

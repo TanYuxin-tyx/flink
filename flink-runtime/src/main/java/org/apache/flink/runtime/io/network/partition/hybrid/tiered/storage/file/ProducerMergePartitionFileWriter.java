@@ -25,7 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.generateBufferWithHeaders;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateBufferWithHeaders;
 
 /** THe implementation of {@link PartitionFileWriter} with merged logic. */
 public class ProducerMergePartitionFileWriter implements PartitionFileWriter {

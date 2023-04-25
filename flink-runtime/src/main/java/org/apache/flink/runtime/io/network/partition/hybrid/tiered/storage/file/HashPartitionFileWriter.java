@@ -7,7 +7,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteCacheBufferSpiller;
 import org.apache.flink.util.ExceptionUtils;
@@ -30,10 +30,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.createBaseSubpartitionPath;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.generateBufferWithHeaders;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.generateNewSegmentPath;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.writeSegmentFinishFile;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.createBaseSubpartitionPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateBufferWithHeaders;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateNewSegmentPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.writeSegmentFinishFile;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** THe implementation of {@link PartitionFileWriter} with merged logic. */
@@ -148,10 +148,10 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
             currentChannel =
                     Channels.newChannel(
                             fs.create(writingSegmentPath, FileSystem.WriteMode.NO_OVERWRITE));
-            TieredStoreUtils.writeDfsBuffers(currentChannel, expectedBytes, bufferWithHeaders);
+            TieredStorageUtils.writeDfsBuffers(currentChannel, expectedBytes, bufferWithHeaders);
             subpartitionChannels[subpartitionId] = currentChannel;
         } else {
-            TieredStoreUtils.writeDfsBuffers(currentChannel, expectedBytes, bufferWithHeaders);
+            TieredStorageUtils.writeDfsBuffers(currentChannel, expectedBytes, bufferWithHeaders);
         }
     }
 

@@ -38,8 +38,8 @@ import java.util.Optional;
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEGMENT_ID_EVENT;
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.DATA_BUFFER;
 import static org.apache.flink.runtime.io.network.partition.InputChannelTestUtils.createSingleInputGate;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.createBaseSubpartitionPath;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.writeSegmentFinishFile;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.createBaseSubpartitionPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.writeSegmentFinishFile;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** The test for {@link LocalTierConsumerAgent}. */

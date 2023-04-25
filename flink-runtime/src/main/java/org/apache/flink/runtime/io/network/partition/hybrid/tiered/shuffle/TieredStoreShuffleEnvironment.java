@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.R
 import java.util.Collections;
 import java.util.List;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.generateToReleasePath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateToReleasePath;
 
 public class TieredStoreShuffleEnvironment {
 

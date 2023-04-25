@@ -28,7 +28,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreUtils.deletePath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.deletePath;
 
 public class RemoteTierStorageReleaser implements TierStorageReleaser {
 
