@@ -18,33 +18,23 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory;
 
-import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceViewId;
 
 import java.util.Collection;
 
 /**
- * This interface is used by {@link MemoryTierConsumer} to operate {@link MemoryTierProducerAgentWriter}.
- * Spilling decision may be made and handled inside these operations.
+ * This interface is used by {@link MemoryTierConsumer} to operate {@link
+ * MemoryTierProducerAgentWriter}. Spilling decision may be made and handled inside these
+ * operations.
  */
 public interface MemoryTierProducerAgentOperation {
-    /**
-     * Request buffer from buffer pool.
-     *
-     * @return requested buffer.
-     */
-    MemorySegment requestBufferFromPool(int subpartitionId);
-
     /**
      * This method is called when subpartition data become available.
      *
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param nettyServiceViewIds the consumer's identifier which need notify data
-     *     available.
+     * @param nettyServiceViewIds the consumer's identifier which need notify data available.
      */
-    void onDataAvailable(
-            int subpartitionId,
-            Collection<NettyServiceViewId> nettyServiceViewIds);
+    void onDataAvailable(int subpartitionId, Collection<NettyServiceViewId> nettyServiceViewIds);
 
     /**
      * This method is called when consumer is decided to released.
@@ -52,8 +42,7 @@ public interface MemoryTierProducerAgentOperation {
      * @param subpartitionId the subpartition's identifier that this consumer belongs to.
      * @param nettyServiceViewId the consumer's identifier which decided to be released.
      */
-    void onConsumerReleased(
-            int subpartitionId, NettyServiceViewId nettyServiceViewId);
+    void onConsumerReleased(int subpartitionId, NettyServiceViewId nettyServiceViewId);
 
     boolean isConsumerRegistered(int subpartitionId);
 }

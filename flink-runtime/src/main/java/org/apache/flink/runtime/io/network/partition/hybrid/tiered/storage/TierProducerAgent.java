@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
 
 import java.io.IOException;
 
@@ -30,10 +29,6 @@ import java.io.IOException;
 public interface TierProducerAgent {
 
     boolean canStoreNextSegment(int consumerId);
-
-    TierType getTierType();
-
-    int getTierIndex();
 
     void release();
 

@@ -18,14 +18,12 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory;
 
-import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.SegmentSearcher;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierProducerAgent;
@@ -51,7 +49,10 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
 public class MemoryTierProducerAgent
-        implements TierProducerAgent, NettyServiceViewProvider, MemoryTierProducerAgentOperation, SegmentSearcher {
+        implements TierProducerAgent,
+                NettyServiceViewProvider,
+                MemoryTierProducerAgentOperation,
+                SegmentSearcher {
 
     public static final int BROADCAST_CHANNEL = 0;
 
@@ -163,16 +164,6 @@ public class MemoryTierProducerAgent
         }
     }
 
-    @Override
-    public TierType getTierType() {
-        return TierType.IN_MEM;
-    }
-
-    @Override
-    public int getTierIndex() {
-        return tierIndex;
-    }
-
     private static void checkMultipleConsumerIsAllowed(NettyServiceViewId lastNettyServiceViewId) {
         checkState(
                 lastNettyServiceViewId == null, "Memory Tier does not support multiple consumers");
@@ -245,11 +236,6 @@ public class MemoryTierProducerAgent
     // ------------------------------------
     //      Callback for subpartition
     // ------------------------------------
-
-    @Override
-    public MemorySegment requestBufferFromPool(int subpartitionId) {
-        return storageMemoryManager.requestBufferBlocking(tierIndex);
-    }
 
     @Override
     public void onDataAvailable(
