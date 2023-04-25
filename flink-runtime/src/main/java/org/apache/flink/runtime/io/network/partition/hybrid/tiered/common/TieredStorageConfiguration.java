@@ -22,7 +22,6 @@ import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsFullSpillingStrategy;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsSelectiveSpillingStrategy;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierMemorySpec;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.StringUtils;

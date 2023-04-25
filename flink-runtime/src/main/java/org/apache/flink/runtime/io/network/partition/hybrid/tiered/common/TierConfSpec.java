@@ -18,8 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
-
 public class TierConfSpec {
 
     private final TierType tierType;

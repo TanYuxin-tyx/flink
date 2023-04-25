@@ -21,7 +21,7 @@ package org.apache.flink.runtime.shuffle;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.GateBuffersSpec;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 
 import org.apache.commons.lang3.tuple.Pair;

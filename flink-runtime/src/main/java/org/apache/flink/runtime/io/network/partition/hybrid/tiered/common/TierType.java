@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
 /** The store mode for Tiered Store. */
 public enum TierType {
