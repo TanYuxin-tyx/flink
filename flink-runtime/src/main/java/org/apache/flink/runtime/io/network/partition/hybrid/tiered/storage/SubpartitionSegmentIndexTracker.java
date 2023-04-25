@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+
 /**
  * {@link SubpartitionSegmentIndexTracker} is to track segment index for each subpartition. Each
  * {@link TierProducerAgent}'s data manager has a separate {@link SubpartitionSegmentIndexTracker}.

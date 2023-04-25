@@ -2,7 +2,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.serv
 
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -43,6 +43,9 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
             }
         }
         return new TieredStoreResultSubpartitionView(
-                subpartitionId, availabilityListener, segmentSearchers, registeredTierConsumerViews);
+                subpartitionId,
+                availabilityListener,
+                segmentSearchers,
+                registeredTierConsumerViews);
     }
 }

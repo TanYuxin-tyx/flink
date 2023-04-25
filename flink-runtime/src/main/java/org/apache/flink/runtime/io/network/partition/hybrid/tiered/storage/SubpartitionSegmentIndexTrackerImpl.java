@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.function.SupplierWithException;
 
 import java.util.Arrays;
@@ -28,8 +29,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * The implementation of {@link SubpartitionSegmentIndexTracker}. Each {@link TierProducerAgent}'s data
- * manager has a separate {@link SubpartitionSegmentIndexTrackerImpl}.
+ * The implementation of {@link SubpartitionSegmentIndexTracker}. Each {@link TierProducerAgent}'s
+ * data manager has a separate {@link SubpartitionSegmentIndexTrackerImpl}.
  */
 public class SubpartitionSegmentIndexTrackerImpl implements SubpartitionSegmentIndexTracker {
 

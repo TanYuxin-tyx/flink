@@ -16,31 +16,25 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 
-public class TierMemorySpec {
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 
-    private final int tierIndex;
+import java.io.IOException;
 
-    private final int numExclusiveBuffers;
+/**
+ * The gate for a single tiered data. The gate is used to create {@link TierProducerAgentWriter}.
+ * The writing and reading data processes happen in the writer and reader.
+ */
+public interface TierProducerAgent {
 
-    private final boolean canUseSharedBuffers;
+    boolean canStoreNextSegment(int consumerId);
 
-    public TierMemorySpec(int tierIndex, int numExclusiveBuffers, boolean canUseSharedBuffers) {
-        this.tierIndex = tierIndex;
-        this.numExclusiveBuffers = numExclusiveBuffers;
-        this.canUseSharedBuffers = canUseSharedBuffers;
-    }
+    void release();
 
-    public int getTierIndex() {
-        return tierIndex;
-    }
+    void startSegment(int consumerId, int segmentId);
 
-    public int getNumExclusiveBuffers() {
-        return numExclusiveBuffers;
-    }
+    boolean write(int consumerId, Buffer finishedBuffer) throws IOException;
 
-    public boolean canUseShareBuffers() {
-        return canUseSharedBuffers;
-    }
+    void close();
 }

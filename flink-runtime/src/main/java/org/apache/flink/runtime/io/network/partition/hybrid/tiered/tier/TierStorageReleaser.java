@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 
 /** Use {@link TierStorageReleaser} to recycle all resources of the {@link TierProducerAgent}. */
 public interface TierStorageReleaser {

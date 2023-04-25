@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
+
 import java.util.List;
 
 public class TieredStorageMasterClient {

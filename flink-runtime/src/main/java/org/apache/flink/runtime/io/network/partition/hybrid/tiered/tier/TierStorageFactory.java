@@ -16,9 +16,9 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 
-public interface TierMasterAgent {
+public interface TierStorageFactory {
 
-    void release();
+    TierProducerAgent createTierStorage();
 }

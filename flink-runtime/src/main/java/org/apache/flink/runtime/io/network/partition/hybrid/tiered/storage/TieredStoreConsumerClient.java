@@ -7,6 +7,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingInputGateConsumerClient;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMemorySpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierMonitor;
@@ -89,7 +90,8 @@ public class TieredStoreConsumerClient implements SingInputGateConsumerClient {
             return inputChannel.getNextBuffer();
         }
 
-        return subpartitionConsumerClients[inputChannel.getChannelIndex()].getNextBuffer(inputChannel);
+        return subpartitionConsumerClients[inputChannel.getChannelIndex()].getNextBuffer(
+                inputChannel);
     }
 
     @Override

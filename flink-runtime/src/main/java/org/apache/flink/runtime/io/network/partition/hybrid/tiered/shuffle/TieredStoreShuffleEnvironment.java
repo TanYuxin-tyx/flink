@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierStorageReleaser;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierStorageReleaser;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierStorageReleaser;
 
 import java.util.Collections;
