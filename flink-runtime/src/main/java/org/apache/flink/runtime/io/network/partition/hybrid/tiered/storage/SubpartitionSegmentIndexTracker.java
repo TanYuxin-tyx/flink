@@ -16,9 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
-
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierProducerAgent;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 /**
  * {@link SubpartitionSegmentIndexTracker} is to track segment index for each subpartition. Each

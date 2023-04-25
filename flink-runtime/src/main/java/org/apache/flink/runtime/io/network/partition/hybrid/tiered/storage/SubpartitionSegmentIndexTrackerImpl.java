@@ -16,9 +16,8 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierProducerAgent;
 import org.apache.flink.util.function.SupplierWithException;
 
 import java.util.Arrays;

@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
 
 /**
  * The {@link BufferContext} represents a combination of buffer, buffer index, and its subpartition
- * id.
+ * id, and it could also indicate a error.
  */
 public class BufferContext {
 
@@ -34,7 +34,7 @@ public class BufferContext {
 
     @Nullable private Throwable throwable;
 
-    public BufferContext(Buffer buffer, int bufferIndex, int subpartitionId) {
+    public BufferContext(@Nullable Buffer buffer, int bufferIndex, int subpartitionId) {
         this.bufferIndexAndSubpartitionId =
                 new BufferIndexAndSubpartitionId(bufferIndex, subpartitionId);
         this.buffer = buffer;
@@ -49,10 +49,12 @@ public class BufferContext {
         this.throwable = throwable;
     }
 
+    @Nullable
     public Buffer getBuffer() {
         return buffer;
     }
 
+    @Nullable
     public BufferIndexAndSubpartitionId getBufferIndexAndChannel() {
         return bufferIndexAndSubpartitionId;
     }

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 /** {@link SegmentSearcher} is used to search the specific segment id in each tier. */
 public interface SegmentSearcher {
