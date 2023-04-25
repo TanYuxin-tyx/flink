@@ -16,26 +16,17 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
-import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-
-import java.io.IOException;
-
-/**
- * {@link NettyServiceViewProvider} is used to create the view of {@link NettyBufferQueue} for
- * each tier.
- */
-public interface NettyServiceViewProvider {
+/** {@link SegmentSearcher} is used to search the specific segment id in each tier. */
+public interface SegmentSearcher {
 
     /**
-     * Create the netty based consumer view.
+     * Query the provider for the existence of a segment.
      *
      * @param subpartitionId indicate the index of consumed subpartition.
-     * @param availabilityListener is used to notify the available status.
-     * @return the netty based consumer view
-     * @throws IOException if the consumer view cannot be created.
+     * @param segmentId indicate the id of segment.
+     * @return whether the provider has the segment id.
      */
-    NettyServiceView createNettyBasedTierConsumerView(
-            int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
+    boolean hasCurrentSegment(int subpartitionId, int segmentId);
 }

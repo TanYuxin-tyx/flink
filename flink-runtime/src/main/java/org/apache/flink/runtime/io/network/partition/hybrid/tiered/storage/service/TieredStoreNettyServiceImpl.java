@@ -1,6 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service;
 
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierProducerAgent;
 
 import java.io.IOException;
@@ -18,7 +19,8 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     private final List<TierProducerAgent> tierProducerAgents;
 
     public TieredStoreNettyServiceImpl(List<TierProducerAgent> tierProducerAgents) {
-        checkArgument(tierProducerAgents.size() > 0, "The number of StorageTier must be larger than 0.");
+        checkArgument(
+                tierProducerAgents.size() > 0, "The number of StorageTier must be larger than 0.");
         this.tierProducerAgents = tierProducerAgents;
     }
 
@@ -26,7 +28,7 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
     public TieredStoreResultSubpartitionView register(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
-        List<NettyServiceViewProvider> registeredTiers = new ArrayList<>();
+        List<SegmentSearcher> segmentSearchers = new ArrayList<>();
         List<NettyServiceView> registeredTierConsumerViews = new ArrayList<>();
         for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
             if (tierProducerAgent instanceof NettyServiceViewProvider) {
@@ -36,11 +38,11 @@ public class TieredStoreNettyServiceImpl implements TieredStoreNettyService {
                         checkNotNull(
                                 tierConsumerViewProvider.createNettyBasedTierConsumerView(
                                         subpartitionId, availabilityListener));
-                registeredTiers.add(tierConsumerViewProvider);
+                segmentSearchers.add((SegmentSearcher) tierProducerAgent);
                 registeredTierConsumerViews.add(nettyServiceView);
             }
         }
         return new TieredStoreResultSubpartitionView(
-                subpartitionId, availabilityListener, registeredTiers, registeredTierConsumerViews);
+                subpartitionId, availabilityListener, segmentSearchers, registeredTierConsumerViews);
     }
 }

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.serv
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStoreConsumerFailureCause;
 
 import javax.annotation.Nullable;
@@ -40,7 +41,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final int subpartitionId;
 
-    private final List<NettyServiceViewProvider> registeredTiers;
+    private final List<SegmentSearcher> segmentSearchers;
 
     private final List<NettyServiceView> registeredTierConsumerViews;
 
@@ -57,11 +58,11 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     public TieredStoreResultSubpartitionView(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            List<NettyServiceViewProvider> registeredTiers,
+            List<SegmentSearcher> segmentSearchers,
             List<NettyServiceView> registeredTierConsumerViews) {
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
-        this.registeredTiers = registeredTiers;
+        this.segmentSearchers = segmentSearchers;
         this.registeredTierConsumerViews = registeredTierConsumerViews;
     }
 
@@ -109,7 +110,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             nettyServiceView.release();
         }
         registeredTierConsumerViews.clear();
-        registeredTiers.clear();
+        segmentSearchers.clear();
     }
 
     @Override
@@ -172,10 +173,9 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         for (NettyServiceView nettyServiceView : registeredTierConsumerViews) {
             nettyServiceView.updateNeedNotifyStatus();
         }
-        for (int viewIndex = 0; viewIndex < registeredTiers.size(); viewIndex++) {
-            NettyServiceViewProvider tierConsumerViewProvider =
-                    registeredTiers.get(viewIndex);
-            if (tierConsumerViewProvider.hasCurrentSegment(subpartitionId, requiredSegmentId)) {
+        for (int viewIndex = 0; viewIndex < segmentSearchers.size(); viewIndex++) {
+            SegmentSearcher segmentSearcher = segmentSearchers.get(viewIndex);
+            if (segmentSearcher.hasCurrentSegment(subpartitionId, requiredSegmentId)) {
                 viewIndexContainsCurrentSegment = viewIndex;
                 return true;
             }
