@@ -16,9 +16,11 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelBuilder;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.TestInputChannel;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMemorySpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.IndexedTierConfSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierMonitor;
@@ -110,9 +112,11 @@ public class ConsumerAgentTest {
                         i -> {});
         TieredStorageMemoryManager memoryManager =
                 new TieredStorageMemoryManagerImpl(
-                        new ArrayList<TierMemorySpec>() {
+                        new ArrayList<IndexedTierConfSpec>() {
                             {
-                                add(new TierMemorySpec(0, 1, false));
+                                add(
+                                        new IndexedTierConfSpec(
+                                                0, new TierConfSpec(TierType.IN_REMOTE, 1, true)));
                             }
                         });
         memoryManager.setup(new LocalBufferPool(new NetworkBufferPool(1, 1), 1));

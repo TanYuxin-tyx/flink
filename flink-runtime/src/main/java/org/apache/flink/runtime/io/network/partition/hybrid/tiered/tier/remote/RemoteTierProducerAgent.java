@@ -46,8 +46,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     private final int[] subpartitionLastestSegmentId;
 
-    private int tierIndex;
-
     public RemoteTierProducerAgent(
             int numSubpartitions,
             boolean isBroadcastOnly,
@@ -75,11 +73,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     @Override
     public boolean canStoreNextSegment(int consumerId) {
         return true;
-    }
-
-    // Only for test, this should be removed in production code.
-    public void setTierIndex(int tierIndex) {
-        this.tierIndex = tierIndex;
     }
 
     @Override

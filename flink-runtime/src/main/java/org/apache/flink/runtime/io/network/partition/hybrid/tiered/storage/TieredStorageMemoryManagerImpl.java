@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMemorySpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.IndexedTierConfSpec;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.util.HashMap;
@@ -33,7 +33,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManager {
 
-    private final Map<Integer, TierMemorySpec> tierMemorySpecMap;
+    private final Map<Integer, IndexedTierConfSpec> tierMemorySpecMap;
 
     private final Map<Integer, AtomicInteger> tierRequestedBuffersCounter;
 
@@ -43,18 +43,19 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
 
     private BufferPool bufferPool;
 
-    public TieredStorageMemoryManagerImpl(List<TierMemorySpec> tierMemorySpecs) {
+    public TieredStorageMemoryManagerImpl(List<IndexedTierConfSpec> indexedTierConfSpecs) {
         this.tierMemorySpecMap = new HashMap<>();
         this.tierRequestedBuffersCounter = new HashMap<>();
         this.numRequestedBuffersInAccumulator = new AtomicInteger(0);
         this.numRequestedBuffers = new AtomicInteger(0);
 
-        for (TierMemorySpec tierMemorySpec : tierMemorySpecs) {
+        for (IndexedTierConfSpec indexedTierConfSpec : indexedTierConfSpecs) {
             checkState(
-                    !tierMemorySpecMap.containsKey(tierMemorySpec.getTierIndex()),
+                    !tierMemorySpecMap.containsKey(indexedTierConfSpec.getTierIndex()),
                     "Duplicate tier indexes.");
-            tierMemorySpecMap.put(tierMemorySpec.getTierIndex(), tierMemorySpec);
-            tierRequestedBuffersCounter.put(tierMemorySpec.getTierIndex(), new AtomicInteger(0));
+            tierMemorySpecMap.put(indexedTierConfSpec.getTierIndex(), indexedTierConfSpec);
+            tierRequestedBuffersCounter.put(
+                    indexedTierConfSpec.getTierIndex(), new AtomicInteger(0));
         }
     }
 
@@ -125,9 +126,9 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
 
     @Override
     public int numAvailableBuffers(int tierIndex) {
-        TierMemorySpec tierMemorySpec = checkNotNull(tierMemorySpecMap.get(tierIndex));
-        int numExclusive = tierMemorySpec.getNumExclusiveBuffers();
-        boolean canUseSharedBuffers = tierMemorySpec.canUseShareBuffers();
+        IndexedTierConfSpec indexedTierConfSpec = checkNotNull(tierMemorySpecMap.get(tierIndex));
+        int numExclusive = indexedTierConfSpec.getTierConfSpec().getNumExclusiveBuffers();
+        boolean canUseSharedBuffers = indexedTierConfSpec.getTierConfSpec().canUseSharedBuffers();
         int numRequested = checkNotNull(tierRequestedBuffersCounter.get(tierIndex)).get();
 
         if (!canUseSharedBuffers) {

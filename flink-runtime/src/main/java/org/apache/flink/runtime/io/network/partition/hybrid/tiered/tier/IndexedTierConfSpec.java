@@ -18,29 +18,24 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 
-public class TierMemorySpec {
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
+
+public class IndexedTierConfSpec {
 
     private final int tierIndex;
 
-    private final int numExclusiveBuffers;
+    TierConfSpec tierConfSpec;
 
-    private final boolean canUseSharedBuffers;
-
-    public TierMemorySpec(int tierIndex, int numExclusiveBuffers, boolean canUseSharedBuffers) {
+    public IndexedTierConfSpec(int tierIndex, TierConfSpec tierConfSpec) {
         this.tierIndex = tierIndex;
-        this.numExclusiveBuffers = numExclusiveBuffers;
-        this.canUseSharedBuffers = canUseSharedBuffers;
+        this.tierConfSpec = tierConfSpec;
     }
 
     public int getTierIndex() {
         return tierIndex;
     }
 
-    public int getNumExclusiveBuffers() {
-        return numExclusiveBuffers;
-    }
-
-    public boolean canUseShareBuffers() {
-        return canUseSharedBuffers;
+    public TierConfSpec getTierConfSpec() {
+        return tierConfSpec;
     }
 }

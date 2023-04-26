@@ -29,9 +29,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
@@ -43,10 +42,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory.MemoryTierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -60,7 +56,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -278,7 +273,8 @@ public class ResultPartitionFactory {
                 TieredStorageConfiguration storeConfiguration =
                         getStoreConfiguration(numberOfSubpartitions, type);
                 TieredStorageMemoryManager storageMemoryManager =
-                        new TieredStorageMemoryManagerImpl(storeConfiguration.getTierMemorySpecs());
+                        new TieredStorageMemoryManagerImpl(
+                                storeConfiguration.getIndexedTierConfSpecs());
                 CacheFlushManager cacheFlushManager =
                         new CacheFlushManager(storeConfiguration.getNumBuffersTriggerFlushRatio());
                 List<TierProducerAgent> tierProducerAgents =
@@ -375,61 +371,18 @@ public class ResultPartitionFactory {
                         id,
                         storeConfiguration.getBaseDfsHomePath());
 
-        List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
-        int[] upstreamTierIndexes = storeConfiguration.getTierIndexes();
-        // Use this method in the production code
-        //        tierProducerAgents = TieredStoreUtils.createTierProducerAgents(
-        //                id,
-        //                isBroadcast,
-        //                bufferCompressor,
-        //                subpartitions,
-        //                storeConfiguration,
-        //                storeMemoryManager,
-        //                cacheFlushManager,
-        //                dataFileBasePath,
-        //                networkBufferSize,
-        //                minReservedDiskSpaceFraction,
-        //                partitionFileManager);
-        if (storeConfiguration.getTierIndexes().length > 0) {
-            for (int upstreamTierIndex : upstreamTierIndexes) {
-                if (upstreamTierIndex == 0) {
-                    tierProducerAgents.add(
-                            new MemoryTierProducerAgent(
-                                    upstreamTierIndex,
-                                    subpartitions.length,
-                                    storeMemoryManager,
-                                    isBroadcast,
-                                    bufferCompressor,
-                                    networkBufferSize));
-                } else if (upstreamTierIndex == 1) {
-                    tierProducerAgents.add(
-                            new DiskTierProducerAgent(
-                                    upstreamTierIndex,
-                                    subpartitions.length,
-                                    id,
-                                    dataFileBasePath,
-                                    minReservedDiskSpaceFraction,
-                                    isBroadcast,
-                                    partitionFileManager,
-                                    networkBufferSize,
-                                    storeMemoryManager,
-                                    bufferCompressor,
-                                    cacheFlushManager));
-                }
-            }
-        }
-        if (storeConfiguration.getRemoteTierTypes().length > 0) {
-            tierProducerAgents.add(
-                    new RemoteTierProducerAgent(
-                            subpartitions.length,
-                            isBroadcast,
-                            networkBufferSize,
-                            storeMemoryManager,
-                            cacheFlushManager,
-                            bufferCompressor,
-                            partitionFileManager));
-        }
-        return tierProducerAgents;
+        return TieredStorageUtils.createTierProducerAgents(
+                id,
+                isBroadcast,
+                bufferCompressor,
+                subpartitions,
+                storeConfiguration,
+                storeMemoryManager,
+                cacheFlushManager,
+                dataFileBasePath,
+                networkBufferSize,
+                minReservedDiskSpaceFraction,
+                partitionFileManager);
     }
 
     private HybridShuffleConfiguration getHybridShuffleConfiguration(
@@ -448,16 +401,9 @@ public class ResultPartitionFactory {
     private TieredStorageConfiguration getStoreConfiguration(
             int numberOfSubpartitions, ResultPartitionType type) {
 
-        List<TierConfSpec> tierConfSpecs = new ArrayList<>();
-        // TODO, If the teirtype can not be accessed here, use a String instead.
-        tierConfSpecs.add(new TierConfSpec(TierType.IN_MEM, 100, false));
-        tierConfSpecs.add(new TierConfSpec(TierType.IN_DISK, 1, false));
-        tierConfSpecs.add(new TierConfSpec(TierType.IN_REMOTE, 1, true));
-
         return TieredStorageConfiguration.builder(
                         numberOfSubpartitions, batchShuffleReadBufferPool.getNumBuffersPerRequest())
                 .setTierTypes(tieredStoreTiers, type)
-                .setDefaultTierMemorySpecs()
                 // TODO, Replace these previous two lines with the setTierSpecs
                 //                .setTierSpecs(tierConfSpecs)
                 .setBaseDfsHomePath(baseRemoteStorageHomePath)

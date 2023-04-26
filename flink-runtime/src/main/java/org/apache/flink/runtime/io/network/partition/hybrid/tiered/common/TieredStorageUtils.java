@@ -31,10 +31,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Cache
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory.MemoryTierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
@@ -124,46 +122,64 @@ public class TieredStorageUtils {
             PartitionFileManager partitionFileManager) {
         List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
         int i = 0;
-        for (TierConfSpec tierConfSpec : storeConfiguration.getTierConfSpecs()) {
-            if (tierConfSpec.getTierType() == TierType.IN_MEM) {
-                tierProducerAgents.add(
-                        new MemoryTierProducerAgent(
-                                i,
-                                subpartitions.length,
-                                storeMemoryManager,
-                                isBroadcast,
-                                bufferCompressor,
-                                networkBufferSize));
-            } else if (tierConfSpec.getTierType() == TierType.IN_DISK) {
-                tierProducerAgents.add(
-                        new DiskTierProducerAgent(
-                                i,
-                                subpartitions.length,
-                                id,
-                                dataFileBasePath,
-                                minReservedDiskSpaceFraction,
-                                isBroadcast,
-                                partitionFileManager,
-                                networkBufferSize,
-                                storeMemoryManager,
-                                bufferCompressor,
-                                cacheFlushManager));
-            } else if (tierConfSpec.getTierType() == TierType.IN_REMOTE) {
-                RemoteTierProducerAgent remoteTierProducerAgent =
-                        new RemoteTierProducerAgent(
-                                subpartitions.length,
-                                isBroadcast,
-                                networkBufferSize,
-                                storeMemoryManager,
-                                cacheFlushManager,
-                                bufferCompressor,
-                                partitionFileManager);
-                remoteTierProducerAgent.setTierIndex(i);
-                tierProducerAgents.add(remoteTierProducerAgent);
-            }
-            i++;
+        for (TierFactory tierFactory : storeConfiguration.getTierFactories()) {
+            tierProducerAgents.add(
+                    tierFactory.createProducerAgent(
+                            i++,
+                            subpartitions.length,
+                            id,
+                            dataFileBasePath,
+                            minReservedDiskSpaceFraction,
+                            isBroadcast,
+                            partitionFileManager,
+                            networkBufferSize,
+                            storeMemoryManager,
+                            bufferCompressor,
+                            cacheFlushManager));
         }
         return tierProducerAgents;
+
+        //        int i = 0;
+        //        for (TierConfSpec tierConfSpec : storeConfiguration.getTierConfSpecs()) {
+        //            if (tierConfSpec.getTierType() == TierType.IN_MEM) {
+        //                tierProducerAgents.add(
+        //                        new MemoryTierProducerAgent(
+        //                                i,
+        //                                subpartitions.length,
+        //                                storeMemoryManager,
+        //                                isBroadcast,
+        //                                bufferCompressor,
+        //                                networkBufferSize));
+        //            } else if (tierConfSpec.getTierType() == TierType.IN_DISK) {
+        //                tierProducerAgents.add(
+        //                        new DiskTierProducerAgent(
+        //                                i,
+        //                                subpartitions.length,
+        //                                id,
+        //                                dataFileBasePath,
+        //                                minReservedDiskSpaceFraction,
+        //                                isBroadcast,
+        //                                partitionFileManager,
+        //                                networkBufferSize,
+        //                                storeMemoryManager,
+        //                                bufferCompressor,
+        //                                cacheFlushManager));
+        //            } else if (tierConfSpec.getTierType() == TierType.IN_REMOTE) {
+        //                RemoteTierProducerAgent remoteTierProducerAgent =
+        //                        new RemoteTierProducerAgent(
+        //                                subpartitions.length,
+        //                                isBroadcast,
+        //                                networkBufferSize,
+        //                                storeMemoryManager,
+        //                                cacheFlushManager,
+        //                                bufferCompressor,
+        //                                partitionFileManager);
+        //                remoteTierProducerAgent.setTierIndex(i);
+        //                tierProducerAgents.add(remoteTierProducerAgent);
+        //            }
+        //            i++;
+        //        }
+        //        return tierProducerAgents;
     }
 
     public static String createBaseSubpartitionPath(

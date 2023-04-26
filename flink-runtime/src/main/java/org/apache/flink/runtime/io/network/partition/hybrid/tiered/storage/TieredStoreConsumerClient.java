@@ -7,7 +7,9 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingInputGateConsumerClient;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMemorySpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.IndexedTierConfSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierMonitor;
@@ -30,10 +32,10 @@ public class TieredStoreConsumerClient implements SingInputGateConsumerClient {
 
     private final NetworkBufferPool networkBufferPool;
 
-    private List<TierMemorySpec> tierMemorySpecs =
-            new ArrayList<TierMemorySpec>() {
+    private List<IndexedTierConfSpec> indexedTierConfSpecs =
+            new ArrayList<IndexedTierConfSpec>() {
                 {
-                    add(new TierMemorySpec(0, 1, false));
+                    add(new IndexedTierConfSpec(0, new TierConfSpec(TierType.IN_REMOTE, 1, true)));
                 }
             };
 
@@ -50,7 +52,7 @@ public class TieredStoreConsumerClient implements SingInputGateConsumerClient {
             Consumer<Integer> channelEnqueueReceiver) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
         this.networkBufferPool = networkBufferPool;
-        this.tieredStoreMemoryManager = new TieredStorageMemoryManagerImpl(tierMemorySpecs);
+        this.tieredStoreMemoryManager = new TieredStorageMemoryManagerImpl(indexedTierConfSpecs);
         if (baseRemoteStoragePath != null) {
             this.remoteTierMonitor =
                     new RemoteTierMonitor(

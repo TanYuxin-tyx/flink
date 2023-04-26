@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory;
 
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -24,11 +24,19 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Cache
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
-public interface TierFactory {
-    TierMasterAgent createMasterAgent();
+public class MemoryTierFactory implements TierFactory {
+    @Override
+    public TierMasterAgent createMasterAgent() {
+        // Nothing to do here.
+        return null;
+    }
 
-    TierProducerAgent createProducerAgent(
+    @Override
+    public TierProducerAgent createProducerAgent(
             int tierIndex,
             int numSubpartitions,
             ResultPartitionID resultPartitionID,
@@ -39,7 +47,18 @@ public interface TierFactory {
             int networkBufferSize,
             TieredStorageMemoryManager storageMemoryManager,
             BufferCompressor bufferCompressor,
-            CacheFlushManager cacheFlushManager);
+            CacheFlushManager cacheFlushManager) {
+        return new MemoryTierProducerAgent(
+                tierIndex,
+                numSubpartitions,
+                storageMemoryManager,
+                isBroadcastOnly,
+                bufferCompressor,
+                networkBufferSize);
+    }
 
-    TierConsumerAgent createConsumerAgent();
+    @Override
+    public TierConsumerAgent createConsumerAgent() {
+        return null;
+    }
 }
