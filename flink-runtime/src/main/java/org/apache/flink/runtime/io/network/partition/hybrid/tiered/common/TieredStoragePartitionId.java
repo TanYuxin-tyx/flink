@@ -18,11 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
-import org.apache.flink.shaded.netty4.io.netty.buffer.ByteBuf;
-
-import java.io.DataInput;
-import java.io.IOException;
-
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.bytesToHexString;
 
 /**
@@ -36,26 +31,6 @@ public class TieredStoragePartitionId extends TieredStorageAbstractId {
 
     public TieredStoragePartitionId(byte[] resultPartitionID) {
         super(resultPartitionID);
-    }
-
-    /**
-     * Deserializes and creates an {@link TieredStoragePartitionId} from the given {@link ByteBuf}.
-     */
-    public static TieredStoragePartitionId readFrom(ByteBuf byteBuf) {
-        byte[] bytes = new byte[byteBuf.readInt()];
-        byteBuf.readBytes(bytes);
-
-        return new TieredStoragePartitionId(bytes);
-    }
-
-    /**
-     * Deserializes and creates an {@link TieredStoragePartitionId} from the given {@link
-     * DataInput}.
-     */
-    public static TieredStoragePartitionId readFrom(DataInput dataInput) throws IOException {
-        byte[] bytes = new byte[dataInput.readInt()];
-        dataInput.readFully(bytes);
-        return new TieredStoragePartitionId(bytes);
     }
 
     @Override
