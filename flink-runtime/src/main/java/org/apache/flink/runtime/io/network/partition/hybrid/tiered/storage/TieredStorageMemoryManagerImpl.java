@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.IndexedTierConfSpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.IndexedTierConfSpec;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.util.HashMap;

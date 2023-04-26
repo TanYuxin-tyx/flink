@@ -16,9 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
-
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
 public class IndexedTierConfSpec {
 
