@@ -138,48 +138,6 @@ public class TieredStorageUtils {
                             cacheFlushManager));
         }
         return tierProducerAgents;
-
-        //        int i = 0;
-        //        for (TierConfSpec tierConfSpec : storeConfiguration.getTierConfSpecs()) {
-        //            if (tierConfSpec.getTierType() == TierType.IN_MEM) {
-        //                tierProducerAgents.add(
-        //                        new MemoryTierProducerAgent(
-        //                                i,
-        //                                subpartitions.length,
-        //                                storeMemoryManager,
-        //                                isBroadcast,
-        //                                bufferCompressor,
-        //                                networkBufferSize));
-        //            } else if (tierConfSpec.getTierType() == TierType.IN_DISK) {
-        //                tierProducerAgents.add(
-        //                        new DiskTierProducerAgent(
-        //                                i,
-        //                                subpartitions.length,
-        //                                id,
-        //                                dataFileBasePath,
-        //                                minReservedDiskSpaceFraction,
-        //                                isBroadcast,
-        //                                partitionFileManager,
-        //                                networkBufferSize,
-        //                                storeMemoryManager,
-        //                                bufferCompressor,
-        //                                cacheFlushManager));
-        //            } else if (tierConfSpec.getTierType() == TierType.IN_REMOTE) {
-        //                RemoteTierProducerAgent remoteTierProducerAgent =
-        //                        new RemoteTierProducerAgent(
-        //                                subpartitions.length,
-        //                                isBroadcast,
-        //                                networkBufferSize,
-        //                                storeMemoryManager,
-        //                                cacheFlushManager,
-        //                                bufferCompressor,
-        //                                partitionFileManager);
-        //                remoteTierProducerAgent.setTierIndex(i);
-        //                tierProducerAgents.add(remoteTierProducerAgent);
-        //            }
-        //            i++;
-        //        }
-        //        return tierProducerAgents;
     }
 
     public static String createBaseSubpartitionPath(
@@ -248,19 +206,6 @@ public class TieredStorageUtils {
         if (fs.exists(path)) {
             fs.delete(path, true);
         }
-    }
-
-    public static String deleteJobBasePath(JobID jobID, String baseDfsPath) throws IOException {
-        while (baseDfsPath.endsWith("/") && baseDfsPath.length() > 1) {
-            baseDfsPath = baseDfsPath.substring(0, baseDfsPath.length() - 1);
-        }
-        String basePathStr = String.format("%s/%s/%s", baseDfsPath, TIER_STORE_DIR, jobID);
-        Path basePath = new Path(basePathStr);
-        FileSystem fs = basePath.getFileSystem();
-        if (fs.exists(basePath)) {
-            fs.delete(basePath, true);
-        }
-        return basePathStr;
     }
 
     public static Path generateNewSegmentPath(
