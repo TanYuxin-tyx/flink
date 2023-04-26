@@ -16,17 +16,30 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local;
 
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierFactory;
 
-public class DiskTierFactory extends LocalTierFactory {
+public class LocalTierFactory implements TierFactory {
+
+    @Override
+    public TierMasterAgent createMasterAgent() {
+        // Nothing to do.
+        return null;
+    }
+
+    @Override
+    public TierConsumerAgent createConsumerAgent() {
+        return null;
+    }
 
     @Override
     public TierProducerAgent createProducerAgent(
@@ -41,17 +54,6 @@ public class DiskTierFactory extends LocalTierFactory {
             TieredStorageMemoryManager storageMemoryManager,
             BufferCompressor bufferCompressor,
             CacheFlushManager cacheFlushManager) {
-        return new DiskTierProducerAgent(
-                tierIndex,
-                numSubpartitions,
-                resultPartitionID,
-                dataFileBasePath,
-                minReservedDiskSpaceFraction,
-                isBroadcastOnly,
-                partitionFileManager,
-                networkBufferSize,
-                storageMemoryManager,
-                bufferCompressor,
-                cacheFlushManager);
+        return null;
     }
 }

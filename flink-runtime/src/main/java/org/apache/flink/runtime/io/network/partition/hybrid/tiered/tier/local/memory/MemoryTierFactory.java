@@ -23,17 +23,10 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierFactory;
 
-public class MemoryTierFactory implements TierFactory {
-    @Override
-    public TierMasterAgent createMasterAgent() {
-        // Nothing to do here.
-        return null;
-    }
+public class MemoryTierFactory extends LocalTierFactory {
 
     @Override
     public TierProducerAgent createProducerAgent(
@@ -55,10 +48,5 @@ public class MemoryTierFactory implements TierFactory {
                 isBroadcastOnly,
                 bufferCompressor,
                 networkBufferSize);
-    }
-
-    @Override
-    public TierConsumerAgent createConsumerAgent() {
-        return null;
     }
 }
