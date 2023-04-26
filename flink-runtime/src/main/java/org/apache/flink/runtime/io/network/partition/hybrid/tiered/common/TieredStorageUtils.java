@@ -217,7 +217,7 @@ public class TieredStorageUtils {
                 baseDfsPath, TIER_STORE_DIR, jobID, resultPartitionID, subpartitionId);
     }
 
-    public static Path generateToReleasePath(JobID jobID, String baseDfsPath) {
+    public static String generateToReleaseJobPath(JobID jobID, String baseDfsPath) {
         if (jobID == null || baseDfsPath == null) {
             return null;
         }
@@ -225,8 +225,19 @@ public class TieredStorageUtils {
         while (baseDfsPath.endsWith("/") && baseDfsPath.length() > 1) {
             baseDfsPath = baseDfsPath.substring(0, baseDfsPath.length() - 1);
         }
-        String basePathStr = String.format("%s/%s/%s", baseDfsPath, TIER_STORE_DIR, jobID);
-        return new Path(basePathStr);
+        return String.format("%s/%s/%s", baseDfsPath, TIER_STORE_DIR, jobID);
+    }
+
+    public static String generateToReleasePartitionPath(
+            JobID jobID, ResultPartitionID resultPartitionID, String baseDfsPath) {
+        if (jobID == null || baseDfsPath == null) {
+            return null;
+        }
+
+        while (baseDfsPath.endsWith("/") && baseDfsPath.length() > 1) {
+            baseDfsPath = baseDfsPath.substring(0, baseDfsPath.length() - 1);
+        }
+        return String.format("%s/%s/%s/%s", baseDfsPath, TIER_STORE_DIR, jobID, resultPartitionID);
     }
 
     public static void deletePath(Path path) throws IOException {

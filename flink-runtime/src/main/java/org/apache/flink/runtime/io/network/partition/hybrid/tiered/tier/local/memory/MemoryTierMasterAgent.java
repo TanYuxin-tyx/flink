@@ -16,31 +16,19 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 
-import java.util.List;
+public class MemoryTierMasterAgent implements TierMasterAgent {
+    @Override
+    public void register(JobID jobID, ResultPartitionID resultPartitionID) {}
 
-public class TieredStorageMasterClient {
+    @Override
+    public void release(ResultPartitionID resultPartitionID) {}
 
-    private final List<TierMasterAgent> tiers;
-
-    public TieredStorageMasterClient(List<TierMasterAgent> tiers) {
-        this.tiers = tiers;
-    }
-
-    public void register(JobID jobID, ResultPartitionID resultPartitionID) {
-        tiers.forEach(tierMasterAgent -> tierMasterAgent.register(jobID, resultPartitionID));
-    }
-
-    public void release(ResultPartitionID resultPartitionID) {
-        tiers.forEach(tierMasterAgent -> tierMasterAgent.release(resultPartitionID));
-    }
-
-    public void release(JobID jobID) {
-        tiers.forEach(tierMasterAgent -> tierMasterAgent.release(jobID));
-    }
+    @Override
+    public void release(JobID jobID) {}
 }

@@ -21,12 +21,22 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.d
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierFactory;
 
+import javax.annotation.Nullable;
+
 public class DiskTierFactory extends LocalTierFactory {
+
+    @Override
+    public TierMasterAgent createMasterAgent(
+            ResourceRegistry resourceRegistry, @Nullable String remoteStorageBaseHomePath) {
+        return new DiskTierMasterAgent();
+    }
 
     @Override
     public TierProducerAgent createProducerAgent(

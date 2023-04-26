@@ -18,7 +18,15 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 
+import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+
 public interface TierMasterAgent {
 
-    void release();
+    // TODO use the tiered storage id
+    void register(JobID jobID, ResultPartitionID resultPartitionID);
+
+    void release(ResultPartitionID resultPartitionID);
+
+    void release(JobID jobID);
 }

@@ -21,11 +21,15 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 
+import javax.annotation.Nullable;
+
 public interface TierFactory {
-    TierMasterAgent createMasterAgent();
+    TierMasterAgent createMasterAgent(
+            ResourceRegistry resourceRegistry, @Nullable String remoteStorageBaseHomePath);
 
     TierProducerAgent createProducerAgent(
             int tierIndex,

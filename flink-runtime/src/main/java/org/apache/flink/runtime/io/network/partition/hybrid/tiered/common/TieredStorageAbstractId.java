@@ -22,7 +22,6 @@ import org.apache.flink.shaded.netty4.io.netty.buffer.ByteBuf;
 
 import java.io.DataOutput;
 import java.io.IOException;
-import java.io.Serializable;
 import java.util.Arrays;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.bytesToHexString;
@@ -30,7 +29,7 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** The abstract unique identification for the Tiered Storage. */
-public class TieredStorageAbstractId implements TieredStorageDataIdentifier, Serializable {
+public class TieredStorageAbstractId implements TieredStorageDataIdentifier {
 
     private static final long serialVersionUID = -948472905048472823L;
 

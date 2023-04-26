@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
-import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsFullSpillingStrategy;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsSelectiveSpillingStrategy;
@@ -26,7 +25,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFact
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory.MemoryTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierFactory;
-import org.apache.flink.util.StringUtils;
 
 import javax.annotation.Nullable;
 
@@ -39,7 +37,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.HYBRID_SELECTIVE;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /** The configuration for TieredStore. */
 public class TieredStorageConfiguration {
@@ -166,6 +163,10 @@ public class TieredStorageConfiguration {
         this.baseDfsHomePath = baseDfsHomePath;
         this.configuredNetworkBuffersPerChannel = configuredNetworkBuffersPerChannel;
         this.indexedTierConfSpecs = indexedTierConfSpecs;
+    }
+
+    public static TieredStorageConfiguration.Builder builder() {
+        return new TieredStorageConfiguration.Builder();
     }
 
     public static TieredStorageConfiguration.Builder builder(
@@ -321,19 +322,17 @@ public class TieredStorageConfiguration {
 
         private int[] tierIndexes;
 
-        private TierType[] upstreamTierTypes;
-
-        private TierType[] remoteTierTypes;
-
         private String tieredStoreSpillingType;
 
-        private final int numSubpartitions;
+        private int numSubpartitions;
 
         private List<TierConfSpec> tierConfSpecs;
 
         private final List<IndexedTierConfSpec> indexedTierConfSpecs = new ArrayList<>();
 
-        private final int numBuffersPerRequest;
+        private int numBuffersPerRequest;
+
+        private Builder() {}
 
         private Builder(int numSubpartitions, int numBuffersPerRequest) {
             this.numSubpartitions = numSubpartitions;
@@ -426,13 +425,26 @@ public class TieredStorageConfiguration {
         /** Only for test. This method will be removed in the production code. */
         public TieredStorageConfiguration.Builder setTierTypes(
                 String configuredStoreTiers, ResultPartitionType partitionType) {
-            this.tierTypes = getConfiguredTierTypes(configuredStoreTiers, partitionType);
-            this.upstreamTierTypes =
-                    getConfiguredUpstreamTierTypes(configuredStoreTiers, partitionType);
-            this.remoteTierTypes =
-                    getConfiguredRemoteTierTypes(configuredStoreTiers, partitionType);
+            tierTypes = getConfiguredTierTypes(configuredStoreTiers, partitionType);
             // After the method is replaced, these generation of tierConfSpecs is useless.
-            this.tierConfSpecs = new ArrayList<>();
+            tierConfSpecs = new ArrayList<>();
+            indexedTierConfSpecs.clear();
+            for (int i = 0; i < tierTypes.length; i++) {
+                int numExclusive = HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(tierTypes[i]);
+                TierConfSpec tierConfSpec =
+                        new TierConfSpec(
+                                tierTypes[i], numExclusive, tierTypes[i] != TierType.IN_MEM);
+                tierConfSpecs.add(tierConfSpec);
+                indexedTierConfSpecs.add(new IndexedTierConfSpec(i, tierConfSpec));
+            }
+            return this;
+        }
+
+        /** Only for test. This method will be removed in the production code. */
+        public TieredStorageConfiguration.Builder setTierTypes(String configuredStoreTiers) {
+            tierTypes = getConfiguredTierTypes(configuredStoreTiers);
+            // After the method is replaced, these generation of tierConfSpecs is useless.
+            tierConfSpecs = new ArrayList<>();
             indexedTierConfSpecs.clear();
             for (int i = 0; i < tierTypes.length; i++) {
                 int numExclusive = HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(tierTypes[i]);
@@ -484,6 +496,29 @@ public class TieredStorageConfiguration {
                 tierConfSpecs.add(new TierConfSpec(TierType.IN_REMOTE, 1, true));
             }
             return tierConfSpecs;
+        }
+
+        /** Only for test. */
+        private TierType[] getConfiguredTierTypes(String configuredStoreTiers) {
+            switch (configuredStoreTiers) {
+                case "MEMORY":
+                    return createTierTypes(TierType.IN_MEM);
+                case "DISK":
+                    return createTierTypes(TierType.IN_DISK);
+                case "REMOTE":
+                    return createTierTypes(TierType.IN_REMOTE);
+                case "MEMORY_DISK":
+                    createTierTypes(TierType.IN_MEM, TierType.IN_DISK);
+                case "MEMORY_REMOTE":
+                    createTierTypes(TierType.IN_MEM, TierType.IN_REMOTE);
+                case "MEMORY_DISK_REMOTE":
+                    createTierTypes(TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE);
+                case "DISK_REMOTE":
+                    return createTierTypes(TierType.IN_DISK, TierType.IN_REMOTE);
+                default:
+                    throw new IllegalArgumentException(
+                            "Illegal tiers combinations for tiered store.");
+            }
         }
 
         private TierType[] getConfiguredTierTypes(
@@ -564,7 +599,6 @@ public class TieredStorageConfiguration {
         }
 
         public TieredStorageConfiguration build() {
-            validateConfiguredOptions();
             return new TieredStorageConfiguration(
                     maxBuffersReadAhead,
                     bufferRequestTimeout,
@@ -582,18 +616,6 @@ public class TieredStorageConfiguration {
                     baseDfsHomePath,
                     configuredNetworkBuffersPerChannel,
                     indexedTierConfSpecs);
-        }
-
-        private void validateConfiguredOptions() {
-            if (remoteTierTypes.length > 0 && StringUtils.isNullOrWhitespaceOnly(baseDfsHomePath)) {
-                throw new IllegalArgumentException(
-                        String.format(
-                                "Must specify remote storage home path by %s when using DFS in Tiered Store.",
-                                NettyShuffleEnvironmentOptions
-                                        .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH
-                                        .key()));
-            }
-            checkState(tierTypes.length == upstreamTierTypes.length + remoteTierTypes.length);
         }
     }
 
