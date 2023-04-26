@@ -11,8 +11,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
@@ -56,7 +56,8 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         if (!remoteTierMonitor.isExist(inputChannel.getChannelIndex(), segmentId)) {
             return Optional.empty();
         }
-        currentInputStream = remoteTierMonitor.getInputStream(inputChannel.getChannelIndex(), segmentId);
+        currentInputStream =
+                remoteTierMonitor.getInputStream(inputChannel.getChannelIndex(), segmentId);
         if (currentInputStream.available() == 0) {
             currentInputStream.close();
             return Optional.of(
@@ -84,8 +85,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
     private InputChannel.BufferAndAvailability getDfsBuffer(FSDataInputStream inputStream)
             throws IOException {
-        MemorySegment memorySegment =
-                memoryManager.requestBufferBlocking(0);
+        MemorySegment memorySegment = memoryManager.requestBufferBlocking(0);
         Buffer buffer = checkNotNull(readFromInputStream(memorySegment, inputStream));
         return new InputChannel.BufferAndAvailability(buffer, Buffer.DataType.DATA_BUFFER, 0, 0);
     }
@@ -122,7 +122,10 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                 MemorySegmentFactory.wrap(
                         EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE).array());
         return new NetworkBuffer(
-                data, FreeingBufferRecycler.INSTANCE, Buffer.DataType.ADD_SEGMENT_ID_EVENT, data.size());
+                data,
+                FreeingBufferRecycler.INSTANCE,
+                Buffer.DataType.ADD_SEGMENT_ID_EVENT,
+                data.size());
     }
 
     private void recycle(MemorySegment memorySegment) {

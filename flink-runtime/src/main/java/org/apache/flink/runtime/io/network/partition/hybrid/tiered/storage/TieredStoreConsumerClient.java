@@ -10,6 +10,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.SingInputGateConsu
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.IndexedTierConfSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierMonitor;
