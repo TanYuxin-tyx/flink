@@ -26,14 +26,16 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFact
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory.MemoryTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierFactory;
-import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.StringUtils;
 
 import javax.annotation.Nullable;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.HYBRID_SELECTIVE;
@@ -41,6 +43,21 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** The configuration for TieredStore. */
 public class TieredStorageConfiguration {
+
+    protected enum TierType {
+        IN_MEM,
+        IN_DISK,
+        IN_REMOTE,
+    }
+
+    public static final Map<TierType, Integer> HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS =
+            new HashMap<>();
+
+    static {
+        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TierType.IN_MEM, 100);
+        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TierType.IN_DISK, 1);
+        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TierType.IN_REMOTE, 1);
+    }
 
     static TierType[] allTierTypes =
             new TierType[] {TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE};
@@ -262,6 +279,12 @@ public class TieredStorageConfiguration {
         return indexedTierConfSpecs;
     }
 
+    // Only for test
+    public static List<IndexedTierConfSpec> getTestIndexedTierConfSpec() {
+        return Collections.singletonList(
+                new IndexedTierConfSpec(0, new TierConfSpec(TierType.IN_REMOTE, 1, true)));
+    }
+
     /** Builder for {@link TieredStorageConfiguration}. */
     public static class Builder {
         private int maxBuffersReadAhead = DEFAULT_MAX_BUFFERS_READ_AHEAD;
@@ -412,8 +435,7 @@ public class TieredStorageConfiguration {
             this.tierConfSpecs = new ArrayList<>();
             indexedTierConfSpecs.clear();
             for (int i = 0; i < tierTypes.length; i++) {
-                int numExclusive =
-                        NettyShuffleUtils.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(tierTypes[i]);
+                int numExclusive = HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(tierTypes[i]);
                 TierConfSpec tierConfSpec =
                         new TierConfSpec(
                                 tierTypes[i], numExclusive, tierTypes[i] != TierType.IN_MEM);

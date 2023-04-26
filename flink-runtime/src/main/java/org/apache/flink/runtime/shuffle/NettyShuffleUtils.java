@@ -21,16 +21,15 @@ package org.apache.flink.runtime.shuffle;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.GateBuffersSpec;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.partition.consumer.InputGateSpecUtils.createGateBuffersSpec;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -40,15 +39,6 @@ import static org.apache.flink.util.Preconditions.checkState;
  * shuffle environment and also guide network memory announcing in fine-grained resource management.
  */
 public class NettyShuffleUtils {
-
-    public static final Map<TierType, Integer> HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS =
-            new HashMap<>();
-
-    static {
-        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TierType.IN_MEM, 100);
-        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TierType.IN_DISK, 1);
-        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TierType.IN_REMOTE, 1);
-    }
 
     /**
      * Calculates and returns the number of required exclusive network buffers per input channel.

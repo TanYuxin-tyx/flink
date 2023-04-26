@@ -20,19 +20,22 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
 public class TierConfSpec {
 
-    private final TierType tierType;
+    private final TieredStorageConfiguration.TierType tierType;
 
     private final int numExclusiveBuffers;
 
     private final boolean canUseSharedBuffers;
 
-    public TierConfSpec(TierType tierType, int numExclusiveBuffers, boolean canUseSharedBuffers) {
+    public TierConfSpec(
+            TieredStorageConfiguration.TierType tierType,
+            int numExclusiveBuffers,
+            boolean canUseSharedBuffers) {
         this.tierType = tierType;
         this.numExclusiveBuffers = numExclusiveBuffers;
         this.canUseSharedBuffers = canUseSharedBuffers;
     }
 
-    public TierType getTierType() {
+    public TieredStorageConfiguration.TierType getTierType() {
         return tierType;
     }
 

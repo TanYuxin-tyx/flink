@@ -8,8 +8,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInpu
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingInputGateConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.IndexedTierConfSpec;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierConsumerAgent;
@@ -34,11 +33,7 @@ public class TieredStoreConsumerClient implements SingInputGateConsumerClient {
     private final NetworkBufferPool networkBufferPool;
 
     private List<IndexedTierConfSpec> indexedTierConfSpecs =
-            new ArrayList<IndexedTierConfSpec>() {
-                {
-                    add(new IndexedTierConfSpec(0, new TierConfSpec(TierType.IN_REMOTE, 1, true)));
-                }
-            };
+            TieredStorageConfiguration.getTestIndexedTierConfSpec();
 
     private RemoteTierMonitor remoteTierMonitor;
 

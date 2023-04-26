@@ -26,16 +26,13 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferIndexAndSubpartitionId;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /** Test utils for tiered store. */
 public class TieredStoreTestUtils {
@@ -87,13 +84,5 @@ public class TieredStoreTestUtils {
         byteBuffer.putInt(value);
         byteBuffer.flip();
         return byteBuffer;
-    }
-
-    public static Map<TierType, Integer> getTierExclusiveBuffers() {
-        Map<TierType, Integer> tierExclusiveBuffers = new HashMap<>();
-        tierExclusiveBuffers.put(TierType.IN_MEM, 0);
-        tierExclusiveBuffers.put(TierType.IN_DISK, 1);
-        tierExclusiveBuffers.put(TierType.IN_REMOTE, 1);
-        return tierExclusiveBuffers;
     }
 }

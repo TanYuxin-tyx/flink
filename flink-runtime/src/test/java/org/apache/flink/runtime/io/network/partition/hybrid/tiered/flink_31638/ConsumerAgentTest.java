@@ -18,7 +18,6 @@ import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.TestInputChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.IndexedTierConfSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierConsumerAgent;
@@ -114,9 +113,7 @@ public class ConsumerAgentTest {
                 new TieredStorageMemoryManagerImpl(
                         new ArrayList<IndexedTierConfSpec>() {
                             {
-                                add(
-                                        new IndexedTierConfSpec(
-                                                0, new TierConfSpec(TierType.IN_REMOTE, 1, true)));
+                                add(new IndexedTierConfSpec(0, new TierConfSpec(null, 1, true)));
                             }
                         });
         memoryManager.setup(new LocalBufferPool(new NetworkBufferPool(1, 1), 1));
