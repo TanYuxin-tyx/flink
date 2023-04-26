@@ -21,9 +21,9 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageDataIdentifier;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * A registry that maintains local or remote resources that correspond to a certain set of data in
@@ -32,7 +32,7 @@ import java.util.Map;
 public class ResourceRegistry {
 
     private final Map<TieredStorageDataIdentifier, List<TieredResource>> registeredResources =
-            new HashMap<>();
+            new ConcurrentHashMap<>();
 
     /**
      * Register a new resource for the given owner.
