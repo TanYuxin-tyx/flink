@@ -19,8 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.io.network.partition.hybrid.HsFullSpillingStrategy;
-import org.apache.flink.runtime.io.network.partition.hybrid.HsSelectiveSpillingStrategy;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory.MemoryTierFactory;
@@ -63,16 +61,6 @@ public class TieredStorageConfiguration {
 
     private static final Duration DEFAULT_BUFFER_REQUEST_TIMEOUT = Duration.ofMinutes(5);
 
-    private static final float DEFAULT_SELECTIVE_STRATEGY_SPILL_THRESHOLD = 0.7f;
-
-    private static final float DEFAULT_SELECTIVE_STRATEGY_SPILL_BUFFER_RATIO = 0.4f;
-
-    private static final float DEFAULT_FULL_STRATEGY_NUM_BUFFERS_TRIGGER_SPILLED_RATIO = 0.5f;
-
-    private static final float DEFAULT_FULL_STRATEGY_RELEASE_THRESHOLD = 0.7f;
-
-    private static final float DEFAULT_FULL_STRATEGY_RELEASE_BUFFER_RATIO = 0.4f;
-
     private static final float DEFAULT_TIERED_STORE_BUFFER_IN_MEMORY_RATIO = 0.4f;
 
     private static final float DEFAULT_TIERED_STORE_FLUSH_BUFFER_RATIO = 0.2f;
@@ -100,22 +88,6 @@ public class TieredStorageConfiguration {
     // For Memory Tier
     private final int configuredNetworkBuffersPerChannel;
 
-    // ----------------------------------------
-    //        Selective Spilling Strategy
-    // ----------------------------------------
-    private final float selectiveStrategySpillThreshold;
-
-    private final float selectiveStrategySpillBufferRatio;
-
-    // ----------------------------------------
-    //        Full Spilling Strategy
-    // ----------------------------------------
-    private final float fullStrategyNumBuffersTriggerSpillingRatio;
-
-    private final float fullStrategyReleaseThreshold;
-
-    private final float fullStrategyReleaseBufferRatio;
-
     private final float tieredStoreBufferInMemoryRatio;
 
     private final float tieredStoreFlushBufferRatio;
@@ -133,11 +105,6 @@ public class TieredStorageConfiguration {
             int maxBuffersReadAhead,
             Duration bufferRequestTimeout,
             int maxRequestedBuffers,
-            float selectiveStrategySpillThreshold,
-            float selectiveStrategySpillBufferRatio,
-            float fullStrategyNumBuffersTriggerSpillingRatio,
-            float fullStrategyReleaseThreshold,
-            float fullStrategyReleaseBufferRatio,
             float tieredStoreBufferInMemoryRatio,
             float tieredStoreFlushBufferRatio,
             float tieredStoreTriggerFlushRatio,
@@ -149,12 +116,6 @@ public class TieredStorageConfiguration {
         this.maxBuffersReadAhead = maxBuffersReadAhead;
         this.bufferRequestTimeout = bufferRequestTimeout;
         this.maxRequestedBuffers = maxRequestedBuffers;
-        this.selectiveStrategySpillThreshold = selectiveStrategySpillThreshold;
-        this.selectiveStrategySpillBufferRatio = selectiveStrategySpillBufferRatio;
-        this.fullStrategyNumBuffersTriggerSpillingRatio =
-                fullStrategyNumBuffersTriggerSpillingRatio;
-        this.fullStrategyReleaseThreshold = fullStrategyReleaseThreshold;
-        this.fullStrategyReleaseBufferRatio = fullStrategyReleaseBufferRatio;
         this.tieredStoreBufferInMemoryRatio = tieredStoreBufferInMemoryRatio;
         this.tieredStoreFlushBufferRatio = tieredStoreFlushBufferRatio;
         this.tieredStoreTriggerFlushRatio = tieredStoreTriggerFlushRatio;
@@ -192,40 +153,6 @@ public class TieredStorageConfiguration {
      */
     public Duration getBufferRequestTimeout() {
         return bufferRequestTimeout;
-    }
-
-    /**
-     * When the number of buffers that have been requested exceeds this threshold, trigger the
-     * spilling operation. Used by {@link HsSelectiveSpillingStrategy}.
-     */
-    public float getSelectiveStrategySpillThreshold() {
-        return selectiveStrategySpillThreshold;
-    }
-
-    /** The proportion of buffers to be spilled. Used by {@link HsSelectiveSpillingStrategy}. */
-    public float getSelectiveStrategySpillBufferRatio() {
-        return selectiveStrategySpillBufferRatio;
-    }
-
-    /**
-     * When the number of unSpilled buffers equal to this ratio times pool size, trigger the
-     * spilling operation. Used by {@link HsFullSpillingStrategy}.
-     */
-    public float getFullStrategyNumBuffersTriggerSpillingRatio() {
-        return fullStrategyNumBuffersTriggerSpillingRatio;
-    }
-
-    /**
-     * When the number of buffers that have been requested exceeds this threshold, trigger the
-     * release operation. Used by {@link HsFullSpillingStrategy}.
-     */
-    public float getFullStrategyReleaseThreshold() {
-        return fullStrategyReleaseThreshold;
-    }
-
-    /** The proportion of buffers to be released. Used by {@link HsFullSpillingStrategy}. */
-    public float getFullStrategyReleaseBufferRatio() {
-        return fullStrategyReleaseBufferRatio;
     }
 
     public float getTieredStoreBufferInMemoryRatio() {
@@ -292,18 +219,6 @@ public class TieredStorageConfiguration {
 
         private Duration bufferRequestTimeout = DEFAULT_BUFFER_REQUEST_TIMEOUT;
 
-        private float selectiveStrategySpillThreshold = DEFAULT_SELECTIVE_STRATEGY_SPILL_THRESHOLD;
-
-        private float selectiveStrategySpillBufferRatio =
-                DEFAULT_SELECTIVE_STRATEGY_SPILL_BUFFER_RATIO;
-
-        private float fullStrategyNumBuffersTriggerSpillingRatio =
-                DEFAULT_FULL_STRATEGY_NUM_BUFFERS_TRIGGER_SPILLED_RATIO;
-
-        private float fullStrategyReleaseThreshold = DEFAULT_FULL_STRATEGY_RELEASE_THRESHOLD;
-
-        private float fullStrategyReleaseBufferRatio = DEFAULT_FULL_STRATEGY_RELEASE_BUFFER_RATIO;
-
         private float tieredStoreBufferInMemoryRatio = DEFAULT_TIERED_STORE_BUFFER_IN_MEMORY_RATIO;
 
         private float tieredStoreFlushBufferRatio = DEFAULT_TIERED_STORE_FLUSH_BUFFER_RATIO;
@@ -319,10 +234,6 @@ public class TieredStorageConfiguration {
         private int configuredNetworkBuffersPerChannel;
 
         private TierType[] tierTypes;
-
-        private int[] tierIndexes;
-
-        private String tieredStoreSpillingType;
 
         private int numSubpartitions;
 
@@ -347,37 +258,6 @@ public class TieredStorageConfiguration {
         public TieredStorageConfiguration.Builder setBufferRequestTimeout(
                 Duration bufferRequestTimeout) {
             this.bufferRequestTimeout = bufferRequestTimeout;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setSelectiveStrategySpillThreshold(
-                float selectiveStrategySpillThreshold) {
-            this.selectiveStrategySpillThreshold = selectiveStrategySpillThreshold;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setSelectiveStrategySpillBufferRatio(
-                float selectiveStrategySpillBufferRatio) {
-            this.selectiveStrategySpillBufferRatio = selectiveStrategySpillBufferRatio;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setFullStrategyNumBuffersTriggerSpillingRatio(
-                float fullStrategyNumBuffersTriggerSpillingRatio) {
-            this.fullStrategyNumBuffersTriggerSpillingRatio =
-                    fullStrategyNumBuffersTriggerSpillingRatio;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setFullStrategyReleaseThreshold(
-                float fullStrategyReleaseThreshold) {
-            this.fullStrategyReleaseThreshold = fullStrategyReleaseThreshold;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setFullStrategyReleaseBufferRatio(
-                float fullStrategyReleaseBufferRatio) {
-            this.fullStrategyReleaseBufferRatio = fullStrategyReleaseBufferRatio;
             return this;
         }
 
@@ -468,10 +348,8 @@ public class TieredStorageConfiguration {
         public TieredStorageConfiguration.Builder setTierSpecs(List<TierConfSpec> tierConfSpecs) {
             this.tierConfSpecs = tierConfSpecs;
             this.tierTypes = new TierType[tierConfSpecs.size()];
-            this.tierIndexes = new int[tierConfSpecs.size()];
             for (int i = 0; i < tierConfSpecs.size(); i++) {
                 tierTypes[i] = tierConfSpecs.get(i).getTierType();
-                tierIndexes[i] = getTierIndexFromType(tierTypes[i]);
                 IndexedTierConfSpec indexedTierConfSpec =
                         new IndexedTierConfSpec(i, tierConfSpecs.get(i));
                 indexedTierConfSpecs.add(indexedTierConfSpec);
@@ -603,11 +481,6 @@ public class TieredStorageConfiguration {
                     maxBuffersReadAhead,
                     bufferRequestTimeout,
                     Math.max(2 * numBuffersPerRequest, numSubpartitions),
-                    selectiveStrategySpillThreshold,
-                    selectiveStrategySpillBufferRatio,
-                    fullStrategyNumBuffersTriggerSpillingRatio,
-                    fullStrategyReleaseThreshold,
-                    fullStrategyReleaseBufferRatio,
                     tieredStoreBufferInMemoryRatio,
                     tieredStoreFlushBufferRatio,
                     tieredStoreTriggerFlushRatio,
@@ -617,14 +490,5 @@ public class TieredStorageConfiguration {
                     configuredNetworkBuffersPerChannel,
                     indexedTierConfSpecs);
         }
-    }
-
-    private static int getTierIndexFromType(TierType tierType) {
-        for (int i = 0; i < allTierTypes.length; i++) {
-            if (tierType == allTierTypes[i]) {
-                return i;
-            }
-        }
-        throw new IllegalArgumentException("No such a tier type " + tierType);
     }
 }
