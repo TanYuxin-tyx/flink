@@ -38,7 +38,7 @@ public class LocalTierFactory implements TierFactory {
 
     @Override
     public TierConsumerAgent createConsumerAgent() {
-        return null;
+        return new LocalTierConsumerAgent();
     }
 
     @Override
