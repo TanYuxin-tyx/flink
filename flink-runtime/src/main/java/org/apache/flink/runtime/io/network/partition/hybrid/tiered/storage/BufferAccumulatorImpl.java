@@ -76,6 +76,6 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     @Override
     public void close() {
-        tierProducerAgents.forEach(TierProducerAgent::close);
+        cachedBuffer.close();
     }
 }

@@ -127,6 +127,7 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
     @Override
     public void close() {
         bufferAccumulator.close();
+        tierProducerAgents.forEach(TierProducerAgent::close);
     }
 
     @Override

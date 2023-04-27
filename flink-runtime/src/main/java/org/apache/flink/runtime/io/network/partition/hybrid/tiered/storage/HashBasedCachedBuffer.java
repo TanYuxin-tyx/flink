@@ -24,9 +24,17 @@ import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiConsumer;
 
+/**
+ * The hash-based mode to accumulate the records. Each subpartition use a {@link
+ * SubpartitionCachedBuffer} to accumulate the received records.
+ *
+ * <p>Note that {@link #setup} need an argument of buffer flush listener to accept the finished
+ * accumulated buffers.
+ */
 public class HashBasedCachedBuffer {
 
     private final int numSubpartitions;
@@ -65,6 +73,10 @@ public class HashBasedCachedBuffer {
         } catch (InterruptedException e) {
             ExceptionUtils.rethrow(e);
         }
+    }
+
+    public void close() {
+        Arrays.stream(subpartitionCachedBuffers).forEach(SubpartitionCachedBuffer::close);
     }
 
     private SubpartitionCachedBuffer getCachedBuffer(TieredStorageSubpartitionId subpartitionId) {

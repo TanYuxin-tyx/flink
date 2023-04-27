@@ -38,7 +38,14 @@ import java.util.function.BiConsumer;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
+/**
+ * {@link SubpartitionCachedBuffer} accumulates the records in a subpartition.
+ *
+ * <p>Note that {@link #setup} need an argument of buffer flush listener to accept the finished
+ * accumulated buffers.
+ */
 public class SubpartitionCachedBuffer {
 
     private final TieredStorageSubpartitionId subpartitionId;
@@ -70,7 +77,7 @@ public class SubpartitionCachedBuffer {
     }
 
     // ------------------------------------------------------------------------
-    //  Called by MemoryDataManager
+    //  Called by HashBasedCachedBuffer
     // ------------------------------------------------------------------------
 
     public void append(ByteBuffer record, Buffer.DataType dataType)
@@ -80,6 +87,10 @@ public class SubpartitionCachedBuffer {
         } else {
             writeRecord(record, dataType);
         }
+    }
+
+    public void close() {
+        checkState(unfinishedBuffers.isEmpty(), "There are unfinished buffers.");
     }
 
     // ------------------------------------------------------------------------
@@ -99,8 +110,7 @@ public class SubpartitionCachedBuffer {
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size()));
     }
 
-    private void writeRecord(ByteBuffer record, Buffer.DataType dataType)
-            throws InterruptedException {
+    private void writeRecord(ByteBuffer record, Buffer.DataType dataType) {
         checkArgument(!dataType.isEvent());
 
         ensureCapacityForRecord(record);
@@ -108,7 +118,7 @@ public class SubpartitionCachedBuffer {
         writeRecord(record);
     }
 
-    private void ensureCapacityForRecord(ByteBuffer record) throws InterruptedException {
+    private void ensureCapacityForRecord(ByteBuffer record) {
         final int numRecordBytes = record.remaining();
         int availableBytes =
                 Optional.ofNullable(unfinishedBuffers.peek())
@@ -167,9 +177,6 @@ public class SubpartitionCachedBuffer {
                         buffer.getSize()));
     }
 
-    @SuppressWarnings("FieldAccessNotGuarded")
-    // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
-    // subpartitionLock.
     private void addFinishedBuffer(Buffer finishedBuffer) {
         bufferFlusher.accept(subpartitionId, Collections.singletonList(finishedBuffer));
     }
