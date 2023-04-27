@@ -21,9 +21,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.serv
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 
-import javax.annotation.Nullable;
-
 import java.io.IOException;
+import java.util.Optional;
 
 /**
  * For each {@link NettyBufferQueue}, there will be a corresponding {@link
@@ -38,8 +37,7 @@ public interface NettyServiceView {
      * @return buffer and backlog.
      * @throws IOException is thrown if there is a failure.
      */
-    @Nullable
-    ResultSubpartition.BufferAndBacklog getNextBuffer() throws IOException;
+    Optional<ResultSubpartition.BufferAndBacklog> getNextBuffer() throws IOException;
 
     /**
      * Get availability and backlog of {@link NettyBufferQueue}.
@@ -86,13 +84,6 @@ public interface NettyServiceView {
      * @throws IOException happened during releasing the view.
      */
     void release() throws IOException;
-
-    /**
-     * Return the release status.
-     *
-     * @return if the view is released.
-     */
-    boolean isReleased();
 
     /**
      * Get the failure cause when getting next buffer.

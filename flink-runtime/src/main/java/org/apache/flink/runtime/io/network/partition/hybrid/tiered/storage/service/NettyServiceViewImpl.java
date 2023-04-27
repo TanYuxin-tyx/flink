@@ -77,14 +77,14 @@ public class NettyServiceViewImpl implements NettyServiceView {
 
     @Nullable
     @Override
-    public BufferAndBacklog getNextBuffer() throws IOException {
+    public Optional<BufferAndBacklog> getNextBuffer() throws IOException {
         try {
             synchronized (viewLock) {
                 checkNotNull(nettyBufferQueue, "Consumer must be not null.");
                 Optional<BufferAndBacklog> bufferToConsume =
                         nettyBufferQueue.getNextBuffer(consumingOffset + 1);
                 updateConsumingStatus(bufferToConsume);
-                return bufferToConsume.orElse(null);
+                return bufferToConsume;
             }
         } catch (Throwable cause) {
             releaseInternal(cause);
@@ -130,13 +130,6 @@ public class NettyServiceViewImpl implements NettyServiceView {
     @Override
     public void release() throws IOException {
         releaseInternal(null);
-    }
-
-    @Override
-    public boolean isReleased() {
-        synchronized (viewLock) {
-            return isReleased;
-        }
     }
 
     @Override

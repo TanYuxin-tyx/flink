@@ -28,6 +28,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEGMENT_ID_EVENT;
 
@@ -72,14 +73,14 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         if (stopSendingData || !findTierReaderViewIndex()) {
             return null;
         }
-        BufferAndBacklog bufferAndBacklog =
+        Optional<BufferAndBacklog> bufferAndBacklog =
                 registeredTierConsumerViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
-        if (bufferAndBacklog != null) {
-            stopSendingData = bufferAndBacklog.buffer().getDataType() == ADD_SEGMENT_ID_EVENT;
-            bufferAndBacklog.setSequenceNumber(currentSequenceNumber);
+        if (bufferAndBacklog.isPresent()) {
+            stopSendingData = bufferAndBacklog.get().buffer().getDataType() == ADD_SEGMENT_ID_EVENT;
+            bufferAndBacklog.get().setSequenceNumber(currentSequenceNumber);
             currentSequenceNumber++;
         }
-        return bufferAndBacklog;
+        return bufferAndBacklog.orElse(null);
     }
 
     @Override
