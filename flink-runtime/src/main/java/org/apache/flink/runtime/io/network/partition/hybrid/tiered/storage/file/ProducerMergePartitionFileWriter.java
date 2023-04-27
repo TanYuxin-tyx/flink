@@ -110,13 +110,13 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
             List<BufferContext> toWrite,
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
-        for (BufferContext bufferWithIdentity : toWrite) {
-            Buffer buffer = bufferWithIdentity.getBuffer();
+        for (BufferContext bufferContext : toWrite) {
+            Buffer buffer = bufferContext.getBuffer();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
                     new RegionBufferIndexTracker.SpilledBuffer(
-                            bufferWithIdentity.getBufferIndexAndChannel().getSubpartitionId(),
-                            bufferWithIdentity.getBufferIndexAndChannel().getBufferIndex(),
+                            bufferContext.getSubpartitionId(),
+                            bufferContext.getBufferIndex(),
                             totalBytesWritten + expectedBytes));
             expectedBytes += numBytes;
         }

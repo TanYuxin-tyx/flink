@@ -141,7 +141,7 @@ public class ProducerMergePartitionSubpartitionReaderImpl
                 checkNotNull(loadedBuffer.getBuffer()).recycleBuffer();
             }
         }
-        loadedBuffers.add(new BufferContext(null, null, failureCause));
+        loadedBuffers.add(new BufferContext(failureCause));
         tierConsumerView.notifyDataAvailable();
     }
 

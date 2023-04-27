@@ -28,24 +28,21 @@ import javax.annotation.Nullable;
  */
 public class BufferContext {
 
-    @Nullable private final Buffer buffer;
-
-    @Nullable private final BufferIndexAndSubpartitionId bufferIndexAndSubpartitionId;
+    @Nullable private Buffer buffer;
 
     @Nullable private Throwable throwable;
 
+    private int bufferIndex;
+
+    private int subpartitionId;
+
     public BufferContext(@Nullable Buffer buffer, int bufferIndex, int subpartitionId) {
-        this.bufferIndexAndSubpartitionId =
-                new BufferIndexAndSubpartitionId(bufferIndex, subpartitionId);
         this.buffer = buffer;
+        this.bufferIndex = bufferIndex;
+        this.subpartitionId = subpartitionId;
     }
 
-    public BufferContext(
-            @Nullable Buffer buffer,
-            @Nullable BufferIndexAndSubpartitionId bufferIndexAndSubpartitionId,
-            @Nullable Throwable throwable) {
-        this.buffer = buffer;
-        this.bufferIndexAndSubpartitionId = bufferIndexAndSubpartitionId;
+    public BufferContext(@Nullable Throwable throwable) {
         this.throwable = throwable;
     }
 
@@ -55,12 +52,15 @@ public class BufferContext {
     }
 
     @Nullable
-    public BufferIndexAndSubpartitionId getBufferIndexAndChannel() {
-        return bufferIndexAndSubpartitionId;
-    }
-
-    @Nullable
     public Throwable getThrowable() {
         return throwable;
+    }
+
+    public int getBufferIndex() {
+        return bufferIndex;
+    }
+
+    public int getSubpartitionId() {
+        return subpartitionId;
     }
 }

@@ -52,7 +52,7 @@ public class NettyBufferQueueImpl implements NettyBufferQueue {
         Buffer.DataType nextDataType =
                 next == null ? Buffer.DataType.NONE : checkNotNull(next.getBuffer()).getDataType();
         int backlog = bufferQueue.size();
-        int bufferIndex = checkNotNull(current.getBufferIndexAndChannel()).getBufferIndex();
+        int bufferIndex = current.getBufferIndex();
         return Optional.of(
                 BufferAndBacklog.fromBufferAndLookahead(
                         current.getBuffer(), nextDataType, backlog, bufferIndex));
@@ -89,9 +89,7 @@ public class NettyBufferQueueImpl implements NettyBufferQueue {
         if (peek.getThrowable() != null) {
             throw peek.getThrowable();
         }
-        checkState(
-                checkNotNull(peek.getBufferIndexAndChannel()).getBufferIndex()
-                        == expectedBufferIndex);
+        checkState(peek.getBufferIndex() == expectedBufferIndex);
         return Optional.of(peek);
     }
 }
