@@ -19,6 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -27,41 +29,45 @@ import java.util.function.BiConsumer;
 
 public class HashBasedCachedBuffer {
 
-    private final int numConsumers;
+    private final int numSubpartitions;
 
     private final SubpartitionCachedBuffer[] subpartitionCachedBuffers;
 
     HashBasedCachedBuffer(
-            int numConsumers,
+            int numSubpartitions,
             int bufferSize,
             TieredStorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager) {
-        this.numConsumers = numConsumers;
-        this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numConsumers];
+        this.numSubpartitions = numSubpartitions;
+        this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numSubpartitions];
 
-        for (int i = 0; i < numConsumers; i++) {
+        for (int i = 0; i < numSubpartitions; i++) {
             subpartitionCachedBuffers[i] =
                     new SubpartitionCachedBuffer(
-                            i, bufferSize, storageMemoryManager, cacheFlushManager);
+                            new TieredStorageSubpartitionId(i),
+                            bufferSize,
+                            storageMemoryManager,
+                            cacheFlushManager);
         }
     }
 
-    public void setup(BiConsumer<Integer, List<Buffer>> bufferFlusher) {
-        for (int i = 0; i < numConsumers; i++) {
+    public void setup(BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher) {
+        for (int i = 0; i < numSubpartitions; i++) {
             subpartitionCachedBuffers[i].setup(bufferFlusher);
         }
     }
 
-    public void append(ByteBuffer record, int consumerId, Buffer.DataType dataType)
+    public void append(
+            ByteBuffer record, TieredStorageSubpartitionId subpartitionId, Buffer.DataType dataType)
             throws IOException {
         try {
-            getCachedBuffer(consumerId).append(record, dataType);
+            getCachedBuffer(subpartitionId).append(record, dataType);
         } catch (InterruptedException e) {
-            throw new IOException(e);
+            ExceptionUtils.rethrow(e);
         }
     }
 
-    private SubpartitionCachedBuffer getCachedBuffer(int consumerId) {
-        return subpartitionCachedBuffers[consumerId];
+    private SubpartitionCachedBuffer getCachedBuffer(TieredStorageSubpartitionId subpartitionId) {
+        return subpartitionCachedBuffers[subpartitionId.getSubpartitionId()];
     }
 }

@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory.MemoryTierProducerAgent;
@@ -104,15 +105,17 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
 
     @Override
     public void emit(
-            ByteBuffer record, int consumerId, Buffer.DataType dataType, boolean isBroadcast)
+            ByteBuffer record, int subpartitionId, Buffer.DataType dataType, boolean isBroadcast)
             throws IOException {
 
         if (isBroadcast && !isBroadcastOnly) {
             for (int i = 0; i < numConsumers; ++i) {
-                bufferAccumulator.receive(record.duplicate(), i, dataType);
+                bufferAccumulator.receive(
+                        record.duplicate(), new TieredStorageSubpartitionId(i), dataType);
             }
         } else {
-            bufferAccumulator.receive(record, consumerId, dataType);
+            bufferAccumulator.receive(
+                    record, new TieredStorageSubpartitionId(subpartitionId), dataType);
         }
     }
 
@@ -131,7 +134,8 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         tierProducerAgents.forEach(TierProducerAgent::release);
     }
 
-    public void writeFinishedBuffers(int subpartitionId, List<Buffer> finishedBuffers) {
+    public void writeFinishedBuffers(
+            TieredStorageSubpartitionId subpartitionId, List<Buffer> finishedBuffers) {
         try {
             writeBuffers(subpartitionId, finishedBuffers);
         } catch (IOException e) {
@@ -139,21 +143,24 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         }
     }
 
-    void writeBuffers(int subpartitionId, List<Buffer> finishedBuffers) throws IOException {
+    void writeBuffers(TieredStorageSubpartitionId subpartitionId, List<Buffer> finishedBuffers)
+            throws IOException {
         for (Buffer finishedBuffer : finishedBuffers) {
             writeFinishedBuffer(subpartitionId, finishedBuffer);
         }
     }
 
-    private void writeFinishedBuffer(int subpartitionId, Buffer finishedBuffer) throws IOException {
-        int tierIndex = subpartitionWriterIndex[subpartitionId];
+    private void writeFinishedBuffer(
+            TieredStorageSubpartitionId subpartitionId, Buffer finishedBuffer) throws IOException {
+        int subpartitionIndex = subpartitionId.getSubpartitionId();
+        int tierIndex = subpartitionWriterIndex[subpartitionIndex];
         // For the first buffer
         if (tierIndex == -1) {
-            tierIndex = chooseStorageTierIndex(subpartitionId);
-            subpartitionWriterIndex[subpartitionId] = tierIndex;
+            tierIndex = chooseStorageTierIndex(subpartitionIndex);
+            subpartitionWriterIndex[subpartitionIndex] = tierIndex;
         }
 
-        int segmentIndex = subpartitionSegmentIndexes[subpartitionId];
+        int segmentIndex = subpartitionSegmentIndexes[subpartitionIndex];
         if (finishedBuffer.getDataType().isBuffer()) {
             storageMemoryManager.decNumRequestedBufferInAccumulator();
             storageMemoryManager.incNumRequestedBuffer(tierIndex);
@@ -168,17 +175,17 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
                         finishedBuffer.getSize());
         Buffer compressedBuffer = compressBufferIfPossible(networkBuffer);
         updateStatistics(compressedBuffer);
-        if (segmentIndex != lastSubpartitionSegmentIndexes[subpartitionId]) {
-            tierProducerAgents.get(tierIndex).startSegment(subpartitionId, segmentIndex);
-            lastSubpartitionSegmentIndexes[subpartitionId] = segmentIndex;
+        if (segmentIndex != lastSubpartitionSegmentIndexes[subpartitionIndex]) {
+            tierProducerAgents.get(tierIndex).startSegment(subpartitionIndex, segmentIndex);
+            lastSubpartitionSegmentIndexes[subpartitionIndex] = segmentIndex;
         }
         boolean isLastBufferInSegment =
-                tierProducerAgents.get(tierIndex).write(subpartitionId, compressedBuffer);
+                tierProducerAgents.get(tierIndex).write(subpartitionIndex, compressedBuffer);
         cacheFlushManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
-            tierIndex = chooseStorageTierIndex(subpartitionId);
-            subpartitionWriterIndex[subpartitionId] = tierIndex;
-            subpartitionSegmentIndexes[subpartitionId] = (segmentIndex + 1);
+            tierIndex = chooseStorageTierIndex(subpartitionIndex);
+            subpartitionWriterIndex[subpartitionIndex] = tierIndex;
+            subpartitionSegmentIndexes[subpartitionIndex] = (segmentIndex + 1);
         }
     }
 

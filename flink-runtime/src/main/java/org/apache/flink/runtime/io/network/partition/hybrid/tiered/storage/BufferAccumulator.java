@@ -19,29 +19,41 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.function.BiConsumer;
 
+/**
+ * Accumulates received records into buffers. The {@link BufferAccumulator} receives the records
+ * from tiered store producer and the records will accumulate and transform into buffers.
+ */
 public interface BufferAccumulator {
 
     /**
      * Setup the accumulator.
      *
      * @param numSubpartitions number of subpartitions
-     * @param bufferFlusher accepts the accumulated buffers. The index of the outer list corresponds
-     *     to the subpartition ids, while each inner list contains accumulated buffers in order for
-     *     that subpartition.
+     * @param bufferFlusher accepts the accumulated buffers. The first field is the subpartition id,
+     *     while the list in the second field contains accumulated buffers in order for that
+     *     subpartition.
      */
-    void setup(int numSubpartitions, BiConsumer<Integer, List<Buffer>> bufferFlusher);
+    void setup(
+            int numSubpartitions,
+            BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher);
 
     /**
-     * Receives the records from {@link TieredStorageProducerClient}, these records will be
-     * accumulated and transformed into finished buffers.
+     * Receives the records from tiered store producer, these records will be accumulated and
+     * transformed into finished buffers.
      */
-    void receive(ByteBuffer record, int consumerId, Buffer.DataType dataType) throws IOException;
+    void receive(
+            ByteBuffer record, TieredStorageSubpartitionId subpartitionId, Buffer.DataType dataType)
+            throws IOException;
 
+    /**
+     * Close the accumulator. This will flush all the remaining data and release all the resources.
+     */
     void close();
 }

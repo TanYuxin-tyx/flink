@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -40,7 +41,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 public class SubpartitionCachedBuffer {
 
-    private final int consumerId;
+    private final TieredStorageSubpartitionId subpartitionId;
 
     private final int bufferSize;
 
@@ -48,23 +49,23 @@ public class SubpartitionCachedBuffer {
 
     private final CacheFlushManager cacheFlushManager;
 
-    private BiConsumer<Integer, List<Buffer>> bufferFlusher;
+    private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher;
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
     public SubpartitionCachedBuffer(
-            int consumerId,
+            TieredStorageSubpartitionId subpartitionId,
             int bufferSize,
             TieredStorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager) {
-        this.consumerId = consumerId;
+        this.subpartitionId = subpartitionId;
         this.bufferSize = bufferSize;
         this.storageMemoryManager = storageMemoryManager;
         this.cacheFlushManager = cacheFlushManager;
     }
 
-    public void setup(BiConsumer<Integer, List<Buffer>> bufferFlusher) {
+    public void setup(BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher) {
         this.bufferFlusher = bufferFlusher;
     }
 
@@ -170,7 +171,7 @@ public class SubpartitionCachedBuffer {
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
     private void addFinishedBuffer(Buffer finishedBuffer) {
-        bufferFlusher.accept(consumerId, Collections.singletonList(finishedBuffer));
+        bufferFlusher.accept(subpartitionId, Collections.singletonList(finishedBuffer));
     }
 
     public BufferBuilder requestBufferFromPool() {
