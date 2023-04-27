@@ -192,15 +192,6 @@ class NettyBasedTierConsumerViewTest {
     }
 
     @Test
-    void testUpdateNeedNotifyStatus() {
-        NettyServiceView nettyServiceView = createNettyServiceView();
-        nettyServiceView.notifyDataAvailable();
-        assertThat(((NettyServiceViewImpl) nettyServiceView).getNeedNotifyStatus()).isFalse();
-        nettyServiceView.updateNeedNotifyStatus();
-        assertThat(((NettyServiceViewImpl) nettyServiceView).getNeedNotifyStatus()).isTrue();
-    }
-
-    @Test
     void testRelease() throws Exception {
         NettyServiceView nettyServiceView = createNettyServiceView();
         CompletableFuture<Void> releaseFuture = new CompletableFuture<>();

@@ -128,15 +128,6 @@ public class NettyServiceViewImpl implements NettyServiceView {
     }
 
     @Override
-    public void updateNeedNotifyStatus() {
-        synchronized (viewLock) {
-            if (unsynchronizedGetNumberOfQueuedBuffers() == 0) {
-                needNotify = true;
-            }
-        }
-    }
-
-    @Override
     public void release() throws IOException {
         releaseInternal(null);
     }

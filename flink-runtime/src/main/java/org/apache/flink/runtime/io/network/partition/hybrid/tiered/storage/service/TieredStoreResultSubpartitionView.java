@@ -170,9 +170,6 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     // -------------------------------
 
     private boolean findTierReaderViewIndex() {
-        for (NettyServiceView nettyServiceView : registeredTierConsumerViews) {
-            nettyServiceView.updateNeedNotifyStatus();
-        }
         for (int viewIndex = 0; viewIndex < segmentSearchers.size(); viewIndex++) {
             SegmentSearcher segmentSearcher = segmentSearchers.get(viewIndex);
             if (segmentSearcher.hasCurrentSegment(subpartitionId, requiredSegmentId)) {

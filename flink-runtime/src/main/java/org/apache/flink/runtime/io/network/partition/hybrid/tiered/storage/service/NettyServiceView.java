@@ -55,9 +55,6 @@ public interface NettyServiceView {
      */
     void setNettyBufferQueue(NettyBufferQueue nettyBufferQueue);
 
-    /** Update the need notify status of {@link NettyBufferQueue}. */
-    void updateNeedNotifyStatus();
-
     /** Notify that {@link NettyBufferQueue} is available. */
     void notifyDataAvailable();
 
