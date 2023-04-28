@@ -29,7 +29,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
@@ -149,7 +148,7 @@ public class ProducerMergePartitionFileReader
         synchronized (lock) {
             checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
             lazyInitialize();
-            Deque<BufferContext> bufferQueue = new LinkedBlockingDeque<>();
+            LinkedBlockingDeque<BufferContext> bufferQueue = new LinkedBlockingDeque<>();
             ProducerMergePartitionSubpartitionReader subpartitionReader =
                     new ProducerMergePartitionSubpartitionReaderImpl(
                             subpartitionId,

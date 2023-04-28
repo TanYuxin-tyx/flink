@@ -28,16 +28,15 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyBufferQueue;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyBufferQueueImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyBufferQueue;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -65,7 +64,7 @@ public class SubpartitionMemoryDataManager {
     private int finishedBufferIndex;
 
     @GuardedBy("subpartitionLock")
-    private final Deque<BufferContext> allBuffers = new LinkedBlockingDeque<>();
+    private final LinkedBlockingDeque<BufferContext> allBuffers = new LinkedBlockingDeque<>();
 
     private final Map<NettyServiceViewId, NettyBufferQueue> consumerMap;
 

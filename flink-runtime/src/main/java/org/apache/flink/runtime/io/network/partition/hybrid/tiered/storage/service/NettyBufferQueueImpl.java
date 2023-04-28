@@ -22,8 +22,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
-import java.util.Deque;
 import java.util.Optional;
+import java.util.concurrent.LinkedBlockingDeque;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -31,13 +31,13 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** The implementation of {@link NettyBufferQueue}. */
 public class NettyBufferQueueImpl implements NettyBufferQueue {
 
-    private final Deque<BufferContext> bufferQueue;
+    private final LinkedBlockingDeque<BufferContext> bufferQueue;
 
     private final Runnable releaseNotifier;
 
     private boolean isReleased;
 
-    public NettyBufferQueueImpl(Deque<BufferContext> bufferQueue, Runnable releaseNotifier) {
+    public NettyBufferQueueImpl(LinkedBlockingDeque<BufferContext> bufferQueue, Runnable releaseNotifier) {
         this.bufferQueue = bufferQueue;
         this.releaseNotifier = releaseNotifier;
     }
