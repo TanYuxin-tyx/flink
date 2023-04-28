@@ -66,7 +66,6 @@ class BufferAccumulatorImplTest {
                 createStorageMemoryManager(numBuffers);
         BufferAccumulatorImpl bufferAccumulator =
                 new BufferAccumulatorImpl(
-                        Collections.emptyList(),
                         TieredStorageTestUtils.NETWORK_BUFFER_SIZE,
                         tieredStorageMemoryManager,
                         new CacheFlushManager(
@@ -117,7 +116,6 @@ class BufferAccumulatorImplTest {
                 createStorageMemoryManager(numBuffers);
         BufferAccumulatorImpl bufferAccumulator =
                 new BufferAccumulatorImpl(
-                        Collections.emptyList(),
                         TieredStorageTestUtils.NETWORK_BUFFER_SIZE,
                         tieredStorageMemoryManager,
                         new CacheFlushManager(

@@ -21,7 +21,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -36,8 +35,6 @@ import java.util.function.BiConsumer;
  */
 public class BufferAccumulatorImpl implements BufferAccumulator {
 
-    private final List<TierProducerAgent> tierProducerAgents;
-
     private final int bufferSize;
 
     private final TieredStorageMemoryManager storageMemoryManager;
@@ -47,11 +44,9 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
     private HashBasedCachedBuffer cachedBuffer;
 
     public BufferAccumulatorImpl(
-            List<TierProducerAgent> tierProducerAgents,
             int bufferSize,
             TieredStorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager) {
-        this.tierProducerAgents = tierProducerAgents;
         this.bufferSize = bufferSize;
         this.storageMemoryManager = storageMemoryManager;
         this.cacheFlushManager = cacheFlushManager;

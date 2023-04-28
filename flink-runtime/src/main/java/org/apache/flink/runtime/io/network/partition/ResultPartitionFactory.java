@@ -290,10 +290,7 @@ public class ResultPartitionFactory {
 
                 BufferAccumulator bufferAccumulator =
                         new BufferAccumulatorImpl(
-                                tierProducerAgents,
-                                networkBufferSize,
-                                storageMemoryManager,
-                                cacheFlushManager);
+                                networkBufferSize, storageMemoryManager, cacheFlushManager);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(
                                 subpartitions.length,
