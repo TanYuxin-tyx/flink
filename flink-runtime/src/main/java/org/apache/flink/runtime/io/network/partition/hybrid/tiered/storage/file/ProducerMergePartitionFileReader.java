@@ -4,12 +4,12 @@ import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyBufferQueue;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyBufferQueueImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
@@ -82,6 +82,8 @@ public class ProducerMergePartitionFileReader
     @GuardedBy("lock")
     private volatile boolean isReleased;
 
+    private NettyService nettyService;
+
     public ProducerMergePartitionFileReader(
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
@@ -89,7 +91,8 @@ public class ProducerMergePartitionFileReader
             Path dataFilePath,
             int maxRequestedBuffers,
             Duration bufferRequestTimeout,
-            int maxBufferReadAhead) {
+            int maxBufferReadAhead,
+            NettyService nettyService) {
         this.dataIndex = checkNotNull(dataIndex);
         this.dataFilePath = checkNotNull(dataFilePath);
         this.bufferPool = checkNotNull(bufferPool);
@@ -97,6 +100,7 @@ public class ProducerMergePartitionFileReader
         this.maxRequestedBuffers = maxRequestedBuffers;
         this.bufferRequestTimeout = checkNotNull(bufferRequestTimeout);
         this.maxBufferReadAhead = maxBufferReadAhead;
+        this.nettyService = nettyService;
     }
 
     /** Setup read buffer pool. */
@@ -140,10 +144,10 @@ public class ProducerMergePartitionFileReader
     }
 
     @Override
-    public NettyBufferQueue createNettyBufferQueue(
+    public NettyServiceView registerNettyService(
             int subpartitionId,
             NettyServiceViewId nettyServiceViewId,
-            NettyServiceView tierConsumerView)
+            BufferAvailabilityListener availabilityListener)
             throws IOException {
         synchronized (lock) {
             checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
@@ -157,17 +161,16 @@ public class ProducerMergePartitionFileReader
                             headerBuf,
                             nettyServiceViewId,
                             dataFileChannel,
-                            tierConsumerView,
                             dataIndex);
+            NettyServiceView nettyServiceView = nettyService.register(bufferQueue, availabilityListener, () -> {
+                synchronized (lock) {
+                    removeSubpartitionReaders(Collections.singleton(subpartitionReader));
+                }
+            });
+            subpartitionReader.setNettyServiceView(nettyServiceView);
             allSubpartitionReaders.add(subpartitionReader);
             mayTriggerReading();
-            return new NettyBufferQueueImpl(
-                    bufferQueue,
-                    () -> {
-                        synchronized (lock) {
-                            removeSubpartitionReaders(Collections.singleton(subpartitionReader));
-                        }
-                    });
+            return nettyServiceView;
         }
     }
 

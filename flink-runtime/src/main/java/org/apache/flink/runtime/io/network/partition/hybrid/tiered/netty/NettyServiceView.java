@@ -48,11 +48,6 @@ public interface NettyServiceView {
     ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable);
 
-    /**
-     * Set the {@link NettyBufferQueue} to the view.
-     */
-    void setNettyBufferQueue(NettyBufferQueue nettyBufferQueue);
-
     /** Notify that {@link NettyBufferQueue} is available. */
     void notifyDataAvailable();
 

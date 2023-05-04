@@ -27,21 +27,22 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyBufferQueue;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyBufferQueueImpl;
+import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.LinkedBlockingDeque;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -66,20 +67,24 @@ public class SubpartitionMemoryDataManager {
     @GuardedBy("subpartitionLock")
     private final LinkedBlockingDeque<BufferContext> allBuffers = new LinkedBlockingDeque<>();
 
-    private final Map<NettyServiceViewId, NettyBufferQueue> consumerMap;
+    private final Set<NettyServiceViewId> consumerSet;
 
     @Nullable private final BufferCompressor bufferCompressor;
+
+    private NettyService nettyService;
 
     public SubpartitionMemoryDataManager(
             int targetChannel,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
-            MemoryTierProducerAgentOperation memoryTierProducerAgentOperation) {
+            MemoryTierProducerAgentOperation memoryTierProducerAgentOperation,
+            NettyService nettyService) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
         this.memoryTierProducerAgentOperation = memoryTierProducerAgentOperation;
         this.bufferCompressor = bufferCompressor;
-        this.consumerMap = new HashMap<>();
+        this.consumerSet = new HashSet<>();
+        this.nettyService = nettyService;
     }
 
     // ------------------------------------------------------------------------
@@ -99,22 +104,24 @@ public class SubpartitionMemoryDataManager {
         allBuffers.clear();
     }
 
-    public NettyBufferQueue registerNewConsumer(
-            NettyServiceViewId nettyServiceViewId) {
-        checkState(!consumerMap.containsKey(nettyServiceViewId));
-        NettyBufferQueueImpl nettyServiceProviderImpl =
-                new NettyBufferQueueImpl(
+    public NettyServiceView registerNettyService(
+            NettyServiceViewId nettyServiceViewId,
+            BufferAvailabilityListener availabilityListener) {
+        checkState(!consumerSet.contains(nettyServiceViewId));
+        NettyServiceView nettyServiceView =
+                nettyService.register(
                         allBuffers,
+                        availabilityListener,
                         () ->
                                 memoryTierProducerAgentOperation.onConsumerReleased(
                                         targetChannel, nettyServiceViewId));
-        consumerMap.put(nettyServiceViewId, nettyServiceProviderImpl);
-        return nettyServiceProviderImpl;
+        consumerSet.add(nettyServiceViewId);
+        return nettyServiceView;
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
     public void releaseConsumer(NettyServiceViewId nettyServiceViewId) {
-        checkNotNull(consumerMap.remove(nettyServiceViewId));
+        checkNotNull(consumerSet.remove(nettyServiceViewId));
     }
 
     // ------------------------------------------------------------------------
@@ -182,13 +189,12 @@ public class SubpartitionMemoryDataManager {
     }
 
     private void addFinishedBuffer(BufferContext bufferContext) {
-        List<NettyServiceViewId> needNotify = new ArrayList<>(consumerMap.size());
+        List<NettyServiceViewId> needNotify = new ArrayList<>(consumerSet.size());
         finishedBufferIndex++;
         allBuffers.add(bufferContext);
-        for (Map.Entry<NettyServiceViewId, NettyBufferQueue> consumerEntry :
-                consumerMap.entrySet()) {
+        for (NettyServiceViewId consumerEntry : consumerSet) {
             if (allBuffers.size() <= 1) {
-                needNotify.add(consumerEntry.getKey());
+                needNotify.add(consumerEntry);
             }
         }
         memoryTierProducerAgentOperation.onDataAvailable(targetChannel, needNotify);

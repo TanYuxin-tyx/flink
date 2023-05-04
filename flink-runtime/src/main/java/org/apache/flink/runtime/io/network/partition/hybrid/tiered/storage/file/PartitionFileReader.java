@@ -1,6 +1,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyBufferQueue;
+import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
 
@@ -14,10 +14,10 @@ public interface PartitionFileReader {
 
     int read();
 
-    NettyBufferQueue createNettyBufferQueue(
+    NettyServiceView registerNettyService(
             int subpartitionId,
             NettyServiceViewId nettyServiceViewId,
-            NettyServiceView tierConsumerView)
+            BufferAvailabilityListener availabilityListener)
             throws IOException;
 
     void release();

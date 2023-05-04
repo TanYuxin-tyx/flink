@@ -36,13 +36,12 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClient;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewProvider;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStoreResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
@@ -175,16 +174,12 @@ public class TieredResultPartition extends ResultPartition {
         List<SegmentSearcher> segmentSearchers = new ArrayList<>();
         List<NettyServiceView> nettyServiceViews = new ArrayList<>();
         for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
-            if (tierProducerAgent instanceof NettyServiceViewProvider
-                    && tierProducerAgent instanceof SegmentSearcher) {
-                NettyServiceViewProvider tierConsumerViewProvider =
-                        (NettyServiceViewProvider) tierProducerAgent;
-                NettyServiceView nettyServiceView =
-                        checkNotNull(
-                                tierConsumerViewProvider.createNettyBasedTierConsumerView(
-                                        subpartitionId, availabilityListener));
-                segmentSearchers.add((SegmentSearcher) tierProducerAgent);
+            NettyServiceView nettyServiceView = tierProducerAgent.registerNettyService(
+                    subpartitionId,
+                    availabilityListener);
+            if (nettyServiceView != null) {
                 nettyServiceViews.add(nettyServiceView);
+                segmentSearchers.add((SegmentSearcher) tierProducerAgent);
             }
         }
         return new TieredStoreResultSubpartitionView(

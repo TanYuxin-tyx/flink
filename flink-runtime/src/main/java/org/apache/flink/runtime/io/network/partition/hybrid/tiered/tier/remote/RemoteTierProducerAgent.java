@@ -20,6 +20,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTrackerImpl;
@@ -68,6 +70,13 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.subpartitionLastestSegmentId = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
+    }
+
+    @Override
+    public NettyServiceView registerNettyService(
+            int subpartitionId,
+            BufferAvailabilityListener availabilityListener) throws IOException {
+        return null;
     }
 
     @Override

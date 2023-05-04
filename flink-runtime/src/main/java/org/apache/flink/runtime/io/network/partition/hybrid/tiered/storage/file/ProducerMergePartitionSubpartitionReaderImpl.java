@@ -50,7 +50,7 @@ public class ProducerMergePartitionSubpartitionReaderImpl
 
     private final FileChannel dataFileChannel;
 
-    private final NettyServiceView tierConsumerView;
+    private  NettyServiceView nettyServiceView;
 
     private final RegionCache regionCache;
 
@@ -73,17 +73,20 @@ public class ProducerMergePartitionSubpartitionReaderImpl
             ByteBuffer headerBuf,
             NettyServiceViewId nettyServiceViewId,
             FileChannel dataFileChannel,
-            NettyServiceView tierConsumerView,
             RegionBufferIndexTracker dataIndex) {
         this.subpartitionId = subpartitionId;
         this.nettyServiceViewId = nettyServiceViewId;
         this.dataFileChannel = dataFileChannel;
         this.loadedBuffers = loadedBuffers;
-        this.tierConsumerView = tierConsumerView;
         this.headerBuf = headerBuf;
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.dataIndex = dataIndex;
         this.regionCache = new RegionCache();
+    }
+
+    @Override
+    public void setNettyServiceView(NettyServiceView nettyServiceView) {
+        this.nettyServiceView = nettyServiceView;
     }
 
     public synchronized void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
@@ -126,7 +129,7 @@ public class ProducerMergePartitionSubpartitionReaderImpl
             ++numLoaded;
         }
         if (loadedBuffers.size() <= numLoaded) {
-            tierConsumerView.notifyDataAvailable();
+            nettyServiceView.notifyDataAvailable();
         }
     }
 
@@ -142,7 +145,7 @@ public class ProducerMergePartitionSubpartitionReaderImpl
             }
         }
         loadedBuffers.add(new BufferContext(failureCause));
-        tierConsumerView.notifyDataAvailable();
+        nettyServiceView.notifyDataAvailable();
     }
 
     @Override

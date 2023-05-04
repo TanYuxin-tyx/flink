@@ -23,12 +23,14 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -57,22 +59,18 @@ public class NettyServiceViewImpl implements NettyServiceView {
     @GuardedBy("viewLock")
     private boolean isReleased = false;
 
-    @Nullable
     @GuardedBy("viewLock")
-    private NettyBufferQueue nettyBufferQueue;
+    private final Queue<BufferContext> bufferQueue;
 
-    public NettyServiceViewImpl(BufferAvailabilityListener availabilityListener) {
+    private final Runnable serviceReleaser;
+
+    public NettyServiceViewImpl(
+            Queue<BufferContext> bufferQueue,
+            Runnable serviceReleaser,
+            BufferAvailabilityListener availabilityListener) {
+        this.bufferQueue = bufferQueue;
+        this.serviceReleaser = serviceReleaser;
         this.availabilityListener = availabilityListener;
-    }
-
-    @Override
-    public void setNettyBufferQueue(NettyBufferQueue nettyBufferQueue) {
-        synchronized (viewLock) {
-            checkState(
-                    this.nettyBufferQueue == null,
-                    "Repeatedly set netty buffer queue is not allowed.");
-            this.nettyBufferQueue = nettyBufferQueue;
-        }
     }
 
     @Nullable
@@ -80,9 +78,28 @@ public class NettyServiceViewImpl implements NettyServiceView {
     public Optional<BufferAndBacklog> getNextBuffer() throws IOException {
         try {
             synchronized (viewLock) {
-                checkNotNull(nettyBufferQueue, "Consumer must be not null.");
-                Optional<BufferAndBacklog> bufferToConsume =
-                        nettyBufferQueue.getNextBuffer(consumingOffset + 1);
+                checkNotNull(bufferQueue, "Consumer must be not null.");
+
+                Optional<BufferAndBacklog> bufferToConsume;
+                if (!checkBufferIndex(consumingOffset + 1).isPresent()) {
+                    bufferToConsume = Optional.empty();
+                } else {
+                    BufferContext current = checkNotNull(bufferQueue.poll());
+                    BufferContext next = bufferQueue.peek();
+                    Buffer.DataType nextDataType =
+                            next == null
+                                    ? Buffer.DataType.NONE
+                                    : checkNotNull(next.getBuffer()).getDataType();
+                    int backlog = bufferQueue.size();
+                    int bufferIndex = current.getBufferIndex();
+                    bufferToConsume =
+                            Optional.of(
+                                    BufferAndBacklog.fromBufferAndLookahead(
+                                            current.getBuffer(),
+                                            nextDataType,
+                                            backlog,
+                                            bufferIndex));
+                }
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume;
             }
@@ -151,10 +168,10 @@ public class NettyServiceViewImpl implements NettyServiceView {
 
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
-        if (nettyBufferQueue == null) {
+        if (bufferQueue == null) {
             return 0;
         }
-        return nettyBufferQueue.getBacklog();
+        return bufferQueue.size();
     }
 
     @Override
@@ -192,17 +209,31 @@ public class NettyServiceViewImpl implements NettyServiceView {
     }
 
     private void releaseInternal(@Nullable Throwable throwable) {
-        boolean releaseConsumer;
         synchronized (viewLock) {
             if (isReleased) {
                 return;
             }
             isReleased = true;
+            BufferContext bufferContext;
+            while ((bufferContext = bufferQueue.poll()) != null) {
+                if (bufferContext.getBuffer() != null) {
+                    checkNotNull(bufferContext.getBuffer()).recycleBuffer();
+                }
+            }
             failureCause = throwable;
-            releaseConsumer = nettyBufferQueue != null;
         }
-        if (releaseConsumer) {
-            nettyBufferQueue.release();
+        serviceReleaser.run();
+    }
+
+    private Optional<BufferContext> checkBufferIndex(int expectedBufferIndex) throws Throwable {
+        if (bufferQueue.isEmpty()) {
+            return Optional.empty();
         }
+        BufferContext peek = bufferQueue.peek();
+        if (peek.getThrowable() != null) {
+            throw peek.getThrowable();
+        }
+        checkState(peek.getBufferIndex() == expectedBufferIndex);
+        return Optional.of(peek);
     }
 }

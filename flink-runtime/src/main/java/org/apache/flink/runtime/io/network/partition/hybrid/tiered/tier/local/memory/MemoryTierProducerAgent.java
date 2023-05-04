@@ -23,15 +23,13 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyBufferQueue;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewProvider;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
@@ -49,10 +47,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
 public class MemoryTierProducerAgent
-        implements TierProducerAgent,
-                NettyServiceViewProvider,
-                MemoryTierProducerAgentOperation,
-                SegmentSearcher {
+        implements TierProducerAgent, MemoryTierProducerAgentOperation, SegmentSearcher {
 
     public static final int BROADCAST_CHANNEL = 0;
 
@@ -92,7 +87,8 @@ public class MemoryTierProducerAgent
             TieredStorageMemoryManager storageMemoryManager,
             boolean isBroadcastOnly,
             BufferCompressor bufferCompressor,
-            int bufferSize) {
+            int bufferSize,
+            NettyService nettyService) {
         this.tierIndex = tierIndex;
         this.numSubpartitions = numSubpartitions;
         this.isBroadcastOnly = isBroadcastOnly;
@@ -108,31 +104,35 @@ public class MemoryTierProducerAgent
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionMemoryDataManagers[subpartitionId] =
                     new SubpartitionMemoryDataManager(
-                            subpartitionId, bufferSize, bufferCompressor, this);
+                            subpartitionId, bufferSize, bufferCompressor, this, nettyService);
             subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
         }
     }
 
     @Override
-    public NettyServiceView createNettyBasedTierConsumerView(
+    public NettyServiceView registerNettyService(
             int subpartitionId, BufferAvailabilityListener availabilityListener) {
         // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
-        NettyServiceViewImpl memoryReaderView = new NettyServiceViewImpl(availabilityListener);
+        // NettyServiceViewImpl memoryReaderView = new NettyServiceViewImpl(availabilityListener);
         NettyServiceViewId lastNettyServiceViewId = lastNettyServiceViewIds[subpartitionId];
         checkMultipleConsumerIsAllowed(lastNettyServiceViewId);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
         NettyServiceViewId nettyServiceViewId = NettyServiceViewId.newId(lastNettyServiceViewId);
         lastNettyServiceViewIds[subpartitionId] = nettyServiceViewId;
-
-        NettyBufferQueue nettyBufferQueue =
-                createMemoryNettyBufferQueue(subpartitionId, nettyServiceViewId, memoryReaderView);
-
-        memoryReaderView.setNettyBufferQueue(nettyBufferQueue);
-        return memoryReaderView;
+        NettyServiceView nettyServiceView =
+                subpartitionMemoryDataManagers[subpartitionId].registerNettyService(
+                        nettyServiceViewId, availabilityListener);
+        NettyServiceView oldView =
+                subpartitionViewOperationsMap
+                        .get(subpartitionId)
+                        .put(nettyServiceViewId, nettyServiceView);
+        Preconditions.checkState(
+                oldView == null, "Each subpartition view should have unique consumerId.");
+        return nettyServiceView;
     }
 
     @Override
@@ -206,20 +206,6 @@ public class MemoryTierProducerAgent
 
     private void append(Buffer finishedBuffer, int targetChannel) {
         getSubpartitionMemoryDataManager(targetChannel).addFinishedBuffer(finishedBuffer);
-    }
-
-    public NettyBufferQueue createMemoryNettyBufferQueue(
-            int subpartitionId,
-            NettyServiceViewId nettyServiceViewId,
-            NettyServiceView viewOperations) {
-        NettyServiceView oldView =
-                subpartitionViewOperationsMap
-                        .get(subpartitionId)
-                        .put(nettyServiceViewId, viewOperations);
-        Preconditions.checkState(
-                oldView == null, "Each subpartition view should have unique consumerId.");
-        return getSubpartitionMemoryDataManager(subpartitionId)
-                .registerNewConsumer(nettyServiceViewId);
     }
 
     @Override

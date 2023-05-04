@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.m
 
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -51,13 +52,15 @@ public class MemoryTierFactory extends LocalTierFactory {
             int networkBufferSize,
             TieredStorageMemoryManager storageMemoryManager,
             BufferCompressor bufferCompressor,
-            CacheFlushManager cacheFlushManager) {
+            CacheFlushManager cacheFlushManager,
+            NettyService nettyService) {
         return new MemoryTierProducerAgent(
                 tierIndex,
                 numSubpartitions,
                 storageMemoryManager,
                 isBroadcastOnly,
                 bufferCompressor,
-                networkBufferSize);
+                networkBufferSize,
+                nettyService);
     }
 }
