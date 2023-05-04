@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceViewId;
 
 import java.util.List;
 import java.util.Optional;

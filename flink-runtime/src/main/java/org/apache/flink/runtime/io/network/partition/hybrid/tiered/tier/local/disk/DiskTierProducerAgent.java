@@ -33,11 +33,11 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyBufferQueue;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceViewImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceViewProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyBufferQueue;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceViewImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceViewProvider;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 

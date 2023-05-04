@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty;
 
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;

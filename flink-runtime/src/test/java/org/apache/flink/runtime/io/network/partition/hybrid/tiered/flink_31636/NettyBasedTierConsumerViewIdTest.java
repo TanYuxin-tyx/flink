@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.flink_31636;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceViewId;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

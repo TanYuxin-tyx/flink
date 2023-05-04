@@ -19,7 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.flink_31636;
 
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyBufferQueue;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyBufferQueue;
 import org.apache.flink.util.function.FunctionWithException;
 
 import java.util.Optional;

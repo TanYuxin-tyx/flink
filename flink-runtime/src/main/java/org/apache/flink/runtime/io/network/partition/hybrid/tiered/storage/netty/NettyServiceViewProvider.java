@@ -16,34 +16,26 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty;
 
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
+import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 
-import java.util.Optional;
+import java.io.IOException;
 
 /**
- * The {@link NettyBufferQueue} is a queue containing data buffers. It provides buffer and backlog
- * number to the netty service.
+ * {@link NettyServiceViewProvider} is used to create the view of {@link NettyBufferQueue} for
+ * each tier.
  */
-public interface NettyBufferQueue {
+public interface NettyServiceViewProvider {
 
     /**
-     * Get buffer from the queue.
+     * Create the netty based consumer view.
      *
-     * @param bufferIndex the buffer index to consume.
-     * @return the required buffer.
-     * @throws Throwable happened during getting next buffer.
+     * @param subpartitionId indicate the index of consumed subpartition.
+     * @param availabilityListener is used to notify the available status.
+     * @return the netty based consumer view
+     * @throws IOException if the consumer view cannot be created.
      */
-    Optional<BufferAndBacklog> getNextBuffer(int bufferIndex) throws Throwable;
-
-    /**
-     * Get the number of backlog in the queue.
-     *
-     * @return backlog number.
-     */
-    int getBacklog();
-
-    /** Release the buffer queue. */
-    void release();
+    NettyServiceView createNettyBasedTierConsumerView(
+            int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
 }

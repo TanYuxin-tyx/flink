@@ -16,13 +16,12 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStoreConsumerFailureCause;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceView;
 
 import javax.annotation.Nullable;
 
@@ -32,10 +31,7 @@ import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEGMENT_ID_EVENT;
 
-/**
- * The {@link TieredStoreResultSubpartitionView} is the implementation of {@link
- * TieredStoreNettyService}.
- */
+/** The {@link TieredStoreResultSubpartitionView} is the implementation. */
 public class TieredStoreResultSubpartitionView implements ResultSubpartitionView {
 
     private final BufferAvailabilityListener availabilityListener;

@@ -38,10 +38,12 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClient;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.TieredStoreNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.TieredStoreNettyServiceImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceViewProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStoreResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.concurrent.FutureUtils;
@@ -51,6 +53,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -77,8 +80,6 @@ public class TieredResultPartition extends ResultPartition {
     private final ResourceRegistry resourceRegistry;
 
     private final TieredStoragePartitionId storagePartitionId;
-
-    private TieredStoreNettyService tieredStoreNettyService;
 
     public TieredResultPartition(
             String owningTaskName,
@@ -122,7 +123,6 @@ public class TieredResultPartition extends ResultPartition {
         }
         storageMemoryManager.setup(bufferPool);
         cacheFlushManager.setup(storageMemoryManager);
-        tieredStoreNettyService = new TieredStoreNettyServiceImpl(tierProducerAgents);
         resourceRegistry.registerResource(storagePartitionId, tieredStorageProducerClient::release);
         resourceRegistry.registerResource(storagePartitionId, storageMemoryManager::release);
     }
@@ -172,7 +172,23 @@ public class TieredResultPartition extends ResultPartition {
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         checkState(!isReleased(), "ResultPartition already released.");
-        return tieredStoreNettyService.register(subpartitionId, availabilityListener);
+        List<SegmentSearcher> segmentSearchers = new ArrayList<>();
+        List<NettyServiceView> nettyServiceViews = new ArrayList<>();
+        for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
+            if (tierProducerAgent instanceof NettyServiceViewProvider
+                    && tierProducerAgent instanceof SegmentSearcher) {
+                NettyServiceViewProvider tierConsumerViewProvider =
+                        (NettyServiceViewProvider) tierProducerAgent;
+                NettyServiceView nettyServiceView =
+                        checkNotNull(
+                                tierConsumerViewProvider.createNettyBasedTierConsumerView(
+                                        subpartitionId, availabilityListener));
+                segmentSearchers.add((SegmentSearcher) tierProducerAgent);
+                nettyServiceViews.add(nettyServiceView);
+            }
+        }
+        return new TieredStoreResultSubpartitionView(
+                subpartitionId, availabilityListener, segmentSearchers, nettyServiceViews);
     }
 
     @Override

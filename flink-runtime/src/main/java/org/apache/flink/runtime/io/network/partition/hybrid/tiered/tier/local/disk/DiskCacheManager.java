@@ -29,8 +29,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Cache
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.service.NettyServiceView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceView;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
