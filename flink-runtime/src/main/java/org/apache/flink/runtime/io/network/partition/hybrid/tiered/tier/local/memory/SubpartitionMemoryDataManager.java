@@ -28,9 +28,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyBufferQueue;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyBufferQueueImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyBufferQueue;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyBufferQueueImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;

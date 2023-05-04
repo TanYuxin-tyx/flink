@@ -19,7 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
 import org.apache.flink.util.function.TriFunction;
 
 import java.util.List;

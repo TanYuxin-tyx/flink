@@ -1,8 +1,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyBufferQueue;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyBufferQueue;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
 
 import java.io.IOException;
 

@@ -41,8 +41,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Resou
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClient;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyServiceViewProvider;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewProvider;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStoreResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;

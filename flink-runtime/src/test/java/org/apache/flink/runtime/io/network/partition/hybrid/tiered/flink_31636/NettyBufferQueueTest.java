@@ -6,7 +6,7 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.netty.NettyBufferQueue;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyBufferQueue;
 
 import org.junit.jupiter.api.Test;
 
