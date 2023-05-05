@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 public class RemoteTierFactory implements TierFactory {
+
     @Override
     public TierMasterAgent createMasterAgent(
             ResourceRegistry resourceRegistry, @Nullable String remoteStorageBaseHomePath) {
@@ -85,8 +86,7 @@ public class RemoteTierFactory implements TierFactory {
 
         List<IndexedTierConfSpec> indexedTierConfSpecs =
                 TieredStorageConfiguration.getTestIndexedTierConfSpec();
-        TieredStorageMemoryManager tieredStoreMemoryManager =
-                null;
+        TieredStorageMemoryManager tieredStoreMemoryManager = null;
         try {
             tieredStoreMemoryManager = new TieredStorageMemoryManagerImpl(indexedTierConfSpecs);
             tieredStoreMemoryManager.setup(networkBufferPool.createBufferPool(1, 1));

@@ -1107,24 +1107,17 @@ public class SingleInputGate extends IndexedInputGate {
 
     public Optional<InputChannel> getChannel(boolean blocking) throws InterruptedException {
         assert Thread.holdsLock(inputChannelsWithData);
-        LOG.debug("getChannel 1");
         while (inputChannelsWithData.isEmpty()) {
-            LOG.debug("getChannel 2");
             if (closeFuture.isDone()) {
-                LOG.debug("getChannel 3");
                 throw new IllegalStateException("Released");
             }
-            LOG.debug("getChannel 4");
             if (blocking) {
-                LOG.debug("getChannel 5");
                 inputChannelsWithData.wait();
             } else {
-                LOG.debug("getChannel 6");
                 availabilityHelper.resetUnavailable();
                 return Optional.empty();
             }
         }
-        LOG.debug("getChannel 7");
         InputChannel inputChannel = inputChannelsWithData.poll();
         enqueuedInputChannelsWithData.clear(inputChannel.getChannelIndex());
 
