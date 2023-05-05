@@ -59,8 +59,7 @@ public class TieredStorageConsumerClient {
         }
     }
 
-    public Optional<Buffer> getNextBuffer(int subpartitionId)
-            throws IOException, InterruptedException {
+    public Optional<Buffer> getNextBuffer(int subpartitionId) {
         Optional<Buffer> bufferAndAvailability = Optional.empty();
         for (TierConsumerAgent tiereConsumerAgent : tierConsumerAgents) {
             bufferAndAvailability =
