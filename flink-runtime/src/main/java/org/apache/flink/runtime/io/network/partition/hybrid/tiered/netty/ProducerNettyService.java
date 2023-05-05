@@ -7,7 +7,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Buffe
 import java.util.Optional;
 import java.util.Queue;
 
-/** The implementation of {@link NettyService}. */
+/** The implementation of {@link NettyService} in producer side. */
 public class ProducerNettyService implements NettyService {
 
     @Override
