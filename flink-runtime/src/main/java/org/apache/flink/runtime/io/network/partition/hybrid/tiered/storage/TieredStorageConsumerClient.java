@@ -1,9 +1,9 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
@@ -60,14 +60,8 @@ public class TieredStorageConsumerClient {
         }
     }
 
-    public Optional<InputChannel.BufferAndAvailability> getNextBuffer(int subpartitionId)
+    public Optional<Buffer> getNextBuffer(int subpartitionId)
             throws IOException, InterruptedException {
-
-        // if (inputChannel.getClass() == LocalRecoveredInputChannel.class
-        //        || inputChannel.getClass() == RemoteRecoveredInputChannel.class) {
-        //    return inputChannel.getNextBuffer();
-        // }
-
         return subpartitionConsumerClients[subpartitionId].getNextBuffer(subpartitionId);
     }
 

@@ -117,7 +117,7 @@ public class RemoteTierMonitor implements Runnable {
                 }
             }
             if (isEnqueue) {
-                consumerNettyService.notifyResultSubpartitionAvailable(channelIndex);
+                consumerNettyService.notifyResultSubpartitionAvailable(channelIndex, false);
             }
         }
     }

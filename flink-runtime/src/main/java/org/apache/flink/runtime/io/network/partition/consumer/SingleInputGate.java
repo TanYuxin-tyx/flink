@@ -285,9 +285,9 @@ public class SingleInputGate extends IndexedInputGate {
                                 baseRemoteStoragePath,
                                 new ConsumerNettyService(
                                         channels,
-                                        subpartitionId ->
+                                        (subpartitionId, priority) ->
                                                 queueChannel(
-                                                        channels[subpartitionId], null, false)))
+                                                        channels[subpartitionId], null, priority)))
                         : null;
     }
 
@@ -787,9 +787,12 @@ public class SingleInputGate extends IndexedInputGate {
         if (closeFuture.isDone()) {
             throw new CancelTaskException("Input gate is already closed.");
         }
-
-        Optional<InputWithData<InputChannel, BufferAndAvailability>> next =
-                waitAndGetNextData(blocking);
+        Optional<InputWithData<InputChannel, Buffer>> next;
+        if (tieredStorageConsumerClient != null) {
+            next = waitAndGetNextDataFromTieredStore(blocking);
+        } else {
+            next = waitAndGetNextData(blocking);
+        }
         if (!next.isPresent()) {
             throughputCalculator.pauseMeasurement();
             return Optional.empty();
@@ -797,10 +800,10 @@ public class SingleInputGate extends IndexedInputGate {
 
         throughputCalculator.resumeMeasurement();
 
-        InputWithData<InputChannel, BufferAndAvailability> inputWithData = next.get();
+        InputWithData<InputChannel, Buffer> inputWithData = next.get();
         final BufferOrEvent bufferOrEvent =
                 transformToBufferOrEvent(
-                        inputWithData.data.buffer(),
+                        inputWithData.data,
                         inputWithData.moreAvailable,
                         inputWithData.input,
                         inputWithData.morePriorityEvents);
@@ -808,8 +811,8 @@ public class SingleInputGate extends IndexedInputGate {
         return Optional.of(bufferOrEvent);
     }
 
-    public Optional<InputWithData<InputChannel, BufferAndAvailability>> waitAndGetNextData(
-            boolean blocking) throws IOException, InterruptedException {
+    public Optional<InputWithData<InputChannel, Buffer>> waitAndGetNextData(boolean blocking)
+            throws IOException, InterruptedException {
         while (true) {
             synchronized (inputChannelsWithData) {
                 Optional<InputChannel> inputChannelOpt = getChannel(blocking);
@@ -817,13 +820,8 @@ public class SingleInputGate extends IndexedInputGate {
                     return Optional.empty();
                 }
                 final InputChannel inputChannel = inputChannelOpt.get();
-                Optional<BufferAndAvailability> bufferAndAvailabilityOpt;
-                if (tieredStorageConsumerClient != null) {
-                    bufferAndAvailabilityOpt =
-                            tieredStorageConsumerClient.getNextBuffer(inputChannel.getChannelIndex());
-                } else {
-                    bufferAndAvailabilityOpt = inputChannel.getNextBuffer();
-                }
+                Optional<BufferAndAvailability> bufferAndAvailabilityOpt =
+                        inputChannel.getNextBuffer();
                 if (!bufferAndAvailabilityOpt.isPresent()) {
                     checkUnavailability();
                     continue;
@@ -850,7 +848,43 @@ public class SingleInputGate extends IndexedInputGate {
                 return Optional.of(
                         new InputWithData<>(
                                 inputChannel,
-                                bufferAndAvailability,
+                                bufferAndAvailability.buffer(),
+                                !inputChannelsWithData.isEmpty(),
+                                morePriorityEvents));
+            }
+        }
+    }
+
+    public Optional<InputWithData<InputChannel, Buffer>> waitAndGetNextDataFromTieredStore(
+            boolean blocking) throws IOException, InterruptedException {
+        while (true) {
+            synchronized (inputChannelsWithData) {
+                Optional<InputChannel> inputChannelOpt = getChannel(blocking);
+                if (!inputChannelOpt.isPresent()) {
+                    return Optional.empty();
+                }
+                final InputChannel inputChannel = inputChannelOpt.get();
+                Optional<Buffer> bufferOpt =
+                        tieredStorageConsumerClient.getNextBuffer(inputChannel.getChannelIndex());
+                if (!bufferOpt.isPresent()) {
+                    checkUnavailability();
+                    continue;
+                }
+
+                // final BufferAndAvailability bufferAndAvailability =
+                // bufferAndAvailabilityOpt.get();
+                // if (bufferAndAvailability.moreAvailable()) {
+                //    // enqueue the inputChannel at the end to avoid starvation
+                //    queueChannelUnsafe(inputChannel, bufferAndAvailability.morePriorityEvents());
+                // }
+
+                final boolean morePriorityEvents =
+                        inputChannelsWithData.getNumPriorityElements() > 0;
+                checkUnavailability();
+                return Optional.of(
+                        new InputWithData<>(
+                                inputChannel,
+                                bufferOpt.get(),
                                 !inputChannelsWithData.isEmpty(),
                                 morePriorityEvents));
             }

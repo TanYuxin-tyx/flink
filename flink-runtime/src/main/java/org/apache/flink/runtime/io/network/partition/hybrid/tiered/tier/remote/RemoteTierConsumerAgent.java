@@ -10,7 +10,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 
@@ -35,11 +35,12 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     public RemoteTierConsumerAgent(
             int numInputChannels,
             TieredStorageMemoryManager memoryManager,
-            RemoteTierMonitor remoteTierMonitor) {
+            RemoteTierMonitor remoteTierMonitor,
+            NettyService consumerNettyService) {
         this.remoteTierMonitor = remoteTierMonitor;
         consumerAgents = new SubpartitionConsumerAgent[numInputChannels];
         for (int index = 0; index < numInputChannels; ++index) {
-            consumerAgents[index] = new SubpartitionConsumerAgent(memoryManager, remoteTierMonitor);
+            consumerAgents[index] = new SubpartitionConsumerAgent(memoryManager, remoteTierMonitor, consumerNettyService);
         }
     }
 
@@ -49,10 +50,9 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     }
 
     @Override
-    public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
-            int subpartitionId, int segmentId) throws IOException, InterruptedException {
-        return consumerAgents[subpartitionId].getNextBuffer(
-                subpartitionId, segmentId);
+    public Optional<Buffer> getNextBuffer(int subpartitionId, int segmentId)
+            throws IOException, InterruptedException {
+        return consumerAgents[subpartitionId].getNextBuffer(subpartitionId, segmentId);
     }
 
     @Override
@@ -70,20 +70,25 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
         private final RemoteTierMonitor remoteTierMonitor;
 
+        private final NettyService consumerNettyService;
+
         private FSDataInputStream currentInputStream;
 
         private int latestSegmentId = -1;
 
         private SubpartitionConsumerAgent(
-                TieredStorageMemoryManager memoryManager, RemoteTierMonitor remoteTierMonitor) {
+                TieredStorageMemoryManager memoryManager,
+                RemoteTierMonitor remoteTierMonitor,
+                NettyService consumerNettyService) {
             this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
             headerBuffer.order(ByteOrder.nativeOrder());
             this.memoryManager = memoryManager;
             this.remoteTierMonitor = remoteTierMonitor;
+            this.consumerNettyService = consumerNettyService;
         }
 
-        public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
-                int subpartitionId, int segmentId) throws IOException {
+        public Optional<Buffer> getNextBuffer(int subpartitionId, int segmentId)
+                throws IOException {
             if (segmentId != latestSegmentId) {
                 remoteTierMonitor.requireSegmentId(subpartitionId, segmentId);
                 latestSegmentId = segmentId;
@@ -91,17 +96,12 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             if (!remoteTierMonitor.isExist(subpartitionId, segmentId)) {
                 return Optional.empty();
             }
-            currentInputStream =
-                    remoteTierMonitor.getInputStream(subpartitionId, segmentId);
+            currentInputStream = remoteTierMonitor.getInputStream(subpartitionId, segmentId);
             if (currentInputStream.available() == 0) {
                 currentInputStream.close();
-                return Optional.of(
-                        new InputChannel.BufferAndAvailability(
-                                buildEndOfSegmentBuffer(latestSegmentId + 1),
-                                Buffer.DataType.ADD_SEGMENT_ID_EVENT,
-                                0,
-                                0));
+                return Optional.of(buildEndOfSegmentBuffer(latestSegmentId + 1));
             } else {
+                consumerNettyService.notifyResultSubpartitionAvailable(subpartitionId, false);
                 return Optional.of(getDfsBuffer(currentInputStream));
             }
         }
@@ -116,12 +116,9 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         //           Internal Method
         // ------------------------------------
 
-        private InputChannel.BufferAndAvailability getDfsBuffer(FSDataInputStream inputStream)
-                throws IOException {
+        private Buffer getDfsBuffer(FSDataInputStream inputStream) throws IOException {
             MemorySegment memorySegment = memoryManager.requestBufferBlocking(0);
-            Buffer buffer = checkNotNull(readFromInputStream(memorySegment, inputStream));
-            return new InputChannel.BufferAndAvailability(
-                    buffer, Buffer.DataType.DATA_BUFFER, 0, 0);
+            return checkNotNull(readFromInputStream(memorySegment, inputStream));
         }
 
         private Buffer readFromInputStream(

@@ -1,7 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import java.util.Optional;
@@ -19,12 +19,12 @@ public class ProducerNettyService implements NettyService {
     }
 
     @Override
-    public Optional<InputChannel.BufferAndAvailability> readBuffer(int subpartitionId) {
+    public Optional<Buffer> readBuffer(int subpartitionId) {
         throw new UnsupportedOperationException("Not supported in producer side.");
     }
 
     @Override
-    public void notifyResultSubpartitionAvailable(int subpartitionId) {
+    public void notifyResultSubpartitionAvailable(int subpartitionId, boolean priority) {
         throw new UnsupportedOperationException("Not supported in producer side.");
     }
 

@@ -1,6 +1,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local;
 
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 
@@ -25,7 +25,7 @@ public class LocalTierConsumerAgent implements TierConsumerAgent {
     }
 
     @Override
-    public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
+    public Optional<Buffer> getNextBuffer(
             int subpartitionId, int segmentId) throws IOException, InterruptedException {
         return subAgents[subpartitionId].getNextBuffer(subpartitionId, segmentId);
     }
@@ -45,7 +45,7 @@ public class LocalTierConsumerAgent implements TierConsumerAgent {
             this.consumerNettyService = consumerNettyService;
         }
 
-        public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
+        public Optional<Buffer> getNextBuffer(
                 int subpartitionId, int segmentId) throws IOException, InterruptedException {
             if (segmentId > 0L && (segmentId != latestSegmentId)) {
                 latestSegmentId = segmentId;

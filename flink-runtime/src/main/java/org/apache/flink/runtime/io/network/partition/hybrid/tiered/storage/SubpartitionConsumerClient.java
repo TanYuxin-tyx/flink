@@ -1,7 +1,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 
@@ -24,9 +23,9 @@ public class SubpartitionConsumerClient {
         this.consumerNettyService = consumerNettyService;
     }
 
-    public Optional<BufferAndAvailability> getNextBuffer(int subpartitionId)
+    public Optional<Buffer> getNextBuffer(int subpartitionId)
             throws IOException, InterruptedException {
-        Optional<BufferAndAvailability> bufferAndAvailability = Optional.empty();
+        Optional<Buffer> bufferAndAvailability = Optional.empty();
         for (TierConsumerAgent tiereConsumerAgent : agentList) {
             bufferAndAvailability =
                     tiereConsumerAgent.getNextBuffer(subpartitionId, currentSegmentId);
@@ -37,11 +36,11 @@ public class SubpartitionConsumerClient {
         if (!bufferAndAvailability.isPresent()) {
             return Optional.empty();
         }
-        BufferAndAvailability bufferData = bufferAndAvailability.get();
-        if (bufferData.buffer().getDataType() == Buffer.DataType.ADD_SEGMENT_ID_EVENT) {
+        Buffer bufferData = bufferAndAvailability.get();
+        if (bufferData.getDataType() == Buffer.DataType.ADD_SEGMENT_ID_EVENT) {
             currentSegmentId++;
-            bufferData.buffer().recycleBuffer();
-            consumerNettyService.notifyResultSubpartitionAvailable(subpartitionId);
+            bufferData.recycleBuffer();
+            consumerNettyService.notifyResultSubpartitionAvailable(subpartitionId, false);
             return getNextBuffer(subpartitionId);
         }
         return Optional.of(bufferData);

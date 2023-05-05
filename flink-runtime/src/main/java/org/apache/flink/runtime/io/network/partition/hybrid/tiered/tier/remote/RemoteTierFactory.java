@@ -39,7 +39,6 @@ import org.apache.flink.util.ExceptionUtils;
 import javax.annotation.Nullable;
 
 import java.util.List;
-import java.util.function.Consumer;
 
 public class RemoteTierFactory implements TierFactory {
 
@@ -103,6 +102,9 @@ public class RemoteTierFactory implements TierFactory {
                         isUpstreamBroadcastOnly,
                         consumerNettyService);
         return new RemoteTierConsumerAgent(
-                numberOfInputChannels, tieredStoreMemoryManager, remoteTierMonitor);
+                numberOfInputChannels,
+                tieredStoreMemoryManager,
+                remoteTierMonitor,
+                consumerNettyService);
     }
 }

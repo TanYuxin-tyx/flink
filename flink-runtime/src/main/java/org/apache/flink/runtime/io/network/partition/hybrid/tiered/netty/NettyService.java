@@ -1,7 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import java.util.Optional;
@@ -26,9 +26,9 @@ public interface NettyService {
     //        For Consumer Side
     // ------------------------------------
 
-    Optional<InputChannel.BufferAndAvailability> readBuffer(int subpartitionId);
+    Optional<Buffer> readBuffer(int subpartitionId);
 
-    void notifyResultSubpartitionAvailable(int subpartitionId);
+    void notifyResultSubpartitionAvailable(int subpartitionId, boolean priority);
 
     void notifyRequiredSegmentId(int subpartitionId, int segmentId);
 }
