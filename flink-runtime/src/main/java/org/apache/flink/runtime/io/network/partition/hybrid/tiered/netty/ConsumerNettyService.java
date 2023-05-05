@@ -19,10 +19,14 @@ public class ConsumerNettyService implements NettyService {
 
     private final BiConsumer<Integer, Boolean> subpartitionAvailableNotifier;
 
+    private final int[] lastPrioritySequenceNumber;
+
     public ConsumerNettyService(
             InputChannel[] inputChannels,
+            int[] lastPrioritySequenceNumber,
             BiConsumer<Integer, Boolean> subpartitionAvailableNotifier) {
         this.inputChannels = inputChannels;
+        this.lastPrioritySequenceNumber = lastPrioritySequenceNumber;
         this.subpartitionAvailableNotifier = subpartitionAvailableNotifier;
     }
 
@@ -38,6 +42,10 @@ public class ConsumerNettyService implements NettyService {
             if (bufferAndAvailability.get().moreAvailable()) {
                 notifyResultSubpartitionAvailable(
                         subpartitionId, bufferAndAvailability.get().hasPriority());
+            }
+            if (bufferAndAvailability.get().hasPriority()) {
+                lastPrioritySequenceNumber[subpartitionId] =
+                        bufferAndAvailability.get().getSequenceNumber();
             }
         }
         return bufferAndAvailability.map(BufferAndAvailability::buffer);

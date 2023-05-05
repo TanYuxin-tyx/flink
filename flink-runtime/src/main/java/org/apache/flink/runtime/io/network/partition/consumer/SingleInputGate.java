@@ -285,6 +285,7 @@ public class SingleInputGate extends IndexedInputGate {
                                 baseRemoteStoragePath,
                                 new ConsumerNettyService(
                                         channels,
+                                        lastPrioritySequenceNumber,
                                         (subpartitionId, priority) ->
                                                 queueChannel(
                                                         channels[subpartitionId], null, priority)))
@@ -880,6 +881,11 @@ public class SingleInputGate extends IndexedInputGate {
 
                 final boolean morePriorityEvents =
                         inputChannelsWithData.getNumPriorityElements() > 0;
+                if (bufferOpt.get().getDataType().hasPriority()) {
+                    if (!morePriorityEvents) {
+                        priorityAvailabilityHelper.resetUnavailable();
+                    }
+                }
                 checkUnavailability();
                 return Optional.of(
                         new InputWithData<>(
