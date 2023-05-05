@@ -36,7 +36,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.Lo
 import javax.annotation.Nullable;
 
 import java.util.List;
-import java.util.function.Consumer;
 
 public class MemoryTierFactory implements TierFactory {
 
@@ -80,7 +79,7 @@ public class MemoryTierFactory implements TierFactory {
             NetworkBufferPool networkBufferPool,
             List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
-            Consumer<Integer> channelEnqueueReceiver) {
+            NettyService consumerNettyService) {
         return new LocalTierConsumerAgent(numberInputChannels);
     }
 }

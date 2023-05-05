@@ -43,6 +43,7 @@ import org.apache.flink.runtime.io.network.partition.PrioritizedDeque;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ConsumerNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -271,6 +272,7 @@ public class SingleInputGate extends IndexedInputGate {
         this.unpooledSegment = MemorySegmentFactory.allocateUnpooledSegment(segmentSize);
         this.bufferDebloater = bufferDebloater;
         this.throughputCalculator = checkNotNull(throughputCalculator);
+
         this.tieredStorageConsumerClient =
                 enableTieredStoreMode
                         ? new TieredStorageConsumerClient(
@@ -281,8 +283,11 @@ public class SingleInputGate extends IndexedInputGate {
                                 (NetworkBufferPool) memorySegmentProvider,
                                 upstreamSubpartitionIds,
                                 baseRemoteStoragePath,
-                                subpartitionId ->
-                                        queueChannel(channels[subpartitionId], null, false))
+                                new ConsumerNettyService(
+                                        channels,
+                                        subpartitionId ->
+                                                queueChannel(
+                                                        channels[subpartitionId], null, false)))
                         : null;
     }
 

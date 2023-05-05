@@ -6,6 +6,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierFactory;
@@ -40,7 +41,7 @@ public class TieredStorageConsumerClient {
             NetworkBufferPool networkBufferPool,
             List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
-            Consumer<Integer> channelEnqueueReceiver) {
+            NettyService consumerNettyService) {
         this.tierFactories = createTierFactories(baseRemoteStoragePath);
         this.tierConsumerAgents =
                 createTierConsumerAgents(
@@ -51,11 +52,11 @@ public class TieredStorageConsumerClient {
                         networkBufferPool,
                         subpartitionIndexes,
                         baseRemoteStoragePath,
-                        channelEnqueueReceiver);
+                        consumerNettyService);
         this.subpartitionConsumerClients = new SubpartitionConsumerClient[numInputChannels];
         for (int i = 0; i < numInputChannels; ++i) {
             subpartitionConsumerClients[i] =
-                    new SubpartitionConsumerClientImpl(tierConsumerAgents, channelEnqueueReceiver);
+                    new SubpartitionConsumerClientImpl(tierConsumerAgents, consumerNettyService);
         }
     }
 
@@ -101,7 +102,7 @@ public class TieredStorageConsumerClient {
             NetworkBufferPool networkBufferPool,
             List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
-            Consumer<Integer> channelEnqueueReceiver) {
+            NettyService consumerNettyService) {
         Set<TierConsumerAgent> tierConsumerAgents = new HashSet<>();
         for (TierFactory tierFactory : tierFactories) {
             tierConsumerAgents.add(
@@ -113,7 +114,7 @@ public class TieredStorageConsumerClient {
                             networkBufferPool,
                             subpartitionIndexes,
                             baseRemoteStoragePath,
-                            channelEnqueueReceiver));
+                            consumerNettyService));
         }
         return new ArrayList<>(tierConsumerAgents);
     }

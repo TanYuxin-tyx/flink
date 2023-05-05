@@ -82,7 +82,7 @@ public class RemoteTierFactory implements TierFactory {
             NetworkBufferPool networkBufferPool,
             List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
-            Consumer<Integer> channelEnqueueReceiver) {
+            NettyService consumerNettyService) {
 
         List<IndexedTierConfSpec> indexedTierConfSpecs =
                 TieredStorageConfiguration.getTestIndexedTierConfSpec();
@@ -101,7 +101,7 @@ public class RemoteTierFactory implements TierFactory {
                         subpartitionIndexes,
                         numberOfInputChannels,
                         isUpstreamBroadcastOnly,
-                        channelEnqueueReceiver);
+                        consumerNettyService);
         return new RemoteTierConsumerAgent(
                 numberOfInputChannels, tieredStoreMemoryManager, remoteTierMonitor);
     }

@@ -31,7 +31,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.
 import javax.annotation.Nullable;
 
 import java.util.List;
-import java.util.function.Consumer;
 
 public interface TierFactory {
 
@@ -59,5 +58,5 @@ public interface TierFactory {
                                           NetworkBufferPool networkBufferPool,
                                           List<Integer> subpartitionIndexes,
                                           String baseRemoteStoragePath,
-                                          Consumer<Integer> channelEnqueueReceiver);
+                                          NettyService consumerNettyService);
 }
