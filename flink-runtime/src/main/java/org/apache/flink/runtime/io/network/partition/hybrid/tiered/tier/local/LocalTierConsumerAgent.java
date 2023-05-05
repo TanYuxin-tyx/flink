@@ -26,7 +26,7 @@ public class LocalTierConsumerAgent implements TierConsumerAgent {
 
     @Override
     public Optional<Buffer> getNextBuffer(
-            int subpartitionId, int segmentId) throws IOException, InterruptedException {
+            int subpartitionId, int segmentId){
         return subAgents[subpartitionId].getNextBuffer(subpartitionId, segmentId);
     }
 
@@ -46,7 +46,7 @@ public class LocalTierConsumerAgent implements TierConsumerAgent {
         }
 
         public Optional<Buffer> getNextBuffer(
-                int subpartitionId, int segmentId) throws IOException, InterruptedException {
+                int subpartitionId, int segmentId){
             if (segmentId > 0L && (segmentId != latestSegmentId)) {
                 latestSegmentId = segmentId;
                 consumerNettyService.notifyRequiredSegmentId(subpartitionId, segmentId);
