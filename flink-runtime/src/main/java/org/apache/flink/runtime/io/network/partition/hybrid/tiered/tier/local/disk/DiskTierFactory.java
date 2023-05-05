@@ -18,20 +18,27 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierConsumerAgent;
 
 import javax.annotation.Nullable;
 
-public class DiskTierFactory extends LocalTierFactory {
+import java.util.List;
+import java.util.function.Consumer;
+
+public class DiskTierFactory implements TierFactory {
 
     @Override
     public TierMasterAgent createMasterAgent(
@@ -66,5 +73,18 @@ public class DiskTierFactory extends LocalTierFactory {
                 bufferCompressor,
                 cacheFlushManager,
                 nettyService);
+    }
+
+    @Override
+    public TierConsumerAgent createConsumerAgent(
+            boolean isUpstreamBroadcastOnly,
+            int numberOfInputChannels,
+            JobID jobID,
+            List<ResultPartitionID> resultPartitionIDs,
+            NetworkBufferPool networkBufferPool,
+            List<Integer> subpartitionIndexes,
+            String baseRemoteStoragePath,
+            Consumer<Integer> channelEnqueueReceiver) {
+        return LocalTierConsumerAgent.getInstance(numberOfInputChannels);
     }
 }

@@ -47,11 +47,4 @@ public class SubpartitionConsumerClientImpl implements SubpartitionConsumerClien
         }
         return Optional.of(bufferData);
     }
-
-    @Override
-    public void close() throws IOException {
-        for (TierConsumerAgent client : agentList) {
-            client.close();
-        }
-    }
 }

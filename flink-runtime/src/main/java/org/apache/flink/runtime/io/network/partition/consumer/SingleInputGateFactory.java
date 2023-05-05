@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
@@ -170,27 +171,16 @@ public class SingleInputGateFactory {
         ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
         boolean isUpstreamBroadcastOnly =
                 ((NettyShuffleDescriptor) shuffleDescriptors[0]).isUpstreamBroadcastOnly();
-        List<ResultPartitionID> resultPartitionIDs = new ArrayList<>();
-        List<Integer> subpartitionIndexes = new ArrayList<>();
+        List<ResultPartitionID> upstreamResultPartitionIDs = new ArrayList<>();
+        List<Integer> upstreamSubpartitionIDs = new ArrayList<>();
         for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
-            for (int subpartitionIndex = subpartitionIndexRange.getStartIndex();
-                    subpartitionIndex <= subpartitionIndexRange.getEndIndex();
-                    ++subpartitionIndex) {
-                resultPartitionIDs.add(shuffleDescriptor.getResultPartitionID());
-                subpartitionIndexes.add(subpartitionIndex);
+            for (int subpartitionId = subpartitionIndexRange.getStartIndex();
+                    subpartitionId <= subpartitionIndexRange.getEndIndex();
+                    ++subpartitionId) {
+                upstreamResultPartitionIDs.add(shuffleDescriptor.getResultPartitionID());
+                upstreamSubpartitionIDs.add(subpartitionId);
             }
         }
-
-        TieredStorageReaderFactory tieredStorageReaderFactory =
-                new TieredStorageReaderFactory(
-                        enableTieredStore,
-                        isUpstreamBroadcastOnly,
-                        numberOfInputChannels,
-                        owner.getJobID(),
-                        resultPartitionIDs,
-                        networkBufferPool,
-                        subpartitionIndexes,
-                        baseRemoteStoragePath);
 
         SingleInputGate inputGate =
                 createInputGate(
@@ -208,7 +198,12 @@ public class SingleInputGateFactory {
                         new ThroughputCalculator(SystemClock.getInstance()),
                         maybeCreateBufferDebloater(
                                 owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)),
-                        tieredStorageReaderFactory);
+                        enableTieredStore,
+                        isUpstreamBroadcastOnly,
+                        owner.getJobID(),
+                        upstreamResultPartitionIDs,
+                        upstreamSubpartitionIDs,
+                        baseRemoteStoragePath);
 
         createInputChannels(
                 owningTaskName, igdd, inputGate, subpartitionIndexRange, gateBuffersSpec, metrics);
@@ -332,7 +327,12 @@ public class SingleInputGateFactory {
             int segmentSize,
             ThroughputCalculator throughputCalculator,
             @Nullable BufferDebloater bufferDebloater,
-            TieredStorageReaderFactory tieredStorageReaderFactory) {
+            boolean enableTieredStoreMode,
+            boolean isUpstreamBroadcastOnly,
+            JobID jobID,
+            List<ResultPartitionID> upstreamResultPartitionIDs,
+            List<Integer> upstreamSubpartitionIds,
+            @Nullable String baseRemoteStoragePath) {
 
         return new SingleInputGate(
                 owningTaskName,
@@ -348,7 +348,12 @@ public class SingleInputGateFactory {
                 segmentSize,
                 throughputCalculator,
                 bufferDebloater,
-                tieredStorageReaderFactory);
+                enableTieredStore,
+                isUpstreamBroadcastOnly,
+                jobID,
+                upstreamResultPartitionIDs,
+                upstreamSubpartitionIds,
+                baseRemoteStoragePath);
     }
 
     protected static int calculateNumChannels(

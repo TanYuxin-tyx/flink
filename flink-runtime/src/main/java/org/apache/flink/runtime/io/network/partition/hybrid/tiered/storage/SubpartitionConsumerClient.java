@@ -11,6 +11,4 @@ public interface SubpartitionConsumerClient {
 
     Optional<BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException;
-
-    void close() throws IOException;
 }

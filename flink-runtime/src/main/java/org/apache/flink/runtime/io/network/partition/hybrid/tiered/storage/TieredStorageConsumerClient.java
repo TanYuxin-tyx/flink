@@ -6,35 +6,31 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
-import org.apache.flink.runtime.io.network.partition.consumer.SingInputGateConsumerClient;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.IndexedTierConfSpec;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierConsumerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierMonitor;
-import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory.MemoryTierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 
-/** The implementation of {@link SingInputGateConsumerClient} interface. */
-public class TieredStorageConsumerClient implements SingInputGateConsumerClient {
+/**
+ * The implementation of {@link
+ * org.apache.flink.runtime.io.network.partition.consumer.TieredStorageConsumerClient} interface.
+ */
+public class TieredStorageConsumerClient {
 
     private final SubpartitionConsumerClient[] subpartitionConsumerClients;
 
-    private final TieredStorageMemoryManager tieredStoreMemoryManager;
+    private final List<TierFactory> tierFactories;
 
-    private final String baseRemoteStoragePath;
-
-    private final NetworkBufferPool networkBufferPool;
-
-    private final LocalTierFactory localTierFactory = new LocalTierFactory();
-
-    private RemoteTierMonitor remoteTierMonitor;
+    private final List<TierConsumerAgent> tierConsumerAgents;
 
     public TieredStorageConsumerClient(
             boolean isUpstreamBroadcast,
@@ -45,41 +41,30 @@ public class TieredStorageConsumerClient implements SingInputGateConsumerClient 
             List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
             Consumer<Integer> channelEnqueueReceiver) {
-        this.baseRemoteStoragePath = baseRemoteStoragePath;
-        this.networkBufferPool = networkBufferPool;
-        List<IndexedTierConfSpec> indexedTierConfSpecs = TieredStorageConfiguration.getTestIndexedTierConfSpec();
-        this.tieredStoreMemoryManager = new TieredStorageMemoryManagerImpl(indexedTierConfSpecs);
-        if (baseRemoteStoragePath != null) {
-            this.remoteTierMonitor =
-                    new RemoteTierMonitor(
-                            jobID,
-                            resultPartitionIDs,
-                            baseRemoteStoragePath,
-                            subpartitionIndexes,
-                            numInputChannels,
-                            isUpstreamBroadcast,
-                            channelEnqueueReceiver);
-        }
+        this.tierFactories = createTierFactories(baseRemoteStoragePath);
+        this.tierConsumerAgents =
+                createTierConsumerAgents(
+                        numInputChannels,
+                        isUpstreamBroadcast,
+                        jobID,
+                        resultPartitionIDs,
+                        networkBufferPool,
+                        subpartitionIndexes,
+                        baseRemoteStoragePath,
+                        channelEnqueueReceiver);
         this.subpartitionConsumerClients = new SubpartitionConsumerClient[numInputChannels];
         for (int i = 0; i < numInputChannels; ++i) {
             subpartitionConsumerClients[i] =
-                    new SubpartitionConsumerClientImpl(getClientList(), channelEnqueueReceiver);
+                    new SubpartitionConsumerClientImpl(tierConsumerAgents, channelEnqueueReceiver);
         }
     }
 
-    @Override
     public void start() {
-        try {
-            this.tieredStoreMemoryManager.setup(networkBufferPool.createBufferPool(1, 1));
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e, "Failed to start.");
-        }
-        if (baseRemoteStoragePath != null) {
-            this.remoteTierMonitor.start();
+        for (TierConsumerAgent tierConsumerAgent : tierConsumerAgents) {
+            tierConsumerAgent.start();
         }
     }
 
-    @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException {
 
@@ -92,27 +77,44 @@ public class TieredStorageConsumerClient implements SingInputGateConsumerClient 
                 inputChannel);
     }
 
-    @Override
     public void close() throws IOException {
-        for (SubpartitionConsumerClient subpartitionConsumerClient : subpartitionConsumerClients) {
-            subpartitionConsumerClient.close();
+        for (TierConsumerAgent tierConsumerAgent : tierConsumerAgents) {
+            tierConsumerAgent.close();
         }
     }
 
-    @Override
-    public boolean supportAcknowledgeUpstreamAllRecordsProcessed() {
-        return false;
-    }
-
-    private List<TierConsumerAgent> getClientList() {
-        List<TierConsumerAgent> clientList = new ArrayList<>();
+    private List<TierFactory> createTierFactories(String baseRemoteStoragePath) {
+        List<TierFactory> tierFactories = new ArrayList<>();
+        tierFactories.add(new MemoryTierFactory());
+        tierFactories.add(new DiskTierFactory());
         if (baseRemoteStoragePath != null) {
-            clientList.add(localTierFactory.createConsumerAgent());
-            clientList.add(
-                    new RemoteTierConsumerAgent(tieredStoreMemoryManager, remoteTierMonitor));
-        } else {
-            clientList.add(localTierFactory.createConsumerAgent());
+            tierFactories.add(new RemoteTierFactory());
         }
-        return clientList;
+        return tierFactories;
+    }
+
+    private List<TierConsumerAgent> createTierConsumerAgents(
+            int numInputChannels,
+            boolean isUpstreamBroadcastOnly,
+            JobID jobID,
+            List<ResultPartitionID> resultPartitionIDs,
+            NetworkBufferPool networkBufferPool,
+            List<Integer> subpartitionIndexes,
+            String baseRemoteStoragePath,
+            Consumer<Integer> channelEnqueueReceiver) {
+        Set<TierConsumerAgent> tierConsumerAgents = new HashSet<>();
+        for (TierFactory tierFactory : tierFactories) {
+            tierConsumerAgents.add(
+                    tierFactory.createConsumerAgent(
+                            isUpstreamBroadcastOnly,
+                            numInputChannels,
+                            jobID,
+                            resultPartitionIDs,
+                            networkBufferPool,
+                            subpartitionIndexes,
+                            baseRemoteStoragePath,
+                            channelEnqueueReceiver));
+        }
+        return new ArrayList<>(tierConsumerAgents);
     }
 }

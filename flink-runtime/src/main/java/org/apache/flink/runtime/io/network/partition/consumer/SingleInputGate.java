@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.core.memory.MemorySegmentProvider;
@@ -36,11 +37,13 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferDecompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferProvider;
+import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvider;
 import org.apache.flink.runtime.io.network.partition.PrioritizedDeque;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -212,7 +215,7 @@ public class SingleInputGate extends IndexedInputGate {
     private final ThroughputCalculator throughputCalculator;
     private final BufferDebloater bufferDebloater;
 
-    private final SingInputGateConsumerClient singInputGateConsumerClient;
+    private final TieredStorageConsumerClient tieredStorageConsumerClient;
 
     private boolean shouldDrainOnEndOfData = true;
 
@@ -230,7 +233,12 @@ public class SingleInputGate extends IndexedInputGate {
             int segmentSize,
             ThroughputCalculator throughputCalculator,
             @Nullable BufferDebloater bufferDebloater,
-            TieredStorageReaderFactory tieredStorageReaderFactory) {
+            boolean enableTieredStoreMode,
+            boolean isUpstreamBroadcastOnly,
+            JobID jobID,
+            List<ResultPartitionID> upstreamResultPartitionIDs,
+            List<Integer> upstreamSubpartitionIds,
+            @Nullable String baseRemoteStoragePath) {
 
         this.owningTaskName = checkNotNull(owningTaskName);
         Preconditions.checkArgument(0 <= gateIndex, "The gate index must be positive.");
@@ -263,9 +271,19 @@ public class SingleInputGate extends IndexedInputGate {
         this.unpooledSegment = MemorySegmentFactory.allocateUnpooledSegment(segmentSize);
         this.bufferDebloater = bufferDebloater;
         this.throughputCalculator = checkNotNull(throughputCalculator);
-        this.singInputGateConsumerClient =
-                tieredStorageReaderFactory.createSingInputGateBufferReader(
-                        channelIndex -> queueChannel(channels[channelIndex], null, false));
+        this.tieredStorageConsumerClient =
+                enableTieredStoreMode
+                        ? new TieredStorageConsumerClient(
+                                isUpstreamBroadcastOnly,
+                                numberOfInputChannels,
+                                jobID,
+                                upstreamResultPartitionIDs,
+                                (NetworkBufferPool) memorySegmentProvider,
+                                upstreamSubpartitionIds,
+                                baseRemoteStoragePath,
+                                subpartitionId ->
+                                        queueChannel(channels[subpartitionId], null, false))
+                        : null;
     }
 
     protected PrioritizedDeque<InputChannel> getInputChannelsWithData() {
@@ -320,7 +338,9 @@ public class SingleInputGate extends IndexedInputGate {
 
             requestedPartitionsFlag = true;
             // 这是因为不让 RemoteRecoveredChannel入队，否则 检查的太快，对应Channel就不入队了
-            singInputGateConsumerClient.start();
+            if (tieredStorageConsumerClient != null) {
+                tieredStorageConsumerClient.start();
+            }
         }
     }
 
@@ -706,7 +726,9 @@ public class SingleInputGate extends IndexedInputGate {
             synchronized (inputChannelsWithData) {
                 inputChannelsWithData.notifyAll();
             }
-            singInputGateConsumerClient.close();
+            if (tieredStorageConsumerClient != null) {
+                tieredStorageConsumerClient.close();
+            }
         }
     }
 
@@ -791,7 +813,12 @@ public class SingleInputGate extends IndexedInputGate {
                 }
                 final InputChannel inputChannel = inputChannelOpt.get();
                 Optional<BufferAndAvailability> bufferAndAvailabilityOpt;
-                bufferAndAvailabilityOpt = singInputGateConsumerClient.getNextBuffer(inputChannel);
+                if (tieredStorageConsumerClient != null) {
+                    bufferAndAvailabilityOpt =
+                            tieredStorageConsumerClient.getNextBuffer(inputChannel);
+                } else {
+                    bufferAndAvailabilityOpt = inputChannel.getNextBuffer();
+                }
                 if (!bufferAndAvailabilityOpt.isPresent()) {
                     checkUnavailability();
                     continue;
@@ -959,7 +986,7 @@ public class SingleInputGate extends IndexedInputGate {
     @Override
     public void acknowledgeAllRecordsProcessed(InputChannelInfo channelInfo) throws IOException {
         checkState(!isFinished(), "InputGate already finished.");
-        if (singInputGateConsumerClient.supportAcknowledgeUpstreamAllRecordsProcessed()) {
+        if (tieredStorageConsumerClient == null) {
             channels[channelInfo.getInputChannelIdx()].acknowledgeAllRecordsProcessed();
         }
     }

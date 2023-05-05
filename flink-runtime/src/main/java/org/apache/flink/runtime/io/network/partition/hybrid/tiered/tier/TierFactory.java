@@ -18,7 +18,9 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
@@ -28,7 +30,11 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.
 
 import javax.annotation.Nullable;
 
+import java.util.List;
+import java.util.function.Consumer;
+
 public interface TierFactory {
+
     TierMasterAgent createMasterAgent(
             ResourceRegistry resourceRegistry, @Nullable String remoteStorageBaseHomePath);
 
@@ -46,5 +52,12 @@ public interface TierFactory {
             CacheFlushManager cacheFlushManager,
             NettyService nettyService);
 
-    TierConsumerAgent createConsumerAgent();
+    TierConsumerAgent createConsumerAgent(boolean isUpstreamBroadcastOnly,
+                                          int numberInputChannels,
+                                          JobID jobID,
+                                          List<ResultPartitionID> resultPartitionIDs,
+                                          NetworkBufferPool networkBufferPool,
+                                          List<Integer> subpartitionIndexes,
+                                          String baseRemoteStoragePath,
+                                          Consumer<Integer> channelEnqueueReceiver);
 }

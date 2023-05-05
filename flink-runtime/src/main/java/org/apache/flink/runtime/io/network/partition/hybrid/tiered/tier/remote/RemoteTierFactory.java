@@ -18,19 +18,28 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.IndexedTierConfSpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
+
+import java.util.List;
+import java.util.function.Consumer;
 
 public class RemoteTierFactory implements TierFactory {
     @Override
@@ -64,7 +73,36 @@ public class RemoteTierFactory implements TierFactory {
     }
 
     @Override
-    public TierConsumerAgent createConsumerAgent() {
-        return null;
+    public TierConsumerAgent createConsumerAgent(
+            boolean isUpstreamBroadcastOnly,
+            int numberOfInputChannels,
+            JobID jobID,
+            List<ResultPartitionID> resultPartitionIDs,
+            NetworkBufferPool networkBufferPool,
+            List<Integer> subpartitionIndexes,
+            String baseRemoteStoragePath,
+            Consumer<Integer> channelEnqueueReceiver) {
+
+        List<IndexedTierConfSpec> indexedTierConfSpecs =
+                TieredStorageConfiguration.getTestIndexedTierConfSpec();
+        TieredStorageMemoryManager tieredStoreMemoryManager =
+                null;
+        try {
+            tieredStoreMemoryManager = new TieredStorageMemoryManagerImpl(indexedTierConfSpecs);
+            tieredStoreMemoryManager.setup(networkBufferPool.createBufferPool(1, 1));
+        } catch (Exception e) {
+            ExceptionUtils.rethrow(e, "Failed to create TieredStorageMemoryManger.");
+        }
+        RemoteTierMonitor remoteTierMonitor =
+                new RemoteTierMonitor(
+                        jobID,
+                        resultPartitionIDs,
+                        baseRemoteStoragePath,
+                        subpartitionIndexes,
+                        numberOfInputChannels,
+                        isUpstreamBroadcastOnly,
+                        channelEnqueueReceiver);
+        return new RemoteTierConsumerAgent(
+                numberOfInputChannels, tieredStoreMemoryManager, remoteTierMonitor);
     }
 }

@@ -28,112 +28,151 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /** The data client is used to fetch data from DFS tier. */
 public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
-    private final TieredStorageMemoryManager memoryManager;
-
-    private final ByteBuffer headerBuffer;
+    private final SubpartitionConsumerAgent[] consumerAgents;
 
     private final RemoteTierMonitor remoteTierMonitor;
 
-    private FSDataInputStream currentInputStream;
-
-    private int latestSegmentId = -1;
-
     public RemoteTierConsumerAgent(
-            TieredStorageMemoryManager memoryManager, RemoteTierMonitor remoteTierMonitor) {
-        this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
-        headerBuffer.order(ByteOrder.nativeOrder());
-        this.memoryManager = memoryManager;
+            int numInputChannels,
+            TieredStorageMemoryManager memoryManager,
+            RemoteTierMonitor remoteTierMonitor) {
         this.remoteTierMonitor = remoteTierMonitor;
+        consumerAgents = new SubpartitionConsumerAgent[numInputChannels];
+        for (int index = 0; index < numInputChannels; ++index) {
+            consumerAgents[index] = new SubpartitionConsumerAgent(memoryManager, remoteTierMonitor);
+        }
+    }
+
+    @Override
+    public void start() {
+        remoteTierMonitor.start();
     }
 
     @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
-            InputChannel inputChannel, int segmentId) throws IOException {
-        if (segmentId != latestSegmentId) {
-            remoteTierMonitor.requireSegmentId(inputChannel.getChannelIndex(), segmentId);
-            latestSegmentId = segmentId;
-        }
-        if (!remoteTierMonitor.isExist(inputChannel.getChannelIndex(), segmentId)) {
-            return Optional.empty();
-        }
-        currentInputStream =
-                remoteTierMonitor.getInputStream(inputChannel.getChannelIndex(), segmentId);
-        if (currentInputStream.available() == 0) {
-            currentInputStream.close();
-            return Optional.of(
-                    new InputChannel.BufferAndAvailability(
-                            buildEndOfSegmentBuffer(latestSegmentId + 1),
-                            Buffer.DataType.ADD_SEGMENT_ID_EVENT,
-                            0,
-                            0));
-        } else {
-            return Optional.of(getDfsBuffer(currentInputStream));
-        }
+            InputChannel inputChannel, int segmentId) throws IOException, InterruptedException {
+        return consumerAgents[inputChannel.getChannelIndex()].getNextBuffer(
+                inputChannel, segmentId);
     }
 
     @Override
     public void close() throws IOException {
-        if (currentInputStream != null) {
-            currentInputStream.close();
+        for (SubpartitionConsumerAgent subpartitionConsumerAgent : consumerAgents) {
+            subpartitionConsumerAgent.close();
         }
         remoteTierMonitor.close();
     }
 
-    // ------------------------------------
-    //           Internal Method
-    // ------------------------------------
+    private class SubpartitionConsumerAgent {
+        private final TieredStorageMemoryManager memoryManager;
 
-    private InputChannel.BufferAndAvailability getDfsBuffer(FSDataInputStream inputStream)
-            throws IOException {
-        MemorySegment memorySegment = memoryManager.requestBufferBlocking(0);
-        Buffer buffer = checkNotNull(readFromInputStream(memorySegment, inputStream));
-        return new InputChannel.BufferAndAvailability(buffer, Buffer.DataType.DATA_BUFFER, 0, 0);
-    }
+        private final ByteBuffer headerBuffer;
 
-    private Buffer readFromInputStream(MemorySegment memorySegment, FSDataInputStream inputStream)
-            throws IOException {
-        headerBuffer.clear();
-        int bufferHeaderResult = inputStream.read(headerBuffer.array());
-        if (bufferHeaderResult == -1) {
-            return null;
+        private final RemoteTierMonitor remoteTierMonitor;
+
+        private FSDataInputStream currentInputStream;
+
+        private int latestSegmentId = -1;
+
+        private SubpartitionConsumerAgent(
+                TieredStorageMemoryManager memoryManager, RemoteTierMonitor remoteTierMonitor) {
+            this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
+            headerBuffer.order(ByteOrder.nativeOrder());
+            this.memoryManager = memoryManager;
+            this.remoteTierMonitor = remoteTierMonitor;
         }
-        final BufferHeader header;
-        try {
-            header = parseBufferHeader(headerBuffer);
-        } catch (BufferUnderflowException | IllegalArgumentException e) {
-            // buffer underflow if header buffer is undersized
-            // IllegalArgumentException if size is outside memory segment size
-            throwCorruptDataException();
-            return null; // silence compiler
+
+        public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
+                InputChannel inputChannel, int segmentId) throws IOException {
+            if (segmentId != latestSegmentId) {
+                remoteTierMonitor.requireSegmentId(inputChannel.getChannelIndex(), segmentId);
+                latestSegmentId = segmentId;
+            }
+            if (!remoteTierMonitor.isExist(inputChannel.getChannelIndex(), segmentId)) {
+                return Optional.empty();
+            }
+            currentInputStream =
+                    remoteTierMonitor.getInputStream(inputChannel.getChannelIndex(), segmentId);
+            if (currentInputStream.available() == 0) {
+                currentInputStream.close();
+                return Optional.of(
+                        new InputChannel.BufferAndAvailability(
+                                buildEndOfSegmentBuffer(latestSegmentId + 1),
+                                Buffer.DataType.ADD_SEGMENT_ID_EVENT,
+                                0,
+                                0));
+            } else {
+                return Optional.of(getDfsBuffer(currentInputStream));
+            }
         }
-        ByteBuffer dataBuffer = ByteBuffer.wrap(new byte[header.getLength()]);
-        int dataBufferResult = inputStream.read(dataBuffer.array(), 0, header.getLength());
-        if (dataBufferResult == -1) {
-            return null;
+
+        public void close() throws IOException {
+            if (currentInputStream != null) {
+                currentInputStream.close();
+            }
         }
-        Buffer.DataType dataType = header.getDataType();
-        memorySegment.put(0, dataBuffer.array(), 0, header.getLength());
-        return new NetworkBuffer(
-                memorySegment, this::recycle, dataType, header.isCompressed(), header.getLength());
-    }
 
-    private Buffer buildEndOfSegmentBuffer(int segmentId) throws IOException {
-        MemorySegment data =
-                MemorySegmentFactory.wrap(
-                        EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE).array());
-        return new NetworkBuffer(
-                data,
-                FreeingBufferRecycler.INSTANCE,
-                Buffer.DataType.ADD_SEGMENT_ID_EVENT,
-                data.size());
-    }
+        // ------------------------------------
+        //           Internal Method
+        // ------------------------------------
 
-    private void recycle(MemorySegment memorySegment) {
-        memoryManager.recycleBuffer(memorySegment, 0);
-    }
+        private InputChannel.BufferAndAvailability getDfsBuffer(FSDataInputStream inputStream)
+                throws IOException {
+            MemorySegment memorySegment = memoryManager.requestBufferBlocking(0);
+            Buffer buffer = checkNotNull(readFromInputStream(memorySegment, inputStream));
+            return new InputChannel.BufferAndAvailability(
+                    buffer, Buffer.DataType.DATA_BUFFER, 0, 0);
+        }
 
-    @VisibleForTesting
-    public int getLatestSegmentId() {
-        return latestSegmentId;
+        private Buffer readFromInputStream(
+                MemorySegment memorySegment, FSDataInputStream inputStream) throws IOException {
+            headerBuffer.clear();
+            int bufferHeaderResult = inputStream.read(headerBuffer.array());
+            if (bufferHeaderResult == -1) {
+                return null;
+            }
+            final BufferHeader header;
+            try {
+                header = parseBufferHeader(headerBuffer);
+            } catch (BufferUnderflowException | IllegalArgumentException e) {
+                // buffer underflow if header buffer is undersized
+                // IllegalArgumentException if size is outside memory segment size
+                throwCorruptDataException();
+                return null; // silence compiler
+            }
+            ByteBuffer dataBuffer = ByteBuffer.wrap(new byte[header.getLength()]);
+            int dataBufferResult = inputStream.read(dataBuffer.array(), 0, header.getLength());
+            if (dataBufferResult == -1) {
+                return null;
+            }
+            Buffer.DataType dataType = header.getDataType();
+            memorySegment.put(0, dataBuffer.array(), 0, header.getLength());
+            return new NetworkBuffer(
+                    memorySegment,
+                    this::recycle,
+                    dataType,
+                    header.isCompressed(),
+                    header.getLength());
+        }
+
+        private Buffer buildEndOfSegmentBuffer(int segmentId) throws IOException {
+            MemorySegment data =
+                    MemorySegmentFactory.wrap(
+                            EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE).array());
+            return new NetworkBuffer(
+                    data,
+                    FreeingBufferRecycler.INSTANCE,
+                    Buffer.DataType.ADD_SEGMENT_ID_EVENT,
+                    data.size());
+        }
+
+        private void recycle(MemorySegment memorySegment) {
+            memoryManager.recycleBuffer(memorySegment, 0);
+        }
+
+        @VisibleForTesting
+        public int getLatestSegmentId() {
+            return latestSegmentId;
+        }
     }
 }
