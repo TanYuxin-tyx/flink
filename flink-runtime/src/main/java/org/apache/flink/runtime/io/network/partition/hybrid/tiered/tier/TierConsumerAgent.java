@@ -11,7 +11,7 @@ public interface TierConsumerAgent {
     void start();
 
     Optional<InputChannel.BufferAndAvailability> getNextBuffer(
-            InputChannel inputChannel, int segmentId) throws IOException, InterruptedException;
+            int subpartitionId, int segmentId) throws IOException, InterruptedException;
 
     void close() throws IOException;
 }

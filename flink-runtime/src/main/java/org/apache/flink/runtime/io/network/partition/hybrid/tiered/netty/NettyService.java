@@ -29,4 +29,6 @@ public interface NettyService {
     Optional<InputChannel.BufferAndAvailability> readBuffer(int subpartitionId);
 
     void notifyResultSubpartitionAvailable(int subpartitionId);
+
+    void notifyRequiredSegmentId(int subpartitionId, int segmentId);
 }

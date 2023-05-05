@@ -50,9 +50,9 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
     @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
-            InputChannel inputChannel, int segmentId) throws IOException, InterruptedException {
-        return consumerAgents[inputChannel.getChannelIndex()].getNextBuffer(
-                inputChannel, segmentId);
+            int subpartitionId, int segmentId) throws IOException, InterruptedException {
+        return consumerAgents[subpartitionId].getNextBuffer(
+                subpartitionId, segmentId);
     }
 
     @Override
@@ -83,16 +83,16 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         }
 
         public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
-                InputChannel inputChannel, int segmentId) throws IOException {
+                int subpartitionId, int segmentId) throws IOException {
             if (segmentId != latestSegmentId) {
-                remoteTierMonitor.requireSegmentId(inputChannel.getChannelIndex(), segmentId);
+                remoteTierMonitor.requireSegmentId(subpartitionId, segmentId);
                 latestSegmentId = segmentId;
             }
-            if (!remoteTierMonitor.isExist(inputChannel.getChannelIndex(), segmentId)) {
+            if (!remoteTierMonitor.isExist(subpartitionId, segmentId)) {
                 return Optional.empty();
             }
             currentInputStream =
-                    remoteTierMonitor.getInputStream(inputChannel.getChannelIndex(), segmentId);
+                    remoteTierMonitor.getInputStream(subpartitionId, segmentId);
             if (currentInputStream.available() == 0) {
                 currentInputStream.close();
                 return Optional.of(

@@ -820,7 +820,7 @@ public class SingleInputGate extends IndexedInputGate {
                 Optional<BufferAndAvailability> bufferAndAvailabilityOpt;
                 if (tieredStorageConsumerClient != null) {
                     bufferAndAvailabilityOpt =
-                            tieredStorageConsumerClient.getNextBuffer(inputChannel);
+                            tieredStorageConsumerClient.getNextBuffer(inputChannel.getChannelIndex());
                 } else {
                     bufferAndAvailabilityOpt = inputChannel.getNextBuffer();
                 }

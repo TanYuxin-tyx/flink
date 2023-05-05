@@ -27,4 +27,9 @@ public class ProducerNettyService implements NettyService {
     public void notifyResultSubpartitionAvailable(int subpartitionId) {
         throw new UnsupportedOperationException("Not supported in producer side.");
     }
+
+    @Override
+    public void notifyRequiredSegmentId(int subpartitionId, int segmentId) {
+        throw new UnsupportedOperationException("Not supported in producer side.");
+    }
 }

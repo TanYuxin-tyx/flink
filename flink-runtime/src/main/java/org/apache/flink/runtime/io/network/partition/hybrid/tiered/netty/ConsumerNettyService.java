@@ -41,6 +41,11 @@ public class ConsumerNettyService implements NettyService {
     }
 
     @Override
+    public void notifyRequiredSegmentId(int subpartitionId, int segmentId) {
+        inputChannels[subpartitionId].notifyRequiredSegmentId(segmentId);
+    }
+
+    @Override
     public NettyServiceView register(
             Queue<BufferContext> bufferQueue,
             BufferAvailabilityListener availabilityListener,

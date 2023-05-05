@@ -37,6 +37,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 
+/** The memory tier factory. */
 public class MemoryTierFactory implements TierFactory {
 
     @Override
@@ -80,6 +81,6 @@ public class MemoryTierFactory implements TierFactory {
             List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
             NettyService consumerNettyService) {
-        return new LocalTierConsumerAgent(numberInputChannels);
+        return new LocalTierConsumerAgent(numberInputChannels, consumerNettyService);
     }
 }

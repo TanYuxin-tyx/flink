@@ -1,6 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local;
 
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 
 import java.io.IOException;
@@ -11,10 +12,10 @@ public class LocalTierConsumerAgent implements TierConsumerAgent {
 
     private final SubLocalTierConsumerAgent[] subAgents;
 
-    public LocalTierConsumerAgent(int numInputChannels) {
+    public LocalTierConsumerAgent(int numInputChannels, NettyService consumerNettyService) {
         this.subAgents = new SubLocalTierConsumerAgent[numInputChannels];
         for (int index = 0; index < numInputChannels; ++index) {
-            this.subAgents[index] = new SubLocalTierConsumerAgent();
+            this.subAgents[index] = new SubLocalTierConsumerAgent(consumerNettyService);
         }
     }
 
@@ -25,8 +26,8 @@ public class LocalTierConsumerAgent implements TierConsumerAgent {
 
     @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
-            InputChannel inputChannel, int segmentId) throws IOException, InterruptedException {
-        return subAgents[inputChannel.getChannelIndex()].getNextBuffer(inputChannel, segmentId);
+            int subpartitionId, int segmentId) throws IOException, InterruptedException {
+        return subAgents[subpartitionId].getNextBuffer(subpartitionId, segmentId);
     }
 
     @Override
@@ -36,19 +37,21 @@ public class LocalTierConsumerAgent implements TierConsumerAgent {
 
     private static class SubLocalTierConsumerAgent {
 
+        private final NettyService consumerNettyService;
+
         private int latestSegmentId = 0;
 
-        private SubLocalTierConsumerAgent() {}
+        private SubLocalTierConsumerAgent(NettyService consumerNettyService) {
+            this.consumerNettyService = consumerNettyService;
+        }
 
         public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
-                InputChannel inputChannel, int segmentId) throws IOException, InterruptedException {
+                int subpartitionId, int segmentId) throws IOException, InterruptedException {
             if (segmentId > 0L && (segmentId != latestSegmentId)) {
                 latestSegmentId = segmentId;
-                inputChannel.notifyRequiredSegmentId(segmentId);
+                consumerNettyService.notifyRequiredSegmentId(subpartitionId, segmentId);
             }
-            Optional<InputChannel.BufferAndAvailability> buffer;
-            buffer = inputChannel.getNextBuffer();
-            return buffer;
+            return consumerNettyService.readBuffer(subpartitionId);
         }
     }
 

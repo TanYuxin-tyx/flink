@@ -84,6 +84,6 @@ public class DiskTierFactory implements TierFactory {
             List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
             NettyService consumerNettyService) {
-        return new LocalTierConsumerAgent(numberOfInputChannels);
+        return new LocalTierConsumerAgent(numberOfInputChannels, consumerNettyService);
     }
 }

@@ -4,8 +4,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.consumer.LocalRecoveredInputChannel;
-import org.apache.flink.runtime.io.network.partition.consumer.RemoteRecoveredInputChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
@@ -19,12 +17,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
-/**
- * The implementation of {@link
- * org.apache.flink.runtime.io.network.partition.consumer.TieredStorageConsumerClient} interface.
- */
+/** The implementation of interface. */
 public class TieredStorageConsumerClient {
 
     private final SubpartitionConsumerClient[] subpartitionConsumerClients;
@@ -56,7 +50,7 @@ public class TieredStorageConsumerClient {
         this.subpartitionConsumerClients = new SubpartitionConsumerClient[numInputChannels];
         for (int i = 0; i < numInputChannels; ++i) {
             subpartitionConsumerClients[i] =
-                    new SubpartitionConsumerClientImpl(tierConsumerAgents, consumerNettyService);
+                    new SubpartitionConsumerClient(tierConsumerAgents, consumerNettyService);
         }
     }
 
@@ -66,16 +60,15 @@ public class TieredStorageConsumerClient {
         }
     }
 
-    public Optional<InputChannel.BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
+    public Optional<InputChannel.BufferAndAvailability> getNextBuffer(int subpartitionId)
             throws IOException, InterruptedException {
 
-        if (inputChannel.getClass() == LocalRecoveredInputChannel.class
-                || inputChannel.getClass() == RemoteRecoveredInputChannel.class) {
-            return inputChannel.getNextBuffer();
-        }
+        // if (inputChannel.getClass() == LocalRecoveredInputChannel.class
+        //        || inputChannel.getClass() == RemoteRecoveredInputChannel.class) {
+        //    return inputChannel.getNextBuffer();
+        // }
 
-        return subpartitionConsumerClients[inputChannel.getChannelIndex()].getNextBuffer(
-                inputChannel);
+        return subpartitionConsumerClients[subpartitionId].getNextBuffer(subpartitionId);
     }
 
     public void close() throws IOException {
