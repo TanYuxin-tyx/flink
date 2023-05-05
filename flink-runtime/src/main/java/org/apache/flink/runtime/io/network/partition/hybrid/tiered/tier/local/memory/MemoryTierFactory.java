@@ -81,6 +81,6 @@ public class MemoryTierFactory implements TierFactory {
             List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
             Consumer<Integer> channelEnqueueReceiver) {
-        return LocalTierConsumerAgent.getInstance(numberInputChannels);
+        return new LocalTierConsumerAgent(numberInputChannels);
     }
 }

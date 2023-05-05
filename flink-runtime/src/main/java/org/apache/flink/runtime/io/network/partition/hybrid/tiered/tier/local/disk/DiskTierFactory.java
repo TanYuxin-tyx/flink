@@ -85,6 +85,6 @@ public class DiskTierFactory implements TierFactory {
             List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
             Consumer<Integer> channelEnqueueReceiver) {
-        return LocalTierConsumerAgent.getInstance(numberOfInputChannels);
+        return new LocalTierConsumerAgent(numberOfInputChannels);
     }
 }

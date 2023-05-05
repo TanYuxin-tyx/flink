@@ -9,26 +9,13 @@ import java.util.Optional;
 /** The data client is used to fetch data from Local tier. */
 public class LocalTierConsumerAgent implements TierConsumerAgent {
 
-    private static LocalTierConsumerAgent instance = null;
+    private final SubLocalTierConsumerAgent[] subAgents;
 
-    private final SubLocalTierConsumerAgent[] consumerAgents;
-
-    private LocalTierConsumerAgent(int numInputChannels) {
-        this.consumerAgents = new SubLocalTierConsumerAgent[numInputChannels];
+    public LocalTierConsumerAgent(int numInputChannels) {
+        this.subAgents = new SubLocalTierConsumerAgent[numInputChannels];
         for (int index = 0; index < numInputChannels; ++index) {
-            this.consumerAgents[index] = new SubLocalTierConsumerAgent();
+            this.subAgents[index] = new SubLocalTierConsumerAgent();
         }
-    }
-
-    public static LocalTierConsumerAgent getInstance(int numInputChannels) {
-        if (instance == null) {
-            synchronized (LocalTierConsumerAgent.class) {
-                if (instance == null) {
-                    instance = new LocalTierConsumerAgent(numInputChannels);
-                }
-            }
-        }
-        return instance;
     }
 
     @Override
@@ -39,8 +26,7 @@ public class LocalTierConsumerAgent implements TierConsumerAgent {
     @Override
     public Optional<InputChannel.BufferAndAvailability> getNextBuffer(
             InputChannel inputChannel, int segmentId) throws IOException, InterruptedException {
-        return consumerAgents[inputChannel.getChannelIndex()].getNextBuffer(
-                inputChannel, segmentId);
+        return subAgents[inputChannel.getChannelIndex()].getNextBuffer(inputChannel, segmentId);
     }
 
     @Override
@@ -64,5 +50,15 @@ public class LocalTierConsumerAgent implements TierConsumerAgent {
             buffer = inputChannel.getNextBuffer();
             return buffer;
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return o.getClass() == LocalTierConsumerAgent.class;
+    }
+
+    @Override
+    public int hashCode() {
+        return 0;
     }
 }
