@@ -13,6 +13,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
+import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.nio.BufferUnderflowException;
@@ -40,7 +41,9 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         this.remoteTierMonitor = remoteTierMonitor;
         consumerAgents = new SubpartitionConsumerAgent[numInputChannels];
         for (int index = 0; index < numInputChannels; ++index) {
-            consumerAgents[index] = new SubpartitionConsumerAgent(memoryManager, remoteTierMonitor, consumerNettyService);
+            consumerAgents[index] =
+                    new SubpartitionConsumerAgent(
+                            memoryManager, remoteTierMonitor, consumerNettyService);
         }
     }
 
@@ -50,9 +53,14 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     }
 
     @Override
-    public Optional<Buffer> getNextBuffer(int subpartitionId, int segmentId)
-            throws IOException, InterruptedException {
-        return consumerAgents[subpartitionId].getNextBuffer(subpartitionId, segmentId);
+    public Optional<Buffer> getNextBuffer(int subpartitionId, int segmentId) {
+        Optional<Buffer> buffer = Optional.empty();
+        try {
+            buffer = consumerAgents[subpartitionId].getNextBuffer(subpartitionId, segmentId);
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to get next buffer.");
+        }
+        return buffer;
     }
 
     @Override
