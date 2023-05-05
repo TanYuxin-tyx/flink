@@ -18,14 +18,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-/** The implementation of interface. */
+/** {@link TieredStorageConsumerClient} is used to read buffer from tiered store. */
 public class TieredStorageConsumerClient {
-
-    private final SubpartitionConsumerClient[] subpartitionConsumerClients;
 
     private final List<TierFactory> tierFactories;
 
     private final List<TierConsumerAgent> tierConsumerAgents;
+
+    private final int[] latestSegmentIds;
+
+    private final NettyService consumerNettyService;
 
     public TieredStorageConsumerClient(
             boolean isUpstreamBroadcast,
@@ -47,11 +49,8 @@ public class TieredStorageConsumerClient {
                         subpartitionIndexes,
                         baseRemoteStoragePath,
                         consumerNettyService);
-        this.subpartitionConsumerClients = new SubpartitionConsumerClient[numInputChannels];
-        for (int i = 0; i < numInputChannels; ++i) {
-            subpartitionConsumerClients[i] =
-                    new SubpartitionConsumerClient(tierConsumerAgents, consumerNettyService);
-        }
+        this.latestSegmentIds = new int[numInputChannels];
+        this.consumerNettyService = consumerNettyService;
     }
 
     public void start() {
@@ -62,7 +61,26 @@ public class TieredStorageConsumerClient {
 
     public Optional<Buffer> getNextBuffer(int subpartitionId)
             throws IOException, InterruptedException {
-        return subpartitionConsumerClients[subpartitionId].getNextBuffer(subpartitionId);
+        Optional<Buffer> bufferAndAvailability = Optional.empty();
+        for (TierConsumerAgent tiereConsumerAgent : tierConsumerAgents) {
+            bufferAndAvailability =
+                    tiereConsumerAgent.getNextBuffer(
+                            subpartitionId, latestSegmentIds[subpartitionId]);
+            if (bufferAndAvailability.isPresent()) {
+                break;
+            }
+        }
+        if (!bufferAndAvailability.isPresent()) {
+            return Optional.empty();
+        }
+        Buffer bufferData = bufferAndAvailability.get();
+        if (bufferData.getDataType() == Buffer.DataType.ADD_SEGMENT_ID_EVENT) {
+            latestSegmentIds[subpartitionId]++;
+            bufferData.recycleBuffer();
+            consumerNettyService.notifyResultSubpartitionAvailable(subpartitionId, false);
+            return getNextBuffer(subpartitionId);
+        }
+        return Optional.of(bufferData);
     }
 
     public void close() throws IOException {
