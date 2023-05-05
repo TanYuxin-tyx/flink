@@ -15,13 +15,13 @@ public class SubpartitionConsumerClientImpl implements SubpartitionConsumerClien
 
     private final Consumer<Integer> queueChannelReceiver;
 
-    private final List<TierConsumerAgent> clientList;
+    private final List<TierConsumerAgent> agentList;
 
     private int currentSegmentId = 0;
 
     public SubpartitionConsumerClientImpl(
-            List<TierConsumerAgent> clientList, Consumer<Integer> queueChannelReceiver) {
-        this.clientList = clientList;
+            List<TierConsumerAgent> agentList, Consumer<Integer> queueChannelReceiver) {
+        this.agentList = agentList;
         this.queueChannelReceiver = queueChannelReceiver;
     }
 
@@ -29,8 +29,8 @@ public class SubpartitionConsumerClientImpl implements SubpartitionConsumerClien
     public Optional<BufferAndAvailability> getNextBuffer(InputChannel inputChannel)
             throws IOException, InterruptedException {
         Optional<BufferAndAvailability> bufferAndAvailability = Optional.empty();
-        for (TierConsumerAgent client : clientList) {
-            bufferAndAvailability = client.getNextBuffer(inputChannel, currentSegmentId);
+        for (TierConsumerAgent tiereConsumerAgent : agentList) {
+            bufferAndAvailability = tiereConsumerAgent.getNextBuffer(inputChannel, currentSegmentId);
             if (bufferAndAvailability.isPresent()) {
                 break;
             }
@@ -50,7 +50,7 @@ public class SubpartitionConsumerClientImpl implements SubpartitionConsumerClien
 
     @Override
     public void close() throws IOException {
-        for (TierConsumerAgent client : clientList) {
+        for (TierConsumerAgent client : agentList) {
             client.close();
         }
     }
