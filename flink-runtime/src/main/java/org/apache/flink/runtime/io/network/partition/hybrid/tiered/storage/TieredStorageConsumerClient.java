@@ -23,7 +23,7 @@ public class TieredStorageConsumerClient {
 
     private final List<TierConsumerAgent> tierConsumerAgents;
 
-    private final int[] latestSegmentIds;
+    private final int[] subpartitionNextSegmentIds;
 
     private final NettyService consumerNettyService;
 
@@ -47,7 +47,7 @@ public class TieredStorageConsumerClient {
                         baseRemoteStoragePath,
                         consumerNettyService,
                         isUpstreamBroadcast);
-        this.latestSegmentIds = new int[numSubpartitions];
+        this.subpartitionNextSegmentIds = new int[numSubpartitions];
         this.consumerNettyService = consumerNettyService;
     }
 
@@ -62,7 +62,7 @@ public class TieredStorageConsumerClient {
         for (TierConsumerAgent tiereConsumerAgent : tierConsumerAgents) {
             bufferAndAvailability =
                     tiereConsumerAgent.getNextBuffer(
-                            subpartitionId, latestSegmentIds[subpartitionId]);
+                            subpartitionId, subpartitionNextSegmentIds[subpartitionId]);
             if (bufferAndAvailability.isPresent()) {
                 break;
             }
@@ -72,7 +72,7 @@ public class TieredStorageConsumerClient {
         }
         Buffer bufferData = bufferAndAvailability.get();
         if (bufferData.getDataType() == Buffer.DataType.ADD_SEGMENT_ID_EVENT) {
-            latestSegmentIds[subpartitionId]++;
+            subpartitionNextSegmentIds[subpartitionId]++;
             bufferData.recycleBuffer();
             consumerNettyService.notifyResultSubpartitionAvailable(subpartitionId, false);
             return getNextBuffer(subpartitionId);
