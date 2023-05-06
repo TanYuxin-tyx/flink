@@ -13,10 +13,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.R
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 /** {@link TieredStorageConsumerClient} is used to read buffer from tiered store. */
 public class TieredStorageConsumerClient {
@@ -107,11 +105,13 @@ public class TieredStorageConsumerClient {
             String baseRemoteStoragePath,
             NettyService consumerNettyService,
             boolean isUpstreamBroadcastOnly) {
-        Set<TierConsumerAgent> tierConsumerAgents = new HashSet<>();
+        List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
+        int[] requiredSegmentIds = new int[numSubpartitions];
         for (TierFactory tierFactory : tierFactories) {
             tierConsumerAgents.add(
                     tierFactory.createConsumerAgent(
                             numSubpartitions,
+                            requiredSegmentIds,
                             subpartitionIds,
                             jobID,
                             resultPartitionIDs,
@@ -120,6 +120,6 @@ public class TieredStorageConsumerClient {
                             consumerNettyService,
                             isUpstreamBroadcastOnly));
         }
-        return new ArrayList<>(tierConsumerAgents);
+        return tierConsumerAgents;
     }
 }

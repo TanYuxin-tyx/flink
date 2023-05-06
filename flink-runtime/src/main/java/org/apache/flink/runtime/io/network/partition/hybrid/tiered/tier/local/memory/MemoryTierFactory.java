@@ -31,7 +31,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierCons
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierConsumerAgent;
 
 import javax.annotation.Nullable;
 
@@ -74,6 +73,7 @@ public class MemoryTierFactory implements TierFactory {
     @Override
     public TierConsumerAgent createConsumerAgent(
             int numSubpartitions,
+            int[] requiredSegmentIds,
             List<Integer> subpartitionIds,
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
@@ -81,6 +81,6 @@ public class MemoryTierFactory implements TierFactory {
             String baseRemoteStoragePath,
             NettyService consumerNettyService,
             boolean isUpstreamBroadcastOnly) {
-        return new LocalTierConsumerAgent(numSubpartitions, consumerNettyService);
+        return new MemoryTierConsumerAgent(requiredSegmentIds, consumerNettyService);
     }
 }
