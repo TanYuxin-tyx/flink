@@ -237,8 +237,8 @@ public class SingleInputGate extends IndexedInputGate {
             boolean enableTieredStoreMode,
             boolean isUpstreamBroadcastOnly,
             JobID jobID,
-            List<ResultPartitionID> upstreamResultPartitionIDs,
-            List<Integer> upstreamSubpartitionIds,
+            List<ResultPartitionID> resultPartitionIds,
+            List<Integer> subpartitionIds,
             @Nullable String baseRemoteStoragePath) {
 
         this.owningTaskName = checkNotNull(owningTaskName);
@@ -276,19 +276,19 @@ public class SingleInputGate extends IndexedInputGate {
         this.tieredStorageConsumerClient =
                 enableTieredStoreMode
                         ? new TieredStorageConsumerClient(
-                                isUpstreamBroadcastOnly,
                                 numberOfInputChannels,
+                                subpartitionIds,
                                 jobID,
-                                upstreamResultPartitionIDs,
+                                resultPartitionIds,
                                 (NetworkBufferPool) memorySegmentProvider,
-                                upstreamSubpartitionIds,
                                 baseRemoteStoragePath,
                                 new ConsumerNettyService(
                                         channels,
                                         lastPrioritySequenceNumber,
                                         (subpartitionId, priority) ->
                                                 queueChannel(
-                                                        channels[subpartitionId], null, priority)))
+                                                        channels[subpartitionId], null, priority)),
+                                isUpstreamBroadcastOnly)
                         : null;
     }
 

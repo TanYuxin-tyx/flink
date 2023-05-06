@@ -30,26 +30,26 @@ public class TieredStorageConsumerClient {
     private final NettyService consumerNettyService;
 
     public TieredStorageConsumerClient(
-            boolean isUpstreamBroadcast,
-            int numInputChannels,
+            int numSubpartitions,
+            List<Integer> subpartitionIds,
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             NetworkBufferPool networkBufferPool,
-            List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
-            NettyService consumerNettyService) {
+            NettyService consumerNettyService,
+            boolean isUpstreamBroadcast) {
         this.tierFactories = createTierFactories(baseRemoteStoragePath);
         this.tierConsumerAgents =
                 createTierConsumerAgents(
-                        numInputChannels,
-                        isUpstreamBroadcast,
+                        numSubpartitions,
+                        subpartitionIds,
                         jobID,
                         resultPartitionIDs,
                         networkBufferPool,
-                        subpartitionIndexes,
                         baseRemoteStoragePath,
-                        consumerNettyService);
-        this.latestSegmentIds = new int[numInputChannels];
+                        consumerNettyService,
+                        isUpstreamBroadcast);
+        this.latestSegmentIds = new int[numSubpartitions];
         this.consumerNettyService = consumerNettyService;
     }
 
@@ -99,26 +99,26 @@ public class TieredStorageConsumerClient {
     }
 
     private List<TierConsumerAgent> createTierConsumerAgents(
-            int numInputChannels,
-            boolean isUpstreamBroadcastOnly,
+            int numSubpartitions,
+            List<Integer> subpartitionIds,
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             NetworkBufferPool networkBufferPool,
-            List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
-            NettyService consumerNettyService) {
+            NettyService consumerNettyService,
+            boolean isUpstreamBroadcastOnly) {
         Set<TierConsumerAgent> tierConsumerAgents = new HashSet<>();
         for (TierFactory tierFactory : tierFactories) {
             tierConsumerAgents.add(
                     tierFactory.createConsumerAgent(
-                            isUpstreamBroadcastOnly,
-                            numInputChannels,
+                            numSubpartitions,
+                            subpartitionIds,
                             jobID,
                             resultPartitionIDs,
                             networkBufferPool,
-                            subpartitionIndexes,
                             baseRemoteStoragePath,
-                            consumerNettyService));
+                            consumerNettyService,
+                            isUpstreamBroadcastOnly));
         }
         return new ArrayList<>(tierConsumerAgents);
     }

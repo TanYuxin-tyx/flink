@@ -51,12 +51,13 @@ public interface TierFactory {
             CacheFlushManager cacheFlushManager,
             NettyService nettyService);
 
-    TierConsumerAgent createConsumerAgent(boolean isUpstreamBroadcastOnly,
-                                          int numberInputChannels,
-                                          JobID jobID,
-                                          List<ResultPartitionID> resultPartitionIDs,
-                                          NetworkBufferPool networkBufferPool,
-                                          List<Integer> subpartitionIndexes,
-                                          String baseRemoteStoragePath,
-                                          NettyService consumerNettyService);
+    TierConsumerAgent createConsumerAgent(
+            int numSubpartitions,
+            List<Integer> subpartitionIds,
+            JobID jobID,
+            List<ResultPartitionID> resultPartitionIDs,
+            NetworkBufferPool networkBufferPool,
+            String baseRemoteStoragePath,
+            NettyService consumerNettyService,
+            boolean isUpstreamBroadcastOnly);
 }

@@ -171,14 +171,14 @@ public class SingleInputGateFactory {
         ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
         boolean isUpstreamBroadcastOnly =
                 ((NettyShuffleDescriptor) shuffleDescriptors[0]).isUpstreamBroadcastOnly();
-        List<ResultPartitionID> upstreamResultPartitionIDs = new ArrayList<>();
-        List<Integer> upstreamSubpartitionIDs = new ArrayList<>();
+        List<ResultPartitionID> resultPartitionIds = new ArrayList<>();
+        List<Integer> subpartitionIds = new ArrayList<>();
         for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
             for (int subpartitionId = subpartitionIndexRange.getStartIndex();
                     subpartitionId <= subpartitionIndexRange.getEndIndex();
                     ++subpartitionId) {
-                upstreamResultPartitionIDs.add(shuffleDescriptor.getResultPartitionID());
-                upstreamSubpartitionIDs.add(subpartitionId);
+                resultPartitionIds.add(shuffleDescriptor.getResultPartitionID());
+                subpartitionIds.add(subpartitionId);
             }
         }
 
@@ -201,8 +201,8 @@ public class SingleInputGateFactory {
                         enableTieredStore,
                         isUpstreamBroadcastOnly,
                         owner.getJobID(),
-                        upstreamResultPartitionIDs,
-                        upstreamSubpartitionIDs,
+                        resultPartitionIds,
+                        subpartitionIds,
                         baseRemoteStoragePath);
 
         createInputChannels(
@@ -330,8 +330,8 @@ public class SingleInputGateFactory {
             boolean enableTieredStoreMode,
             boolean isUpstreamBroadcastOnly,
             JobID jobID,
-            List<ResultPartitionID> upstreamResultPartitionIDs,
-            List<Integer> upstreamSubpartitionIds,
+            List<ResultPartitionID> resultPartitionIds,
+            List<Integer> subpartitionIds,
             @Nullable String baseRemoteStoragePath) {
 
         return new SingleInputGate(
@@ -351,8 +351,8 @@ public class SingleInputGateFactory {
                 enableTieredStore,
                 isUpstreamBroadcastOnly,
                 jobID,
-                upstreamResultPartitionIDs,
-                upstreamSubpartitionIds,
+                resultPartitionIds,
+                subpartitionIds,
                 baseRemoteStoragePath);
     }
 

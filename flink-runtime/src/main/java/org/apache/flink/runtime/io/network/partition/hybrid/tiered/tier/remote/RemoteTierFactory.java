@@ -74,14 +74,14 @@ public class RemoteTierFactory implements TierFactory {
 
     @Override
     public TierConsumerAgent createConsumerAgent(
-            boolean isUpstreamBroadcastOnly,
-            int numberOfInputChannels,
+            int numSubpartitions,
+            List<Integer> subpartitionIds,
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             NetworkBufferPool networkBufferPool,
-            List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
-            NettyService consumerNettyService) {
+            NettyService consumerNettyService,
+            boolean isUpstreamBroadcastOnly) {
 
         List<IndexedTierConfSpec> indexedTierConfSpecs =
                 TieredStorageConfiguration.getTestIndexedTierConfSpec();
@@ -97,12 +97,12 @@ public class RemoteTierFactory implements TierFactory {
                         jobID,
                         resultPartitionIDs,
                         baseRemoteStoragePath,
-                        subpartitionIndexes,
-                        numberOfInputChannels,
+                        subpartitionIds,
+                        numSubpartitions,
                         isUpstreamBroadcastOnly,
                         consumerNettyService);
         return new RemoteTierConsumerAgent(
-                numberOfInputChannels,
+                numSubpartitions,
                 tieredStoreMemoryManager,
                 remoteTierMonitor,
                 consumerNettyService);

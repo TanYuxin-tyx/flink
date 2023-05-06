@@ -73,14 +73,14 @@ public class MemoryTierFactory implements TierFactory {
 
     @Override
     public TierConsumerAgent createConsumerAgent(
-            boolean isUpstreamBroadcastOnly,
-            int numberInputChannels,
+            int numSubpartitions,
+            List<Integer> subpartitionIds,
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
             NetworkBufferPool networkBufferPool,
-            List<Integer> subpartitionIndexes,
             String baseRemoteStoragePath,
-            NettyService consumerNettyService) {
-        return new LocalTierConsumerAgent(numberInputChannels, consumerNettyService);
+            NettyService consumerNettyService,
+            boolean isUpstreamBroadcastOnly) {
+        return new LocalTierConsumerAgent(numSubpartitions, consumerNettyService);
     }
 }
