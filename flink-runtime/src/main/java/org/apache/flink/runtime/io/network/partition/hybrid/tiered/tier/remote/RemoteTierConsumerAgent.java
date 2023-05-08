@@ -7,11 +7,14 @@ import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
+import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
+import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager1;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -35,7 +38,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
     public RemoteTierConsumerAgent(
             int numInputChannels,
-            TieredStorageMemoryManager memoryManager,
+            TieredStorageMemoryManager1 memoryManager1,
             RemoteTierMonitor remoteTierMonitor,
             NettyService consumerNettyService) {
         this.remoteTierMonitor = remoteTierMonitor;
@@ -43,7 +46,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         for (int index = 0; index < numInputChannels; ++index) {
             consumerAgents[index] =
                     new SubpartitionConsumerAgent(
-                            memoryManager, remoteTierMonitor, consumerNettyService);
+                            memoryManager1, remoteTierMonitor, consumerNettyService);
         }
     }
 
@@ -72,7 +75,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     }
 
     private class SubpartitionConsumerAgent {
-        private final TieredStorageMemoryManager memoryManager;
+        private final TieredStorageMemoryManager1 memoryManager1;
 
         private final ByteBuffer headerBuffer;
 
@@ -85,12 +88,12 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         private int latestSegmentId = -1;
 
         private SubpartitionConsumerAgent(
-                TieredStorageMemoryManager memoryManager,
+                TieredStorageMemoryManager1 memoryManager1,
                 RemoteTierMonitor remoteTierMonitor,
                 NettyService consumerNettyService) {
             this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
             headerBuffer.order(ByteOrder.nativeOrder());
-            this.memoryManager = memoryManager;
+            this.memoryManager1 = memoryManager1;
             this.remoteTierMonitor = remoteTierMonitor;
             this.consumerNettyService = consumerNettyService;
         }
@@ -125,12 +128,19 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         // ------------------------------------
 
         private Buffer getDfsBuffer(FSDataInputStream inputStream) throws IOException {
-            MemorySegment memorySegment = memoryManager.requestBufferBlocking(0);
-            return checkNotNull(readFromInputStream(memorySegment, inputStream));
+            BufferBuilder builder = memoryManager1.requestBufferBlocking(this);
+            BufferConsumer bufferConsumer = builder.createBufferConsumer();
+            Buffer buffer = bufferConsumer.build();
+            return checkNotNull(
+                    readFromInputStream(
+                            buffer.getMemorySegment(), inputStream, buffer.getRecycler()));
         }
 
         private Buffer readFromInputStream(
-                MemorySegment memorySegment, FSDataInputStream inputStream) throws IOException {
+                MemorySegment memorySegment,
+                FSDataInputStream inputStream,
+                BufferRecycler bufferRecycler)
+                throws IOException {
             headerBuffer.clear();
             int bufferHeaderResult = inputStream.read(headerBuffer.array());
             if (bufferHeaderResult == -1) {
@@ -154,7 +164,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             memorySegment.put(0, dataBuffer.array(), 0, header.getLength());
             return new NetworkBuffer(
                     memorySegment,
-                    this::recycle,
+                    bufferRecycler,
                     dataType,
                     header.isCompressed(),
                     header.getLength());
@@ -169,10 +179,6 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                     FreeingBufferRecycler.INSTANCE,
                     Buffer.DataType.ADD_SEGMENT_ID_EVENT,
                     data.size());
-        }
-
-        private void recycle(MemorySegment memorySegment) {
-            memoryManager.recycleBuffer(memorySegment, 0);
         }
 
         @VisibleForTesting

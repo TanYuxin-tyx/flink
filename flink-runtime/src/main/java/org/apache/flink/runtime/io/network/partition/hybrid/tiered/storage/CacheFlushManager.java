@@ -43,7 +43,7 @@ public class CacheFlushManager {
 
     private final List<CacheBufferFlushTrigger> spillTriggers;
 
-    private TieredStorageMemoryManager storageMemoryManager;
+    private TieredStorageMemoryManager1 storageMemoryManager1;
 
     private final ScheduledExecutorService executor =
             Executors.newSingleThreadScheduledExecutor(
@@ -60,8 +60,8 @@ public class CacheFlushManager {
                 this::checkNeedTriggerFlushCachedBuffers, 10, 50, TimeUnit.MILLISECONDS);
     }
 
-    public void setup(TieredStorageMemoryManager storageMemoryManager) {
-        this.storageMemoryManager = storageMemoryManager;
+    public void setup(TieredStorageMemoryManager1 storageMemoryManager1) {
+        this.storageMemoryManager1 = storageMemoryManager1;
     }
 
     public void registerCacheBufferFlushTrigger(CacheBufferFlushTrigger cacheBufferFlushTrigger) {
@@ -73,12 +73,12 @@ public class CacheFlushManager {
     }
 
     public void checkNeedTriggerFlushCachedBuffers() {
-        if (storageMemoryManager == null) {
+        if (storageMemoryManager1 == null) {
             return;
         }
 
         if (TieredStorageUtils.needFlushCacheBuffers(
-                storageMemoryManager, numBuffersTriggerFlushRatio)) {
+                storageMemoryManager1, numBuffersTriggerFlushRatio)) {
             triggerFlushCachedBuffers();
         }
     }

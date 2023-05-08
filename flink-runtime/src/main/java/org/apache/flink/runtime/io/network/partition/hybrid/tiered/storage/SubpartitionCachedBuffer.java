@@ -52,10 +52,6 @@ public class SubpartitionCachedBuffer {
 
     private final int bufferSize;
 
-    private final TieredStorageMemoryManager storageMemoryManager;
-
-    private final CacheFlushManager cacheFlushManager;
-
     private final HashBasedCacheBufferOperation hashBasedCacheBufferOperation;
 
     private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher;
@@ -66,13 +62,9 @@ public class SubpartitionCachedBuffer {
     public SubpartitionCachedBuffer(
             TieredStorageSubpartitionId subpartitionId,
             int bufferSize,
-            TieredStorageMemoryManager storageMemoryManager,
-            CacheFlushManager cacheFlushManager,
             HashBasedCacheBufferOperation hashBasedCacheBufferOperation) {
         this.subpartitionId = subpartitionId;
         this.bufferSize = bufferSize;
-        this.storageMemoryManager = storageMemoryManager;
-        this.cacheFlushManager = cacheFlushManager;
         this.hashBasedCacheBufferOperation = hashBasedCacheBufferOperation;
     }
 
@@ -184,15 +176,5 @@ public class SubpartitionCachedBuffer {
 
     private void addFinishedBuffer(Buffer finishedBuffer) {
         bufferFlusher.accept(subpartitionId, Collections.singletonList(finishedBuffer));
-    }
-
-    public BufferBuilder requestBufferFromPool() {
-        MemorySegment segment = storageMemoryManager.requestBufferInAccumulator();
-        cacheFlushManager.checkNeedTriggerFlushCachedBuffers();
-        return new BufferBuilder(segment, this::recycleBuffer);
-    }
-
-    private void recycleBuffer(MemorySegment buffer) {
-        storageMemoryManager.recycleBufferInAccumulator(buffer);
     }
 }

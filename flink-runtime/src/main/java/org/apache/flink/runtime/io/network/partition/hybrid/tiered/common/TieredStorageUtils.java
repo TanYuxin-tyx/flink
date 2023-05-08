@@ -28,9 +28,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager1;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
@@ -92,20 +90,11 @@ public class TieredStorageUtils {
         checkState(writeSize == expectedBytes);
     }
 
-    public static void checkFlushCacheBuffers(
-            TieredStorageMemoryManager storageMemoryManager,
-            CacheBufferFlushTrigger cacheBufferFlushTrigger,
-            float numBuffersTriggerFlushRatio) {
-        if (needFlushCacheBuffers(storageMemoryManager, numBuffersTriggerFlushRatio)) {
-            cacheBufferFlushTrigger.notifyFlushCachedBuffers();
-        }
-    }
-
     public static boolean needFlushCacheBuffers(
-            TieredStorageMemoryManager tieredStoreMemoryManager,
+            TieredStorageMemoryManager1 tieredStoreMemoryManager1,
             float numBuffersTriggerFlushRatio) {
-        int numTotal = tieredStoreMemoryManager.numTotalBuffers();
-        int numRequested = tieredStoreMemoryManager.numRequestedBuffers();
+        int numTotal = tieredStoreMemoryManager1.numTotalBuffers();
+        int numRequested = tieredStoreMemoryManager1.numRequestedBuffers();
         return numRequested >= numTotal
                 || (numRequested * 1.0 / numTotal) >= numBuffersTriggerFlushRatio;
     }
@@ -116,7 +105,6 @@ public class TieredStorageUtils {
             BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
-            TieredStorageMemoryManager storeMemoryManager,
             TieredStorageMemoryManager1 storeMemoryManager1,
             CacheFlushManager cacheFlushManager,
             String dataFileBasePath,
@@ -137,7 +125,6 @@ public class TieredStorageUtils {
                             isBroadcast,
                             partitionFileManager,
                             networkBufferSize,
-                            storeMemoryManager,
                             storeMemoryManager1,
                             bufferCompressor,
                             cacheFlushManager,

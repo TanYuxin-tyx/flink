@@ -31,7 +31,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -62,30 +61,13 @@ class BufferAccumulatorImplTest {
         int numRecords = 1000;
         Random random = new Random();
 
-        TieredStorageMemoryManager tieredStorageMemoryManager =
-                createStorageMemoryManager(numBuffers);
         TieredStorageMemoryManager1 tieredStorageMemoryManager1 =
                 createStorageMemoryManager1(numBuffers);
         BufferAccumulatorImpl bufferAccumulator =
                 new BufferAccumulatorImpl(
-                        TieredStorageTestUtils.NETWORK_BUFFER_SIZE,
-                        tieredStorageMemoryManager,
-                        tieredStorageMemoryManager1,
-                        new CacheFlushManager(
-                                TieredStorageTestUtils.NUM_BUFFERS_TRIGGER_FLUSH_RATIO));
+                        TieredStorageTestUtils.NETWORK_BUFFER_SIZE, tieredStorageMemoryManager1);
 
         AtomicInteger numReceivedFinishedBuffer = new AtomicInteger(0);
-        bufferAccumulator.setup(
-                1,
-                ((subpartitionId, buffers) -> {
-                    numReceivedFinishedBuffer.set(numReceivedFinishedBuffer.get() + buffers.size());
-                    buffers.stream()
-                            .filter(Buffer::isBuffer)
-                            .forEach(
-                                    buffer ->
-                                            tieredStorageMemoryManager.recycleBufferInAccumulator(
-                                                    buffer.getMemorySegment()));
-                }));
 
         int numSentBytes = 0;
         for (int i = 0; i < numRecords; i++) {
@@ -104,9 +86,7 @@ class BufferAccumulatorImplTest {
                         + (numSentBytes % TieredStorageTestUtils.NETWORK_BUFFER_SIZE == 0 ? 0 : 1);
 
         assertThat(numReceivedFinishedBuffer.get()).isEqualTo(numExpectBuffers + 1);
-        assertThat(tieredStorageMemoryManager.numRequestedBuffers()).isZero();
         bufferAccumulator.close();
-        assertThat(tieredStorageMemoryManager.numRequestedBuffers()).isZero();
     }
 
     @Test
@@ -114,34 +94,11 @@ class BufferAccumulatorImplTest {
         int numBuffers = 10;
         int numRecords = 1000;
         Random random = new Random();
-
-        TieredStorageMemoryManager tieredStorageMemoryManager =
-                createStorageMemoryManager(numBuffers);
         TieredStorageMemoryManager1 tieredStorageMemoryManager1 =
                 createStorageMemoryManager1(numBuffers);
         BufferAccumulatorImpl bufferAccumulator =
                 new BufferAccumulatorImpl(
-                        TieredStorageTestUtils.NETWORK_BUFFER_SIZE,
-                        tieredStorageMemoryManager,
-                        tieredStorageMemoryManager1,
-                        new CacheFlushManager(
-                                TieredStorageTestUtils.NUM_BUFFERS_TRIGGER_FLUSH_RATIO));
-
-        AtomicInteger numReceivedFinishedBuffer = new AtomicInteger(0);
-        AtomicInteger numReceivedFinishedEvent = new AtomicInteger(0);
-        bufferAccumulator.setup(
-                1,
-                ((subpartitionId, buffers) ->
-                        buffers.forEach(
-                                buffer -> {
-                                    if (buffer.isBuffer()) {
-                                        numReceivedFinishedBuffer.incrementAndGet();
-                                        tieredStorageMemoryManager.recycleBufferInAccumulator(
-                                                buffer.getMemorySegment());
-                                    } else {
-                                        numReceivedFinishedEvent.incrementAndGet();
-                                    }
-                                })));
+                        TieredStorageTestUtils.NETWORK_BUFFER_SIZE, tieredStorageMemoryManager1);
 
         for (int i = 0; i < numRecords; i++) {
             if (i % 2 == 0) {
@@ -162,24 +119,7 @@ class BufferAccumulatorImplTest {
         bufferAccumulator.receive(
                 endEvent, new TieredStorageSubpartitionId(0), Buffer.DataType.EVENT_BUFFER);
 
-        int netExpectBuffers = (numRecords / 2) * 3;
-        int netExpectEvents = numRecords / 2 + 1;
-        assertThat(numReceivedFinishedBuffer.get()).isEqualTo(netExpectBuffers);
-        assertThat(numReceivedFinishedEvent.get()).isEqualTo(netExpectEvents);
-        assertThat(tieredStorageMemoryManager.numRequestedBuffers()).isZero();
-
         bufferAccumulator.close();
-        assertThat(tieredStorageMemoryManager.numRequestedBuffers()).isZero();
-    }
-
-    private TieredStorageMemoryManagerImpl createStorageMemoryManager(int numBuffersInBufferPool)
-            throws IOException {
-        BufferPool bufferPool =
-                globalPool.createBufferPool(numBuffersInBufferPool, numBuffersInBufferPool);
-        TieredStorageMemoryManagerImpl storageProducerMemoryManager =
-                new TieredStorageMemoryManagerImpl(Collections.emptyList());
-        storageProducerMemoryManager.setup(bufferPool);
-        return storageProducerMemoryManager;
     }
 
     private TieredStorageMemoryManagerImpl1 createStorageMemoryManager1(int numBuffersInBufferPool)

@@ -38,9 +38,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager1;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl1;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemorySpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClientImpl;
@@ -279,9 +277,6 @@ public class ResultPartitionFactory {
             if (enableTieredStoreForHybridShuffle) {
                 TieredStorageConfiguration storeConfiguration =
                         getStoreConfiguration(numberOfSubpartitions, type);
-                TieredStorageMemoryManager storageMemoryManager =
-                        new TieredStorageMemoryManagerImpl(
-                                storeConfiguration.getIndexedTierConfSpecs());
 
                 TieredStorageMemoryManager1 storageMemoryManager1 =
                         new TieredStorageMemoryManagerImpl1();
@@ -298,7 +293,6 @@ public class ResultPartitionFactory {
                                 bufferCompressor,
                                 subpartitions,
                                 storeConfiguration,
-                                storageMemoryManager,
                                 storageMemoryManager1,
                                 cacheFlushManager,
                                 nettyService);
@@ -309,18 +303,13 @@ public class ResultPartitionFactory {
                         storeConfiguration.getIndexedTierConfSpecs());
 
                 BufferAccumulator bufferAccumulator =
-                        new BufferAccumulatorImpl(
-                                networkBufferSize,
-                                storageMemoryManager,
-                                storageMemoryManager1,
-                                cacheFlushManager);
+                        new BufferAccumulatorImpl(networkBufferSize, storageMemoryManager1);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(
                                 subpartitions.length,
                                 isBroadcast,
                                 bufferAccumulator,
                                 bufferCompressor,
-                                storageMemoryManager,
                                 storageMemoryManager1,
                                 cacheFlushManager,
                                 tierProducerAgents);
@@ -334,7 +323,6 @@ public class ResultPartitionFactory {
                                 maxParallelism,
                                 partitionManager,
                                 tierProducerAgents,
-                                storageMemoryManager,
                                 storageMemoryManager1,
                                 cacheFlushManager,
                                 bufferCompressor,
@@ -392,7 +380,6 @@ public class ResultPartitionFactory {
             BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
-            TieredStorageMemoryManager storeMemoryManager,
             TieredStorageMemoryManager1 storeMemoryManager1,
             CacheFlushManager cacheFlushManager,
             NettyService nettyService) {
@@ -415,7 +402,6 @@ public class ResultPartitionFactory {
                 bufferCompressor,
                 subpartitions,
                 storeConfiguration,
-                storeMemoryManager,
                 storeMemoryManager1,
                 cacheFlushManager,
                 dataFileBasePath,

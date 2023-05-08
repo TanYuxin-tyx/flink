@@ -25,6 +25,7 @@ import org.apache.flink.util.ExceptionUtils;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -37,8 +38,11 @@ public class TieredStorageMemoryManagerImpl1 implements TieredStorageMemoryManag
 
     private BufferPool bufferPool;
 
+    private AtomicInteger numRequestedBuffers;
+
     public TieredStorageMemoryManagerImpl1() {
         this.tieredMemorySpecs = new HashMap<>();
+        this.numRequestedBuffers = new AtomicInteger(0);
     }
 
     @Override
@@ -63,7 +67,8 @@ public class TieredStorageMemoryManagerImpl1 implements TieredStorageMemoryManag
         } catch (Throwable throwable) {
             ExceptionUtils.rethrow(throwable, "Failed to request memory segments.");
         }
-        return new BufferBuilder(checkNotNull(requestedBuffer), bufferPool);
+        numRequestedBuffers.incrementAndGet();
+        return new BufferBuilder(checkNotNull(requestedBuffer), this::recycleBuffer);
     }
 
     @Override
@@ -76,5 +81,25 @@ public class TieredStorageMemoryManagerImpl1 implements TieredStorageMemoryManag
             int ownerExclusiveBuffers = ownerMemorySpec.getNumExclusiveBuffers();
             return bufferPool.getNumBuffers() - numTotalExclusiveBuffers + ownerExclusiveBuffers;
         }
+    }
+
+    @Override
+    public int numTotalBuffers() {
+        return bufferPool.getNumBuffers();
+    }
+
+    @Override
+    public int numRequestedBuffers() {
+        return numRequestedBuffers.get();
+    }
+
+    @Override
+    public void release() {
+        checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
+    }
+
+    private void recycleBuffer(MemorySegment buffer) {
+        bufferPool.recycle(buffer);
+        numRequestedBuffers.decrementAndGet();
     }
 }

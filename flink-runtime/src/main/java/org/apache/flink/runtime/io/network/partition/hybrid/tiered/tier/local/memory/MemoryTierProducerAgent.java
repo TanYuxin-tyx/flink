@@ -29,7 +29,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettySe
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager1;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
@@ -55,8 +54,6 @@ public class MemoryTierProducerAgent
     private final int tierIndex;
 
     private final int numSubpartitions;
-
-    private final TieredStorageMemoryManager storageMemoryManager;
 
     private final TieredStorageMemoryManager1 storageMemoryManager1;
 
@@ -87,7 +84,6 @@ public class MemoryTierProducerAgent
     public MemoryTierProducerAgent(
             int tierIndex,
             int numSubpartitions,
-            TieredStorageMemoryManager storageMemoryManager,
             TieredStorageMemoryManager1 storageMemoryManager1,
             boolean isBroadcastOnly,
             BufferCompressor bufferCompressor,
@@ -96,7 +92,6 @@ public class MemoryTierProducerAgent
         this.tierIndex = tierIndex;
         this.numSubpartitions = numSubpartitions;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.storageMemoryManager = storageMemoryManager;
         this.storageMemoryManager1 = storageMemoryManager1;
         this.lastNettyServiceViewIds = new NettyServiceViewId[numSubpartitions];
 

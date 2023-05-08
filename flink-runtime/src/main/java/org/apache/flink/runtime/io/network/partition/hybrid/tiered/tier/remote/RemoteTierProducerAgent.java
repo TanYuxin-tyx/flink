@@ -25,7 +25,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettySe
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
@@ -52,7 +51,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
             int numSubpartitions,
             boolean isBroadcastOnly,
             int networkBufferSize,
-            TieredStorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager,
             BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager) {
@@ -61,10 +59,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
         this.cacheDataManager =
                 new RemoteCacheManager(
                         isBroadcastOnly ? 1 : numSubpartitions,
-                        networkBufferSize,
-                        storageMemoryManager,
                         cacheFlushManager,
-                        bufferCompressor,
                         partitionFileManager.createPartitionFileWriter(
                                 PartitionFileType.PRODUCER_HASH));
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
@@ -74,8 +69,8 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     @Override
     public NettyServiceView registerNettyService(
-            int subpartitionId,
-            BufferAvailabilityListener availabilityListener) throws IOException {
+            int subpartitionId, BufferAvailabilityListener availabilityListener)
+            throws IOException {
         return null;
     }
 

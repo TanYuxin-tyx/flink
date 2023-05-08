@@ -26,9 +26,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Indexe
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager1;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl1;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
@@ -60,7 +59,6 @@ public class RemoteTierFactory implements TierFactory {
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
             int networkBufferSize,
-            TieredStorageMemoryManager storageMemoryManager,
             TieredStorageMemoryManager1 storageMemoryManager1,
             BufferCompressor bufferCompressor,
             CacheFlushManager cacheFlushManager,
@@ -69,7 +67,6 @@ public class RemoteTierFactory implements TierFactory {
                 numSubpartitions,
                 isBroadcastOnly,
                 networkBufferSize,
-                storageMemoryManager,
                 cacheFlushManager,
                 bufferCompressor,
                 partitionFileManager);
@@ -89,10 +86,10 @@ public class RemoteTierFactory implements TierFactory {
 
         List<IndexedTierConfSpec> indexedTierConfSpecs =
                 TieredStorageConfiguration.getTestIndexedTierConfSpec();
-        TieredStorageMemoryManager tieredStoreMemoryManager = null;
+        TieredStorageMemoryManager1 tieredStoreMemoryManager1 = null;
         try {
-            tieredStoreMemoryManager = new TieredStorageMemoryManagerImpl(indexedTierConfSpecs);
-            tieredStoreMemoryManager.setup(networkBufferPool.createBufferPool(1, 1));
+            tieredStoreMemoryManager1 = new TieredStorageMemoryManagerImpl1();
+            tieredStoreMemoryManager1.setup(networkBufferPool.createBufferPool(1, 1));
         } catch (Exception e) {
             ExceptionUtils.rethrow(e, "Failed to create TieredStorageMemoryManger.");
         }
@@ -107,7 +104,7 @@ public class RemoteTierFactory implements TierFactory {
                         consumerNettyService);
         return new RemoteTierConsumerAgent(
                 numSubpartitions,
-                tieredStoreMemoryManager,
+                tieredStoreMemoryManager1,
                 remoteTierMonitor,
                 consumerNettyService);
     }

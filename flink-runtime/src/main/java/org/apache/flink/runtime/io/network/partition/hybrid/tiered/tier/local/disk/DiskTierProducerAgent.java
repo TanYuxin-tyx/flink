@@ -32,7 +32,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Cache
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTrackerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
@@ -50,8 +49,7 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */
-public class DiskTierProducerAgent
-        implements TierProducerAgent, SegmentSearcher {
+public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher {
 
     public static final int BROADCAST_CHANNEL = 0;
 
@@ -92,7 +90,6 @@ public class DiskTierProducerAgent
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
             int networkBufferSize,
-            TieredStorageMemoryManager storageMemoryManager,
             BufferCompressor bufferCompressor,
             CacheFlushManager cacheFlushManager,
             NettyService nettyService) {
@@ -103,7 +100,8 @@ public class DiskTierProducerAgent
         this.isBroadcastOnly = isBroadcastOnly;
         this.lastNettyServiceViewIds = new NettyServiceViewId[numSubpartitions];
         this.partitionFileReader =
-                partitionFileManager.createPartitionFileReader(PartitionFileType.PRODUCER_MERGE, nettyService);
+                partitionFileManager.createPartitionFileReader(
+                        PartitionFileType.PRODUCER_MERGE, nettyService);
 
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.segmentIndexTracker =
@@ -113,7 +111,6 @@ public class DiskTierProducerAgent
                         tierIndex,
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
-                        storageMemoryManager,
                         cacheFlushManager,
                         bufferCompressor,
                         partitionFileManager);
@@ -131,9 +128,7 @@ public class DiskTierProducerAgent
         NettyServiceViewId nettyServiceViewId = NettyServiceViewId.newId(lastNettyServiceViewId);
         lastNettyServiceViewIds[subpartitionId] = nettyServiceViewId;
         return partitionFileReader.registerNettyService(
-                subpartitionId,
-                nettyServiceViewId,
-                availabilityListener);
+                subpartitionId, nettyServiceViewId, availabilityListener);
     }
 
     @Override

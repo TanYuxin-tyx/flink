@@ -18,19 +18,16 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
 
-import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -49,8 +46,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
 
     private final SubpartitionDiskCacheManager[] subpartitionDiskCacheManagers;
 
-    private final TieredStorageMemoryManager storageMemoryManager;
-
     private final CacheFlushManager cacheFlushManager;
 
     private final List<Map<NettyServiceViewId, NettyServiceView>> tierReaderViewMap;
@@ -64,13 +59,11 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
             int tierIndex,
             int numSubpartitions,
             int bufferSize,
-            TieredStorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager,
             BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager) {
         this.tierIndex = tierIndex;
         this.numSubpartitions = numSubpartitions;
-        this.storageMemoryManager = storageMemoryManager;
         this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
         this.tierReaderViewMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
@@ -157,8 +150,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
     // ------------------------------------
 
     @Override
-    public void onConsumerReleased(
-            int subpartitionId, NettyServiceViewId nettyServiceViewId) {
+    public void onConsumerReleased(int subpartitionId, NettyServiceViewId nettyServiceViewId) {
         tierReaderViewMap.get(subpartitionId).remove(nettyServiceViewId);
     }
 
@@ -194,14 +186,5 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
 
     private SubpartitionDiskCacheManager getSubpartitionCacheDataManager(int targetChannel) {
         return subpartitionDiskCacheManagers[targetChannel];
-    }
-
-    private void recycleBuffer(MemorySegment buffer) {
-        storageMemoryManager.recycleBuffer(buffer, tierIndex);
-    }
-
-    @VisibleForTesting
-    public SubpartitionDiskCacheManager[] getSubpartitionDiskCacheManagers() {
-        return subpartitionDiskCacheManagers;
     }
 }

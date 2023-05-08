@@ -21,8 +21,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskCacheManager;
@@ -58,10 +56,7 @@ public class RemoteCacheManager {
 
     public RemoteCacheManager(
             int numSubpartitions,
-            int bufferSize,
-            TieredStorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager,
-            BufferCompressor bufferCompressor,
             PartitionFileWriter partitionFileWriter) {
         this.numSubpartitions = numSubpartitions;
         this.subpartitionCacheDataManagers = new SubpartitionRemoteCacheManager[numSubpartitions];

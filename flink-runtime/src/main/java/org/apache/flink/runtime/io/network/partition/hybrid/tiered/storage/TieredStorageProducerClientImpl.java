@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
@@ -51,15 +50,11 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
 
     private final BufferCompressor bufferCompressor;
 
-    private final TieredStorageMemoryManager storageMemoryManager;
-
     private final CacheFlushManager cacheFlushManager;
 
     private final List<TierProducerAgent> tierProducerAgents;
 
     private OutputMetrics outputMetrics;
-
-    private final BufferRecycler[] bufferRecyclers;
 
     /** Records the newest segment index belonged to each subpartition. */
     private final int[] subpartitionSegmentIndexes;
@@ -75,7 +70,6 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             boolean isBroadcastOnly,
             BufferAccumulator bufferAccumulator,
             @Nullable BufferCompressor bufferCompressor,
-            TieredStorageMemoryManager storageMemoryManager,
             TieredStorageMemoryManager1 storeMemoryManager1,
             CacheFlushManager cacheFlushManager,
             List<TierProducerAgent> tierProducerAgents) {
@@ -83,18 +77,12 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         this.numConsumers = numConsumers;
         this.bufferAccumulator = bufferAccumulator;
         this.bufferCompressor = bufferCompressor;
-        this.storageMemoryManager = storageMemoryManager;
         this.cacheFlushManager = cacheFlushManager;
         this.tierProducerAgents = tierProducerAgents;
         this.subpartitionSegmentIndexes = new int[numConsumers];
         this.lastSubpartitionSegmentIndexes = new int[numConsumers];
         this.subpartitionWriterIndex = new int[numConsumers];
-        this.bufferRecyclers = new BufferRecycler[tierProducerAgents.size()];
 
-        for (int i = 0; i < tierProducerAgents.size(); i++) {
-            final int tierIndex = i;
-            bufferRecyclers[i] = buffer -> storageMemoryManager.recycleBuffer(buffer, tierIndex);
-        }
         Arrays.fill(subpartitionSegmentIndexes, 0);
         Arrays.fill(lastSubpartitionSegmentIndexes, -1);
         Arrays.fill(subpartitionWriterIndex, -1);
@@ -161,18 +149,6 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         }
 
         int segmentIndex = subpartitionSegmentIndexes[subpartitionIndex];
-        //        if (finishedBuffer.getDataType().isBuffer()) {
-        //            storageMemoryManager.decNumRequestedBufferInAccumulator();
-        //            storageMemoryManager.incNumRequestedBuffer(tierIndex);
-        //        }
-        //        Buffer networkBuffer =
-        //                new NetworkBuffer(
-        //                        finishedBuffer.getMemorySegment(),
-        //                        finishedBuffer.getDataType().isBuffer()
-        //                                ? bufferRecyclers[tierIndex]
-        //                                : FreeingBufferRecycler.INSTANCE,
-        //                        finishedBuffer.getDataType(),
-        //                        finishedBuffer.getSize());
         Buffer compressedBuffer = compressBufferIfPossible(finishedBuffer);
         updateStatistics(compressedBuffer);
         if (segmentIndex != lastSubpartitionSegmentIndexes[subpartitionIndex]) {

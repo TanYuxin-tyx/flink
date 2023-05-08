@@ -22,20 +22,17 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteCacheManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteCacheManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.IOException;
-import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -45,8 +42,6 @@ class RemoteDiskCacheManagerTest {
     private static final int NUM_BUFFERS = 10;
 
     private static final int NUM_SUBPARTITIONS = 3;
-
-    private static final float NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
 
     private static final int BUFFER_SIZE = Integer.BYTES * 3;
 
@@ -93,16 +88,10 @@ class RemoteDiskCacheManagerTest {
                 new NetworkBufferPool(NUM_BUFFERS, BUFFER_SIZE)
                         .createBufferPool(POOL_SIZE, POOL_SIZE);
 
-        TieredStorageMemoryManager storageMemoryManager =
-                new TieredStorageMemoryManagerImpl(new ArrayList<>());
-        storageMemoryManager.setup(localBufferPool);
         RemoteCacheManager cacheDataManager =
                 new RemoteCacheManager(
                         NUM_SUBPARTITIONS,
-                        BUFFER_SIZE,
-                        storageMemoryManager,
                         new CacheFlushManager(0.5f),
-                        null,
                         partitionFileManager.createPartitionFileWriter(
                                 PartitionFileType.PRODUCER_HASH));
         return cacheDataManager;

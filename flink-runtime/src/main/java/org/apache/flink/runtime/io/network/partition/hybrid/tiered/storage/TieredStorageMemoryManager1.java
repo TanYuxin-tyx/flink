@@ -44,4 +44,10 @@ public interface TieredStorageMemoryManager1 {
     BufferBuilder requestBufferBlocking(Object owner);
 
     int numAvailableBuffers(Object owner);
+
+    int numTotalBuffers();
+
+    int numRequestedBuffers();
+
+    void release();
 }
