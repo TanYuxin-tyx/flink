@@ -21,8 +21,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
@@ -78,6 +76,7 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             BufferAccumulator bufferAccumulator,
             @Nullable BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager1 storeMemoryManager1,
             CacheFlushManager cacheFlushManager,
             List<TierProducerAgent> tierProducerAgents) {
         this.isBroadcastOnly = isBroadcastOnly;
@@ -162,19 +161,19 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         }
 
         int segmentIndex = subpartitionSegmentIndexes[subpartitionIndex];
-        if (finishedBuffer.getDataType().isBuffer()) {
-            storageMemoryManager.decNumRequestedBufferInAccumulator();
-            storageMemoryManager.incNumRequestedBuffer(tierIndex);
-        }
-        Buffer networkBuffer =
-                new NetworkBuffer(
-                        finishedBuffer.getMemorySegment(),
-                        finishedBuffer.getDataType().isBuffer()
-                                ? bufferRecyclers[tierIndex]
-                                : FreeingBufferRecycler.INSTANCE,
-                        finishedBuffer.getDataType(),
-                        finishedBuffer.getSize());
-        Buffer compressedBuffer = compressBufferIfPossible(networkBuffer);
+        //        if (finishedBuffer.getDataType().isBuffer()) {
+        //            storageMemoryManager.decNumRequestedBufferInAccumulator();
+        //            storageMemoryManager.incNumRequestedBuffer(tierIndex);
+        //        }
+        //        Buffer networkBuffer =
+        //                new NetworkBuffer(
+        //                        finishedBuffer.getMemorySegment(),
+        //                        finishedBuffer.getDataType().isBuffer()
+        //                                ? bufferRecyclers[tierIndex]
+        //                                : FreeingBufferRecycler.INSTANCE,
+        //                        finishedBuffer.getDataType(),
+        //                        finishedBuffer.getSize());
+        Buffer compressedBuffer = compressBufferIfPossible(finishedBuffer);
         updateStatistics(compressedBuffer);
         if (segmentIndex != lastSubpartitionSegmentIndexes[subpartitionIndex]) {
             tierProducerAgents.get(tierIndex).startSegment(subpartitionIndex, segmentIndex);

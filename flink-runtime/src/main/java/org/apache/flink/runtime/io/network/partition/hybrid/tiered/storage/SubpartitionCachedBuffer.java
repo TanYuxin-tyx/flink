@@ -56,6 +56,8 @@ public class SubpartitionCachedBuffer {
 
     private final CacheFlushManager cacheFlushManager;
 
+    private final HashBasedCacheBufferOperation hashBasedCacheBufferOperation;
+
     private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher;
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
@@ -65,11 +67,13 @@ public class SubpartitionCachedBuffer {
             TieredStorageSubpartitionId subpartitionId,
             int bufferSize,
             TieredStorageMemoryManager storageMemoryManager,
-            CacheFlushManager cacheFlushManager) {
+            CacheFlushManager cacheFlushManager,
+            HashBasedCacheBufferOperation hashBasedCacheBufferOperation) {
         this.subpartitionId = subpartitionId;
         this.bufferSize = bufferSize;
         this.storageMemoryManager = storageMemoryManager;
         this.cacheFlushManager = cacheFlushManager;
+        this.hashBasedCacheBufferOperation = hashBasedCacheBufferOperation;
     }
 
     public void setup(BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher) {
@@ -130,7 +134,8 @@ public class SubpartitionCachedBuffer {
 
         while (availableBytes < numRecordBytes) {
             // request unfinished buffer.
-            BufferBuilder bufferBuilder = requestBufferFromPool();
+            //            BufferBuilder bufferBuilder = requestBufferFromPool();
+            BufferBuilder bufferBuilder = hashBasedCacheBufferOperation.requestBufferFromPool();
             unfinishedBuffers.add(bufferBuilder);
             availableBytes += bufferSize;
         }

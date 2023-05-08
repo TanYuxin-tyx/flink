@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager1;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 
@@ -48,6 +49,7 @@ public interface TierFactory {
             PartitionFileManager partitionFileManager,
             int networkBufferSize,
             TieredStorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager1 storeMemoryManager1,
             BufferCompressor bufferCompressor,
             CacheFlushManager cacheFlushManager,
             NettyService nettyService);

@@ -64,10 +64,13 @@ class BufferAccumulatorImplTest {
 
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
+        TieredStorageMemoryManager1 tieredStorageMemoryManager1 =
+                createStorageMemoryManager1(numBuffers);
         BufferAccumulatorImpl bufferAccumulator =
                 new BufferAccumulatorImpl(
                         TieredStorageTestUtils.NETWORK_BUFFER_SIZE,
                         tieredStorageMemoryManager,
+                        tieredStorageMemoryManager1,
                         new CacheFlushManager(
                                 TieredStorageTestUtils.NUM_BUFFERS_TRIGGER_FLUSH_RATIO));
 
@@ -114,10 +117,13 @@ class BufferAccumulatorImplTest {
 
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
+        TieredStorageMemoryManager1 tieredStorageMemoryManager1 =
+                createStorageMemoryManager1(numBuffers);
         BufferAccumulatorImpl bufferAccumulator =
                 new BufferAccumulatorImpl(
                         TieredStorageTestUtils.NETWORK_BUFFER_SIZE,
                         tieredStorageMemoryManager,
+                        tieredStorageMemoryManager1,
                         new CacheFlushManager(
                                 TieredStorageTestUtils.NUM_BUFFERS_TRIGGER_FLUSH_RATIO));
 
@@ -174,5 +180,15 @@ class BufferAccumulatorImplTest {
                 new TieredStorageMemoryManagerImpl(Collections.emptyList());
         storageProducerMemoryManager.setup(bufferPool);
         return storageProducerMemoryManager;
+    }
+
+    private TieredStorageMemoryManagerImpl1 createStorageMemoryManager1(int numBuffersInBufferPool)
+            throws IOException {
+        BufferPool bufferPool =
+                globalPool.createBufferPool(numBuffersInBufferPool, numBuffersInBufferPool);
+        TieredStorageMemoryManagerImpl1 storageProducerMemoryManager1 =
+                new TieredStorageMemoryManagerImpl1();
+        storageProducerMemoryManager1.setup(bufferPool);
+        return storageProducerMemoryManager1;
     }
 }

@@ -128,7 +128,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     public int numAvailableBuffers(int tierIndex) {
         IndexedTierConfSpec indexedTierConfSpec = checkNotNull(tierMemorySpecMap.get(tierIndex));
         int numExclusive = indexedTierConfSpec.getTierConfSpec().getNumExclusiveBuffers();
-        boolean canUseSharedBuffers = indexedTierConfSpec.getTierConfSpec().canUseSharedBuffers();
+        boolean canUseSharedBuffers = indexedTierConfSpec.getTierConfSpec().isMemoryReleasable();
         int numRequested = checkNotNull(tierRequestedBuffersCounter.get(tierIndex)).get();
 
         if (!canUseSharedBuffers) {

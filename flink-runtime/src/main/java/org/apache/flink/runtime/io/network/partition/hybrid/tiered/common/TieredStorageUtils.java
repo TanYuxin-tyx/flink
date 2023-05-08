@@ -31,6 +31,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Buffe
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager1;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
@@ -116,6 +117,7 @@ public class TieredStorageUtils {
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storeMemoryManager,
+            TieredStorageMemoryManager1 storeMemoryManager1,
             CacheFlushManager cacheFlushManager,
             String dataFileBasePath,
             int networkBufferSize,
@@ -136,6 +138,7 @@ public class TieredStorageUtils {
                             partitionFileManager,
                             networkBufferSize,
                             storeMemoryManager,
+                            storeMemoryManager1,
                             bufferCompressor,
                             cacheFlushManager,
                             nettyService));

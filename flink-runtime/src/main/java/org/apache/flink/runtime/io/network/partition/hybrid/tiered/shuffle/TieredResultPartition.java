@@ -41,6 +41,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager1;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
@@ -76,6 +77,8 @@ public class TieredResultPartition extends ResultPartition {
 
     private final TieredStorageMemoryManager storageMemoryManager;
 
+    private final TieredStorageMemoryManager1 storageMemoryManager1;
+
     private final TieredStorageResourceRegistry resourceRegistry;
 
     private final TieredStoragePartitionId storagePartitionId;
@@ -90,6 +93,7 @@ public class TieredResultPartition extends ResultPartition {
             ResultPartitionManager partitionManager,
             List<TierProducerAgent> tierProducerAgents,
             TieredStorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager1 storeMemoryManager1,
             CacheFlushManager cacheFlushManager,
             @Nullable BufferCompressor bufferCompressor,
             TieredStorageProducerClient tieredStorageProducerClient,
@@ -108,6 +112,7 @@ public class TieredResultPartition extends ResultPartition {
 
         this.tierProducerAgents = tierProducerAgents;
         this.storageMemoryManager = storageMemoryManager;
+        this.storageMemoryManager1 = storeMemoryManager1;
         this.cacheFlushManager = cacheFlushManager;
         this.tieredStorageProducerClient = tieredStorageProducerClient;
         this.resourceRegistry = resourceRegistry;
@@ -121,6 +126,7 @@ public class TieredResultPartition extends ResultPartition {
             throw new IOException("Result partition has been released.");
         }
         storageMemoryManager.setup(bufferPool);
+        storageMemoryManager1.setup(bufferPool);
         cacheFlushManager.setup(storageMemoryManager);
         resourceRegistry.registerResource(storagePartitionId, tieredStorageProducerClient::release);
         resourceRegistry.registerResource(storagePartitionId, storageMemoryManager::release);

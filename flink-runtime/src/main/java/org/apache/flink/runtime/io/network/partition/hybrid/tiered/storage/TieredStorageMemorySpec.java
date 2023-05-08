@@ -16,27 +16,29 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-public class TierConfSpec {
+/**
+ * The memory specs for a tier, including the tier index, the number of exclusive buffers of the
+ * tier, whether the tier can use the shared buffers in the memory manager, etc.
+ */
+public class TieredStorageMemorySpec {
 
-    private final TieredStorageConfiguration.TierType tierType;
+    private final Object owner;
 
     private final int numExclusiveBuffers;
 
     private final boolean isMemoryReleasable;
 
-    public TierConfSpec(
-            TieredStorageConfiguration.TierType tierType,
-            int numExclusiveBuffers,
-            boolean isMemoryReleasable) {
-        this.tierType = tierType;
+    public TieredStorageMemorySpec(
+            Object owner, int numExclusiveBuffers, boolean isMemoryReleasable) {
+        this.owner = owner;
         this.numExclusiveBuffers = numExclusiveBuffers;
         this.isMemoryReleasable = isMemoryReleasable;
     }
 
-    public TieredStorageConfiguration.TierType getTierType() {
-        return tierType;
+    public Object getOwner() {
+        return owner;
     }
 
     public int getNumExclusiveBuffers() {

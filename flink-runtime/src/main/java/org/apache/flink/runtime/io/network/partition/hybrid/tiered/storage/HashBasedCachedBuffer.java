@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -35,9 +36,11 @@ import java.util.function.BiConsumer;
  * <p>Note that {@link #setup} need an argument of buffer flush listener to accept the finished
  * accumulated buffers.
  */
-public class HashBasedCachedBuffer {
+public class HashBasedCachedBuffer implements HashBasedCacheBufferOperation {
 
     private final int numSubpartitions;
+
+    private final TieredStorageMemoryManager1 storageMemoryManager1;
 
     private final SubpartitionCachedBuffer[] subpartitionCachedBuffers;
 
@@ -45,8 +48,10 @@ public class HashBasedCachedBuffer {
             int numSubpartitions,
             int bufferSize,
             TieredStorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager1 storageMemoryManager1,
             CacheFlushManager cacheFlushManager) {
         this.numSubpartitions = numSubpartitions;
+        this.storageMemoryManager1 = storageMemoryManager1;
         this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numSubpartitions];
 
         for (int i = 0; i < numSubpartitions; i++) {
@@ -55,7 +60,8 @@ public class HashBasedCachedBuffer {
                             new TieredStorageSubpartitionId(i),
                             bufferSize,
                             storageMemoryManager,
-                            cacheFlushManager);
+                            cacheFlushManager,
+                            this);
         }
     }
 
@@ -73,6 +79,11 @@ public class HashBasedCachedBuffer {
         } catch (InterruptedException e) {
             ExceptionUtils.rethrow(e);
         }
+    }
+
+    @Override
+    public BufferBuilder requestBufferFromPool() {
+        return storageMemoryManager1.requestBufferBlocking(this);
     }
 
     public void close() {

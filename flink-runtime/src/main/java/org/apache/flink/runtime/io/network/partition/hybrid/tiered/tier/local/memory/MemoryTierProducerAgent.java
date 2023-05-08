@@ -30,6 +30,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Segme
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager1;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
@@ -56,6 +57,8 @@ public class MemoryTierProducerAgent
     private final int numSubpartitions;
 
     private final TieredStorageMemoryManager storageMemoryManager;
+
+    private final TieredStorageMemoryManager1 storageMemoryManager1;
 
     private final boolean isBroadcastOnly;
 
@@ -85,6 +88,7 @@ public class MemoryTierProducerAgent
             int tierIndex,
             int numSubpartitions,
             TieredStorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager1 storageMemoryManager1,
             boolean isBroadcastOnly,
             BufferCompressor bufferCompressor,
             int bufferSize,
@@ -93,6 +97,7 @@ public class MemoryTierProducerAgent
         this.numSubpartitions = numSubpartitions;
         this.isBroadcastOnly = isBroadcastOnly;
         this.storageMemoryManager = storageMemoryManager;
+        this.storageMemoryManager1 = storageMemoryManager1;
         this.lastNettyServiceViewIds = new NettyServiceViewId[numSubpartitions];
 
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
@@ -137,8 +142,10 @@ public class MemoryTierProducerAgent
 
     @Override
     public boolean canStoreNextSegment(int consumerId) {
-        return storageMemoryManager.numAvailableBuffers(tierIndex) > bufferNumberInSegment
-                && isConsumerRegistered(consumerId);
+        //        return storageMemoryManager.numAvailableBuffers(tierIndex) > bufferNumberInSegment
+        //                && isConsumerRegistered(consumerId);
+        return isConsumerRegistered(consumerId)
+                && storageMemoryManager1.numAvailableBuffers(this) > bufferNumberInSegment;
     }
 
     @Override
