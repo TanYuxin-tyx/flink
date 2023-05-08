@@ -25,14 +25,14 @@ import java.io.IOException;
 import java.util.Optional;
 
 /**
- * For each {@link NettyBufferQueue}, there will be a corresponding {@link
- * NettyServiceView}, which will get buffer and backlog from {@link
- * NettyBufferQueue} and be aware of the available status of {@link NettyBufferQueue}.
+ * {@link NettyServiceView} is the coordinator between a tier agent and the netty server. Netty
+ * server could get the buffer and get available status of data from it, and tier agent could notify
+ * it when the data is available.
  */
 public interface NettyServiceView {
 
     /**
-     * Get buffer and backlog from {@link NettyBufferQueue}.
+     * Get buffer and backlog.
      *
      * @return buffer and backlog.
      * @throws IOException is thrown if there is a failure.
@@ -40,15 +40,14 @@ public interface NettyServiceView {
     Optional<ResultSubpartition.BufferAndBacklog> getNextBuffer() throws IOException;
 
     /**
-     * Get availability and backlog of {@link NettyBufferQueue}.
+     * Get availability and backlog.
      *
      * @param numCreditsAvailable is the available credit.
      * @return availability and backlog.
      */
-    ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
-            int numCreditsAvailable);
+    ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable);
 
-    /** Notify that {@link NettyBufferQueue} is available. */
+    /** Notify that the view is available. */
     void notifyDataAvailable();
 
     /**
@@ -60,14 +59,14 @@ public interface NettyServiceView {
     int getConsumingOffset(boolean withLock);
 
     /**
-     * Get the number of queued buffers in {@link NettyBufferQueue} unsynchronizedly.
+     * Get the number of queued buffers.
      *
      * @return the number of queued buffers.
      */
     int unsynchronizedGetNumberOfQueuedBuffers();
 
     /**
-     * Get the number of queued buffers in {@link NettyBufferQueue} synchronizedly.
+     * Get the number of queued buffers synchronizedly.
      *
      * @return the number of queued buffers.
      */
