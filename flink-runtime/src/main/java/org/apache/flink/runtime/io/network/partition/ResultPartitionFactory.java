@@ -38,8 +38,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager1;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl1;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemorySpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClientImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
@@ -278,8 +278,8 @@ public class ResultPartitionFactory {
                 TieredStorageConfiguration storeConfiguration =
                         getStoreConfiguration(numberOfSubpartitions, type);
 
-                TieredStorageMemoryManager1 storageMemoryManager1 =
-                        new TieredStorageMemoryManagerImpl1();
+                TieredStorageMemoryManager storageMemoryManager =
+                        new TieredStorageMemoryManagerImpl();
                 CacheFlushManager cacheFlushManager =
                         new CacheFlushManager(storeConfiguration.getNumBuffersTriggerFlushRatio());
 
@@ -293,24 +293,23 @@ public class ResultPartitionFactory {
                                 bufferCompressor,
                                 subpartitions,
                                 storeConfiguration,
-                                storageMemoryManager1,
+                                storageMemoryManager,
                                 cacheFlushManager,
                                 nettyService);
 
                 registerProducerAgentsToMemoryManager(
                         tierProducerAgents,
-                        storageMemoryManager1,
+                        storageMemoryManager,
                         storeConfiguration.getIndexedTierConfSpecs());
 
                 BufferAccumulator bufferAccumulator =
-                        new BufferAccumulatorImpl(networkBufferSize, storageMemoryManager1);
+                        new BufferAccumulatorImpl(networkBufferSize, storageMemoryManager);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(
                                 subpartitions.length,
                                 isBroadcast,
                                 bufferAccumulator,
                                 bufferCompressor,
-                                storageMemoryManager1,
                                 cacheFlushManager,
                                 tierProducerAgents);
                 partition =
@@ -323,7 +322,7 @@ public class ResultPartitionFactory {
                                 maxParallelism,
                                 partitionManager,
                                 tierProducerAgents,
-                                storageMemoryManager1,
+                                storageMemoryManager,
                                 cacheFlushManager,
                                 bufferCompressor,
                                 tieredStorageProducerClient,
@@ -360,11 +359,11 @@ public class ResultPartitionFactory {
 
     private static void registerProducerAgentsToMemoryManager(
             List<TierProducerAgent> tierProducerAgents,
-            TieredStorageMemoryManager1 storageMemoryManager1,
+            TieredStorageMemoryManager storageMemoryManager,
             List<IndexedTierConfSpec> indexedTierConfSpecs) {
         checkState(tierProducerAgents.size() == indexedTierConfSpecs.size());
         for (int i = 0; i < tierProducerAgents.size(); i++) {
-            storageMemoryManager1.registerMemorySpec(
+            storageMemoryManager.registerMemorySpec(
                     new TieredStorageMemorySpec(
                             tierProducerAgents.get(i),
                             indexedTierConfSpecs.get(i).getTierConfSpec().getNumExclusiveBuffers(),
@@ -380,7 +379,7 @@ public class ResultPartitionFactory {
             BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
-            TieredStorageMemoryManager1 storeMemoryManager1,
+            TieredStorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager,
             NettyService nettyService) {
         String dataFileBasePath = channelManager.createChannel().getPath();
@@ -402,7 +401,7 @@ public class ResultPartitionFactory {
                 bufferCompressor,
                 subpartitions,
                 storeConfiguration,
-                storeMemoryManager1,
+                storageMemoryManager,
                 cacheFlushManager,
                 dataFileBasePath,
                 networkBufferSize,

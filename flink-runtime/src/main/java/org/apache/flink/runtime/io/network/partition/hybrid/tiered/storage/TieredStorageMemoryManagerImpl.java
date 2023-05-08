@@ -30,7 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-public class TieredStorageMemoryManagerImpl1 implements TieredStorageMemoryManager1 {
+public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManager {
 
     private final Map<Object, TieredStorageMemorySpec> tieredMemorySpecs;
 
@@ -40,7 +40,7 @@ public class TieredStorageMemoryManagerImpl1 implements TieredStorageMemoryManag
 
     private AtomicInteger numRequestedBuffers;
 
-    public TieredStorageMemoryManagerImpl1() {
+    public TieredStorageMemoryManagerImpl() {
         this.tieredMemorySpecs = new HashMap<>();
         this.numRequestedBuffers = new AtomicInteger(0);
     }

@@ -37,13 +37,13 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
 
     private final int bufferSize;
 
-    private final TieredStorageMemoryManager1 storageMemoryManager1;
+    private final TieredStorageMemoryManager storageMemoryManager;
 
     private HashBasedCachedBuffer cachedBuffer;
 
-    public BufferAccumulatorImpl(int bufferSize, TieredStorageMemoryManager1 storeMemoryManager1) {
+    public BufferAccumulatorImpl(int bufferSize, TieredStorageMemoryManager storageMemoryManager) {
         this.bufferSize = bufferSize;
-        this.storageMemoryManager1 = storeMemoryManager1;
+        this.storageMemoryManager = storageMemoryManager;
     }
 
     @Override
@@ -51,7 +51,7 @@ public class BufferAccumulatorImpl implements BufferAccumulator {
             int numSubpartitions,
             BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher) {
         cachedBuffer =
-                new HashBasedCachedBuffer(numSubpartitions, bufferSize, storageMemoryManager1);
+                new HashBasedCachedBuffer(numSubpartitions, bufferSize, storageMemoryManager);
         cachedBuffer.setup(bufferFlusher);
     }
 

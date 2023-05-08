@@ -40,16 +40,14 @@ public class HashBasedCachedBuffer implements HashBasedCacheBufferOperation {
 
     private final int numSubpartitions;
 
-    private final TieredStorageMemoryManager1 storageMemoryManager1;
+    private final TieredStorageMemoryManager storageMemoryManager;
 
     private final SubpartitionCachedBuffer[] subpartitionCachedBuffers;
 
     HashBasedCachedBuffer(
-            int numSubpartitions,
-            int bufferSize,
-            TieredStorageMemoryManager1 storageMemoryManager1) {
+            int numSubpartitions, int bufferSize, TieredStorageMemoryManager storageMemoryManager) {
         this.numSubpartitions = numSubpartitions;
-        this.storageMemoryManager1 = storageMemoryManager1;
+        this.storageMemoryManager = storageMemoryManager;
         this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numSubpartitions];
 
         for (int i = 0; i < numSubpartitions; i++) {
@@ -77,7 +75,7 @@ public class HashBasedCachedBuffer implements HashBasedCacheBufferOperation {
 
     @Override
     public BufferBuilder requestBufferFromPool() {
-        return storageMemoryManager1.requestBufferBlocking(this);
+        return storageMemoryManager.requestBufferBlocking(this);
     }
 
     public void close() {

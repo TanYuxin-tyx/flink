@@ -24,13 +24,13 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 
 /**
- * The {@link TieredStorageMemoryManager1} is to request or recycle buffer from {@link
+ * The {@link TieredStorageMemoryManager} is to request or recycle buffer from {@link
  * LocalBufferPool} for different memory users, such as the tiers or the buffer accumulator. Note
  * that the logic for requesting and recycling buffers remains consistent for these users.
  */
-public interface TieredStorageMemoryManager1 {
+public interface TieredStorageMemoryManager {
 
-    /** Setup the {@link TieredStorageMemoryManager1}. */
+    /** Setup the {@link TieredStorageMemoryManager}. */
     void setup(BufferPool bufferPool);
 
     void registerMemorySpec(TieredStorageMemorySpec memorySpec);

@@ -70,7 +70,6 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             boolean isBroadcastOnly,
             BufferAccumulator bufferAccumulator,
             @Nullable BufferCompressor bufferCompressor,
-            TieredStorageMemoryManager1 storeMemoryManager1,
             CacheFlushManager cacheFlushManager,
             List<TierProducerAgent> tierProducerAgents) {
         this.isBroadcastOnly = isBroadcastOnly;

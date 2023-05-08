@@ -61,11 +61,11 @@ class BufferAccumulatorImplTest {
         int numRecords = 1000;
         Random random = new Random();
 
-        TieredStorageMemoryManager1 tieredStorageMemoryManager1 =
-                createStorageMemoryManager1(numBuffers);
+        TieredStorageMemoryManager tieredStorageMemoryManager =
+                createStorageMemoryManager(numBuffers);
         BufferAccumulatorImpl bufferAccumulator =
                 new BufferAccumulatorImpl(
-                        TieredStorageTestUtils.NETWORK_BUFFER_SIZE, tieredStorageMemoryManager1);
+                        TieredStorageTestUtils.NETWORK_BUFFER_SIZE, tieredStorageMemoryManager);
 
         AtomicInteger numReceivedFinishedBuffer = new AtomicInteger(0);
 
@@ -94,11 +94,11 @@ class BufferAccumulatorImplTest {
         int numBuffers = 10;
         int numRecords = 1000;
         Random random = new Random();
-        TieredStorageMemoryManager1 tieredStorageMemoryManager1 =
-                createStorageMemoryManager1(numBuffers);
+        TieredStorageMemoryManager tieredStorageMemoryManager =
+                createStorageMemoryManager(numBuffers);
         BufferAccumulatorImpl bufferAccumulator =
                 new BufferAccumulatorImpl(
-                        TieredStorageTestUtils.NETWORK_BUFFER_SIZE, tieredStorageMemoryManager1);
+                        TieredStorageTestUtils.NETWORK_BUFFER_SIZE, tieredStorageMemoryManager);
 
         for (int i = 0; i < numRecords; i++) {
             if (i % 2 == 0) {
@@ -122,13 +122,12 @@ class BufferAccumulatorImplTest {
         bufferAccumulator.close();
     }
 
-    private TieredStorageMemoryManagerImpl1 createStorageMemoryManager1(int numBuffersInBufferPool)
+    private TieredStorageMemoryManagerImpl createStorageMemoryManager(int numBuffersInBufferPool)
             throws IOException {
         BufferPool bufferPool =
                 globalPool.createBufferPool(numBuffersInBufferPool, numBuffersInBufferPool);
-        TieredStorageMemoryManagerImpl1 storageProducerMemoryManager1 =
-                new TieredStorageMemoryManagerImpl1();
-        storageProducerMemoryManager1.setup(bufferPool);
-        return storageProducerMemoryManager1;
+        TieredStorageMemoryManagerImpl storageMemoryManager = new TieredStorageMemoryManagerImpl();
+        storageMemoryManager.setup(bufferPool);
+        return storageMemoryManager;
     }
 }

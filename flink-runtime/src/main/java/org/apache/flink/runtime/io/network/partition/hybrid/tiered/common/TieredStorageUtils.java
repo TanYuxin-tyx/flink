@@ -29,7 +29,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager1;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
@@ -91,10 +91,9 @@ public class TieredStorageUtils {
     }
 
     public static boolean needFlushCacheBuffers(
-            TieredStorageMemoryManager1 tieredStoreMemoryManager1,
-            float numBuffersTriggerFlushRatio) {
-        int numTotal = tieredStoreMemoryManager1.numTotalBuffers();
-        int numRequested = tieredStoreMemoryManager1.numRequestedBuffers();
+            TieredStorageMemoryManager storageMemoryManager, float numBuffersTriggerFlushRatio) {
+        int numTotal = storageMemoryManager.numTotalBuffers();
+        int numRequested = storageMemoryManager.numRequestedBuffers();
         return numRequested >= numTotal
                 || (numRequested * 1.0 / numTotal) >= numBuffersTriggerFlushRatio;
     }
@@ -105,7 +104,7 @@ public class TieredStorageUtils {
             BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
-            TieredStorageMemoryManager1 storeMemoryManager1,
+            TieredStorageMemoryManager storageMemoryManager,
             CacheFlushManager cacheFlushManager,
             String dataFileBasePath,
             int networkBufferSize,
@@ -125,7 +124,7 @@ public class TieredStorageUtils {
                             isBroadcast,
                             partitionFileManager,
                             networkBufferSize,
-                            storeMemoryManager1,
+                            storageMemoryManager,
                             bufferCompressor,
                             cacheFlushManager,
                             nettyService));
