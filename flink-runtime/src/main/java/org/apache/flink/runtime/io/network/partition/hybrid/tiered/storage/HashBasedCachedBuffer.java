@@ -75,7 +75,7 @@ public class HashBasedCachedBuffer implements HashBasedCacheBufferOperation {
 
     @Override
     public BufferBuilder requestBufferFromPool() {
-        return storageMemoryManager.requestBufferBlocking(this);
+        return storageMemoryManager.requestBufferBlocking();
     }
 
     public void close() {

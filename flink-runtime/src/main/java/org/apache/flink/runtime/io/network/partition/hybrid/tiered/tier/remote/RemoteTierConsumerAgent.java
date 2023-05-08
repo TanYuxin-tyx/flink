@@ -128,7 +128,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         // ------------------------------------
 
         private Buffer getDfsBuffer(FSDataInputStream inputStream) throws IOException {
-            BufferBuilder builder = storageMemoryManager.requestBufferBlocking(this);
+            BufferBuilder builder = storageMemoryManager.requestBufferBlocking();
             BufferConsumer bufferConsumer = builder.createBufferConsumer();
             Buffer buffer = bufferConsumer.build();
             return checkNotNull(

@@ -279,7 +279,7 @@ public class ResultPartitionFactory {
                         getStoreConfiguration(numberOfSubpartitions, type);
 
                 TieredStorageMemoryManager storageMemoryManager =
-                        new TieredStorageMemoryManagerImpl();
+                        new TieredStorageMemoryManagerImpl(subpartitions.length);
                 CacheFlushManager cacheFlushManager =
                         new CacheFlushManager(storeConfiguration.getNumBuffersTriggerFlushRatio());
 

@@ -126,7 +126,8 @@ class BufferAccumulatorImplTest {
             throws IOException {
         BufferPool bufferPool =
                 globalPool.createBufferPool(numBuffersInBufferPool, numBuffersInBufferPool);
-        TieredStorageMemoryManagerImpl storageMemoryManager = new TieredStorageMemoryManagerImpl();
+        TieredStorageMemoryManagerImpl storageMemoryManager =
+                new TieredStorageMemoryManagerImpl(10);
         storageMemoryManager.setup(bufferPool);
         return storageMemoryManager;
     }

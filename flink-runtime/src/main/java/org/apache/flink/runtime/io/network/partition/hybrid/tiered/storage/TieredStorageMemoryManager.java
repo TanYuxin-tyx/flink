@@ -38,10 +38,9 @@ public interface TieredStorageMemoryManager {
     /**
      * Request a {@link Buffer} instance from {@link LocalBufferPool} for a specific owner.
      *
-     * @param owner the owner to request new buffer
      * @return the requested buffer
      */
-    BufferBuilder requestBufferBlocking(Object owner);
+    BufferBuilder requestBufferBlocking();
 
     int numAvailableBuffers(Object owner);
 
