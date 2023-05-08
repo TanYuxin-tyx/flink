@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-public interface TieredResource {
+public interface TieredStorageResource {
 
     void release();
 }

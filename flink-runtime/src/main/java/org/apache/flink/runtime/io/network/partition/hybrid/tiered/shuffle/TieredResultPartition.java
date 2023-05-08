@@ -37,12 +37,12 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Output
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoreResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClient;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoreResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.concurrent.FutureUtils;
@@ -76,7 +76,7 @@ public class TieredResultPartition extends ResultPartition {
 
     private final TieredStorageMemoryManager storageMemoryManager;
 
-    private final ResourceRegistry resourceRegistry;
+    private final TieredStorageResourceRegistry resourceRegistry;
 
     private final TieredStoragePartitionId storagePartitionId;
 
@@ -94,7 +94,7 @@ public class TieredResultPartition extends ResultPartition {
             @Nullable BufferCompressor bufferCompressor,
             TieredStorageProducerClient tieredStorageProducerClient,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
-            ResourceRegistry resourceRegistry) {
+            TieredStorageResourceRegistry resourceRegistry) {
         super(
                 owningTaskName,
                 partitionIndex,
@@ -174,9 +174,8 @@ public class TieredResultPartition extends ResultPartition {
         List<SegmentSearcher> segmentSearchers = new ArrayList<>();
         List<NettyServiceView> nettyServiceViews = new ArrayList<>();
         for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
-            NettyServiceView nettyServiceView = tierProducerAgent.registerNettyService(
-                    subpartitionId,
-                    availabilityListener);
+            NettyServiceView nettyServiceView =
+                    tierProducerAgent.registerNettyService(subpartitionId, availabilityListener);
             if (nettyServiceView != null) {
                 nettyServiceViews.add(nettyServiceView);
                 segmentSearchers.add((SegmentSearcher) tierProducerAgent);

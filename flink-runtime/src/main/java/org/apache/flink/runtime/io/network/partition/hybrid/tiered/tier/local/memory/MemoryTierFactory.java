@@ -24,8 +24,8 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
@@ -41,7 +41,8 @@ public class MemoryTierFactory implements TierFactory {
 
     @Override
     public TierMasterAgent createMasterAgent(
-            ResourceRegistry resourceRegistry, @Nullable String remoteStorageBaseHomePath) {
+            TieredStorageResourceRegistry resourceRegistry,
+            @Nullable String remoteStorageBaseHomePath) {
         // Nothing to do
         return new MemoryTierMasterAgent();
     }

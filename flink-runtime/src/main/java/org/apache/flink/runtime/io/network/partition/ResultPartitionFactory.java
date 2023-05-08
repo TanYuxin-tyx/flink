@@ -37,10 +37,10 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulatorImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClientImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
@@ -166,7 +166,7 @@ public class ResultPartitionFactory {
             String taskNameWithSubtaskAndId,
             int partitionIndex,
             ResultPartitionDeploymentDescriptor desc,
-            ResourceRegistry resourceRegistry) {
+            TieredStorageResourceRegistry resourceRegistry) {
         return create(
                 jobID,
                 taskNameWithSubtaskAndId,
@@ -191,7 +191,7 @@ public class ResultPartitionFactory {
             int maxParallelism,
             boolean isBroadcast,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
-            ResourceRegistry resourceRegistry) {
+            TieredStorageResourceRegistry resourceRegistry) {
         BufferCompressor bufferCompressor = null;
         if (type.supportCompression() && batchShuffleCompressionEnabled) {
             bufferCompressor = new BufferCompressor(networkBufferSize, compressionCodec);

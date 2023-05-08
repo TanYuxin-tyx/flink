@@ -29,10 +29,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * A registry that maintains local or remote resources that correspond to a certain set of data in
  * the Tiered Storage.
  */
-public class ResourceRegistry {
+public class TieredStorageResourceRegistry {
 
-    private final Map<TieredStorageDataIdentifier, List<TieredResource>> registeredResources =
-            new ConcurrentHashMap<>();
+    private final Map<TieredStorageDataIdentifier, List<TieredStorageResource>>
+            registeredResources = new ConcurrentHashMap<>();
 
     /**
      * Register a new resource for the given owner.
@@ -40,7 +40,8 @@ public class ResourceRegistry {
      * @param owner identifier of the data that the resource corresponds to.
      * @param tieredResource the tiered storage resources to be registered.
      */
-    public void registerResource(TieredStorageDataIdentifier owner, TieredResource tieredResource) {
+    public void registerResource(
+            TieredStorageDataIdentifier owner, TieredStorageResource tieredResource) {
         registeredResources
                 .computeIfAbsent(owner, (ignore) -> new ArrayList<>())
                 .add(tieredResource);
@@ -52,10 +53,10 @@ public class ResourceRegistry {
      * @param owner identifier of the data that the resources correspond to.
      */
     public void clearResourceFor(TieredStorageDataIdentifier owner) {
-        List<TieredResource> cleanersForOwner = registeredResources.remove(owner);
+        List<TieredStorageResource> cleanersForOwner = registeredResources.remove(owner);
 
         if (cleanersForOwner != null) {
-            cleanersForOwner.forEach(TieredResource::release);
+            cleanersForOwner.forEach(TieredStorageResource::release);
         }
     }
 }

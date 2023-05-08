@@ -22,8 +22,8 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ResourceRegistry;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredResource;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResource;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 
 import org.slf4j.Logger;
@@ -41,14 +41,14 @@ public class RemoteTierMasterAgent implements TierMasterAgent {
 
     private static final Logger LOG = LoggerFactory.getLogger(RemoteTierMasterAgent.class);
 
-    private final ResourceRegistry resourceRegistry;
+    private final TieredStorageResourceRegistry resourceRegistry;
 
     private final String remoteStorageBaseHomePath;
 
     private final Map<ResultPartitionID, JobID> resultPartitionIdToJobIds;
 
     public RemoteTierMasterAgent(
-            ResourceRegistry resourceRegistry, String remoteStorageBaseHomePath) {
+            TieredStorageResourceRegistry resourceRegistry, String remoteStorageBaseHomePath) {
         this.resourceRegistry = resourceRegistry;
         this.remoteStorageBaseHomePath = remoteStorageBaseHomePath;
         this.resultPartitionIdToJobIds = new HashMap<>();
@@ -77,7 +77,7 @@ public class RemoteTierMasterAgent implements TierMasterAgent {
         deletePathQuietly(toReleasePath);
     }
 
-    private TieredResource createResourceOfReleasePartitionFiles(
+    private TieredStorageResource createResourceOfReleasePartitionFiles(
             JobID jobID, ResultPartitionID resultPartitionID) {
         return () -> {
             String toReleasePath =
