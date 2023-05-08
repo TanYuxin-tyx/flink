@@ -61,15 +61,15 @@ public class NettyServiceViewImpl implements NettyServiceView {
     @GuardedBy("viewLock")
     private final Queue<BufferContext> bufferQueue;
 
-    private final Runnable serviceReleaser;
+    private final Runnable releaseNotifier;
 
     public NettyServiceViewImpl(
             Queue<BufferContext> bufferQueue,
-            Runnable serviceReleaser,
-            BufferAvailabilityListener availabilityListener) {
+            BufferAvailabilityListener availabilityListener,
+            Runnable releaseNotifier) {
         this.bufferQueue = bufferQueue;
-        this.serviceReleaser = serviceReleaser;
         this.availabilityListener = availabilityListener;
+        this.releaseNotifier = releaseNotifier;
     }
 
     @Nullable
@@ -194,7 +194,7 @@ public class NettyServiceViewImpl implements NettyServiceView {
             }
             failureCause = throwable;
         }
-        serviceReleaser.run();
+        releaseNotifier.run();
     }
 
     private Optional<BufferContext> checkBufferIndex(int expectedBufferIndex) throws Throwable {

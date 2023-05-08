@@ -33,7 +33,7 @@ public class ProducerNettyService implements NettyService {
             Queue<BufferContext> bufferQueue,
             BufferAvailabilityListener availabilityListener,
             Runnable releaseNotifier) {
-        return new NettyServiceViewImpl(bufferQueue, releaseNotifier, availabilityListener);
+        return new NettyServiceViewImpl(bufferQueue, availabilityListener, releaseNotifier);
     }
 
     @Override
