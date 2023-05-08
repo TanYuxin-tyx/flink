@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
@@ -78,8 +77,6 @@ public class NettyServiceViewImpl implements NettyServiceView {
     public Optional<BufferAndBacklog> getNextBuffer() throws IOException {
         try {
             synchronized (viewLock) {
-                checkNotNull(bufferQueue, "Consumer must be not null.");
-
                 Optional<BufferAndBacklog> bufferToConsume;
                 if (!checkBufferIndex(consumingOffset + 1).isPresent()) {
                     bufferToConsume = Optional.empty();
@@ -90,15 +87,13 @@ public class NettyServiceViewImpl implements NettyServiceView {
                             next == null
                                     ? Buffer.DataType.NONE
                                     : checkNotNull(next.getBuffer()).getDataType();
-                    int backlog = bufferQueue.size();
-                    int bufferIndex = current.getBufferIndex();
                     bufferToConsume =
                             Optional.of(
                                     BufferAndBacklog.fromBufferAndLookahead(
                                             current.getBuffer(),
                                             nextDataType,
-                                            backlog,
-                                            bufferIndex));
+                                            bufferQueue.size(),
+                                            current.getBufferIndex()));
                 }
                 updateConsumingStatus(bufferToConsume);
                 return bufferToConsume;
@@ -207,8 +202,8 @@ public class NettyServiceViewImpl implements NettyServiceView {
             return Optional.empty();
         }
         BufferContext peek = bufferQueue.peek();
-        if (peek.getThrowable() != null) {
-            throw peek.getThrowable();
+        if (peek.getError() != null) {
+            throw peek.getError();
         }
         checkState(peek.getBufferIndex() == expectedBufferIndex);
         return Optional.of(peek);

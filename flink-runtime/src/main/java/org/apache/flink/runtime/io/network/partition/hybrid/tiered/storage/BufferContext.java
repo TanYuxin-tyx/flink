@@ -28,22 +28,24 @@ import javax.annotation.Nullable;
  */
 public class BufferContext {
 
-    @Nullable private Buffer buffer;
+    private Buffer buffer;
 
-    @Nullable private Throwable throwable;
+    private Throwable error;
 
     private int bufferIndex;
 
     private int subpartitionId;
 
-    public BufferContext(@Nullable Buffer buffer, int bufferIndex, int subpartitionId) {
+    // If the buffer is not null, the error must be null.
+    public BufferContext(Buffer buffer, int bufferIndex, int subpartitionId) {
         this.buffer = buffer;
         this.bufferIndex = bufferIndex;
         this.subpartitionId = subpartitionId;
     }
 
-    public BufferContext(@Nullable Throwable throwable) {
-        this.throwable = throwable;
+    // If the error is not null, other elements must be null.
+    public BufferContext(Throwable error) {
+        this.error = error;
     }
 
     @Nullable
@@ -52,8 +54,8 @@ public class BufferContext {
     }
 
     @Nullable
-    public Throwable getThrowable() {
-        return throwable;
+    public Throwable getError() {
+        return error;
     }
 
     public int getBufferIndex() {
