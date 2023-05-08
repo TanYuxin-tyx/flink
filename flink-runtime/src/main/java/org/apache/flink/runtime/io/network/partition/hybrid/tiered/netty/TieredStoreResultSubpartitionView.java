@@ -130,7 +130,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         findTierReaderViewIndex();
         return registeredTierConsumerViews
                 .get(viewIndexContainsCurrentSegment)
-                .unsynchronizedGetNumberOfQueuedBuffers();
+                .getNumberOfQueuedBuffers();
     }
 
     @Override

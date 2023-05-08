@@ -18,8 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView.AvailabilityWithBacklog;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -37,7 +37,7 @@ public interface NettyServiceView {
      * @return buffer and backlog.
      * @throws IOException is thrown if there is a failure.
      */
-    Optional<ResultSubpartition.BufferAndBacklog> getNextBuffer() throws IOException;
+    Optional<BufferAndBacklog> getNextBuffer() throws IOException;
 
     /**
      * Get availability and backlog.
@@ -45,28 +45,13 @@ public interface NettyServiceView {
      * @param numCreditsAvailable is the available credit.
      * @return availability and backlog.
      */
-    ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable);
+    AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable);
 
     /** Notify that the view is available. */
     void notifyDataAvailable();
 
     /**
-     * Get the current consumed buffer index.
-     *
-     * @param withLock indicates whether to lock to get buffer index.
-     * @return current consumed buffer index.
-     */
-    int getConsumingOffset(boolean withLock);
-
-    /**
      * Get the number of queued buffers.
-     *
-     * @return the number of queued buffers.
-     */
-    int unsynchronizedGetNumberOfQueuedBuffers();
-
-    /**
-     * Get the number of queued buffers synchronizedly.
      *
      * @return the number of queued buffers.
      */

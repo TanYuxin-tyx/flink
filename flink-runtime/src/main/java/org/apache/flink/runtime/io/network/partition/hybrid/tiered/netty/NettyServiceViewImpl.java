@@ -136,7 +136,7 @@ public class NettyServiceViewImpl implements NettyServiceView {
                     && cachedNextDataType == Buffer.DataType.EVENT_BUFFER) {
                 availability = true;
             }
-            int backlog = unsynchronizedGetNumberOfQueuedBuffers();
+            int backlog = getNumberOfQueuedBuffers();
             if (backlog == 0) {
                 needNotify = true;
             }
@@ -150,16 +150,6 @@ public class NettyServiceViewImpl implements NettyServiceView {
     }
 
     @Override
-    public int getConsumingOffset(boolean withLock) {
-        if (!withLock) {
-            return consumingOffset;
-        }
-        synchronized (viewLock) {
-            return consumingOffset;
-        }
-    }
-
-    @Override
     public Throwable getFailureCause() {
         synchronized (viewLock) {
             return failureCause;
@@ -167,23 +157,10 @@ public class NettyServiceViewImpl implements NettyServiceView {
     }
 
     @Override
-    public int unsynchronizedGetNumberOfQueuedBuffers() {
-        if (bufferQueue == null) {
-            return 0;
-        }
-        return bufferQueue.size();
-    }
-
-    @Override
     public int getNumberOfQueuedBuffers() {
         synchronized (viewLock) {
-            return unsynchronizedGetNumberOfQueuedBuffers();
+            return bufferQueue.size();
         }
-    }
-
-    @VisibleForTesting
-    public boolean getNeedNotifyStatus() {
-        return needNotify;
     }
 
     // -------------------------------
