@@ -45,10 +45,16 @@ public class HashBasedCachedBuffer implements HashBasedCacheBufferOperation {
     private final SubpartitionCachedBuffer[] subpartitionCachedBuffers;
 
     HashBasedCachedBuffer(
-            int numSubpartitions, int bufferSize, TieredStorageMemoryManager storageMemoryManager) {
+            int numSubpartitions,
+            int bufferSize,
+            int numExclusiveBuffers,
+            TieredStorageMemoryManager storageMemoryManager) {
         this.numSubpartitions = numSubpartitions;
         this.storageMemoryManager = storageMemoryManager;
         this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numSubpartitions];
+
+        storageMemoryManager.registerMemorySpec(
+                new TieredStorageMemorySpec(this, numExclusiveBuffers, true));
 
         for (int i = 0; i < numSubpartitions; i++) {
             subpartitionCachedBuffers[i] =

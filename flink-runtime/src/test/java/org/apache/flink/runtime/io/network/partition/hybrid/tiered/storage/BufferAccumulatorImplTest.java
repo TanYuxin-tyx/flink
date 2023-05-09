@@ -65,7 +65,7 @@ class BufferAccumulatorImplTest {
                 createStorageMemoryManager(numBuffers);
         BufferAccumulatorImpl bufferAccumulator =
                 new BufferAccumulatorImpl(
-                        TieredStorageTestUtils.NETWORK_BUFFER_SIZE, tieredStorageMemoryManager);
+                        TieredStorageTestUtils.NETWORK_BUFFER_SIZE, 1, tieredStorageMemoryManager);
 
         AtomicInteger numReceivedFinishedBuffer = new AtomicInteger(0);
 
@@ -98,7 +98,7 @@ class BufferAccumulatorImplTest {
                 createStorageMemoryManager(numBuffers);
         BufferAccumulatorImpl bufferAccumulator =
                 new BufferAccumulatorImpl(
-                        TieredStorageTestUtils.NETWORK_BUFFER_SIZE, tieredStorageMemoryManager);
+                        TieredStorageTestUtils.NETWORK_BUFFER_SIZE, 1, tieredStorageMemoryManager);
 
         for (int i = 0; i < numRecords; i++) {
             if (i % 2 == 0) {
@@ -126,8 +126,7 @@ class BufferAccumulatorImplTest {
             throws IOException {
         BufferPool bufferPool =
                 globalPool.createBufferPool(numBuffersInBufferPool, numBuffersInBufferPool);
-        TieredStorageMemoryManagerImpl storageMemoryManager =
-                new TieredStorageMemoryManagerImpl(10);
+        TieredStorageMemoryManagerImpl storageMemoryManager = new TieredStorageMemoryManagerImpl();
         storageMemoryManager.setup(bufferPool);
         return storageMemoryManager;
     }

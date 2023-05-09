@@ -84,7 +84,7 @@ public class RemoteTierFactory implements TierFactory {
 
         TieredStorageMemoryManager storageMemoryManager = null;
         try {
-            storageMemoryManager = new TieredStorageMemoryManagerImpl(numSubpartitions);
+            storageMemoryManager = new TieredStorageMemoryManagerImpl();
             storageMemoryManager.setup(networkBufferPool.createBufferPool(1, 1));
         } catch (Exception e) {
             ExceptionUtils.rethrow(e, "Failed to create TieredStorageMemoryManger.");

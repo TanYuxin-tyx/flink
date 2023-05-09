@@ -279,7 +279,7 @@ public class ResultPartitionFactory {
                         getStoreConfiguration(numberOfSubpartitions, type);
 
                 TieredStorageMemoryManager storageMemoryManager =
-                        new TieredStorageMemoryManagerImpl(subpartitions.length);
+                        new TieredStorageMemoryManagerImpl();
                 CacheFlushManager cacheFlushManager =
                         new CacheFlushManager(storeConfiguration.getNumBuffersTriggerFlushRatio());
 
@@ -303,7 +303,8 @@ public class ResultPartitionFactory {
                         storeConfiguration.getIndexedTierConfSpecs());
 
                 BufferAccumulator bufferAccumulator =
-                        new BufferAccumulatorImpl(networkBufferSize, storageMemoryManager);
+                        new BufferAccumulatorImpl(
+                                networkBufferSize, subpartitions.length, storageMemoryManager);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(
                                 subpartitions.length,

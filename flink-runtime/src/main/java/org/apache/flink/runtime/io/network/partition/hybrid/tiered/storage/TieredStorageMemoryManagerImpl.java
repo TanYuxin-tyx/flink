@@ -32,8 +32,6 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManager {
 
-    private final int numSubpartitions;
-
     private final Map<Object, TieredStorageMemorySpec> tieredMemorySpecs;
 
     private int numTotalExclusiveBuffers;
@@ -42,8 +40,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
 
     private final AtomicInteger numRequestedBuffers;
 
-    public TieredStorageMemoryManagerImpl(int numSubpartitions) {
-        this.numSubpartitions = numSubpartitions;
+    public TieredStorageMemoryManagerImpl() {
         this.tieredMemorySpecs = new HashMap<>();
         this.numRequestedBuffers = new AtomicInteger(0);
     }
@@ -82,10 +79,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
             return Integer.MAX_VALUE;
         } else {
             int ownerExclusiveBuffers = ownerMemorySpec.getNumExclusiveBuffers();
-            return bufferPool.getNumBuffers()
-                    - numSubpartitions
-                    - numTotalExclusiveBuffers
-                    + ownerExclusiveBuffers;
+            return bufferPool.getNumBuffers() - numTotalExclusiveBuffers + ownerExclusiveBuffers;
         }
     }
 
