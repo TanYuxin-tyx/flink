@@ -164,14 +164,7 @@ public class SubpartitionCachedBuffer {
         Buffer buffer = bufferConsumer.build();
         currentWritingBuffer.close();
         bufferConsumer.close();
-        addFinishedBuffer(
-                new NetworkBuffer(
-                        buffer.getMemorySegment(),
-                        // Note that the buffer recycler should be replaced before writing to the
-                        // tiers.
-                        FreeingBufferRecycler.INSTANCE,
-                        buffer.getDataType(),
-                        buffer.getSize()));
+        addFinishedBuffer(buffer);
     }
 
     private void addFinishedBuffer(Buffer finishedBuffer) {
