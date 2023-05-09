@@ -144,7 +144,7 @@ public final class BufferReaderWriterUtil {
         Buffer.DataType dataType = buffer.getDataType();
         if (dataType == Buffer.DataType.DATA_BUFFER) {
             return HEADER_VALUE_IS_BUFFER;
-        } else if (dataType == Buffer.DataType.ADD_SEGMENT_ID_EVENT) {
+        } else if (dataType == Buffer.DataType.END_OF_SEGMENT) {
             return HEADER_VALUE_IS_SEGMENT_EVENT;
         } else if (dataType == Buffer.DataType.EVENT_BUFFER) {
             return HEADER_VALUE_IS_EVENT;
@@ -307,7 +307,7 @@ public final class BufferReaderWriterUtil {
         if (dataTypeIndex == HEADER_VALUE_IS_BUFFER) {
             return Buffer.DataType.DATA_BUFFER;
         } else if (dataTypeIndex == HEADER_VALUE_IS_SEGMENT_EVENT) {
-            return Buffer.DataType.ADD_SEGMENT_ID_EVENT;
+            return Buffer.DataType.END_OF_SEGMENT;
         } else if (dataTypeIndex == HEADER_VALUE_IS_EVENT) {
             return Buffer.DataType.EVENT_BUFFER;
         } else {

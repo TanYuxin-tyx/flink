@@ -71,7 +71,7 @@ public class TieredStorageConsumerClient {
             return Optional.empty();
         }
         Buffer bufferData = bufferAndAvailability.get();
-        if (bufferData.getDataType() == Buffer.DataType.ADD_SEGMENT_ID_EVENT) {
+        if (bufferData.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
             subpartitionNextSegmentIds[subpartitionId]++;
             bufferData.recycleBuffer();
             consumerNettyService.notifyResultSubpartitionAvailable(subpartitionId, false);

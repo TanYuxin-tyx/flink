@@ -177,7 +177,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             return new NetworkBuffer(
                     data,
                     FreeingBufferRecycler.INSTANCE,
-                    Buffer.DataType.ADD_SEGMENT_ID_EVENT,
+                    Buffer.DataType.END_OF_SEGMENT,
                     data.size());
         }
 

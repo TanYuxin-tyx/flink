@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEGMENT_ID_EVENT;
+import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
@@ -198,7 +198,7 @@ public class MemoryTierProducerAgent
             getSubpartitionMemoryDataManager(targetChannel)
                     .appendSegmentEvent(
                             EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE),
-                            ADD_SEGMENT_ID_EVENT);
+                            END_OF_SEGMENT);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to append end of segment event,");
         }

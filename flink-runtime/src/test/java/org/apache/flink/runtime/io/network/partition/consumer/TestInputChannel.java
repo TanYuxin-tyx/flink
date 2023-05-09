@@ -162,7 +162,7 @@ public class TestInputChannel extends InputChannel {
                 new NetworkBuffer(
                         MemorySegmentFactory.wrap(byteBuffer.array()),
                         FreeingBufferRecycler.INSTANCE,
-                        Buffer.DataType.ADD_SEGMENT_ID_EVENT,
+                        Buffer.DataType.END_OF_SEGMENT,
                         byteBuffer.array().length);
         return read(segmentInfoBuffer, Buffer.DataType.DATA_BUFFER);
     }

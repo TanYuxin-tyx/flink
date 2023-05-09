@@ -30,7 +30,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
-import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEGMENT_ID_EVENT;
+import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 
 /** The {@link TieredStoreResultSubpartitionView} is the implementation. */
 public class TieredStoreResultSubpartitionView implements ResultSubpartitionView {
@@ -73,7 +73,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         Optional<BufferAndBacklog> bufferAndBacklog =
                 registeredTierConsumerViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
         if (bufferAndBacklog.isPresent()) {
-            stopSendingData = bufferAndBacklog.get().buffer().getDataType() == ADD_SEGMENT_ID_EVENT;
+            stopSendingData = bufferAndBacklog.get().buffer().getDataType() == END_OF_SEGMENT;
             bufferAndBacklog.get().setSequenceNumber(currentSequenceNumber);
             currentSequenceNumber++;
         }

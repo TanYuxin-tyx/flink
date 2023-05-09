@@ -44,7 +44,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEGMENT_ID_EVENT;
+import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -185,7 +185,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
             diskCacheManager.appendSegmentEvent(
                     EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE),
                     targetChannel,
-                    ADD_SEGMENT_ID_EVENT);
+                    END_OF_SEGMENT);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to emitEndOfSegmentEvent");
         }
