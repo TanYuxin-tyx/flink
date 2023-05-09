@@ -88,7 +88,10 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
             return Integer.MAX_VALUE;
         } else {
             int ownerExclusiveBuffers = ownerMemorySpec.getNumExclusiveBuffers();
-            return bufferPool.getNumBuffers() - numTotalExclusiveBuffers + ownerExclusiveBuffers;
+            return bufferPool.getNumBuffers()
+                    - numRequestedBuffers.get()
+                    - numTotalExclusiveBuffers
+                    + ownerExclusiveBuffers;
         }
     }
 
