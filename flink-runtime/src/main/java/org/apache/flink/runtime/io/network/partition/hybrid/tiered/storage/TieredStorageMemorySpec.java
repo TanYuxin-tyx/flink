@@ -19,8 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 /**
- * The memory specs for a tier, including the tier index, the number of exclusive buffers of the
- * tier, whether the tier can use the shared buffers in the memory manager, etc.
+ * The memory specs for a memory owner, including the owner itself, the number of exclusive buffers
+ * of the owner, whether the owner's memory can be released when not consumed, etc.
  */
 public class TieredStorageMemorySpec {
 

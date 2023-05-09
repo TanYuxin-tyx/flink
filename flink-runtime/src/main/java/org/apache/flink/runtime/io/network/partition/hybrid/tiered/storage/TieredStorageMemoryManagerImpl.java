@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
+import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.util.HashMap;
@@ -30,6 +31,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
+/**
+ * The implementation for {@link TieredStorageMemoryManager}. This is to request or recycle buffers
+ * from {@link LocalBufferPool} for different memory owners, for example, the tiers, the buffer
+ * accumulator, etc.
+ *
+ * <p>Note that the memory owner should register its {@link TieredStorageMemorySpec} firstly before
+ * requesting buffers.
+ */
 public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManager {
 
     private final Map<Object, TieredStorageMemorySpec> tieredMemorySpecs;

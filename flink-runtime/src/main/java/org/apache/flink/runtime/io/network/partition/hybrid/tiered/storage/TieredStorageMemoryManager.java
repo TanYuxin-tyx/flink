@@ -24,15 +24,21 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 
 /**
- * The {@link TieredStorageMemoryManager} is to request or recycle buffer from {@link
- * LocalBufferPool} for different memory users, such as the tiers or the buffer accumulator. Note
- * that the logic for requesting and recycling buffers remains consistent for these users.
+ * The {@link TieredStorageMemoryManager} is to request or recycle buffers from {@link
+ * LocalBufferPool} for different memory owners, for example, the tiers, the buffer accumulator,
+ * etc.
+ *
+ * <p>Note that the logic for requesting and recycling buffers is consistent for these owners.
  */
 public interface TieredStorageMemoryManager {
 
     /** Setup the {@link TieredStorageMemoryManager}. */
     void setup(BufferPool bufferPool);
 
+    /**
+     * Before requesting buffers, the memory user owner should register its {@link
+     * TieredStorageMemorySpec} to indicate the owner's memory specs.
+     */
     void registerMemorySpec(TieredStorageMemorySpec memorySpec);
 
     /**
@@ -42,11 +48,28 @@ public interface TieredStorageMemoryManager {
      */
     BufferBuilder requestBufferBlocking();
 
+    /**
+     * Return the available buffers for the owner.
+     *
+     * <p>Note that the available buffers are calculated dynamically based on some conditions, for
+     * example, the state of the {@link BufferPool}, the {@link TieredStorageMemorySpec} of the
+     * owner, etc.
+     */
     int numAvailableBuffers(Object owner);
 
+    /** Return the total number of buffers in the {@link TieredStorageMemoryManager}. */
     int numTotalBuffers();
 
+    /**
+     * Return the number of requested buffers from the {@link TieredStorageMemoryManager}. The value
+     * is used by other components to decide their actions, such as the cache flusher decides
+     * whether to flush the cached buffers.
+     */
     int numRequestedBuffers();
 
+    /**
+     * Release all the resources(if exists) and check the state of the {@link
+     * TieredStorageMemoryManager}.
+     */
     void release();
 }
