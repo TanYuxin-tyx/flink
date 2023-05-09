@@ -44,13 +44,6 @@ public class NettyServiceViewImpl implements NettyServiceView {
     @GuardedBy("viewLock")
     private int consumingOffset = -1;
 
-    @GuardedBy("viewLock")
-    private boolean needNotify = true;
-
-    @Nullable
-    @GuardedBy("viewLock")
-    private Buffer.DataType cachedNextDataType = null;
-
     @Nullable
     @GuardedBy("viewLock")
     private Throwable failureCause = null;
@@ -82,11 +75,10 @@ public class NettyServiceViewImpl implements NettyServiceView {
                     bufferToConsume = Optional.empty();
                 } else {
                     BufferContext current = checkNotNull(bufferQueue.poll());
-                    BufferContext next = bufferQueue.peek();
                     Buffer.DataType nextDataType =
-                            next == null
+                            bufferQueue.isEmpty()
                                     ? Buffer.DataType.NONE
-                                    : checkNotNull(next.getBuffer()).getDataType();
+                                    : checkNotNull(bufferQueue.peek().getBuffer()).getDataType();
                     bufferToConsume =
                             Optional.of(
                                     BufferAndBacklog.fromBufferAndLookahead(
@@ -94,8 +86,9 @@ public class NettyServiceViewImpl implements NettyServiceView {
                                             nextDataType,
                                             bufferQueue.size(),
                                             current.getBufferIndex()));
+                    ++consumingOffset;
+                    checkState(bufferToConsume.get().getSequenceNumber() == consumingOffset);
                 }
-                updateConsumingStatus(bufferToConsume);
                 return bufferToConsume;
             }
         } catch (Throwable cause) {
@@ -106,19 +99,12 @@ public class NettyServiceViewImpl implements NettyServiceView {
 
     @Override
     public void notifyDataAvailable() {
-        boolean notifyDownStream = false;
         synchronized (viewLock) {
             if (isReleased) {
                 return;
             }
-            if (needNotify) {
-                notifyDownStream = true;
-                needNotify = false;
-            }
         }
-        if (notifyDownStream) {
-            availabilityListener.notifyDataAvailable();
-        }
+        availabilityListener.notifyDataAvailable();
     }
 
     @Override
@@ -126,15 +112,16 @@ public class NettyServiceViewImpl implements NettyServiceView {
             int numCreditsAvailable) {
         synchronized (viewLock) {
             boolean availability = numCreditsAvailable > 0;
-            if (numCreditsAvailable <= 0
-                    && cachedNextDataType != null
-                    && cachedNextDataType == Buffer.DataType.EVENT_BUFFER) {
+            Buffer.DataType nextDataType;
+            if (bufferQueue.isEmpty()) {
+                nextDataType = Buffer.DataType.NONE;
+            } else {
+                nextDataType = checkNotNull(bufferQueue.peek().getBuffer()).getDataType();
+            }
+            if (numCreditsAvailable <= 0 && nextDataType == Buffer.DataType.EVENT_BUFFER) {
                 availability = true;
             }
             int backlog = getNumberOfQueuedBuffers();
-            if (backlog == 0) {
-                needNotify = true;
-            }
             return new ResultSubpartitionView.AvailabilityWithBacklog(availability, backlog);
         }
     }
@@ -161,24 +148,6 @@ public class NettyServiceViewImpl implements NettyServiceView {
     // -------------------------------
     //       Internal Methods
     // -------------------------------
-
-    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    @GuardedBy("viewLock")
-    private void updateConsumingStatus(Optional<BufferAndBacklog> bufferAndBacklog) {
-        assert Thread.holdsLock(viewLock);
-        // if consumed, update and check consume offset
-        if (bufferAndBacklog.isPresent()) {
-            ++consumingOffset;
-            checkState(bufferAndBacklog.get().getSequenceNumber() == consumingOffset);
-        }
-
-        // update need notify status
-        boolean dataAvailable =
-                bufferAndBacklog.map(BufferAndBacklog::isDataAvailable).orElse(false);
-        needNotify = !dataAvailable;
-        // update cached next data type
-        cachedNextDataType = bufferAndBacklog.map(BufferAndBacklog::getNextDataType).orElse(null);
-    }
 
     private void releaseInternal(@Nullable Throwable throwable) {
         synchronized (viewLock) {
