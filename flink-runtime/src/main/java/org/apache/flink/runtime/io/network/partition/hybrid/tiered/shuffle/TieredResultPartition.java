@@ -123,6 +123,7 @@ public class TieredResultPartition extends ResultPartition {
         storageMemoryManager.setup(bufferPool);
         cacheFlushManager.setup(storageMemoryManager);
         resourceRegistry.registerResource(storagePartitionId, tieredStorageProducerClient::release);
+        resourceRegistry.registerResource(storagePartitionId, storageMemoryManager::release);
     }
 
     @Override
