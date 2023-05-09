@@ -23,5 +23,5 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 public interface HashBufferAccumulatorOperation {
     // TODO, modify this as HashBasedAccumulatorOperation
 
-    BufferBuilder requestBufferFromPool();
+    BufferBuilder requestBufferBlocking();
 }

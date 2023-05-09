@@ -73,7 +73,7 @@ public class SubpartitionHashBufferAccumulator {
     }
 
     // ------------------------------------------------------------------------
-    //  Called by HashBasedCachedBuffer
+    //  Called by HashBufferAccumulator
     // ------------------------------------------------------------------------
 
     public void append(ByteBuffer record, Buffer.DataType dataType)
@@ -125,9 +125,7 @@ public class SubpartitionHashBufferAccumulator {
                         .orElse(0);
 
         while (availableBytes < numRecordBytes) {
-            // request unfinished buffer.
-            //            BufferBuilder bufferBuilder = requestBufferFromPool();
-            BufferBuilder bufferBuilder = hashBufferAccumulatorOperation.requestBufferFromPool();
+            BufferBuilder bufferBuilder = hashBufferAccumulatorOperation.requestBufferBlocking();
             unfinishedBuffers.add(bufferBuilder);
             availableBytes += bufferSize;
         }

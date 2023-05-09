@@ -39,8 +39,6 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
 
     private final int bufferSize;
 
-    private final int numExclusiveBuffers;
-
     private final TieredStorageMemoryManager storageMemoryManager;
 
     private SubpartitionHashBufferAccumulator[] subpartitionHashBufferAccumulators;
@@ -50,8 +48,9 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
             int numExclusiveBuffers,
             TieredStorageMemoryManager storageMemoryManager) {
         this.bufferSize = bufferSize;
-        this.numExclusiveBuffers = numExclusiveBuffers;
         this.storageMemoryManager = storageMemoryManager;
+        storageMemoryManager.registerMemorySpec(
+                new TieredStorageMemorySpec(this, numExclusiveBuffers, true));
     }
 
     @Override
@@ -60,9 +59,6 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
             BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher) {
         this.subpartitionHashBufferAccumulators =
                 new SubpartitionHashBufferAccumulator[numSubpartitions];
-
-        storageMemoryManager.registerMemorySpec(
-                new TieredStorageMemorySpec(this, numExclusiveBuffers, true));
 
         for (int i = 0; i < numSubpartitions; i++) {
             subpartitionHashBufferAccumulators[i] =
@@ -93,7 +89,7 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
     }
 
     @Override
-    public BufferBuilder requestBufferFromPool() {
+    public BufferBuilder requestBufferBlocking() {
         return storageMemoryManager.requestBufferBlocking();
     }
 
