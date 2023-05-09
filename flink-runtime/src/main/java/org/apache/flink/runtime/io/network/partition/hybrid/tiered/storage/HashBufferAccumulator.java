@@ -30,53 +30,66 @@ import java.util.List;
 import java.util.function.BiConsumer;
 
 /**
- * The hash-based mode to accumulate the records. Each subpartition use a {@link
- * SubpartitionCachedBuffer} to accumulate the received records.
- *
- * <p>Note that {@link #setup} need an argument of buffer flush listener to accept the finished
- * accumulated buffers.
+ * The hash implementation of the {@link BufferAccumulator}. The {@link BufferAccumulator} receives
+ * the records from {@link TieredStorageProducerClient} and the records will accumulate and
+ * transform to finished buffers. The finished buffers will be transferred to the corresponding tier
+ * dynamically.
  */
-public class HashBasedCachedBuffer implements HashBasedCacheBufferOperation {
+public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccumulatorOperation {
 
-    private final int numSubpartitions;
+    private final int bufferSize;
+
+    private final int numExclusiveBuffers;
 
     private final TieredStorageMemoryManager storageMemoryManager;
 
-    private final SubpartitionCachedBuffer[] subpartitionCachedBuffers;
+    private SubpartitionHashBufferAccumulator[] subpartitionHashBufferAccumulators;
 
-    HashBasedCachedBuffer(
-            int numSubpartitions,
+    public HashBufferAccumulator(
             int bufferSize,
             int numExclusiveBuffers,
             TieredStorageMemoryManager storageMemoryManager) {
-        this.numSubpartitions = numSubpartitions;
+        this.bufferSize = bufferSize;
+        this.numExclusiveBuffers = numExclusiveBuffers;
         this.storageMemoryManager = storageMemoryManager;
-        this.subpartitionCachedBuffers = new SubpartitionCachedBuffer[numSubpartitions];
+    }
+
+    @Override
+    public void setup(
+            int numSubpartitions,
+            BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher) {
+        this.subpartitionHashBufferAccumulators =
+                new SubpartitionHashBufferAccumulator[numSubpartitions];
 
         storageMemoryManager.registerMemorySpec(
                 new TieredStorageMemorySpec(this, numExclusiveBuffers, true));
 
         for (int i = 0; i < numSubpartitions; i++) {
-            subpartitionCachedBuffers[i] =
-                    new SubpartitionCachedBuffer(
+            subpartitionHashBufferAccumulators[i] =
+                    new SubpartitionHashBufferAccumulator(
                             new TieredStorageSubpartitionId(i), bufferSize, this);
         }
-    }
 
-    public void setup(BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher) {
         for (int i = 0; i < numSubpartitions; i++) {
-            subpartitionCachedBuffers[i].setup(bufferFlusher);
+            subpartitionHashBufferAccumulators[i].setup(bufferFlusher);
         }
     }
 
-    public void append(
+    @Override
+    public void receive(
             ByteBuffer record, TieredStorageSubpartitionId subpartitionId, Buffer.DataType dataType)
             throws IOException {
         try {
-            getCachedBuffer(subpartitionId).append(record, dataType);
+            getSubpartitionHashAccumulator(subpartitionId).append(record, dataType);
         } catch (InterruptedException e) {
             ExceptionUtils.rethrow(e);
         }
+    }
+
+    @Override
+    public void close() {
+        Arrays.stream(subpartitionHashBufferAccumulators)
+                .forEach(SubpartitionHashBufferAccumulator::close);
     }
 
     @Override
@@ -84,11 +97,8 @@ public class HashBasedCachedBuffer implements HashBasedCacheBufferOperation {
         return storageMemoryManager.requestBufferBlocking();
     }
 
-    public void close() {
-        Arrays.stream(subpartitionCachedBuffers).forEach(SubpartitionCachedBuffer::close);
-    }
-
-    private SubpartitionCachedBuffer getCachedBuffer(TieredStorageSubpartitionId subpartitionId) {
-        return subpartitionCachedBuffers[subpartitionId.getSubpartitionId()];
+    private SubpartitionHashBufferAccumulator getSubpartitionHashAccumulator(
+            TieredStorageSubpartitionId subpartitionId) {
+        return subpartitionHashBufferAccumulators[subpartitionId.getSubpartitionId()];
     }
 }

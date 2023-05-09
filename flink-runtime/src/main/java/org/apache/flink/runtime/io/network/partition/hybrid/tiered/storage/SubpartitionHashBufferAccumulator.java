@@ -41,31 +41,31 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * {@link SubpartitionCachedBuffer} accumulates the records in a subpartition.
+ * {@link SubpartitionHashBufferAccumulator} accumulates the records in a subpartition.
  *
  * <p>Note that {@link #setup} need an argument of buffer flush listener to accept the finished
  * accumulated buffers.
  */
-public class SubpartitionCachedBuffer {
+public class SubpartitionHashBufferAccumulator {
 
     private final TieredStorageSubpartitionId subpartitionId;
 
     private final int bufferSize;
 
-    private final HashBasedCacheBufferOperation hashBasedCacheBufferOperation;
+    private final HashBufferAccumulatorOperation hashBufferAccumulatorOperation;
 
     private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher;
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
-    public SubpartitionCachedBuffer(
+    public SubpartitionHashBufferAccumulator(
             TieredStorageSubpartitionId subpartitionId,
             int bufferSize,
-            HashBasedCacheBufferOperation hashBasedCacheBufferOperation) {
+            HashBufferAccumulatorOperation hashBufferAccumulatorOperation) {
         this.subpartitionId = subpartitionId;
         this.bufferSize = bufferSize;
-        this.hashBasedCacheBufferOperation = hashBasedCacheBufferOperation;
+        this.hashBufferAccumulatorOperation = hashBufferAccumulatorOperation;
     }
 
     public void setup(BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher) {
@@ -127,7 +127,7 @@ public class SubpartitionCachedBuffer {
         while (availableBytes < numRecordBytes) {
             // request unfinished buffer.
             //            BufferBuilder bufferBuilder = requestBufferFromPool();
-            BufferBuilder bufferBuilder = hashBasedCacheBufferOperation.requestBufferFromPool();
+            BufferBuilder bufferBuilder = hashBufferAccumulatorOperation.requestBufferFromPool();
             unfinishedBuffers.add(bufferBuilder);
             availableBytes += bufferSize;
         }

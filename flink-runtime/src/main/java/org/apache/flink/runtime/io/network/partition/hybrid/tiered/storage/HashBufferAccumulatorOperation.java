@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 
-public interface HashBasedCacheBufferOperation {
+public interface HashBufferAccumulatorOperation {
     // TODO, modify this as HashBasedAccumulatorOperation
 
     BufferBuilder requestBufferFromPool();
