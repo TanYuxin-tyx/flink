@@ -101,7 +101,7 @@ public class SubpartitionHashBufferAccumulator {
 
         // store Events in adhoc heap segments, for network memory efficiency
         MemorySegment data = MemorySegmentFactory.wrap(event.array());
-        addFinishedBuffer(
+        flushFinishedBuffer(
                 // Note that the buffer recycler should be replaced before writing to the tiers.
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size()));
     }
@@ -164,10 +164,10 @@ public class SubpartitionHashBufferAccumulator {
         Buffer buffer = bufferConsumer.build();
         currentWritingBuffer.close();
         bufferConsumer.close();
-        addFinishedBuffer(buffer);
+        flushFinishedBuffer(buffer);
     }
 
-    private void addFinishedBuffer(Buffer finishedBuffer) {
+    private void flushFinishedBuffer(Buffer finishedBuffer) {
         bufferFlusher.accept(subpartitionId, Collections.singletonList(finishedBuffer));
     }
 }
