@@ -43,6 +43,8 @@ class HashBufferAccumulatorTest {
 
     public static final int NETWORK_BUFFER_SIZE = 1024;
 
+    private static final float NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
+
     private NetworkBufferPool globalPool;
 
     @BeforeEach
@@ -65,7 +67,11 @@ class HashBufferAccumulatorTest {
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
         HashBufferAccumulator bufferAccumulator =
-                new HashBufferAccumulator(NETWORK_BUFFER_SIZE, 1, tieredStorageMemoryManager);
+                new HashBufferAccumulator(
+                        NETWORK_BUFFER_SIZE,
+                        1,
+                        new CacheFlushManager(NUM_BUFFERS_TRIGGER_FLUSH_RATIO),
+                        tieredStorageMemoryManager);
 
         AtomicInteger numReceivedFinishedBuffer = new AtomicInteger(0);
         bufferAccumulator.setup(
@@ -105,7 +111,11 @@ class HashBufferAccumulatorTest {
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
         HashBufferAccumulator bufferAccumulator =
-                new HashBufferAccumulator(NETWORK_BUFFER_SIZE, 1, tieredStorageMemoryManager);
+                new HashBufferAccumulator(
+                        NETWORK_BUFFER_SIZE,
+                        1,
+                        new CacheFlushManager(NUM_BUFFERS_TRIGGER_FLUSH_RATIO),
+                        tieredStorageMemoryManager);
         bufferAccumulator.setup(
                 1, ((subpartition, buffers) -> buffers.forEach(Buffer::recycleBuffer)));
 
