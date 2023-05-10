@@ -118,11 +118,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     @Override
     public Throwable getFailureCause() {
-        TieredStoreConsumerFailureCause failureCause = new TieredStoreConsumerFailureCause();
-        for (NettyServiceView nettyServiceView : registeredTierConsumerViews) {
-            failureCause.appendException(nettyServiceView.getFailureCause());
-        }
-        return failureCause.isEmpty() ? null : failureCause;
+        // nothing to do.
+        return null;
     }
 
     @Override

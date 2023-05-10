@@ -37,16 +37,9 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** The implementation of {@link NettyServiceView}. */
 public class NettyServiceViewImpl implements NettyServiceView {
 
-    private final Object viewLock = new Object();
-
     private final BufferAvailabilityListener availabilityListener;
 
-    @GuardedBy("viewLock")
-    private int consumingOffset = -1;
-
-    @Nullable
-    @GuardedBy("viewLock")
-    private Throwable failureCause = null;
+    private int consumedBufferIndex = -1;
 
     @GuardedBy("viewLock")
     private boolean isReleased = false;
@@ -65,44 +58,36 @@ public class NettyServiceViewImpl implements NettyServiceView {
         this.releaseNotifier = releaseNotifier;
     }
 
-    @Nullable
     @Override
     public Optional<BufferAndBacklog> getNextBuffer() throws IOException {
-        try {
-            synchronized (viewLock) {
-                Optional<BufferAndBacklog> bufferToConsume;
-                if (!checkBufferIndex(consumingOffset + 1).isPresent()) {
-                    bufferToConsume = Optional.empty();
-                } else {
-                    BufferContext current = checkNotNull(bufferQueue.poll());
-                    Buffer.DataType nextDataType =
-                            bufferQueue.isEmpty()
-                                    ? Buffer.DataType.NONE
-                                    : checkNotNull(bufferQueue.peek().getBuffer()).getDataType();
-                    bufferToConsume =
-                            Optional.of(
-                                    BufferAndBacklog.fromBufferAndLookahead(
-                                            current.getBuffer(),
-                                            nextDataType,
-                                            bufferQueue.size(),
-                                            current.getBufferIndex()));
-                    ++consumingOffset;
-                    checkState(bufferToConsume.get().getSequenceNumber() == consumingOffset);
-                }
-                return bufferToConsume;
+        BufferContext buffer = bufferQueue.poll();
+        if (buffer == null) {
+            return Optional.empty();
+        } else {
+            Throwable readError = buffer.getError();
+            if (readError != null) {
+                release();
+                throw new IOException(readError);
+            } else {
+                checkState(buffer.getBufferIndex() == ++consumedBufferIndex);
+                Buffer.DataType nextDataType =
+                        bufferQueue.isEmpty()
+                                ? Buffer.DataType.NONE
+                                : checkNotNull(bufferQueue.peek().getBuffer()).getDataType();
+                return Optional.of(
+                        BufferAndBacklog.fromBufferAndLookahead(
+                                buffer.getBuffer(),
+                                nextDataType,
+                                bufferQueue.size(),
+                                buffer.getBufferIndex()));
             }
-        } catch (Throwable cause) {
-            releaseInternal(cause);
-            throw new IOException("Failed to get next buffer.", cause);
         }
     }
 
     @Override
     public void notifyDataAvailable() {
-        synchronized (viewLock) {
-            if (isReleased) {
-                return;
-            }
+        if (isReleased) {
+            return;
         }
         availabilityListener.notifyDataAvailable();
     }
@@ -110,71 +95,36 @@ public class NettyServiceViewImpl implements NettyServiceView {
     @Override
     public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
             int numCreditsAvailable) {
-        synchronized (viewLock) {
-            boolean availability = numCreditsAvailable > 0;
-            Buffer.DataType nextDataType;
-            if (bufferQueue.isEmpty()) {
-                nextDataType = Buffer.DataType.NONE;
-            } else {
-                nextDataType = checkNotNull(bufferQueue.peek().getBuffer()).getDataType();
-            }
-            if (numCreditsAvailable <= 0 && nextDataType == Buffer.DataType.EVENT_BUFFER) {
-                availability = true;
-            }
-            int backlog = getNumberOfQueuedBuffers();
-            return new ResultSubpartitionView.AvailabilityWithBacklog(availability, backlog);
+        boolean availability = numCreditsAvailable > 0;
+        Buffer.DataType nextDataType;
+        if (bufferQueue.isEmpty()) {
+            nextDataType = Buffer.DataType.NONE;
+        } else {
+            nextDataType = checkNotNull(bufferQueue.peek().getBuffer()).getDataType();
         }
+        if (numCreditsAvailable <= 0 && nextDataType == Buffer.DataType.EVENT_BUFFER) {
+            availability = true;
+        }
+        return new ResultSubpartitionView.AvailabilityWithBacklog(availability, bufferQueue.size());
     }
 
     @Override
     public void release() throws IOException {
-        releaseInternal(null);
-    }
-
-    @Override
-    public Throwable getFailureCause() {
-        synchronized (viewLock) {
-            return failureCause;
+        if (isReleased) {
+            return;
         }
-    }
-
-    @Override
-    public int getNumberOfQueuedBuffers() {
-        synchronized (viewLock) {
-            return bufferQueue.size();
-        }
-    }
-
-    // -------------------------------
-    //       Internal Methods
-    // -------------------------------
-
-    private void releaseInternal(@Nullable Throwable throwable) {
-        synchronized (viewLock) {
-            if (isReleased) {
-                return;
+        isReleased = true;
+        BufferContext bufferContext;
+        while ((bufferContext = bufferQueue.poll()) != null) {
+            if (bufferContext.getBuffer() != null) {
+                checkNotNull(bufferContext.getBuffer()).recycleBuffer();
             }
-            isReleased = true;
-            BufferContext bufferContext;
-            while ((bufferContext = bufferQueue.poll()) != null) {
-                if (bufferContext.getBuffer() != null) {
-                    checkNotNull(bufferContext.getBuffer()).recycleBuffer();
-                }
-            }
-            failureCause = throwable;
         }
         releaseNotifier.run();
     }
 
-    private Optional<BufferContext> checkBufferIndex(int expectedBufferIndex) throws Throwable {
-        if (bufferQueue.isEmpty()) {
-            return Optional.empty();
-        }
-        BufferContext peek = bufferQueue.peek();
-        if (peek.getError() != null) {
-            throw peek.getError();
-        }
-        checkState(peek.getBufferIndex() == expectedBufferIndex);
-        return Optional.of(peek);
+    @Override
+    public int getNumberOfQueuedBuffers() {
+        return bufferQueue.size();
     }
 }

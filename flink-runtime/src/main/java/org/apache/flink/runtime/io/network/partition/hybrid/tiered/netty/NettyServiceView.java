@@ -63,11 +63,4 @@ public interface NettyServiceView {
      * @throws IOException happened during releasing the view.
      */
     void release() throws IOException;
-
-    /**
-     * Get the failure cause when getting next buffer.
-     *
-     * @return the failure cause.
-     */
-    Throwable getFailureCause();
 }
