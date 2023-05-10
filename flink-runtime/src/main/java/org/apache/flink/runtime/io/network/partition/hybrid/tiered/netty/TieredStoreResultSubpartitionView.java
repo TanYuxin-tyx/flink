@@ -22,7 +22,6 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStoreConsumerFailureCause;
 
 import javax.annotation.Nullable;
 
@@ -31,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** The {@link TieredStoreResultSubpartitionView} is the implementation. */
 public class TieredStoreResultSubpartitionView implements ResultSubpartitionView {
@@ -41,7 +41,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final List<SegmentSearcher> segmentSearchers;
 
-    private final List<NettyServiceView> registeredTierConsumerViews;
+    private final List<NettyServiceView> nettyServiceViews;
 
     private boolean isReleased = false;
 
@@ -57,11 +57,12 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
             List<SegmentSearcher> segmentSearchers,
-            List<NettyServiceView> registeredTierConsumerViews) {
+            List<NettyServiceView> nettyServiceViews) {
+        checkState(segmentSearchers.size() == nettyServiceViews.size());
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
         this.segmentSearchers = segmentSearchers;
-        this.registeredTierConsumerViews = registeredTierConsumerViews;
+        this.nettyServiceViews = nettyServiceViews;
     }
 
     @Nullable
@@ -71,7 +72,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return null;
         }
         Optional<BufferAndBacklog> bufferAndBacklog =
-                registeredTierConsumerViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
+                nettyServiceViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
         if (bufferAndBacklog.isPresent()) {
             stopSendingData = bufferAndBacklog.get().buffer().getDataType() == END_OF_SEGMENT;
             bufferAndBacklog.get().setSequenceNumber(currentSequenceNumber);
@@ -81,14 +82,13 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     }
 
     @Override
-    public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
-            int numCreditsAvailable) {
+    public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
         if (findTierReaderViewIndex()) {
-            return registeredTierConsumerViews
+            return nettyServiceViews
                     .get(viewIndexContainsCurrentSegment)
                     .getAvailabilityAndBacklog(numCreditsAvailable);
         }
-        return new ResultSubpartitionView.AvailabilityWithBacklog(false, 0);
+        return new AvailabilityWithBacklog(false, 0);
     }
 
     @Override
@@ -104,10 +104,10 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return;
         }
         isReleased = true;
-        for (NettyServiceView nettyServiceView : registeredTierConsumerViews) {
+        for (NettyServiceView nettyServiceView : nettyServiceViews) {
             nettyServiceView.release();
         }
-        registeredTierConsumerViews.clear();
+        nettyServiceViews.clear();
         segmentSearchers.clear();
     }
 
@@ -118,24 +118,20 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     @Override
     public Throwable getFailureCause() {
-        // nothing to do.
+        // nothing to do
         return null;
     }
 
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
         findTierReaderViewIndex();
-        return registeredTierConsumerViews
-                .get(viewIndexContainsCurrentSegment)
-                .getNumberOfQueuedBuffers();
+        return nettyServiceViews.get(viewIndexContainsCurrentSegment).getNumberOfQueuedBuffers();
     }
 
     @Override
     public int getNumberOfQueuedBuffers() {
         findTierReaderViewIndex();
-        return registeredTierConsumerViews
-                .get(viewIndexContainsCurrentSegment)
-                .getNumberOfQueuedBuffers();
+        return nettyServiceViews.get(viewIndexContainsCurrentSegment).getNumberOfQueuedBuffers();
     }
 
     @Override
