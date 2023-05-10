@@ -19,12 +19,11 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
-import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
@@ -59,7 +58,7 @@ public class NettyServiceViewImpl implements NettyServiceView {
     }
 
     @Override
-    public Optional<BufferAndBacklog> getNextBuffer() throws IOException {
+    public Optional<Buffer> getNextBuffer() throws IOException {
         BufferContext buffer = bufferQueue.poll();
         if (buffer == null) {
             return Optional.empty();
@@ -70,17 +69,23 @@ public class NettyServiceViewImpl implements NettyServiceView {
                 throw new IOException(readError);
             } else {
                 checkState(buffer.getBufferIndex() == ++consumedBufferIndex);
-                Buffer.DataType nextDataType =
-                        bufferQueue.isEmpty()
-                                ? Buffer.DataType.NONE
-                                : checkNotNull(bufferQueue.peek().getBuffer()).getDataType();
-                return Optional.of(
-                        BufferAndBacklog.fromBufferAndLookahead(
-                                buffer.getBuffer(),
-                                nextDataType,
-                                bufferQueue.size(),
-                                buffer.getBufferIndex()));
+                return Optional.of(checkNotNull(buffer.getBuffer()));
             }
+        }
+    }
+
+    @Override
+    public int getNumberOfQueuedBuffers() {
+        return bufferQueue.size();
+    }
+
+    @Override
+    public DataType getNextBufferDataType() {
+        BufferContext nextBuffer = bufferQueue.peek();
+        if (nextBuffer == null || nextBuffer.getBuffer() == null) {
+            return DataType.NONE;
+        } else {
+            return nextBuffer.getBuffer().getDataType();
         }
     }
 
@@ -121,10 +126,5 @@ public class NettyServiceViewImpl implements NettyServiceView {
             }
         }
         releaseNotifier.run();
-    }
-
-    @Override
-    public int getNumberOfQueuedBuffers() {
-        return bufferQueue.size();
     }
 }

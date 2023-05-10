@@ -125,7 +125,7 @@ public abstract class ResultSubpartition {
     public static final class BufferAndBacklog {
         private final Buffer buffer;
         private final int buffersInBacklog;
-        private final Buffer.DataType nextDataType;
+        private Buffer.DataType nextDataType;
         private int sequenceNumber;
 
         public BufferAndBacklog(
@@ -133,7 +133,7 @@ public abstract class ResultSubpartition {
                 int buffersInBacklog,
                 Buffer.DataType nextDataType,
                 int sequenceNumber) {
-            this.buffer = checkNotNull(buffer);
+            this.buffer = buffer;
             this.buffersInBacklog = buffersInBacklog;
             this.nextDataType = checkNotNull(nextDataType);
             this.sequenceNumber = sequenceNumber;
@@ -165,6 +165,10 @@ public abstract class ResultSubpartition {
 
         public void setSequenceNumber(int sequenceNumber) {
             this.sequenceNumber = sequenceNumber;
+        }
+
+        public void setNextDataType(Buffer.DataType nextDataType) {
+            this.nextDataType = nextDataType;
         }
 
         public static BufferAndBacklog fromBufferAndLookahead(

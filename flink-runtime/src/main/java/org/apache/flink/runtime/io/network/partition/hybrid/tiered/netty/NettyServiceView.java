@@ -18,7 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView.AvailabilityWithBacklog;
 
 import java.io.IOException;
@@ -32,12 +33,26 @@ import java.util.Optional;
 public interface NettyServiceView {
 
     /**
-     * Get buffer and backlog.
+     * Get next required buffer.
      *
-     * @return buffer and backlog.
+     * @return buffer.
      * @throws IOException is thrown if there is a failure.
      */
-    Optional<BufferAndBacklog> getNextBuffer() throws IOException;
+    Optional<Buffer> getNextBuffer() throws IOException;
+
+    /**
+     * Get the number of queued buffers.
+     *
+     * @return the number of queued buffers.
+     */
+    int getNumberOfQueuedBuffers();
+
+    /**
+     * Get the data type of next buffer.
+     *
+     * @return data type
+     */
+    DataType getNextBufferDataType();
 
     /**
      * Get availability and backlog.
@@ -49,13 +64,6 @@ public interface NettyServiceView {
 
     /** Notify that the view is available. */
     void notifyDataAvailable();
-
-    /**
-     * Get the number of queued buffers.
-     *
-     * @return the number of queued buffers.
-     */
-    int getNumberOfQueuedBuffers();
 
     /**
      * Release the {@link NettyServiceView}.

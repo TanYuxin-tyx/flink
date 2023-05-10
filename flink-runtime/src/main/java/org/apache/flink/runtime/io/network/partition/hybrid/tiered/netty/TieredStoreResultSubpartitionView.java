@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
@@ -51,7 +52,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private int viewIndexContainsCurrentSegment = -1;
 
-    private int currentSequenceNumber = 0;
+    private int currentSequenceNumber = -1;
 
     public TieredStoreResultSubpartitionView(
             int subpartitionId,
@@ -71,14 +72,19 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         if (stopSendingData || !findTierReaderViewIndex()) {
             return null;
         }
-        Optional<BufferAndBacklog> bufferAndBacklog =
-                nettyServiceViews.get(viewIndexContainsCurrentSegment).getNextBuffer();
-        if (bufferAndBacklog.isPresent()) {
-            stopSendingData = bufferAndBacklog.get().buffer().getDataType() == END_OF_SEGMENT;
-            bufferAndBacklog.get().setSequenceNumber(currentSequenceNumber);
+        NettyServiceView currentNettyServiceView =
+                nettyServiceViews.get(viewIndexContainsCurrentSegment);
+        Optional<Buffer> nextBuffer = currentNettyServiceView.getNextBuffer();
+        if (nextBuffer.isPresent()) {
+            stopSendingData = nextBuffer.get().getDataType() == END_OF_SEGMENT;
             currentSequenceNumber++;
+            return BufferAndBacklog.fromBufferAndLookahead(
+                    nextBuffer.get(),
+                    currentNettyServiceView.getNextBufferDataType(),
+                    currentNettyServiceView.getNumberOfQueuedBuffers(),
+                    currentSequenceNumber);
         }
-        return bufferAndBacklog.orElse(null);
+        return null;
     }
 
     @Override
