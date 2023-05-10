@@ -20,23 +20,13 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
 public class TierConfSpec {
 
-    private final TieredStorageConfiguration.TierType tierType;
-
     private final int numExclusiveBuffers;
 
     private final boolean isMemoryReleasable;
 
-    public TierConfSpec(
-            TieredStorageConfiguration.TierType tierType,
-            int numExclusiveBuffers,
-            boolean isMemoryReleasable) {
-        this.tierType = tierType;
+    public TierConfSpec(int numExclusiveBuffers, boolean isMemoryReleasable) {
         this.numExclusiveBuffers = numExclusiveBuffers;
         this.isMemoryReleasable = isMemoryReleasable;
-    }
-
-    public TieredStorageConfiguration.TierType getTierType() {
-        return tierType;
     }
 
     public int getNumExclusiveBuffers() {

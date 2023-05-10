@@ -28,17 +28,16 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.R
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.HYBRID_SELECTIVE;
 
 /** The configuration for TieredStore. */
 public class TieredStorageConfiguration {
 
+    /** TODO, only for tests, this should be removed. */
     protected enum TierType {
         IN_MEM,
         IN_DISK,
@@ -70,11 +69,21 @@ public class TieredStorageConfiguration {
 
     private static final TierType[] MEMORY_ONLY_TIER_TYPE = new TierType[] {TierType.IN_MEM};
 
+    // TODO, remove this DEFAULT_MEMORY_DISK_TIER_TYPES
     private static final TierType[] DEFAULT_MEMORY_DISK_TIER_TYPES =
             new TierType[] {TierType.IN_MEM, TierType.IN_DISK};
 
+    // TODO, remove this DEFAULT_MEMORY_DISK_REMOTE_TIER_TYPES
     private static final TierType[] DEFAULT_MEMORY_DISK_REMOTE_TIER_TYPES =
             new TierType[] {TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE};
+
+    private static final TierFactory[] DEFAULT_MEMORY_DISK_TIER_FACTORIES =
+            new TierFactory[] {new MemoryTierFactory(), new DiskTierFactory()};
+
+    private static final TierFactory[] DEFAULT_MEMORY_DISK_REMOTE_TIER_FACTORIES =
+            new TierFactory[] {
+                new MemoryTierFactory(), new DiskTierFactory(), new RemoteTierFactory()
+            };
 
     private static final TierMemorySpec[] DEFAULT_MEMORY_DISK_TIER_MEMORY_SPECS =
             new TierMemorySpec[] {new TierMemorySpec(100, false), new TierMemorySpec(1, true)};
@@ -108,9 +117,7 @@ public class TieredStorageConfiguration {
     private final String baseDfsHomePath;
     private final List<IndexedTierConfSpec> indexedTierConfSpecs;
 
-    private final TierType[] tierTypes;
-
-    private final TierMemorySpec[] tierMemorySpecs;
+    private final TierFactory[] tierFactories;
 
     private TieredStorageConfiguration(
             int maxBuffersReadAhead,
@@ -124,7 +131,7 @@ public class TieredStorageConfiguration {
             String baseDfsHomePath,
             int configuredNetworkBuffersPerChannel,
             List<IndexedTierConfSpec> indexedTierConfSpecs,
-            TierType[] tierTypes,
+            TierFactory[] tierFactories,
             TierMemorySpec[] tierMemorySpecs) {
         this.maxBuffersReadAhead = maxBuffersReadAhead;
         this.bufferRequestTimeout = bufferRequestTimeout;
@@ -137,8 +144,7 @@ public class TieredStorageConfiguration {
         this.baseDfsHomePath = baseDfsHomePath;
         this.configuredNetworkBuffersPerChannel = configuredNetworkBuffersPerChannel;
         this.indexedTierConfSpecs = indexedTierConfSpecs;
-        this.tierTypes = tierTypes;
-        this.tierMemorySpecs = tierMemorySpecs;
+        this.tierFactories = tierFactories;
     }
 
     public static TieredStorageConfiguration.Builder builder() {
@@ -200,30 +206,11 @@ public class TieredStorageConfiguration {
     }
 
     public List<TierFactory> getTierFactories() {
-        return Arrays.stream(tierTypes).map(this::createTierFactory).collect(Collectors.toList());
-    }
-
-    private TierFactory createTierFactory(TierType tierType) {
-        switch (tierType) {
-            case IN_MEM:
-                return new MemoryTierFactory();
-            case IN_DISK:
-                return new DiskTierFactory();
-            case IN_REMOTE:
-                return new RemoteTierFactory();
-            default:
-                throw new IllegalArgumentException("Illegal tier type " + tierType);
-        }
+        return Arrays.asList(tierFactories);
     }
 
     public List<IndexedTierConfSpec> getIndexedTierConfSpecs() {
         return indexedTierConfSpecs;
-    }
-
-    // Only for test
-    public static List<IndexedTierConfSpec> getTestIndexedTierConfSpec() {
-        return Collections.singletonList(
-                new IndexedTierConfSpec(0, new TierConfSpec(TierType.IN_REMOTE, 1, true)));
     }
 
     /** Builder for {@link TieredStorageConfiguration}. */
@@ -247,6 +234,8 @@ public class TieredStorageConfiguration {
         private int configuredNetworkBuffersPerChannel;
 
         private TierType[] tierTypes;
+
+        private TierFactory[] tierFactories;
 
         private TierMemorySpec[] tierMemorySpecs;
 
@@ -321,6 +310,7 @@ public class TieredStorageConfiguration {
         public TieredStorageConfiguration.Builder setTierTypes(
                 String configuredStoreTiers, ResultPartitionType partitionType) {
             tierTypes = getConfiguredTierTypes(configuredStoreTiers, partitionType);
+            tierFactories = getTierFactories(tierTypes);
             // After the method is replaced, these generation of tierConfSpecs is useless.
             tierConfSpecs = new ArrayList<>();
             indexedTierConfSpecs.clear();
@@ -328,8 +318,7 @@ public class TieredStorageConfiguration {
             for (int i = 0; i < tierTypes.length; i++) {
                 int numExclusive = HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(tierTypes[i]);
                 TierConfSpec tierConfSpec =
-                        new TierConfSpec(
-                                tierTypes[i], numExclusive, tierTypes[i] != TierType.IN_MEM);
+                        new TierConfSpec(numExclusive, tierTypes[i] != TierType.IN_MEM);
                 tierConfSpecs.add(tierConfSpec);
                 indexedTierConfSpecs.add(new IndexedTierConfSpec(i, tierConfSpec));
                 tierMemorySpecs[i] =
@@ -341,14 +330,14 @@ public class TieredStorageConfiguration {
         /** Only for test. This method will be removed in the production code. */
         public TieredStorageConfiguration.Builder setTierTypes(String configuredStoreTiers) {
             tierTypes = getConfiguredTierTypes(configuredStoreTiers);
+            tierFactories = getTierFactories(tierTypes);
             // After the method is replaced, these generation of tierConfSpecs is useless.
             tierConfSpecs = new ArrayList<>();
             indexedTierConfSpecs.clear();
             for (int i = 0; i < tierTypes.length; i++) {
                 int numExclusive = HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(tierTypes[i]);
                 TierConfSpec tierConfSpec =
-                        new TierConfSpec(
-                                tierTypes[i], numExclusive, tierTypes[i] != TierType.IN_MEM);
+                        new TierConfSpec(numExclusive, tierTypes[i] != TierType.IN_MEM);
                 tierConfSpecs.add(tierConfSpec);
                 indexedTierConfSpecs.add(new IndexedTierConfSpec(i, tierConfSpec));
             }
@@ -365,11 +354,11 @@ public class TieredStorageConfiguration {
                 case "REMOTE":
                     return createTierTypes(TierType.IN_REMOTE);
                 case "MEMORY_DISK":
-                    createTierTypes(TierType.IN_MEM, TierType.IN_DISK);
+                    return createTierTypes(TierType.IN_MEM, TierType.IN_DISK);
                 case "MEMORY_REMOTE":
-                    createTierTypes(TierType.IN_MEM, TierType.IN_REMOTE);
+                    return createTierTypes(TierType.IN_MEM, TierType.IN_REMOTE);
                 case "MEMORY_DISK_REMOTE":
-                    createTierTypes(TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE);
+                    return createTierTypes(TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE);
                 case "DISK_REMOTE":
                     return createTierTypes(TierType.IN_DISK, TierType.IN_REMOTE);
                 default:
@@ -417,6 +406,9 @@ public class TieredStorageConfiguration {
                 this.tierTypes = getDefaultTierTypes(baseDfsHomePath);
                 this.tierMemorySpecs = getDefaultTierMemorySpecs(baseDfsHomePath);
             }
+            if (tierFactories == null) {
+                this.tierFactories = getDefaultTierFactories(baseDfsHomePath);
+            }
 
             return new TieredStorageConfiguration(
                     maxBuffersReadAhead,
@@ -430,8 +422,30 @@ public class TieredStorageConfiguration {
                     baseDfsHomePath,
                     configuredNetworkBuffersPerChannel,
                     indexedTierConfSpecs,
-                    tierTypes,
+                    tierFactories,
                     tierMemorySpecs);
+        }
+    }
+
+    // Only for tests
+    private static TierFactory[] getTierFactories(TierType[] tierTypes) {
+        TierFactory[] tierFactories = new TierFactory[tierTypes.length];
+        for (int i = 0; i < tierTypes.length; i++) {
+            tierFactories[i] = createTierFactory(tierTypes[i]);
+        }
+        return tierFactories;
+    }
+
+    private static TierFactory createTierFactory(TierType tierType) {
+        switch (tierType) {
+            case IN_MEM:
+                return new MemoryTierFactory();
+            case IN_DISK:
+                return new DiskTierFactory();
+            case IN_REMOTE:
+                return new RemoteTierFactory();
+            default:
+                throw new IllegalArgumentException("Illegal tier type " + tierType);
         }
     }
 
@@ -445,5 +459,11 @@ public class TieredStorageConfiguration {
         return baseDfsHomePath == null
                 ? DEFAULT_MEMORY_DISK_TIER_MEMORY_SPECS
                 : DEFAULT_MEMORY_DISK_REMOTE_TIER_MEMORY_SPECS;
+    }
+
+    private static TierFactory[] getDefaultTierFactories(String baseDfsHomePath) {
+        return baseDfsHomePath == null
+                ? DEFAULT_MEMORY_DISK_TIER_FACTORIES
+                : DEFAULT_MEMORY_DISK_REMOTE_TIER_FACTORIES;
     }
 }

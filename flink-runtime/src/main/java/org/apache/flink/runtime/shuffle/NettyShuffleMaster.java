@@ -119,9 +119,9 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
 
     private TieredStorageConfiguration getStoreConfiguration() {
         return TieredStorageConfiguration.builder()
+                // TODO, this is only for it case tests and configured tests. Remove this set tier
+                // types and use the default tier factories in the tiered storage factory
                 .setTierTypes(tieredStoreTiers)
-                // TODO, Replace these previous two lines with the setTierSpecs
-                //                .setTierSpecs(tierConfSpecs)
                 .setBaseDfsHomePath(baseDfsPath)
                 .build();
     }
