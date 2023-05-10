@@ -31,7 +31,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The {@link TieredStoreResultSubpartitionView} is the implementation. */
