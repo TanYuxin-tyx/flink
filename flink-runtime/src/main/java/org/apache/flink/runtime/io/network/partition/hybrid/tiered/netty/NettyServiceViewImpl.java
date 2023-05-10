@@ -98,22 +98,6 @@ public class NettyServiceViewImpl implements NettyServiceView {
     }
 
     @Override
-    public ResultSubpartitionView.AvailabilityWithBacklog getAvailabilityAndBacklog(
-            int numCreditsAvailable) {
-        boolean availability = numCreditsAvailable > 0;
-        Buffer.DataType nextDataType;
-        if (bufferQueue.isEmpty()) {
-            nextDataType = Buffer.DataType.NONE;
-        } else {
-            nextDataType = checkNotNull(bufferQueue.peek().getBuffer()).getDataType();
-        }
-        if (numCreditsAvailable <= 0 && nextDataType == Buffer.DataType.EVENT_BUFFER) {
-            availability = true;
-        }
-        return new ResultSubpartitionView.AvailabilityWithBacklog(availability, bufferQueue.size());
-    }
-
-    @Override
     public void release() throws IOException {
         if (isReleased) {
             return;

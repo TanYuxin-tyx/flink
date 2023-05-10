@@ -54,14 +54,6 @@ public interface NettyServiceView {
      */
     DataType getNextBufferDataType();
 
-    /**
-     * Get availability and backlog.
-     *
-     * @param numCreditsAvailable is the available credit.
-     * @return availability and backlog.
-     */
-    AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable);
-
     /** Notify that the view is available. */
     void notifyDataAvailable();
 

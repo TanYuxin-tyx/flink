@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The {@link TieredStoreResultSubpartitionView} is the implementation. */
@@ -90,9 +91,16 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     @Override
     public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
         if (findTierReaderViewIndex()) {
-            return nettyServiceViews
-                    .get(viewIndexContainsCurrentSegment)
-                    .getAvailabilityAndBacklog(numCreditsAvailable);
+            NettyServiceView currentNettyServiceView =
+                    nettyServiceViews.get(viewIndexContainsCurrentSegment);
+            boolean availability = numCreditsAvailable > 0;
+            if (numCreditsAvailable <= 0
+                    && currentNettyServiceView.getNextBufferDataType()
+                            == Buffer.DataType.EVENT_BUFFER) {
+                availability = true;
+            }
+            return new AvailabilityWithBacklog(
+                    availability, currentNettyServiceView.getNumberOfQueuedBuffers());
         }
         return new AvailabilityWithBacklog(false, 0);
     }
