@@ -343,8 +343,10 @@ public class SingleInputGate extends IndexedInputGate {
             }
 
             requestedPartitionsFlag = true;
-            // 这是因为不让 RemoteRecoveredChannel入队，否则 检查的太快，对应Channel就不入队了
-            if (tieredStorageConsumerClient != null) {
+            // Start the reader only when all InputChannels have been converted to either
+            // LocalInputChannel or RemoteInputChannel, as this will prevent RecoveredInputChannels
+            // from being queued again.
+            if (enabledTieredStore()) {
                 tieredStorageConsumerClient.start();
             }
         }
@@ -732,7 +734,7 @@ public class SingleInputGate extends IndexedInputGate {
             synchronized (inputChannelsWithData) {
                 inputChannelsWithData.notifyAll();
             }
-            if (tieredStorageConsumerClient != null) {
+            if (enabledTieredStore()) {
                 tieredStorageConsumerClient.close();
             }
         }
@@ -788,12 +790,7 @@ public class SingleInputGate extends IndexedInputGate {
         if (closeFuture.isDone()) {
             throw new CancelTaskException("Input gate is already closed.");
         }
-        Optional<InputWithData<InputChannel, Buffer>> next;
-        if (tieredStorageConsumerClient != null) {
-            next = waitAndGetNextDataFromTieredStore(blocking);
-        } else {
-            next = waitAndGetNextData(blocking);
-        }
+        Optional<InputWithData<InputChannel, Buffer>> next = waitAndGetNextData(blocking);
         if (!next.isPresent()) {
             throughputCalculator.pauseMeasurement();
             return Optional.empty();
@@ -821,80 +818,59 @@ public class SingleInputGate extends IndexedInputGate {
                     return Optional.empty();
                 }
                 final InputChannel inputChannel = inputChannelOpt.get();
-                Optional<BufferAndAvailability> bufferAndAvailabilityOpt =
-                        inputChannel.getNextBuffer();
-                if (!bufferAndAvailabilityOpt.isPresent()) {
+                Optional<Buffer> buffer;
+                if (enabledTieredStore()) {
+                    buffer = readBufferFromTieredStore(inputChannel.getChannelIndex());
+                } else {
+                    buffer = readBufferFromInputChannel(inputChannel);
+                }
+                if (!buffer.isPresent()) {
                     checkUnavailability();
                     continue;
                 }
 
-                final BufferAndAvailability bufferAndAvailability = bufferAndAvailabilityOpt.get();
-                if (bufferAndAvailability.moreAvailable()) {
-                    // enqueue the inputChannel at the end to avoid starvation
-                    queueChannelUnsafe(inputChannel, bufferAndAvailability.morePriorityEvents());
-                }
-
                 final boolean morePriorityEvents =
                         inputChannelsWithData.getNumPriorityElements() > 0;
-                if (bufferAndAvailability.hasPriority()) {
-                    lastPrioritySequenceNumber[inputChannel.getChannelIndex()] =
-                            bufferAndAvailability.getSequenceNumber();
+                if (buffer.get().getDataType().hasPriority()) {
                     if (!morePriorityEvents) {
                         priorityAvailabilityHelper.resetUnavailable();
                     }
                 }
-
                 checkUnavailability();
-
                 return Optional.of(
                         new InputWithData<>(
                                 inputChannel,
-                                bufferAndAvailability.buffer(),
+                                buffer.get(),
                                 !inputChannelsWithData.isEmpty(),
                                 morePriorityEvents));
             }
         }
     }
 
-    public Optional<InputWithData<InputChannel, Buffer>> waitAndGetNextDataFromTieredStore(
-            boolean blocking) throws IOException, InterruptedException {
-        while (true) {
-            synchronized (inputChannelsWithData) {
-                Optional<InputChannel> inputChannelOpt = getChannel(blocking);
-                if (!inputChannelOpt.isPresent()) {
-                    return Optional.empty();
-                }
-                final InputChannel inputChannel = inputChannelOpt.get();
-                Optional<Buffer> bufferOpt =
-                        tieredStorageConsumerClient.getNextBuffer(inputChannel.getChannelIndex());
-                if (!bufferOpt.isPresent()) {
-                    checkUnavailability();
-                    continue;
-                }
-
-                // final BufferAndAvailability bufferAndAvailability =
-                // bufferAndAvailabilityOpt.get();
-                // if (bufferAndAvailability.moreAvailable()) {
-                //    // enqueue the inputChannel at the end to avoid starvation
-                //    queueChannelUnsafe(inputChannel, bufferAndAvailability.morePriorityEvents());
-                // }
-
-                final boolean morePriorityEvents =
-                        inputChannelsWithData.getNumPriorityElements() > 0;
-                if (bufferOpt.get().getDataType().hasPriority()) {
-                    if (!morePriorityEvents) {
-                        priorityAvailabilityHelper.resetUnavailable();
-                    }
-                }
-                checkUnavailability();
-                return Optional.of(
-                        new InputWithData<>(
-                                inputChannel,
-                                bufferOpt.get(),
-                                !inputChannelsWithData.isEmpty(),
-                                morePriorityEvents));
-            }
+    private Optional<Buffer> readBufferFromInputChannel(InputChannel inputChannel)
+            throws IOException, InterruptedException {
+        Optional<BufferAndAvailability> bufferAndAvailabilityOpt = inputChannel.getNextBuffer();
+        if (!bufferAndAvailabilityOpt.isPresent()) {
+            return Optional.empty();
         }
+        final BufferAndAvailability bufferAndAvailability = bufferAndAvailabilityOpt.get();
+        if (bufferAndAvailability.moreAvailable()) {
+            // enqueue the inputChannel at the end to avoid starvation
+            queueChannelUnsafe(inputChannel, bufferAndAvailability.morePriorityEvents());
+        }
+        if (bufferAndAvailability.hasPriority()) {
+            lastPrioritySequenceNumber[inputChannel.getChannelIndex()] =
+                    bufferAndAvailability.getSequenceNumber();
+        }
+        return Optional.of(bufferAndAvailability.buffer());
+    }
+
+    private Optional<Buffer> readBufferFromTieredStore(int subpartitionId) {
+        return tieredStorageConsumerClient.getNextBuffer(subpartitionId);
+    }
+
+    private boolean enabledTieredStore() {
+        return tieredStorageConsumerClient != null;
     }
 
     public void checkUnavailability() {
@@ -1031,7 +1007,7 @@ public class SingleInputGate extends IndexedInputGate {
     @Override
     public void acknowledgeAllRecordsProcessed(InputChannelInfo channelInfo) throws IOException {
         checkState(!isFinished(), "InputGate already finished.");
-        if (tieredStorageConsumerClient == null) {
+        if (!enabledTieredStore()) {
             channels[channelInfo.getInputChannelIdx()].acknowledgeAllRecordsProcessed();
         }
     }
