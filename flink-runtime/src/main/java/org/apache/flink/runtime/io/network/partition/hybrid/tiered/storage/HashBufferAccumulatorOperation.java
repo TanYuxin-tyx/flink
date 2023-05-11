@@ -19,9 +19,18 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
+import org.apache.flink.runtime.io.network.buffer.BufferPool;
 
+/**
+ * This interface is used by {@link SubpartitionHashBufferAccumulator} to operate {@link
+ * HashBufferAccumulator}.
+ */
 public interface HashBufferAccumulatorOperation {
-    // TODO, modify this as HashBasedAccumulatorOperation
 
+    /**
+     * Request {@link BufferBuilder} from the {@link BufferPool}.
+     *
+     * @return the requested buffer
+     */
     BufferBuilder requestBufferBlocking();
 }
