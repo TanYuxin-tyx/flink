@@ -32,16 +32,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * A service to check whether the cached buffers need to be flushed. When initializing the tier
- * manager, it will register a {@link CacheBufferFlushTrigger}, as a listener to flush cached
- * buffers. When the buffers should be flushed, the {@link CacheFlushManager} will tell the
- * listeners to trigger flushing process.
+ * A manager to check whether the cached buffers need to be flushed.
+ *
+ * <p>Cached buffers refer to the buffers stored in a tier that can be released by flushing them to
+ * the disk or remote storage. If the requested buffers from the buffer pool reach the ratio limit,
+ * {@link CacheFlushManager} will trigger a process wherein all these buffers are flushed to the
+ * disk or remote storage to recycling these buffers.
+ *
+ * <p>Note that when initializing a tier with cached buffers, the tier should register a {@link
+ * CacheBufferFlushTrigger}, as a listener to flush cached buffers.
  */
 public class CacheFlushManager {
-
     private final float numBuffersTriggerFlushRatio;
 
-    private final List<CacheBufferFlushTrigger> spillTriggers;
+    private final List<CacheBufferFlushTrigger> flushTriggers;
 
     private TieredStorageMemoryManager storageMemoryManager;
 
@@ -54,7 +58,7 @@ public class CacheFlushManager {
 
     public CacheFlushManager(float numBuffersTriggerFlushRatio) {
         this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
-        this.spillTriggers = new ArrayList<>();
+        this.flushTriggers = new ArrayList<>();
 
         executor.scheduleWithFixedDelay(
                 this::checkNeedTriggerFlushCachedBuffers, 10, 50, TimeUnit.MILLISECONDS);
@@ -65,11 +69,11 @@ public class CacheFlushManager {
     }
 
     public void registerCacheBufferFlushTrigger(CacheBufferFlushTrigger cacheBufferFlushTrigger) {
-        spillTriggers.add(cacheBufferFlushTrigger);
+        flushTriggers.add(cacheBufferFlushTrigger);
     }
 
     public void triggerFlushCachedBuffers() {
-        spillTriggers.forEach(CacheBufferFlushTrigger::notifyFlushCachedBuffers);
+        flushTriggers.forEach(CacheBufferFlushTrigger::notifyFlushCachedBuffers);
     }
 
     public void checkNeedTriggerFlushCachedBuffers() {
@@ -83,15 +87,19 @@ public class CacheFlushManager {
         }
     }
 
+    public int numFlushTriggers() {
+        return flushTriggers.size();
+    }
+
     public void close() {
         executor.shutdown();
         try {
             if (!executor.awaitTermination(5L, TimeUnit.MINUTES)) {
-                throw new TimeoutException("Shutdown cache flusher thread timeout.");
+                throw new TimeoutException("Timeout for shutting down the cache flush executor.");
             }
         } catch (Exception e) {
             ExceptionUtils.rethrow(e);
         }
-        spillTriggers.clear();
+        flushTriggers.clear();
     }
 }
