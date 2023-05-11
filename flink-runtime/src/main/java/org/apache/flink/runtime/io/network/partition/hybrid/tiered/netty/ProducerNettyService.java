@@ -20,10 +20,12 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import java.util.Optional;
 import java.util.Queue;
+import java.util.function.BiConsumer;
 
 /** The implementation of {@link NettyService} in producer side. */
 public class ProducerNettyService implements NettyService {
@@ -34,6 +36,14 @@ public class ProducerNettyService implements NettyService {
             BufferAvailabilityListener availabilityListener,
             Runnable releaseNotifier) {
         return new NettyServiceViewImpl(bufferQueue, availabilityListener, releaseNotifier);
+    }
+
+    @Override
+    public void setup(
+            InputChannel[] inputChannels,
+            int[] lastPrioritySequenceNumber,
+            BiConsumer<Integer, Boolean> subpartitionAvailableNotifier) {
+        throw new UnsupportedOperationException("Not supported in producer side.");
     }
 
     @Override

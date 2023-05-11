@@ -33,13 +33,14 @@ import java.util.function.BiConsumer;
 /** The implementation of {@link NettyService} in consumer side. */
 public class ConsumerNettyService implements NettyService {
 
-    private final InputChannel[] inputChannels;
+    private InputChannel[] inputChannels;
 
-    private final BiConsumer<Integer, Boolean> subpartitionAvailableNotifier;
+    private BiConsumer<Integer, Boolean> subpartitionAvailableNotifier;
 
-    private final int[] lastPrioritySequenceNumber;
+    private int[] lastPrioritySequenceNumber;
 
-    public ConsumerNettyService(
+    @Override
+    public void setup(
             InputChannel[] inputChannels,
             int[] lastPrioritySequenceNumber,
             BiConsumer<Integer, Boolean> subpartitionAvailableNotifier) {

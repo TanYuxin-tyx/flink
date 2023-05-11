@@ -20,10 +20,12 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import java.util.Optional;
 import java.util.Queue;
+import java.util.function.BiConsumer;
 
 /**
  * The {@link NettyService} is used to provide the netty-based network services in the shuffle
@@ -35,6 +37,15 @@ public interface NettyService {
     //        For Producer Side
     // ------------------------------------
 
+    /**
+     * Register a buffer queue to the NettyService and the buffer will be consumed from the queue
+     * and sent to netty.
+     *
+     * @param bufferQueue is the required queue.
+     * @param availabilityListener is used to listen the available status of buffer queue.
+     * @param serviceReleaseNotifier is used to notify that the service is released.
+     * @return the view of netty service.
+     */
     NettyServiceView register(
             Queue<BufferContext> bufferQueue,
             BufferAvailabilityListener availabilityListener,
@@ -44,9 +55,39 @@ public interface NettyService {
     //        For Consumer Side
     // ------------------------------------
 
+    /**
+     * Set up the netty service in consumer side.
+     *
+     * @param inputChannels in consumer side.
+     * @param lastPrioritySequenceNumber is the array to record the priority sequence number.
+     * @param subpartitionAvailableNotifier is used to notify the subpartition is available.
+     */
+    void setup(
+            InputChannel[] inputChannels,
+            int[] lastPrioritySequenceNumber,
+            BiConsumer<Integer, Boolean> subpartitionAvailableNotifier);
+
+    /**
+     * Read a buffer related to the specific subpartition from NettyService.
+     *
+     * @param subpartitionId indicate the subpartition.
+     * @return a buffer.
+     */
     Optional<Buffer> readBuffer(int subpartitionId);
 
+    /**
+     * Notify that the data responding to a subpartition is available.
+     *
+     * @param subpartitionId indicate the subpartition.
+     * @param priority indicate that if the subpartition is priority.
+     */
     void notifyResultSubpartitionAvailable(int subpartitionId, boolean priority);
 
+    /**
+     * Notify that the specific segment is required according to the subpartitionId and segmentId.
+     *
+     * @param subpartitionId indicate the subpartition.
+     * @param segmentId indicate the id of segment.
+     */
     void notifyRequiredSegmentId(int subpartitionId, int segmentId);
 }
