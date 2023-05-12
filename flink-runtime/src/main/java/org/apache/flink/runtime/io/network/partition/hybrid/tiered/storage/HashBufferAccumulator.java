@@ -51,7 +51,7 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
             CacheFlushManager cacheFlushManager,
             TieredStorageMemoryManager storageMemoryManager) {
         this.bufferSize = bufferSize;
-        this.cacheFlushManager =cacheFlushManager;
+        this.cacheFlushManager = cacheFlushManager;
         this.storageMemoryManager = storageMemoryManager;
         storageMemoryManager.registerMemorySpec(
                 new TieredStorageMemorySpec(this, numExclusiveBuffers, true));
@@ -94,9 +94,7 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
 
     @Override
     public BufferBuilder requestBufferBlocking() {
-        BufferBuilder bufferBuilder =  storageMemoryManager.requestBufferBlocking();
-        cacheFlushManager.checkNeedTriggerFlushCachedBuffers();
-        return bufferBuilder;
+        return storageMemoryManager.requestBufferBlocking();
     }
 
     private SubpartitionHashBufferAccumulator getSubpartitionHashAccumulator(

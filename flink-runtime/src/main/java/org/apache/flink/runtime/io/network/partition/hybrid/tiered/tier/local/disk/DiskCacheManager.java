@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettySe
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferFlushTrigger;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
@@ -46,8 +46,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
 
     private final SubpartitionDiskCacheManager[] subpartitionDiskCacheManagers;
 
-    private final CacheFlushManager cacheFlushManager;
-
     private final List<Map<NettyServiceViewId, NettyServiceView>> tierReaderViewMap;
 
     private volatile CompletableFuture<Void> hasFlushCompleted =
@@ -59,7 +57,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
             int tierIndex,
             int numSubpartitions,
             int bufferSize,
-            CacheFlushManager cacheFlushManager,
+            TieredStorageMemoryManager storageMemoryManager,
             BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager) {
         this.tierIndex = tierIndex;
@@ -73,8 +71,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
         }
         this.partitionFileWriter =
                 partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
-        cacheFlushManager.registerCacheBufferFlushTrigger(this);
-        this.cacheFlushManager = cacheFlushManager;
+        storageMemoryManager.registerCacheBufferFlushTrigger(this);
     }
 
     // ------------------------------------

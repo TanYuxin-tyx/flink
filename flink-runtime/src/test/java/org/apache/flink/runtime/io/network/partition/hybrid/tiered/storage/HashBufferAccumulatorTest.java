@@ -143,7 +143,8 @@ class HashBufferAccumulatorTest {
             throws IOException {
         BufferPool bufferPool =
                 globalPool.createBufferPool(numBuffersInBufferPool, numBuffersInBufferPool);
-        TieredStorageMemoryManagerImpl storageMemoryManager = new TieredStorageMemoryManagerImpl();
+        TieredStorageMemoryManagerImpl storageMemoryManager =
+                new TieredStorageMemoryManagerImpl(NUM_BUFFERS_TRIGGER_FLUSH_RATIO);
         storageMemoryManager.setup(bufferPool);
         return storageMemoryManager;
     }

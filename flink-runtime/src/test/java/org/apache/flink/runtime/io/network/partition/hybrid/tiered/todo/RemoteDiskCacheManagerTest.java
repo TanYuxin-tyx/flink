@@ -22,7 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
@@ -91,7 +91,7 @@ class RemoteDiskCacheManagerTest {
         RemoteCacheManager cacheDataManager =
                 new RemoteCacheManager(
                         NUM_SUBPARTITIONS,
-                        new CacheFlushManager(0.5f),
+                        new TieredStorageMemoryManagerImpl(0.5f),
                         partitionFileManager.createPartitionFileWriter(
                                 PartitionFileType.PRODUCER_HASH));
         return cacheDataManager;

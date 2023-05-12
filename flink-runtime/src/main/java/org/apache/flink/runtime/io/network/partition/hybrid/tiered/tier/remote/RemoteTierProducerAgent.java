@@ -19,12 +19,11 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
@@ -50,16 +49,14 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     public RemoteTierProducerAgent(
             int numSubpartitions,
             boolean isBroadcastOnly,
-            int networkBufferSize,
-            CacheFlushManager cacheFlushManager,
-            BufferCompressor bufferCompressor,
+            TieredStorageMemoryManager storageMemoryManager,
             PartitionFileManager partitionFileManager) {
         this.segmentIndexTracker =
                 new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
         this.cacheDataManager =
                 new RemoteCacheManager(
                         isBroadcastOnly ? 1 : numSubpartitions,
-                        cacheFlushManager,
+                        storageMemoryManager,
                         partitionFileManager.createPartitionFileWriter(
                                 PartitionFileType.PRODUCER_HASH));
         this.numSubpartitionEmitBytes = new int[numSubpartitions];

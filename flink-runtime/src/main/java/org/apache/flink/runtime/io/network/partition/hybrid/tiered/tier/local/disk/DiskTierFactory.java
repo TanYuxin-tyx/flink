@@ -69,7 +69,7 @@ public class DiskTierFactory implements TierFactory {
                 partitionFileManager,
                 networkBufferSize,
                 bufferCompressor,
-                cacheFlushManager,
+                storageMemoryManager,
                 nettyService);
     }
 

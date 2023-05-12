@@ -18,18 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
-import org.apache.flink.util.ExceptionUtils;
-import org.apache.flink.util.FatalExitExceptionHandler;
-
-import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * A manager to check whether the cached buffers need to be flushed.
@@ -49,19 +39,9 @@ public class CacheFlushManager {
 
     private TieredStorageMemoryManager storageMemoryManager;
 
-    private final ScheduledExecutorService executor =
-            Executors.newSingleThreadScheduledExecutor(
-                    new ThreadFactoryBuilder()
-                            .setNameFormat("cache flush trigger")
-                            .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
-                            .build());
-
     public CacheFlushManager(float numBuffersTriggerFlushRatio) {
         this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
         this.flushTriggers = new ArrayList<>();
-
-        executor.scheduleWithFixedDelay(
-                this::checkNeedTriggerFlushCachedBuffers, 10, 50, TimeUnit.MILLISECONDS);
     }
 
     public void setup(TieredStorageMemoryManager storageMemoryManager) {
@@ -76,30 +56,11 @@ public class CacheFlushManager {
         flushTriggers.forEach(CacheBufferFlushTrigger::notifyFlushCachedBuffers);
     }
 
-    public void checkNeedTriggerFlushCachedBuffers() {
-        if (storageMemoryManager == null) {
-            return;
-        }
-
-        if (TieredStorageUtils.needFlushCacheBuffers(
-                storageMemoryManager, numBuffersTriggerFlushRatio)) {
-            triggerFlushCachedBuffers();
-        }
-    }
-
     public int numFlushTriggers() {
         return flushTriggers.size();
     }
 
     public void close() {
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(5L, TimeUnit.MINUTES)) {
-                throw new TimeoutException("Timeout for shutting down the cache flush executor.");
-            }
-        } catch (Exception e) {
-            ExceptionUtils.rethrow(e);
-        }
         flushTriggers.clear();
     }
 }

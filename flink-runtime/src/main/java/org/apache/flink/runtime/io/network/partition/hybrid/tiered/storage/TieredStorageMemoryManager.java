@@ -48,6 +48,8 @@ public interface TieredStorageMemoryManager {
      */
     BufferBuilder requestBufferBlocking();
 
+    void registerCacheBufferFlushTrigger(CacheBufferFlushTrigger cacheBufferFlushTrigger);
+
     /**
      * Return the available buffers for the owner.
      *
@@ -56,16 +58,6 @@ public interface TieredStorageMemoryManager {
      * owner, etc.
      */
     int numAvailableBuffers(Object owner);
-
-    /** Return the total number of buffers in the {@link TieredStorageMemoryManager}. */
-    int numTotalBuffers();
-
-    /**
-     * Return the number of requested buffers from the {@link TieredStorageMemoryManager}. The value
-     * is used by other components to decide their actions, such as the cache flusher decides
-     * whether to flush the cached buffers.
-     */
-    int numRequestedBuffers();
 
     /**
      * Release all the resources(if exists) and check the state of the {@link

@@ -90,14 +90,6 @@ public class TieredStorageUtils {
         checkState(writeSize == expectedBytes);
     }
 
-    public static boolean needFlushCacheBuffers(
-            TieredStorageMemoryManager storageMemoryManager, float numBuffersTriggerFlushRatio) {
-        int numTotal = storageMemoryManager.numTotalBuffers();
-        int numRequested = storageMemoryManager.numRequestedBuffers();
-        return numRequested >= numTotal
-                || (numRequested * 1.0 / numTotal) >= numBuffersTriggerFlushRatio;
-    }
-
     public static List<TierProducerAgent> createTierProducerAgents(
             ResultPartitionID id,
             boolean isBroadcast,

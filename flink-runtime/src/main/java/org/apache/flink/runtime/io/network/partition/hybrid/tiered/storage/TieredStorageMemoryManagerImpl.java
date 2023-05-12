@@ -23,9 +23,18 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.FatalExitExceptionHandler;
 
+import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
+
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -43,15 +52,32 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
 
     private final Map<Object, TieredStorageMemorySpec> tieredMemorySpecs;
 
+    private final List<CacheBufferFlushTrigger> flushTriggers;
+
+    private final float numBuffersTriggerFlushRatio;
+
+    private final AtomicInteger numRequestedBuffers;
+
+    private final ScheduledExecutorService executor;
+
     private int numTotalExclusiveBuffers;
 
     private BufferPool bufferPool;
 
-    private final AtomicInteger numRequestedBuffers;
-
-    public TieredStorageMemoryManagerImpl() {
+    public TieredStorageMemoryManagerImpl(float numBuffersTriggerFlushRatio) {
         this.tieredMemorySpecs = new HashMap<>();
         this.numRequestedBuffers = new AtomicInteger(0);
+        this.flushTriggers = new ArrayList<>();
+        this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
+
+        this.executor =
+                Executors.newSingleThreadScheduledExecutor(
+                        new ThreadFactoryBuilder()
+                                .setNameFormat("cache flush trigger")
+                                .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
+                                .build());
+        this.executor.scheduleWithFixedDelay(
+                this::checkNeedTriggerFlushCachedBuffers, 10, 50, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -77,7 +103,19 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
             ExceptionUtils.rethrow(throwable, "Failed to request memory segments.");
         }
         numRequestedBuffers.incrementAndGet();
+        checkNeedTriggerFlushCachedBuffers();
         return new BufferBuilder(checkNotNull(requestedBuffer), this::recycleBuffer);
+    }
+
+    @Override
+    public void registerCacheBufferFlushTrigger(CacheBufferFlushTrigger cacheBufferFlushTrigger) {
+        flushTriggers.add(cacheBufferFlushTrigger);
+    }
+
+    private void checkNeedTriggerFlushCachedBuffers() {
+        if (needFlushCacheBuffers()) {
+            flushTriggers.forEach(CacheBufferFlushTrigger::notifyFlushCachedBuffers);
+        }
     }
 
     @Override
@@ -96,18 +134,25 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     }
 
     @Override
-    public int numTotalBuffers() {
-        return bufferPool.getNumBuffers();
-    }
-
-    @Override
-    public int numRequestedBuffers() {
-        return numRequestedBuffers.get();
-    }
-
-    @Override
     public void release() {
         checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(5L, TimeUnit.MINUTES)) {
+                throw new TimeoutException("Timeout for shutting down the cache flush executor.");
+            }
+        } catch (Exception e) {
+            ExceptionUtils.rethrow(e);
+        }
+    }
+
+    private boolean needFlushCacheBuffers() {
+        synchronized (this) {
+            int numTotal = bufferPool.getNumBuffers();
+            int numRequested = numRequestedBuffers.get();
+            return numRequested >= numTotal
+                    || (numRequested * 1.0 / numTotal) >= numBuffersTriggerFlushRatio;
+        }
     }
 
     private void recycleBuffer(MemorySegment buffer) {

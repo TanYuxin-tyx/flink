@@ -156,7 +156,6 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         }
         boolean isLastBufferInSegment =
                 tierProducerAgents.get(tierIndex).write(subpartitionIndex, compressedBuffer);
-        cacheFlushManager.checkNeedTriggerFlushCachedBuffers();
         if (isLastBufferInSegment) {
             tierIndex = chooseStorageTierIndex(subpartitionIndex);
             subpartitionWriterIndex[subpartitionIndex] = tierIndex;

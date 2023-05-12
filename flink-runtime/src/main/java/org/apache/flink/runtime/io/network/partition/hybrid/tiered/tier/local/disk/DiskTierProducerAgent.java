@@ -28,10 +28,10 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
@@ -91,7 +91,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
             PartitionFileManager partitionFileManager,
             int networkBufferSize,
             BufferCompressor bufferCompressor,
-            CacheFlushManager cacheFlushManager,
+            TieredStorageMemoryManager storageMemoryManager,
             NettyService nettyService) {
         this.tierIndex = tierIndex;
         this.resultPartitionID = resultPartitionID;
@@ -111,7 +111,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
                         tierIndex,
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
-                        cacheFlushManager,
+                        storageMemoryManager,
                         bufferCompressor,
                         partitionFileManager);
     }

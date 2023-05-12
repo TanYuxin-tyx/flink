@@ -23,7 +23,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -65,10 +65,10 @@ public class SubpartitionRemoteCacheManager {
 
     public SubpartitionRemoteCacheManager(
             int targetChannel,
-            CacheFlushManager cacheFlushManager,
+            TieredStorageMemoryManager storageMemoryManager,
             PartitionFileWriter partitionFileWriter) {
         this.targetChannel = targetChannel;
-        cacheFlushManager.registerCacheBufferFlushTrigger(this::flushCachedBuffers);
+        storageMemoryManager.registerCacheBufferFlushTrigger(this::flushCachedBuffers);
         this.partitionFileWriter = partitionFileWriter;
     }
 
