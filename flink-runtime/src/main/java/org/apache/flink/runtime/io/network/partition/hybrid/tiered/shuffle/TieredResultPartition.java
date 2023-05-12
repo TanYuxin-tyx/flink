@@ -38,7 +38,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoreResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClient;
@@ -66,8 +65,6 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class TieredResultPartition extends ResultPartition {
 
-    private final CacheFlushManager cacheFlushManager;
-
     private final List<TierProducerAgent> tierProducerAgents;
 
     private final TieredStorageProducerClient tieredStorageProducerClient;
@@ -90,7 +87,6 @@ public class TieredResultPartition extends ResultPartition {
             ResultPartitionManager partitionManager,
             List<TierProducerAgent> tierProducerAgents,
             TieredStorageMemoryManager storageMemoryManager,
-            CacheFlushManager cacheFlushManager,
             @Nullable BufferCompressor bufferCompressor,
             TieredStorageProducerClient tieredStorageProducerClient,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
@@ -108,7 +104,6 @@ public class TieredResultPartition extends ResultPartition {
 
         this.tierProducerAgents = tierProducerAgents;
         this.storageMemoryManager = storageMemoryManager;
-        this.cacheFlushManager = cacheFlushManager;
         this.tieredStorageProducerClient = tieredStorageProducerClient;
         this.resourceRegistry = resourceRegistry;
         this.storagePartitionId = TieredStorageIdMappingUtils.convertId(partitionId);
@@ -121,7 +116,6 @@ public class TieredResultPartition extends ResultPartition {
             throw new IOException("Result partition has been released.");
         }
         storageMemoryManager.setup(bufferPool);
-        cacheFlushManager.setup(storageMemoryManager);
         resourceRegistry.registerResource(storagePartitionId, tieredStorageProducerClient::release);
         resourceRegistry.registerResource(storagePartitionId, storageMemoryManager::release);
     }
@@ -199,10 +193,6 @@ public class TieredResultPartition extends ResultPartition {
         // first close the writer
         if (tieredStorageProducerClient != null) {
             tieredStorageProducerClient.close();
-        }
-
-        if (cacheFlushManager != null) {
-            cacheFlushManager.close();
         }
     }
 

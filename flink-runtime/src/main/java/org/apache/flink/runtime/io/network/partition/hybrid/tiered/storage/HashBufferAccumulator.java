@@ -39,8 +39,6 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
 
     private final int bufferSize;
 
-    private final CacheFlushManager cacheFlushManager;
-
     private final TieredStorageMemoryManager storageMemoryManager;
 
     private SubpartitionHashBufferAccumulator[] subpartitionHashBufferAccumulators;
@@ -48,10 +46,8 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
     public HashBufferAccumulator(
             int bufferSize,
             int numExclusiveBuffers,
-            CacheFlushManager cacheFlushManager,
             TieredStorageMemoryManager storageMemoryManager) {
         this.bufferSize = bufferSize;
-        this.cacheFlushManager = cacheFlushManager;
         this.storageMemoryManager = storageMemoryManager;
         storageMemoryManager.registerMemorySpec(
                 new TieredStorageMemorySpec(this, numExclusiveBuffers, true));

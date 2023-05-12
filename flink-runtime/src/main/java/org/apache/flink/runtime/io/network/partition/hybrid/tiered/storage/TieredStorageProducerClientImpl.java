@@ -50,8 +50,6 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
 
     private final BufferCompressor bufferCompressor;
 
-    private final CacheFlushManager cacheFlushManager;
-
     private final List<TierProducerAgent> tierProducerAgents;
 
     private OutputMetrics outputMetrics;
@@ -70,13 +68,11 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             boolean isBroadcastOnly,
             BufferAccumulator bufferAccumulator,
             @Nullable BufferCompressor bufferCompressor,
-            CacheFlushManager cacheFlushManager,
             List<TierProducerAgent> tierProducerAgents) {
         this.isBroadcastOnly = isBroadcastOnly;
         this.numConsumers = numConsumers;
         this.bufferAccumulator = bufferAccumulator;
         this.bufferCompressor = bufferCompressor;
-        this.cacheFlushManager = cacheFlushManager;
         this.tierProducerAgents = tierProducerAgents;
         this.subpartitionSegmentIndexes = new int[numConsumers];
         this.lastSubpartitionSegmentIndexes = new int[numConsumers];

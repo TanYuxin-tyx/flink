@@ -23,7 +23,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheFlushManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
@@ -59,7 +58,6 @@ public class RemoteTierFactory implements TierFactory {
             int networkBufferSize,
             TieredStorageMemoryManager storageMemoryManager,
             BufferCompressor bufferCompressor,
-            CacheFlushManager cacheFlushManager,
             NettyService nettyService) {
         return new RemoteTierProducerAgent(
                 numSubpartitions, isBroadcastOnly, storageMemoryManager, partitionFileManager);
