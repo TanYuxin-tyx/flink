@@ -48,7 +48,7 @@ public interface TieredStorageMemoryManager {
      */
     BufferBuilder requestBufferBlocking();
 
-    void registerCacheBufferFlushTrigger(Runnable cacheBufferFlushTrigger);
+    void registerBufferFlushCallBack(Runnable userBufferFlushCallBack);
 
     /**
      * Return the available buffers for the owner.

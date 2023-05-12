@@ -68,7 +68,7 @@ public class SubpartitionRemoteCacheManager {
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileWriter partitionFileWriter) {
         this.targetChannel = targetChannel;
-        storageMemoryManager.registerCacheBufferFlushTrigger(this::flushCachedBuffers);
+        storageMemoryManager.registerBufferFlushCallBack(this::flushCachedBuffers);
         this.partitionFileWriter = partitionFileWriter;
     }
 
