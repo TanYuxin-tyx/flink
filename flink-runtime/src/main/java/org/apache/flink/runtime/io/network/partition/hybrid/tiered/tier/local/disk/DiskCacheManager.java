@@ -23,7 +23,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferFlushTrigger;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
@@ -38,7 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
-public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferFlushTrigger {
+public class DiskCacheManager implements DiskCacheManagerOperation {
 
     private final int tierIndex;
 
@@ -71,7 +70,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
         }
         this.partitionFileWriter =
                 partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
-        storageMemoryManager.registerCacheBufferFlushTrigger(this);
+        storageMemoryManager.registerCacheBufferFlushTrigger(this::notifyFlushCachedBuffers);
     }
 
     // ------------------------------------
@@ -155,8 +154,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation, CacheBufferF
     //           Internal Method
     // ------------------------------------
 
-    @Override
-    public void notifyFlushCachedBuffers() {
+    private void notifyFlushCachedBuffers() {
         spillBuffers(true);
     }
 

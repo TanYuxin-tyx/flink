@@ -52,7 +52,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
 
     private final Map<Object, TieredStorageMemorySpec> tieredMemorySpecs;
 
-    private final List<CacheBufferFlushTrigger> flushTriggers;
+    private final List<Runnable> flushTriggers;
 
     private final float numBuffersTriggerFlushRatio;
 
@@ -108,13 +108,13 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     }
 
     @Override
-    public void registerCacheBufferFlushTrigger(CacheBufferFlushTrigger cacheBufferFlushTrigger) {
+    public void registerCacheBufferFlushTrigger(Runnable cacheBufferFlushTrigger) {
         flushTriggers.add(cacheBufferFlushTrigger);
     }
 
     private void checkNeedTriggerFlushCachedBuffers() {
         if (needFlushCacheBuffers()) {
-            flushTriggers.forEach(CacheBufferFlushTrigger::notifyFlushCachedBuffers);
+            flushTriggers.forEach(Runnable::run);
         }
     }
 
