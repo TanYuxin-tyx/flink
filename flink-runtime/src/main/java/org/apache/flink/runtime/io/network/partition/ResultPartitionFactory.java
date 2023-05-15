@@ -29,7 +29,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.IndexedTierConfSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
@@ -39,7 +38,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Buffe
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.HashBufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemorySpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClientImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
@@ -63,7 +61,6 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /** Factory for {@link ResultPartition} to use in {@link NettyShuffleEnvironment}. */
 public class ResultPartitionFactory {
@@ -274,12 +271,12 @@ public class ResultPartitionFactory {
                 || type == ResultPartitionType.HYBRID_SELECTIVE) {
 
             if (enableTieredStoreForHybridShuffle) {
-                TieredStorageConfiguration storeConfiguration =
+                TieredStorageConfiguration storageConfiguration =
                         getStoreConfiguration(numberOfSubpartitions, type);
 
                 TieredStorageMemoryManager storageMemoryManager =
                         new TieredStorageMemoryManagerImpl(
-                                storeConfiguration.getNumBuffersTriggerFlushRatio());
+                                storageConfiguration.getNumBuffersTriggerFlushRatio(), true);
 
                 NettyService nettyService = new ProducerNettyService();
 
@@ -290,18 +287,12 @@ public class ResultPartitionFactory {
                                 isBroadcast,
                                 bufferCompressor,
                                 subpartitions,
-                                storeConfiguration,
+                                storageConfiguration,
                                 storageMemoryManager,
                                 nettyService);
 
-                registerProducerAgentsToMemoryManager(
-                        tierProducerAgents,
-                        storageMemoryManager,
-                        storeConfiguration.getIndexedTierConfSpecs());
-
                 BufferAccumulator bufferAccumulator =
-                        new HashBufferAccumulator(
-                                networkBufferSize, subpartitions.length, storageMemoryManager);
+                        new HashBufferAccumulator(networkBufferSize, storageMemoryManager);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(
                                 subpartitions.length,
@@ -318,8 +309,11 @@ public class ResultPartitionFactory {
                                 subpartitions.length,
                                 maxParallelism,
                                 partitionManager,
+                                bufferAccumulator,
                                 tierProducerAgents,
                                 storageMemoryManager,
+                                storageConfiguration.getTierExclusiveBuffers(),
+                                storageConfiguration.getTierMemoryReleasable(),
                                 bufferCompressor,
                                 tieredStorageProducerClient,
                                 bufferPoolFactory,
@@ -351,20 +345,6 @@ public class ResultPartitionFactory {
         LOG.debug("{}: Initialized {}", taskNameWithSubtaskAndId, this);
 
         return partition;
-    }
-
-    private static void registerProducerAgentsToMemoryManager(
-            List<TierProducerAgent> tierProducerAgents,
-            TieredStorageMemoryManager storageMemoryManager,
-            List<IndexedTierConfSpec> indexedTierConfSpecs) {
-        checkState(tierProducerAgents.size() == indexedTierConfSpecs.size());
-        for (int i = 0; i < tierProducerAgents.size(); i++) {
-            storageMemoryManager.registerMemorySpec(
-                    new TieredStorageMemorySpec(
-                            tierProducerAgents.get(i),
-                            indexedTierConfSpecs.get(i).getTierConfSpec().getNumExclusiveBuffers(),
-                            indexedTierConfSpecs.get(i).getTierConfSpec().isMemoryReleasable()));
-        }
     }
 
     @SuppressWarnings("checkstyle:EmptyLineSeparator")

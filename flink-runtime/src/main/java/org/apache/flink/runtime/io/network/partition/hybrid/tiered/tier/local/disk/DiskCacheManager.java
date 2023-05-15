@@ -70,7 +70,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
         }
         this.partitionFileWriter =
                 partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
-        storageMemoryManager.registerBufferFlushCallBack(this::notifyFlushCachedBuffers);
+        storageMemoryManager.registerBufferFlushCallback(this::notifyFlushCachedBuffers);
     }
 
     // ------------------------------------

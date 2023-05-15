@@ -35,6 +35,7 @@ import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
 
+import java.util.Collections;
 import java.util.List;
 
 public class RemoteTierFactory implements TierFactory {
@@ -77,8 +78,9 @@ public class RemoteTierFactory implements TierFactory {
 
         TieredStorageMemoryManager storageMemoryManager = null;
         try {
-            storageMemoryManager = new TieredStorageMemoryManagerImpl(1);
-            storageMemoryManager.setup(networkBufferPool.createBufferPool(1, 1));
+            storageMemoryManager = new TieredStorageMemoryManagerImpl(1, false);
+            storageMemoryManager.setup(
+                    networkBufferPool.createBufferPool(1, 1), Collections.emptyList());
         } catch (Exception e) {
             ExceptionUtils.rethrow(e, "Failed to create TieredStorageMemoryManger.");
         }

@@ -19,8 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.runtime.io.network.buffer.BufferPool;
-import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
@@ -83,15 +81,11 @@ class RemoteDiskCacheManagerTest {
         assertThrows(IllegalStateException.class, () -> cacheDataManager.finishSegment(0, 1));
     }
 
-    private RemoteCacheManager createRemoteCacheDataManager() throws Exception {
-        BufferPool localBufferPool =
-                new NetworkBufferPool(NUM_BUFFERS, BUFFER_SIZE)
-                        .createBufferPool(POOL_SIZE, POOL_SIZE);
-
+    private RemoteCacheManager createRemoteCacheDataManager() {
         RemoteCacheManager cacheDataManager =
                 new RemoteCacheManager(
                         NUM_SUBPARTITIONS,
-                        new TieredStorageMemoryManagerImpl(0.5f),
+                        new TieredStorageMemoryManagerImpl(0.5f, false),
                         partitionFileManager.createPartitionFileWriter(
                                 PartitionFileType.PRODUCER_HASH));
         return cacheDataManager;

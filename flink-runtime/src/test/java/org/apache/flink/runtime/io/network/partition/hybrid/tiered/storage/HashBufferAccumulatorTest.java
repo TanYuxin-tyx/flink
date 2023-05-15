@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -67,7 +68,7 @@ class HashBufferAccumulatorTest {
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
         HashBufferAccumulator bufferAccumulator =
-                new HashBufferAccumulator(NETWORK_BUFFER_SIZE, 1, tieredStorageMemoryManager);
+                new HashBufferAccumulator(NETWORK_BUFFER_SIZE, tieredStorageMemoryManager);
 
         AtomicInteger numReceivedFinishedBuffer = new AtomicInteger(0);
         bufferAccumulator.setup(
@@ -107,7 +108,7 @@ class HashBufferAccumulatorTest {
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
         HashBufferAccumulator bufferAccumulator =
-                new HashBufferAccumulator(NETWORK_BUFFER_SIZE, 1, tieredStorageMemoryManager);
+                new HashBufferAccumulator(NETWORK_BUFFER_SIZE, tieredStorageMemoryManager);
         bufferAccumulator.setup(
                 1, ((subpartition, buffers) -> buffers.forEach(Buffer::recycleBuffer)));
 
@@ -136,8 +137,8 @@ class HashBufferAccumulatorTest {
         BufferPool bufferPool =
                 globalPool.createBufferPool(numBuffersInBufferPool, numBuffersInBufferPool);
         TieredStorageMemoryManagerImpl storageMemoryManager =
-                new TieredStorageMemoryManagerImpl(NUM_BUFFERS_TRIGGER_FLUSH_RATIO);
-        storageMemoryManager.setup(bufferPool);
+                new TieredStorageMemoryManagerImpl(NUM_BUFFERS_TRIGGER_FLUSH_RATIO, false);
+        storageMemoryManager.setup(bufferPool, Collections.emptyList());
         return storageMemoryManager;
     }
 

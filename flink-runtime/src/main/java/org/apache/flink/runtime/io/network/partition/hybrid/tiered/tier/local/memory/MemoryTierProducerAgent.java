@@ -138,7 +138,7 @@ public class MemoryTierProducerAgent
     @Override
     public boolean canStoreNextSegment(int consumerId) {
         return isConsumerRegistered(consumerId)
-                && storageMemoryManager.numAvailableBuffers(this) > bufferNumberInSegment;
+                && storageMemoryManager.getMaxAllowedBuffers(this) > bufferNumberInSegment;
     }
 
     @Override

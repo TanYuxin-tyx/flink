@@ -95,6 +95,17 @@ public class TieredStorageConfiguration {
                 new TierMemorySpec(1, true)
             };
 
+    private static final int[] DEFAULT_MEMORY_DISK_EXCLUSIVE_BUFFERS = new int[] {100, 1, 1};
+
+    private static final int[] DEFAULT_MEMORY_DISK_REMOTE_EXCLUSIVE_BUFFERS =
+            new int[] {100, 1, 1, 1};
+
+    private static final boolean[] DEFAULT_MEMORY_DISK_MEMORY_RELEASABLE =
+            new boolean[] {false, true, true};
+
+    private static final boolean[] DEFAULT_MEMORY_DISK_MEMORY_REMOTE_RELEASABLE =
+            new boolean[] {false, true, true, true};
+
     private final int maxBuffersReadAhead;
 
     private final Duration bufferRequestTimeout;
@@ -115,6 +126,11 @@ public class TieredStorageConfiguration {
     private final long bufferPoolSizeCheckIntervalMs;
 
     private final String baseDfsHomePath;
+
+    private int[] tierExclusiveBuffers;
+
+    private boolean[] tierMemoryReleasable;
+
     private final List<IndexedTierConfSpec> indexedTierConfSpecs;
 
     private final TierFactory[] tierFactories;
@@ -130,6 +146,8 @@ public class TieredStorageConfiguration {
             long bufferPoolSizeCheckIntervalMs,
             String baseDfsHomePath,
             int configuredNetworkBuffersPerChannel,
+            int[] tierExclusiveBuffers,
+            boolean[] tierMemoryReleasable,
             List<IndexedTierConfSpec> indexedTierConfSpecs,
             TierFactory[] tierFactories,
             TierMemorySpec[] tierMemorySpecs) {
@@ -143,6 +161,8 @@ public class TieredStorageConfiguration {
         this.bufferPoolSizeCheckIntervalMs = bufferPoolSizeCheckIntervalMs;
         this.baseDfsHomePath = baseDfsHomePath;
         this.configuredNetworkBuffersPerChannel = configuredNetworkBuffersPerChannel;
+        this.tierExclusiveBuffers = tierExclusiveBuffers;
+        this.tierMemoryReleasable = tierMemoryReleasable;
         this.indexedTierConfSpecs = indexedTierConfSpecs;
         this.tierFactories = tierFactories;
     }
@@ -209,6 +229,14 @@ public class TieredStorageConfiguration {
         return Arrays.asList(tierFactories);
     }
 
+    public int[] getTierExclusiveBuffers() {
+        return tierExclusiveBuffers;
+    }
+
+    public boolean[] getTierMemoryReleasable() {
+        return tierMemoryReleasable;
+    }
+
     public List<IndexedTierConfSpec> getIndexedTierConfSpecs() {
         return indexedTierConfSpecs;
     }
@@ -238,6 +266,10 @@ public class TieredStorageConfiguration {
         private TierFactory[] tierFactories;
 
         private TierMemorySpec[] tierMemorySpecs;
+
+        private int[] tierExclusiveBuffers;
+
+        private boolean[] tierMemoryReleasable;
 
         private int numSubpartitions;
 
@@ -315,12 +347,17 @@ public class TieredStorageConfiguration {
             tierConfSpecs = new ArrayList<>();
             indexedTierConfSpecs.clear();
             tierMemorySpecs = new TierMemorySpec[tierTypes.length];
+            tierExclusiveBuffers = new int[tierTypes.length];
+            tierMemoryReleasable = new boolean[tierTypes.length];
+
             for (int i = 0; i < tierTypes.length; i++) {
                 int numExclusive = HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.get(tierTypes[i]);
                 TierConfSpec tierConfSpec =
                         new TierConfSpec(numExclusive, tierTypes[i] != TierType.IN_MEM);
                 tierConfSpecs.add(tierConfSpec);
                 indexedTierConfSpecs.add(new IndexedTierConfSpec(i, tierConfSpec));
+                tierExclusiveBuffers[i] = tierTypes[i] == TierType.IN_MEM ? 100 : 1;
+                tierMemoryReleasable[i] = tierTypes[i] != TierType.IN_MEM;
                 tierMemorySpecs[i] =
                         new TierMemorySpec(numExclusive, tierTypes[i] != TierType.IN_MEM);
             }
@@ -409,6 +446,12 @@ public class TieredStorageConfiguration {
             if (tierFactories == null) {
                 this.tierFactories = getDefaultTierFactories(baseDfsHomePath);
             }
+            if (tierExclusiveBuffers == null) {
+                this.tierExclusiveBuffers = getDefaultExclusiveBuffers(baseDfsHomePath);
+            }
+            if (tierMemoryReleasable == null) {
+                this.tierMemoryReleasable = getDefaultMemoryReleasable(baseDfsHomePath);
+            }
 
             return new TieredStorageConfiguration(
                     maxBuffersReadAhead,
@@ -421,6 +464,8 @@ public class TieredStorageConfiguration {
                     bufferPoolSizeCheckIntervalMs,
                     baseDfsHomePath,
                     configuredNetworkBuffersPerChannel,
+                    tierExclusiveBuffers,
+                    tierMemoryReleasable,
                     indexedTierConfSpecs,
                     tierFactories,
                     tierMemorySpecs);
@@ -465,5 +510,17 @@ public class TieredStorageConfiguration {
         return baseDfsHomePath == null
                 ? DEFAULT_MEMORY_DISK_TIER_FACTORIES
                 : DEFAULT_MEMORY_DISK_REMOTE_TIER_FACTORIES;
+    }
+
+    private static int[] getDefaultExclusiveBuffers(String baseDfsHomePath) {
+        return baseDfsHomePath == null
+                ? DEFAULT_MEMORY_DISK_EXCLUSIVE_BUFFERS
+                : DEFAULT_MEMORY_DISK_REMOTE_EXCLUSIVE_BUFFERS;
+    }
+
+    private static boolean[] getDefaultMemoryReleasable(String baseDfsHomePath) {
+        return baseDfsHomePath == null
+                ? DEFAULT_MEMORY_DISK_MEMORY_RELEASABLE
+                : DEFAULT_MEMORY_DISK_MEMORY_REMOTE_RELEASABLE;
     }
 }

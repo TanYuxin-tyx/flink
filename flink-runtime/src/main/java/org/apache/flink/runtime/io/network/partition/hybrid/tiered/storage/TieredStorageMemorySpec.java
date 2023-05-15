@@ -24,16 +24,29 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
  */
 public class TieredStorageMemorySpec {
 
+    /** The memory use owner. */
     private final Object owner;
 
-    private final int numExclusiveBuffers;
+    private final int numGuaranteedBuffers;
 
+    /**
+     * The memory managed by {@link TieredStorageMemoryManager} is categorized into two types:
+     * long-term occupied memory which cannot be immediately released and short-term occupied memory
+     * which can be reclaimed quickly and safely. Long-term occupied memory usage necessitates
+     * waiting for other operations to complete before releasing it, such as downstream consumption.
+     * On the other hand, short-term occupied memory can be freed up at any time, enabling rapid
+     * memory recycling for tasks such as flushing memory to disk or remote storage.
+     *
+     * <p>This field is to indicate whether the tiered storage memory is releasable. If a user is a
+     * long-term occupied memory user, this field is false, while if a user is a short-term occupied
+     * memory user, this field is true.
+     */
     private final boolean isMemoryReleasable;
 
     public TieredStorageMemorySpec(
-            Object owner, int numExclusiveBuffers, boolean isMemoryReleasable) {
+            Object owner, int numGuaranteedBuffers, boolean isMemoryReleasable) {
         this.owner = owner;
-        this.numExclusiveBuffers = numExclusiveBuffers;
+        this.numGuaranteedBuffers = numGuaranteedBuffers;
         this.isMemoryReleasable = isMemoryReleasable;
     }
 
@@ -41,8 +54,8 @@ public class TieredStorageMemorySpec {
         return owner;
     }
 
-    public int getNumExclusiveBuffers() {
-        return numExclusiveBuffers;
+    public int getNumGuaranteedBuffers() {
+        return numGuaranteedBuffers;
     }
 
     public boolean isMemoryReleasable() {

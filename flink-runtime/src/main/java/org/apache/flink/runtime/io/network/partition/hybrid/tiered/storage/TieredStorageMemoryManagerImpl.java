@@ -50,52 +50,111 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManager {
 
+    /** Initial delay before checking flush. */
+    public static final int DEFAULT_CHECK_FLUSH_INITIAL_DELAY_MS = 10;
+
+    /** Check flush period. */
+    public static final int DEFAULT_CHECK_FLUSH_PERIOD_DURATION_MS = 50;
+
+    /** The tiered storage memory specs of each memory user owner. */
     private final Map<Object, TieredStorageMemorySpec> tieredMemorySpecs;
 
-    private final List<Runnable> bufferFlushCallBacks;
+    /** The registered callbacks to flush the buffers in the registered tiered storages. */
+    private final List<Runnable> bufferFlushCallbacks;
 
+    /** The buffer pool usage ratio of triggering the registered storages to flush buffers. */
     private final float numBuffersTriggerFlushRatio;
 
+    /**
+     * Indicate whether to start the buffer flush checker thread. If the memory manager is used in
+     * downstream, the field will be false because no buffer flush checker is needed.
+     */
+    private final boolean shouldStartBufferFlushChecker;
+
+    /** The number of requested buffers from {@link BufferPool}. */
     private final AtomicInteger numRequestedBuffers;
 
-    private final ScheduledExecutorService executor;
+    /** A thread to check whether to flush buffers in each tiered storage. */
+    private ScheduledExecutorService executor;
 
-    private int numTotalExclusiveBuffers;
+    /** The total number of guaranteed buffers for all tiered storages. */
+    private int numTotalGuaranteedBuffers;
 
+    /** The buffer pool where the buffer is requested or recyceld. */
     private BufferPool bufferPool;
 
-    public TieredStorageMemoryManagerImpl(float numBuffersTriggerFlushRatio) {
+    /**
+     * Indicate whether the {@link TieredStorageMemoryManagerImpl} is in running state. Before
+     * setting up, this field is false.
+     *
+     * <p>Note that before requesting buffers or getting the maximum allowed buffers, this running
+     * state should be checked.
+     */
+    private boolean isRunning;
+
+    /**
+     * The constructor of the {@link TieredStorageMemoryManagerImpl}.
+     *
+     * @param numBuffersTriggerFlushRatio the buffer pool usage ratio of triggering each tiered
+     *     storage to flush buffers
+     * @param shouldStartBufferFlushChecker indicate whether to start the buffer flushing checker
+     *     thread
+     */
+    public TieredStorageMemoryManagerImpl(
+            float numBuffersTriggerFlushRatio, boolean shouldStartBufferFlushChecker) {
+        this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
+        this.shouldStartBufferFlushChecker = shouldStartBufferFlushChecker;
         this.tieredMemorySpecs = new HashMap<>();
         this.numRequestedBuffers = new AtomicInteger(0);
-        this.bufferFlushCallBacks = new ArrayList<>();
-        this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
-
-        this.executor =
-                Executors.newSingleThreadScheduledExecutor(
-                        new ThreadFactoryBuilder()
-                                .setNameFormat("cache flush trigger")
-                                .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
-                                .build());
-        this.executor.scheduleWithFixedDelay(
-                this::checkNeedTriggerFlushCachedBuffers, 10, 50, TimeUnit.MILLISECONDS);
+        this.bufferFlushCallbacks = new ArrayList<>();
+        this.isRunning = false;
     }
 
     @Override
-    public void setup(BufferPool bufferPool) {
+    public void setup(BufferPool bufferPool, List<TieredStorageMemorySpec> storageMemorySpecs) {
         this.bufferPool = bufferPool;
+        for (TieredStorageMemorySpec memorySpec : storageMemorySpecs) {
+            checkState(
+                    !tieredMemorySpecs.containsKey(memorySpec.getOwner()),
+                    "Duplicated memory spec.");
+            tieredMemorySpecs.put(memorySpec.getOwner(), memorySpec);
+            numTotalGuaranteedBuffers += memorySpec.getNumGuaranteedBuffers();
+        }
+
+        if (shouldStartBufferFlushChecker) {
+            this.executor =
+                    Executors.newSingleThreadScheduledExecutor(
+                            new ThreadFactoryBuilder()
+                                    .setNameFormat("buffer flush checker")
+                                    .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
+                                    .build());
+            this.executor.scheduleWithFixedDelay(
+                    this::checkShouldFlushCachedBuffers,
+                    DEFAULT_CHECK_FLUSH_INITIAL_DELAY_MS,
+                    DEFAULT_CHECK_FLUSH_PERIOD_DURATION_MS,
+                    TimeUnit.MILLISECONDS);
+        }
+
+        this.isRunning = true;
     }
 
     @Override
-    public void registerMemorySpec(TieredStorageMemorySpec memorySpec) {
-        checkState(
-                !tieredMemorySpecs.containsKey(memorySpec.getOwner()),
-                "Duplicated memory spec registration.");
-        tieredMemorySpecs.put(memorySpec.getOwner(), memorySpec);
-        numTotalExclusiveBuffers += memorySpec.getNumExclusiveBuffers();
+    public void registerBufferFlushCallback(Runnable userBufferFlushCallBack) {
+        bufferFlushCallbacks.add(userBufferFlushCallBack);
     }
 
+    /**
+     * Request a {@link BufferBuilder} instance from {@link BufferPool} for a specific owner. The
+     * {@link TieredStorageMemoryManagerImpl} will not check whether a buffer can be requested and
+     * only record the total number of requested buffers. If the buffers in the {@link BufferPool}
+     * is not enough, this will trigger each tiered storage to flush buffers as much as possible.
+     *
+     * @return the requested buffer
+     */
     @Override
     public BufferBuilder requestBufferBlocking() {
+        checkIsRunning();
+
         MemorySegment requestedBuffer = null;
         try {
             requestedBuffer = bufferPool.requestMemorySegmentBlocking();
@@ -103,50 +162,49 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
             ExceptionUtils.rethrow(throwable, "Failed to request memory segments.");
         }
         numRequestedBuffers.incrementAndGet();
-        checkNeedTriggerFlushCachedBuffers();
+        checkShouldFlushCachedBuffers();
         return new BufferBuilder(checkNotNull(requestedBuffer), this::recycleBuffer);
     }
 
     @Override
-    public void registerBufferFlushCallBack(Runnable userBufferFlushCallBack) {
-        bufferFlushCallBacks.add(userBufferFlushCallBack);
-    }
+    public int getMaxAllowedBuffers(Object owner) {
+        checkIsRunning();
 
-    private void checkNeedTriggerFlushCachedBuffers() {
-        if (needFlushCacheBuffers()) {
-            bufferFlushCallBacks.forEach(Runnable::run);
-        }
-    }
-
-    @Override
-    public int numAvailableBuffers(Object owner) {
         TieredStorageMemorySpec ownerMemorySpec = checkNotNull(tieredMemorySpecs.get(owner));
-
         if (ownerMemorySpec.isMemoryReleasable()) {
             return Integer.MAX_VALUE;
         } else {
-            int ownerExclusiveBuffers = ownerMemorySpec.getNumExclusiveBuffers();
+            int ownerGuaranteedBuffers = ownerMemorySpec.getNumGuaranteedBuffers();
             return bufferPool.getNumBuffers()
                     - numRequestedBuffers.get()
-                    - numTotalExclusiveBuffers
-                    + ownerExclusiveBuffers;
+                    - numTotalGuaranteedBuffers
+                    + ownerGuaranteedBuffers;
         }
     }
 
     @Override
     public void release() {
         checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(5L, TimeUnit.MINUTES)) {
-                throw new TimeoutException("Timeout for shutting down the cache flush executor.");
+        if (executor != null) {
+            executor.shutdown();
+            try {
+                if (!executor.awaitTermination(5L, TimeUnit.MINUTES)) {
+                    throw new TimeoutException(
+                            "Timeout for shutting down the cache flush executor.");
+                }
+            } catch (Exception e) {
+                ExceptionUtils.rethrow(e);
             }
-        } catch (Exception e) {
-            ExceptionUtils.rethrow(e);
         }
     }
 
-    private boolean needFlushCacheBuffers() {
+    private void checkShouldFlushCachedBuffers() {
+        if (shouldFlushBuffers()) {
+            bufferFlushCallbacks.forEach(Runnable::run);
+        }
+    }
+
+    private boolean shouldFlushBuffers() {
         synchronized (this) {
             int numTotal = bufferPool.getNumBuffers();
             int numRequested = numRequestedBuffers.get();
@@ -158,5 +216,9 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     private void recycleBuffer(MemorySegment buffer) {
         bufferPool.recycle(buffer);
         numRequestedBuffers.decrementAndGet();
+    }
+
+    private void checkIsRunning() {
+        checkState(isRunning, "The memory manager is not in running state.");
     }
 }

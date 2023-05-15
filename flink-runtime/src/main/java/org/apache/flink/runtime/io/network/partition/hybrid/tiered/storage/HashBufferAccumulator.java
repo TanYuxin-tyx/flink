@@ -43,14 +43,9 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
 
     private SubpartitionHashBufferAccumulator[] subpartitionHashBufferAccumulators;
 
-    public HashBufferAccumulator(
-            int bufferSize,
-            int numExclusiveBuffers,
-            TieredStorageMemoryManager storageMemoryManager) {
+    public HashBufferAccumulator(int bufferSize, TieredStorageMemoryManager storageMemoryManager) {
         this.bufferSize = bufferSize;
         this.storageMemoryManager = storageMemoryManager;
-        storageMemoryManager.registerMemorySpec(
-                new TieredStorageMemorySpec(this, numExclusiveBuffers, true));
     }
 
     @Override
