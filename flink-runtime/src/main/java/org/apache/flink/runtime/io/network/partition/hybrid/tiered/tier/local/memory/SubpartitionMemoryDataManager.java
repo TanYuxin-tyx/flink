@@ -38,6 +38,7 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -83,7 +84,7 @@ public class SubpartitionMemoryDataManager {
         this.bufferSize = bufferSize;
         this.memoryTierProducerAgentOperation = memoryTierProducerAgentOperation;
         this.bufferCompressor = bufferCompressor;
-        this.consumerSet = new HashSet<>();
+        this.consumerSet = Collections.synchronizedSet(new HashSet<>());
         this.nettyService = nettyService;
     }
 
