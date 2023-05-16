@@ -69,9 +69,9 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     private final float numTriggerReclaimBuffersRatio;
 
     /**
-     * Indicate whether it is necessary to start a periodically checking buffer reclaim thread. If
-     * the memory manager is used in downstream, the field will be false because periodical buffer
-     * reclaim checker is needed.
+     * Indicate whether it is necessary to periodically check the buffer reclaim. If the memory
+     * manager is used in downstream, the field will be false because periodical buffer reclaim
+     * checker is needed.
      */
     private final boolean needPeriodicalCheckReclaimBuffer;
 
@@ -184,15 +184,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
                             }
                         });
 
-        ScheduledFuture<?> scheduledFuture = null;
-        if (needPeriodicalCheckReclaimBuffer) {
-            scheduledFuture =
-                    executor.scheduleWithFixedDelay(
-                            this::tryReclaimBuffers,
-                            DEFAULT_CHECK_BUFFER_RECLAIM_INITIAL_DELAY_MS,
-                            DEFAULT_CHECK_BUFFER_RECLAIM_PERIOD_DURATION_MS,
-                            TimeUnit.MILLISECONDS);
-        }
+        ScheduledFuture<?> scheduledFuture = getPeriodicalCheckReclaimBufferFuture();
 
         MemorySegment memorySegment = null;
         try {
@@ -201,7 +193,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
             ExceptionUtils.rethrow(e);
         }
 
-        if (needPeriodicalCheckReclaimBuffer) {
+        if (scheduledFuture != null) {
             scheduledFuture.cancel(false);
         }
 
@@ -263,6 +255,16 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
                 // Because we do the checking before requesting buffers, we need add additional one
                 // buffer when calculating the usage ratio.
                 || ((numRequested + 1) * 1.0 / numTotal) > numTriggerReclaimBuffersRatio;
+    }
+
+    private ScheduledFuture<?> getPeriodicalCheckReclaimBufferFuture() {
+        return needPeriodicalCheckReclaimBuffer
+                ? executor.scheduleWithFixedDelay(
+                        this::tryReclaimBuffers,
+                        DEFAULT_CHECK_BUFFER_RECLAIM_INITIAL_DELAY_MS,
+                        DEFAULT_CHECK_BUFFER_RECLAIM_PERIOD_DURATION_MS,
+                        TimeUnit.MILLISECONDS)
+                : null;
     }
 
     /** Note that this method may be called by the netty thread. */
