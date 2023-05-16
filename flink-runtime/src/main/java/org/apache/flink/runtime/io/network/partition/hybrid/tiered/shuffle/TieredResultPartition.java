@@ -79,8 +79,6 @@ public class TieredResultPartition extends ResultPartition {
 
     private final int[] tierExclusiveBuffers;
 
-    private final boolean[] tierMemoryReleasable;
-
     private final TieredStorageResourceRegistry resourceRegistry;
 
     private final TieredStoragePartitionId storagePartitionId;
@@ -97,7 +95,6 @@ public class TieredResultPartition extends ResultPartition {
             List<TierProducerAgent> tierProducerAgents,
             TieredStorageMemoryManager storageMemoryManager,
             int[] tierExclusiveBuffers,
-            boolean[] tierMemoryReleasable,
             @Nullable BufferCompressor bufferCompressor,
             TieredStorageProducerClient tieredStorageProducerClient,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
@@ -117,15 +114,12 @@ public class TieredResultPartition extends ResultPartition {
         this.tierProducerAgents = tierProducerAgents;
         this.storageMemoryManager = storageMemoryManager;
         this.tierExclusiveBuffers = tierExclusiveBuffers;
-        this.tierMemoryReleasable = tierMemoryReleasable;
         this.tieredStorageProducerClient = tieredStorageProducerClient;
         this.resourceRegistry = resourceRegistry;
         this.storagePartitionId = TieredStorageIdMappingUtils.convertId(partitionId);
 
         checkState(
                 tierProducerAgents.size() == tierExclusiveBuffers.length, "Wrong number of tiers.");
-        checkState(
-                tierProducerAgents.size() == tierMemoryReleasable.length, "Wrong number of tiers.");
     }
 
     // Called by task thread.
@@ -143,14 +137,11 @@ public class TieredResultPartition extends ResultPartition {
 
     private List<TieredStorageMemorySpec> createTieredStorageMemorySpecs() {
         List<TieredStorageMemorySpec> storageMemorySpecs = new ArrayList<>();
-        storageMemorySpecs.add(
-                new TieredStorageMemorySpec(bufferAccumulator, numSubpartitions, true));
+        storageMemorySpecs.add(new TieredStorageMemorySpec(bufferAccumulator, numSubpartitions));
         for (int i = 0; i < tierProducerAgents.size(); i++) {
             storageMemorySpecs.add(
                     new TieredStorageMemorySpec(
-                            tierProducerAgents.get(i),
-                            tierExclusiveBuffers[i],
-                            tierMemoryReleasable[i]));
+                            tierProducerAgents.get(i), tierExclusiveBuffers[i]));
         }
         return storageMemorySpecs;
     }

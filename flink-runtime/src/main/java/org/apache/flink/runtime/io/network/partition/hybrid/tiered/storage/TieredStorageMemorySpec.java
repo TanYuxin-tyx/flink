@@ -29,25 +29,9 @@ public class TieredStorageMemorySpec {
 
     private final int numGuaranteedBuffers;
 
-    /**
-     * The memory managed by {@link TieredStorageMemoryManager} is categorized into two types:
-     * long-term occupied memory which cannot be immediately released and short-term occupied memory
-     * which can be reclaimed quickly and safely. Long-term occupied memory usage necessitates
-     * waiting for other operations to complete before releasing it, such as downstream consumption.
-     * On the other hand, short-term occupied memory can be freed up at any time, enabling rapid
-     * memory recycling for tasks such as flushing memory to disk or remote storage.
-     *
-     * <p>This field is to indicate whether the tiered storage memory is releasable. If a user is a
-     * long-term occupied memory user, this field is false, while if a user is a short-term occupied
-     * memory user, this field is true.
-     */
-    private final boolean isMemoryReleasable;
-
-    public TieredStorageMemorySpec(
-            Object owner, int numGuaranteedBuffers, boolean isMemoryReleasable) {
+    public TieredStorageMemorySpec(Object owner, int numGuaranteedBuffers) {
         this.owner = owner;
         this.numGuaranteedBuffers = numGuaranteedBuffers;
-        this.isMemoryReleasable = isMemoryReleasable;
     }
 
     public Object getOwner() {
@@ -56,9 +40,5 @@ public class TieredStorageMemorySpec {
 
     public int getNumGuaranteedBuffers() {
         return numGuaranteedBuffers;
-    }
-
-    public boolean isMemoryReleasable() {
-        return isMemoryReleasable;
     }
 }

@@ -33,7 +33,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
+import static org.apache.flink.core.testutils.FlinkAssertions.assertThatFuture;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
@@ -50,12 +52,16 @@ public class TieredStorageMemoryManagerImplTest {
 
     private List<BufferBuilder> requestedBuffers;
 
-    private int numTriggerFlush;
+    private CompletableFuture<Void> hasReclaimBufferFinished;
+
+    private int reclaimBufferCounter;
 
     @BeforeEach
     void before() {
         globalPool = new NetworkBufferPool(NUM_TOTAL_BUFFERS, NETWORK_BUFFER_SIZE);
         requestedBuffers = new ArrayList<>();
+        hasReclaimBufferFinished = new CompletableFuture<>();
+        reclaimBufferCounter = 0;
     }
 
     @AfterEach
@@ -68,34 +74,33 @@ public class TieredStorageMemoryManagerImplTest {
         int numBuffers = 1;
 
         BufferPool bufferPool = globalPool.createBufferPool(numBuffers, numBuffers);
-        TieredStorageMemoryManagerImpl storeMemoryManager =
+        TieredStorageMemoryManagerImpl storageMemoryManager =
                 createStorageMemoryManager(
                         bufferPool,
-                        Collections.singletonList(new TieredStorageMemorySpec(this, 0, false)));
+                        Collections.singletonList(new TieredStorageMemorySpec(this, 0)));
         assertThat(bufferPool.bestEffortGetNumOfUsedBuffers()).isEqualTo(0);
-        BufferBuilder builder = storeMemoryManager.requestBufferBlocking();
+        BufferBuilder builder = storageMemoryManager.requestBufferBlocking();
         assertThat(bufferPool.bestEffortGetNumOfUsedBuffers()).isEqualTo(1);
         recycleBufferBuilder(builder);
         assertThat(bufferPool.bestEffortGetNumOfUsedBuffers()).isEqualTo(0);
-        storeMemoryManager.release();
+        storageMemoryManager.release();
     }
 
     @Test
-    void testNumAvailableBuffersForNonReleasableSpec() throws IOException {
+    void testGetMaxNonReclaimableBuffers() throws IOException {
         int numBuffers = 10;
         int numExclusive = 5;
 
         TieredStorageMemoryManagerImpl storageMemoryManager =
                 createStorageMemoryManager(
                         numBuffers,
-                        Collections.singletonList(
-                                new TieredStorageMemorySpec(this, numExclusive, false)));
+                        Collections.singletonList(new TieredStorageMemorySpec(this, numExclusive)));
 
         List<BufferBuilder> requestedBuffers = new ArrayList<>();
         for (int i = 1; i <= numBuffers; i++) {
             requestedBuffers.add(storageMemoryManager.requestBufferBlocking());
             int numExpectedAvailable = numBuffers - i;
-            assertThat(storageMemoryManager.getMaxAllowedBuffers(this))
+            assertThat(storageMemoryManager.getMaxNonReclaimableBuffers(this))
                     .isEqualTo(numExpectedAvailable);
         }
 
@@ -104,66 +109,65 @@ public class TieredStorageMemoryManagerImplTest {
     }
 
     @Test
-    void testNumAvailableBuffersForReleasableSpec() throws IOException {
-        int numBuffers = 10;
-        int numExclusive = 5;
-
-        TieredStorageMemoryManagerImpl storageMemoryManager =
-                createStorageMemoryManager(
-                        numBuffers,
-                        Collections.singletonList(
-                                new TieredStorageMemorySpec(this, numExclusive, true)));
-
-        List<BufferBuilder> requestedBuffers = new ArrayList<>();
-        for (int i = 1; i <= numBuffers; i++) {
-            requestedBuffers.add(storageMemoryManager.requestBufferBlocking());
-            assertThat(storageMemoryManager.getMaxAllowedBuffers(this))
-                    .isEqualTo(Integer.MAX_VALUE);
-        }
-
-        requestedBuffers.forEach(TieredStorageMemoryManagerImplTest::recycleBufferBuilder);
-        storageMemoryManager.release();
-    }
-
-    @Test
-    void testTriggerFlushCacheBuffers() throws IOException {
+    void testTriggerReclaimBuffers() throws IOException {
         int numBuffers = 5;
 
         TieredStorageMemoryManagerImpl storageMemoryManager =
                 createStorageMemoryManager(
                         numBuffers,
-                        Collections.singletonList(new TieredStorageMemorySpec(this, 0, false)));
-        storageMemoryManager.registerBufferFlushCallback(this::notifyFlushCachedBuffers);
+                        Collections.singletonList(new TieredStorageMemorySpec(this, 0)));
+        storageMemoryManager.listenBufferReclaimRequest(this::onBufferReclaimRequest);
 
-        for (int i = 0; i < numBuffers; i++) {
+        int numBuffersBeforeTriggerReclaim = (int) (numBuffers * NUM_BUFFERS_TRIGGER_FLUSH_RATIO);
+        for (int i = 0; i < numBuffersBeforeTriggerReclaim - 1; i++) {
             requestedBuffers.add(storageMemoryManager.requestBufferBlocking());
         }
 
-        int numToTriggerFlushBuffers = (int) (numBuffers * NUM_BUFFERS_TRIGGER_FLUSH_RATIO);
-        assertThat(numTriggerFlush).isEqualTo(1);
-        assertThat(requestedBuffers.size()).isEqualTo(numBuffers - numToTriggerFlushBuffers);
+        assertThat(reclaimBufferCounter).isEqualTo(0);
+        assertThat(requestedBuffers.size()).isEqualTo(numBuffersBeforeTriggerReclaim - 1);
+        requestedBuffers.add(storageMemoryManager.requestBufferBlocking());
+        assertThatFuture(hasReclaimBufferFinished).eventuallySucceeds();
+        assertThat(reclaimBufferCounter).isEqualTo(1);
+        assertThat(requestedBuffers.size()).isEqualTo(0);
+
+        storageMemoryManager.release();
+    }
+
+    @Test
+    void testReleaseBeforeRecyclingBuffers() throws IOException {
+        int numBuffers = 5;
+
+        TieredStorageMemoryManagerImpl storageMemoryManager =
+                createStorageMemoryManager(
+                        numBuffers,
+                        Collections.singletonList(new TieredStorageMemorySpec(this, 0)));
+        requestedBuffers.add(storageMemoryManager.requestBufferBlocking());
+        assertThatThrownBy(storageMemoryManager::release).isInstanceOf(IllegalStateException.class);
         recycleRequestedBuffers();
         storageMemoryManager.release();
     }
 
     @Test
-    void testLeakingTierBuffers() throws IOException {
+    void testLeakingBuffers() throws IOException {
         int numBuffers = 10;
 
-        TieredStorageMemoryManagerImpl storeMemoryManager =
+        TieredStorageMemoryManagerImpl storageMemoryManager =
                 createStorageMemoryManager(
                         numBuffers,
-                        Collections.singletonList(new TieredStorageMemorySpec(this, 0, false)));
+                        Collections.singletonList(new TieredStorageMemorySpec(this, 0)));
 
-        storeMemoryManager.requestBufferBlocking();
-        assertThatThrownBy(storeMemoryManager::release)
+        requestedBuffers.add(storageMemoryManager.requestBufferBlocking());
+        assertThatThrownBy(storageMemoryManager::release)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("Leaking buffers");
+        recycleRequestedBuffers();
+        storageMemoryManager.release();
     }
 
-    public void notifyFlushCachedBuffers() {
+    public void onBufferReclaimRequest() {
+        reclaimBufferCounter++;
         recycleRequestedBuffers();
-        numTriggerFlush++;
+        hasReclaimBufferFinished.complete(null);
     }
 
     private void recycleRequestedBuffers() {

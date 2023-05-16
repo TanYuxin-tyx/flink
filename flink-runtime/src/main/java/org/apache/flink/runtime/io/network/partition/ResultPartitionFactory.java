@@ -313,7 +313,6 @@ public class ResultPartitionFactory {
                                 tierProducerAgents,
                                 storageMemoryManager,
                                 storageConfiguration.getTierExclusiveBuffers(),
-                                storageConfiguration.getTierMemoryReleasable(),
                                 bufferCompressor,
                                 tieredStorageProducerClient,
                                 bufferPoolFactory,

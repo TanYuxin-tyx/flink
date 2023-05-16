@@ -94,8 +94,8 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                         NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE);
         resourceRegistry = new TieredStorageResourceRegistry();
         tieredStoreTiers = conf.get(NettyShuffleEnvironmentOptions.TIERED_STORE_TIERS);
-        List<TierMasterAgent> tieredMasterClients =
-                createTieredMasterClients(getStoreConfiguration());
+        TieredStorageConfiguration storageConfiguration = getStorageConfiguration();
+        List<TierMasterAgent> tieredMasterClients = createTieredMasterClients(storageConfiguration);
         tieredStorageMasterClient = new TieredStorageMasterClient(tieredMasterClients);
         checkArgument(
                 !maxRequiredBuffersPerGate.isPresent() || maxRequiredBuffersPerGate.get() >= 1,
@@ -117,7 +117,7 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                 .collect(Collectors.toList());
     }
 
-    private TieredStorageConfiguration getStoreConfiguration() {
+    private TieredStorageConfiguration getStorageConfiguration() {
         return TieredStorageConfiguration.builder()
                 // TODO, this is only for it case tests and configured tests. Remove this set tier
                 // types and use the default tier factories in the tiered storage factory

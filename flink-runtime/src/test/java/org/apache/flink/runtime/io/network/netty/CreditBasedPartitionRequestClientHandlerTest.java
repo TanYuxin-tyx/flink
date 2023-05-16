@@ -421,7 +421,8 @@ class CreditBasedPartitionRequestClientHandlerTest {
 
             // The buffer response will take one available buffer from input channel, and it will
             // trigger
-            // requesting (backlog + numExclusiveBuffers - getMaxAllowedBuffers) floating buffers
+            // requesting (backlog + numExclusiveBuffers - getMaxNonReclaimableBuffers) floating
+            // buffers
             final BufferResponse bufferResponse1 =
                     createBufferResponse(
                             TestBufferFactory.createBuffer(32),

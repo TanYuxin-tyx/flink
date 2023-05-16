@@ -29,20 +29,17 @@ import java.util.List;
  * LocalBufferPool} for different memory owners, for example, the tiers, the buffer accumulator,
  * etc. Note that the logic for requesting and recycling buffers is consistent for these owners.
  *
- * <p>The memory managed by {@link TieredStorageMemoryManager} is categorized into two types:
- * long-term occupied memory which cannot be immediately released and short-term occupied memory
- * which can be reclaimed quickly and safely. Long-term occupied memory usage necessitates waiting
- * for other operations to complete before releasing it, such as downstream consumption. On the
- * other hand, short-term occupied memory can be freed up at any time, enabling rapid memory
- * recycling for tasks such as flushing memory to disk or remote storage.
+ * <p>The buffers managed by {@link TieredStorageMemoryManager} is categorized into two types:
+ * <b>non-reclaimable</b> buffers which cannot be immediately released and <b>reclaimable
+ * buffers</b> which can be reclaimed quickly and safely. Non-reclaimable buffers necessitates
+ * waiting for other operations to complete before releasing it, such as downstream consumption. On
+ * the other hand, reclaimable buffers can be freed up at any time, enabling rapid memory recycling
+ * for tasks such as flushing memory to disk or remote storage.
  *
- * <p>This {@link TieredStorageMemoryManager} aim to streamline and harmonize memory management
- * across various layers. Instead of tracking the number of buffers utilized by individual users, it
- * dynamically calculates a user's maximum guaranteed amount based on the current status of the
- * manager and the local buffer pool. Specifically, if a user is a long-term occupied memory user,
- * the {@link TieredStorageMemoryManager} does not limit the user's memory usage, while if a user is
- * a short-term occupied memory user, the current guaranteed buffers of the user is the left buffers
- * in the buffer pool - guaranteed amount of other users (excluding the current user).
+ * <p>The {@link TieredStorageMemoryManager} does not provide strict memory limitations on any user
+ * can request. Instead, it only simply provides memory usage hints to users. It is very
+ * <b>important</b> to note that <b>only</b> users with non-reclaimable should check the memory
+ * hints by calling {@code getMaxNonReclaimableBuffers} before requesting buffers.
  */
 public interface TieredStorageMemoryManager {
 
@@ -57,15 +54,15 @@ public interface TieredStorageMemoryManager {
     void setup(BufferPool bufferPool, List<TieredStorageMemorySpec> storageMemorySpecs);
 
     /**
-     * Register a buffer flush call back to flush and recycle all the memory in the user when
-     * needed.
+     * Register a listener to listen the buffer reclaim request from the {@link
+     * TieredStorageMemoryManager}.
      *
      * <p>When the left buffers in the {@link BufferPool} are not enough, {@link
-     * TieredStorageMemoryManager} will flush the buffers of the user with the registered callback.
+     * TieredStorageMemoryManager} will try to reclaim the buffers from the memory users.
      *
-     * @param userBufferFlushCallback the buffer flush call back of the memory user
+     * @param onBufferReclaimRequest a {@link Runnable} to process the buffer reclaim request
      */
-    void registerBufferFlushCallback(Runnable userBufferFlushCallback);
+    void listenBufferReclaimRequest(Runnable onBufferReclaimRequest);
 
     /**
      * Request a {@link BufferBuilder} instance from {@link LocalBufferPool} for a specific owner.
@@ -75,18 +72,13 @@ public interface TieredStorageMemoryManager {
     BufferBuilder requestBufferBlocking();
 
     /**
-     * Return the available buffers for the owner.
+     * Return the number of the non-reclaimable buffers for the owner.
      *
      * <p>Note that the available buffers are calculated dynamically based on some conditions, for
      * example, the state of the {@link BufferPool}, the {@link TieredStorageMemorySpec} of the
-     * owner, etc.
-     *
-     * <p>If a user is a long-term occupied memory user, the {@link TieredStorageMemoryManager} does
-     * not limit the user's memory usage, while if a user is a short-term occupied memory user, the
-     * max allowed buffers of the user is the left buffers in the buffer pool - guaranteed amount of
-     * other users (excluding the current user).
+     * owner, etc. So the caller should always check before requesting non-reclaimable buffers.
      */
-    int getMaxAllowedBuffers(Object owner);
+    int getMaxNonReclaimableBuffers(Object owner);
 
     /**
      * Release all the resources(if exists) and check the state of the {@link

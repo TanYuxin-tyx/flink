@@ -50,64 +50,80 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManager {
 
-    /** Initial delay before checking flush. */
-    public static final int DEFAULT_CHECK_FLUSH_INITIAL_DELAY_MS = 10;
+    /** Initial delay before checking buffer reclaim. */
+    private static final int DEFAULT_CHECK_BUFFER_RECLAIM_INITIAL_DELAY_MS = 10;
 
-    /** Check flush period. */
-    public static final int DEFAULT_CHECK_FLUSH_PERIOD_DURATION_MS = 50;
+    /** The period of checking buffer reclaim. */
+    private static final int DEFAULT_CHECK_BUFFER_RECLAIM_PERIOD_DURATION_MS = 50;
 
     /** The tiered storage memory specs of each memory user owner. */
     private final Map<Object, TieredStorageMemorySpec> tieredMemorySpecs;
 
-    /** The registered callbacks to flush the buffers in the registered tiered storages. */
-    private final List<Runnable> bufferFlushCallbacks;
+    /** Listeners used to listen the requests for reclaiming buffer in different tiered storage. */
+    private final List<Runnable> bufferReclaimRequestListeners;
 
-    /** The buffer pool usage ratio of triggering the registered storages to flush buffers. */
-    private final float numBuffersTriggerFlushRatio;
+    /** The buffer pool usage ratio of triggering the registered storages to reclaim buffers. */
+    private final float numTriggerReclaimBuffersRatio;
 
     /**
-     * Indicate whether to start the buffer flush checker thread. If the memory manager is used in
-     * downstream, the field will be false because no buffer flush checker is needed.
+     * Indicate whether it is necessary to start a periodically checking buffer reclaim thread. If
+     * the memory manager is used in downstream, the field will be false because periodical buffer
+     * reclaim checker is needed.
      */
-    private final boolean shouldStartBufferFlushChecker;
+    private final boolean needPeriodicalCheckReclaimBuffer;
 
-    /** The number of requested buffers from {@link BufferPool}. */
+    /**
+     * The number of requested buffers from {@link BufferPool}. Only this field can be touched both
+     * by the task thread and the netty thread, so it is an atomic type.
+     */
     private final AtomicInteger numRequestedBuffers;
 
-    /** A thread to check whether to flush buffers in each tiered storage. */
+    /**
+     * A thread to check whether to reclaim buffers from each tiered storage.
+     *
+     * <p>Note that it is not possible to remove this, as doing so could result in the task becoming
+     * stuck in the buffer request. As the number of buffers in the buffer pool can vary at any
+     * given time, the stuck may occur if the thread is removed.
+     *
+     * <p>For instance, if the memory usage of the {@link BufferPool} has been checked and {@link
+     * TieredStorageMemoryManagerImpl} determined that buffer reclamation is unnecessary, but then
+     * the buffer pool size is suddenly reduced to a very small size, the buffer request will become
+     * stuck and the task will never be able to call for buffer reclamation if this thread is
+     * removed, then a task stuck occurs.
+     */
     private ScheduledExecutorService executor;
 
     /** The total number of guaranteed buffers for all tiered storages. */
     private int numTotalGuaranteedBuffers;
 
-    /** The buffer pool where the buffer is requested or recyceld. */
+    /** The buffer pool where the buffer is requested or recycled. */
     private BufferPool bufferPool;
 
     /**
-     * Indicate whether the {@link TieredStorageMemoryManagerImpl} is in running state. Before
-     * setting up, this field is false.
+     * Indicate whether the {@link TieredStorageMemoryManagerImpl} is initialized. Before setting
+     * up, this field is false.
      *
-     * <p>Note that before requesting buffers or getting the maximum allowed buffers, this running
-     * state should be checked.
+     * <p>Note that before requesting buffers or getting the maximum allowed buffers, this
+     * initialized state should be checked.
      */
-    private boolean isRunning;
+    private boolean isInitialized;
 
     /**
      * The constructor of the {@link TieredStorageMemoryManagerImpl}.
      *
-     * @param numBuffersTriggerFlushRatio the buffer pool usage ratio of triggering each tiered
-     *     storage to flush buffers
-     * @param shouldStartBufferFlushChecker indicate whether to start the buffer flushing checker
-     *     thread
+     * @param numTriggerReclaimBuffersRatio the buffer pool usage ratio of requesting each tiered
+     *     storage to reclaim buffers
+     * @param needPeriodicalCheckReclaimBuffer indicate whether it is necessary to start a
+     *     periodically checking buffer reclaim thread
      */
     public TieredStorageMemoryManagerImpl(
-            float numBuffersTriggerFlushRatio, boolean shouldStartBufferFlushChecker) {
-        this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
-        this.shouldStartBufferFlushChecker = shouldStartBufferFlushChecker;
+            float numTriggerReclaimBuffersRatio, boolean needPeriodicalCheckReclaimBuffer) {
+        this.numTriggerReclaimBuffersRatio = numTriggerReclaimBuffersRatio;
+        this.needPeriodicalCheckReclaimBuffer = needPeriodicalCheckReclaimBuffer;
         this.tieredMemorySpecs = new HashMap<>();
         this.numRequestedBuffers = new AtomicInteger(0);
-        this.bufferFlushCallbacks = new ArrayList<>();
-        this.isRunning = false;
+        this.bufferReclaimRequestListeners = new ArrayList<>();
+        this.isInitialized = false;
     }
 
     @Override
@@ -121,40 +137,45 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
             numTotalGuaranteedBuffers += memorySpec.getNumGuaranteedBuffers();
         }
 
-        if (shouldStartBufferFlushChecker) {
+        if (needPeriodicalCheckReclaimBuffer) {
             this.executor =
                     Executors.newSingleThreadScheduledExecutor(
                             new ThreadFactoryBuilder()
-                                    .setNameFormat("buffer flush checker")
+                                    .setNameFormat("buffer reclaim checker")
                                     .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
                                     .build());
             this.executor.scheduleWithFixedDelay(
-                    this::checkShouldFlushCachedBuffers,
-                    DEFAULT_CHECK_FLUSH_INITIAL_DELAY_MS,
-                    DEFAULT_CHECK_FLUSH_PERIOD_DURATION_MS,
+                    this::tryReclaimBuffers,
+                    DEFAULT_CHECK_BUFFER_RECLAIM_INITIAL_DELAY_MS,
+                    DEFAULT_CHECK_BUFFER_RECLAIM_PERIOD_DURATION_MS,
                     TimeUnit.MILLISECONDS);
         }
 
-        this.isRunning = true;
+        this.isInitialized = true;
     }
 
     @Override
-    public void registerBufferFlushCallback(Runnable userBufferFlushCallBack) {
-        bufferFlushCallbacks.add(userBufferFlushCallBack);
+    public void listenBufferReclaimRequest(Runnable onBufferReclaimRequest) {
+        bufferReclaimRequestListeners.add(onBufferReclaimRequest);
     }
 
     /**
      * Request a {@link BufferBuilder} instance from {@link BufferPool} for a specific owner. The
      * {@link TieredStorageMemoryManagerImpl} will not check whether a buffer can be requested and
      * only record the total number of requested buffers. If the buffers in the {@link BufferPool}
-     * is not enough, this will trigger each tiered storage to flush buffers as much as possible.
+     * is not enough, this will request each tiered storage to reclaim the buffers as much as
+     * possible.
+     *
+     * <p>Note that synchronization is not necessary for this method, as it can only be called by
+     * the task thread.
      *
      * @return the requested buffer
      */
     @Override
     public BufferBuilder requestBufferBlocking() {
-        checkIsRunning();
+        checkIsInitialized();
 
+        tryReclaimBuffers();
         MemorySegment requestedBuffer = null;
         try {
             requestedBuffer = bufferPool.requestMemorySegmentBlocking();
@@ -162,24 +183,27 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
             ExceptionUtils.rethrow(throwable, "Failed to request memory segments.");
         }
         numRequestedBuffers.incrementAndGet();
-        checkShouldFlushCachedBuffers();
         return new BufferBuilder(checkNotNull(requestedBuffer), this::recycleBuffer);
     }
 
+    /**
+     * The synchronization is not necessary for this method, as it can only be called by the task
+     * thread.
+     *
+     * <p>The accuracy of the memory usage ratio may be compromised due to the varying buffer pool
+     * sizes. However, this only impacts a single iteration of the buffer usage check. Upon the next
+     * iteration, the buffer reclaim will eventually be triggered.
+     */
     @Override
-    public int getMaxAllowedBuffers(Object owner) {
-        checkIsRunning();
+    public int getMaxNonReclaimableBuffers(Object owner) {
+        checkIsInitialized();
 
         TieredStorageMemorySpec ownerMemorySpec = checkNotNull(tieredMemorySpecs.get(owner));
-        if (ownerMemorySpec.isMemoryReleasable()) {
-            return Integer.MAX_VALUE;
-        } else {
-            int ownerGuaranteedBuffers = ownerMemorySpec.getNumGuaranteedBuffers();
-            return bufferPool.getNumBuffers()
-                    - numRequestedBuffers.get()
-                    - numTotalGuaranteedBuffers
-                    + ownerGuaranteedBuffers;
-        }
+        int ownerGuaranteedBuffers = ownerMemorySpec.getNumGuaranteedBuffers();
+        return bufferPool.getNumBuffers()
+                - numRequestedBuffers.get()
+                - numTotalGuaranteedBuffers
+                + ownerGuaranteedBuffers;
     }
 
     @Override
@@ -190,7 +214,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
             try {
                 if (!executor.awaitTermination(5L, TimeUnit.MINUTES)) {
                     throw new TimeoutException(
-                            "Timeout for shutting down the cache flush executor.");
+                            "Timeout for shutting down the buffer reclaim checker executor.");
                 }
             } catch (Exception e) {
                 ExceptionUtils.rethrow(e);
@@ -198,27 +222,33 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
         }
     }
 
-    private void checkShouldFlushCachedBuffers() {
-        if (shouldFlushBuffers()) {
-            bufferFlushCallbacks.forEach(Runnable::run);
+    private void tryReclaimBuffers() {
+        if (shouldReclaimBuffers()) {
+            bufferReclaimRequestListeners.forEach(Runnable::run);
         }
     }
 
-    private boolean shouldFlushBuffers() {
-        synchronized (this) {
-            int numTotal = bufferPool.getNumBuffers();
-            int numRequested = numRequestedBuffers.get();
-            return numRequested >= numTotal
-                    || (numRequested * 1.0 / numTotal) >= numBuffersTriggerFlushRatio;
-        }
+    /**
+     * The accuracy of the memory usage ratio may be compromised due to the varying buffer pool
+     * sizes. However, this only impacts a single iteration of the buffer usage check. Upon the next
+     * iteration, the buffer reclaim will eventually be triggered.
+     */
+    private boolean shouldReclaimBuffers() {
+        int numTotal = bufferPool.getNumBuffers();
+        int numRequested = numRequestedBuffers.get();
+        return numRequested >= numTotal
+                // Because we do the checking before requesting buffers, we need add additional one
+                // buffer when calculating the usage ratio.
+                || ((numRequested + 1) * 1.0 / numTotal) > numTriggerReclaimBuffersRatio;
     }
 
+    /** Note that this method may be called by the netty thread. */
     private void recycleBuffer(MemorySegment buffer) {
         bufferPool.recycle(buffer);
         numRequestedBuffers.decrementAndGet();
     }
 
-    private void checkIsRunning() {
-        checkState(isRunning, "The memory manager is not in running state.");
+    private void checkIsInitialized() {
+        checkState(isInitialized, "The memory manager is not in running state.");
     }
 }
