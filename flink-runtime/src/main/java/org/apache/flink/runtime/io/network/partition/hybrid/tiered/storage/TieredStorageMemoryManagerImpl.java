@@ -31,8 +31,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -144,11 +147,6 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
                                     .setNameFormat("buffer reclaim checker")
                                     .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
                                     .build());
-            this.executor.scheduleWithFixedDelay(
-                    this::tryReclaimBuffers,
-                    DEFAULT_CHECK_BUFFER_RECLAIM_INITIAL_DELAY_MS,
-                    DEFAULT_CHECK_BUFFER_RECLAIM_PERIOD_DURATION_MS,
-                    TimeUnit.MILLISECONDS);
         }
 
         this.isInitialized = true;
@@ -176,14 +174,39 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
         checkIsInitialized();
 
         tryReclaimBuffers();
-        MemorySegment requestedBuffer = null;
-        try {
-            requestedBuffer = bufferPool.requestMemorySegmentBlocking();
-        } catch (Throwable throwable) {
-            ExceptionUtils.rethrow(throwable, "Failed to request memory segments.");
+        CompletableFuture<MemorySegment> requestedBuffer =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return bufferPool.requestMemorySegmentBlocking();
+                            } catch (InterruptedException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        ScheduledFuture<?> scheduledFuture = null;
+        if (needPeriodicalCheckReclaimBuffer) {
+            scheduledFuture =
+                    executor.scheduleWithFixedDelay(
+                            this::tryReclaimBuffers,
+                            DEFAULT_CHECK_BUFFER_RECLAIM_INITIAL_DELAY_MS,
+                            DEFAULT_CHECK_BUFFER_RECLAIM_PERIOD_DURATION_MS,
+                            TimeUnit.MILLISECONDS);
         }
+
+        MemorySegment memorySegment = null;
+        try {
+            memorySegment = requestedBuffer.get();
+        } catch (InterruptedException | ExecutionException e) {
+            ExceptionUtils.rethrow(e);
+        }
+
+        if (needPeriodicalCheckReclaimBuffer) {
+            scheduledFuture.cancel(false);
+        }
+
         numRequestedBuffers.incrementAndGet();
-        return new BufferBuilder(checkNotNull(requestedBuffer), this::recycleBuffer);
+        return new BufferBuilder(checkNotNull(memorySegment), this::recycleBuffer);
     }
 
     /**

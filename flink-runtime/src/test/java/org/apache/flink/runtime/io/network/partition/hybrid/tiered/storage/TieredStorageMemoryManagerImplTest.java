@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -109,6 +110,7 @@ public class TieredStorageMemoryManagerImplTest {
     }
 
     @Test
+    @Timeout(60)
     void testTriggerReclaimBuffers() throws IOException {
         int numBuffers = 5;
 
@@ -119,16 +121,17 @@ public class TieredStorageMemoryManagerImplTest {
         storageMemoryManager.listenBufferReclaimRequest(this::onBufferReclaimRequest);
 
         int numBuffersBeforeTriggerReclaim = (int) (numBuffers * NUM_BUFFERS_TRIGGER_FLUSH_RATIO);
-        for (int i = 0; i < numBuffersBeforeTriggerReclaim - 1; i++) {
+        for (int i = 0; i < numBuffersBeforeTriggerReclaim; i++) {
             requestedBuffers.add(storageMemoryManager.requestBufferBlocking());
         }
 
         assertThat(reclaimBufferCounter).isEqualTo(0);
-        assertThat(requestedBuffers.size()).isEqualTo(numBuffersBeforeTriggerReclaim - 1);
+        assertThat(requestedBuffers.size()).isEqualTo(numBuffersBeforeTriggerReclaim);
         requestedBuffers.add(storageMemoryManager.requestBufferBlocking());
         assertThatFuture(hasReclaimBufferFinished).eventuallySucceeds();
         assertThat(reclaimBufferCounter).isEqualTo(1);
-        assertThat(requestedBuffers.size()).isEqualTo(0);
+        assertThat(requestedBuffers.size()).isEqualTo(1);
+        recycleRequestedBuffers();
 
         storageMemoryManager.release();
     }
