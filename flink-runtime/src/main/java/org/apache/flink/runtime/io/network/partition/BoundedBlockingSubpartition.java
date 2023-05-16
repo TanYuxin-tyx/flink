@@ -288,7 +288,7 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
     }
 
     @Override
-    public long getTotalNumberOfBytesUnsafe() {
+    protected long getTotalNumberOfBytesUnsafe() {
         return data.getSize();
     }
 
@@ -302,7 +302,7 @@ final class BoundedBlockingSubpartition extends ResultSubpartition {
         // Nothing to do.
     }
 
-    public int getBuffersInBacklogUnsafe() {
+    int getBuffersInBacklogUnsafe() {
         return numDataBuffersWritten;
     }
 

@@ -241,7 +241,6 @@ public class LocalInputChannel extends InputChannel implements BufferAvailabilit
         }
 
         Buffer buffer = next.buffer();
-        LOG.debug("%%% local buffer sequence number {} 1", next.getSequenceNumber());
 
         if (buffer instanceof FileRegionBuffer) {
             buffer = ((FileRegionBuffer) buffer).readInto(inputGate.getUnpooledSegment());

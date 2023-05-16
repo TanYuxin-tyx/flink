@@ -708,7 +708,7 @@ public class PipelinedSubpartition extends ResultSubpartition
     }
 
     @Override
-    public long getTotalNumberOfBytesUnsafe() {
+    protected long getTotalNumberOfBytesUnsafe() {
         return totalNumberOfBytes;
     }
 

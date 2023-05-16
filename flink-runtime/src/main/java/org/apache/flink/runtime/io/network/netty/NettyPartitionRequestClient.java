@@ -112,6 +112,7 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
             final RemoteInputChannel inputChannel,
             int delayMs)
             throws IOException {
+
         checkNotClosed();
 
         LOG.debug(
@@ -121,12 +122,14 @@ public class NettyPartitionRequestClient implements PartitionRequestClient {
                 delayMs);
 
         clientHandler.addInputChannel(inputChannel);
+
         final PartitionRequest request =
                 new PartitionRequest(
                         partitionId,
                         subpartitionIndex,
                         inputChannel.getInputChannelId(),
                         inputChannel.getInitialCredit());
+
         final ChannelFutureListener listener =
                 future -> {
                     if (!future.isSuccess()) {
