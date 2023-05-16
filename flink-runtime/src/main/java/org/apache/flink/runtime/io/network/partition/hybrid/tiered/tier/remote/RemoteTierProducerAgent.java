@@ -42,7 +42,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     private final RemoteCacheManager cacheDataManager;
 
     // TODO, Make this configurable.
-    private int numBytesInASegment = 4 * 1024 * 1024; // 4 M
+    private int numBytesInASegment = 4; // 4 M
 
     private final int[] subpartitionLastestSegmentId;
 

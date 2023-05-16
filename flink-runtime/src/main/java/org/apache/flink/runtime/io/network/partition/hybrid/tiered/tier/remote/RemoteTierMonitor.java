@@ -105,6 +105,7 @@ public class RemoteTierMonitor implements Runnable {
 
     @Override
     public void run() {
+        LOG.info("Monitoring..." + Arrays.toString(scanningSegmentIds));
         for (int channelIndex = 0; channelIndex < numInputChannels; channelIndex++) {
             boolean isEnqueue = false;
             synchronized (lock) {

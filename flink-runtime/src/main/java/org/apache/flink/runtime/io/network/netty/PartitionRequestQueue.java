@@ -25,7 +25,6 @@ import org.apache.flink.runtime.io.network.netty.NettyMessage.ErrorResponse;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannelID;
-import org.apache.flink.util.ExceptionUtils;
 
 import org.apache.flink.shaded.netty4.io.netty.channel.Channel;
 import org.apache.flink.shaded.netty4.io.netty.channel.ChannelFuture;
@@ -180,7 +179,7 @@ class PartitionRequestQueue extends ChannelInboundHandlerAdapter {
             operation.accept(obtainReader(receiverId));
         } catch (IllegalStateException e) {
             LOG.error("The reader is not exists when notify required segment id.");
-            ExceptionUtils.rethrow(e);
+            //ExceptionUtils.rethrow(e);
         }
     }
 
