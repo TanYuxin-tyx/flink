@@ -104,6 +104,7 @@ public class ProducerMergePartitionFileReader
     @Override
     public synchronized void run() {
         int numBuffersRead = readBuffersFromFile();
+        isRunning = false;
         if (numBuffersRead == 0) {
             ioExecutor.schedule(this::triggerReaderRunning, 5, TimeUnit.MILLISECONDS);
         } else {
@@ -253,10 +254,12 @@ public class ProducerMergePartitionFileReader
 
     private void triggerReaderRunning() {
         synchronized (lock) {
-            if (!allSubpartitionReaders.isEmpty()
+            if (!isRunning
+                    && !allSubpartitionReaders.isEmpty()
                     && numRequestedBuffers + bufferPool.getNumBuffersPerRequest()
                             <= maxRequestedBuffers
                     && numRequestedBuffers < bufferPool.getAverageBuffersPerRequester()) {
+                isRunning = true;
                 ioExecutor.execute(
                         () -> {
                             try {
