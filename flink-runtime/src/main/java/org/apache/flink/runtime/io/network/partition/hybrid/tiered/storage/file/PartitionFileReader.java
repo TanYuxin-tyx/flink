@@ -12,13 +12,21 @@ import java.io.IOException;
  */
 public interface PartitionFileReader {
 
-    int read();
-
+    /**
+     * Register to netty service and provide buffer to transfer to down stream.
+     *
+     * @param subpartitionId the id of subpartition.
+     * @param nettyServiceViewId the id of netty service view.
+     * @param availabilityListener the availability listener of the reader.
+     * @return the view of netty service
+     * @throws IOException if the reader cannot register to netty service.
+     */
     NettyServiceView registerNettyService(
             int subpartitionId,
             NettyServiceViewId nettyServiceViewId,
             BufferAvailabilityListener availabilityListener)
             throws IOException;
 
+    /** Release the reader. */
     void release();
 }

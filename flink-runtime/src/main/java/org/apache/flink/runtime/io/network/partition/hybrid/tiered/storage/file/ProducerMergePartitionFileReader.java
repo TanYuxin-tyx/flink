@@ -101,19 +101,60 @@ public class ProducerMergePartitionFileReader
         this.nettyService = nettyService;
     }
 
-    /** Setup read buffer pool. */
-    public void setup() {
-        bufferPool.initialize();
-    }
-
     @Override
     public synchronized void run() {
-        int numBuffersRead = read();
-        endCurrentRoundOfReading(numBuffersRead);
+        int numBuffersRead = readBuffersFromFile();
+        if (numBuffersRead == 0) {
+            ioExecutor.schedule(this::triggerReaderRunning, 5, TimeUnit.MILLISECONDS);
+        } else {
+            triggerReaderRunning();
+        }
     }
 
     @Override
-    public int read() {
+    public NettyServiceView registerNettyService(
+            int subpartitionId,
+            NettyServiceViewId nettyServiceViewId,
+            BufferAvailabilityListener availabilityListener)
+            throws IOException {
+        synchronized (lock) {
+            checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
+            lazyInitialize();
+            ProducerMergePartitionSubpartitionReader subpartitionReader =
+                    new ProducerMergePartitionSubpartitionReaderImpl(
+                            subpartitionId,
+                            maxBufferReadAhead,
+                            headerBuf,
+                            nettyServiceViewId,
+                            dataFileChannel,
+                            dataIndex,
+                            nettyService,
+                            this::removeSubpartitionReader);
+            NettyServiceView nettyServiceView =
+                    subpartitionReader.registerNettyService(availabilityListener);
+            allSubpartitionReaders.add(subpartitionReader);
+            triggerReaderRunning();
+            return nettyServiceView;
+        }
+    }
+
+    @Override
+    public void release() {
+        synchronized (lock) {
+            if (isReleased) {
+                return;
+            }
+            isReleased = true;
+            allSubpartitionReaders.clear();
+        }
+        IOUtils.deleteFileQuietly(dataFilePath);
+    }
+
+    // ------------------------------------------------------------------------
+    //  Internal Methods
+    // ------------------------------------------------------------------------
+
+    public int readBuffersFromFile() {
         List<ProducerMergePartitionSubpartitionReader> availableReaders = sortAvailableReaders();
         if (availableReaders.isEmpty()) {
             return 0;
@@ -135,65 +176,11 @@ public class ProducerMergePartitionFileReader
 
         readData(availableReaders, buffers);
         int numBuffersRead = numBuffersAllocated - buffers.size();
-
         releaseBuffers(buffers);
-
-        return numBuffersRead;
-    }
-
-    @Override
-    public NettyServiceView registerNettyService(
-            int subpartitionId,
-            NettyServiceViewId nettyServiceViewId,
-            BufferAvailabilityListener availabilityListener)
-            throws IOException {
-        synchronized (lock) {
-            checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
-            lazyInitialize();
-            ProducerMergePartitionSubpartitionReader subpartitionReader =
-                    new ProducerMergePartitionSubpartitionReaderImpl(
-                            subpartitionId,
-                            maxBufferReadAhead,
-                            headerBuf,
-                            nettyServiceViewId,
-                            dataFileChannel,
-                            dataIndex,
-                            nettyService,
-                            this::removeSubpartitionReaders);
-            NettyServiceView nettyServiceView =
-                    subpartitionReader.registerNettyService(availabilityListener);
-            allSubpartitionReaders.add(subpartitionReader);
-            mayTriggerReading();
-            return nettyServiceView;
-        }
-    }
-
-    @Override
-    public void release() {
-        synchronized (lock) {
-            if (isReleased) {
-                return;
-            }
-            isReleased = true;
-            allSubpartitionReaders.clear();
-        }
-        IOUtils.deleteFileQuietly(dataFilePath);
-    }
-
-    // ------------------------------------------------------------------------
-    //  Internal Methods
-    // ------------------------------------------------------------------------
-
-    private void endCurrentRoundOfReading(int numBuffersRead) {
         synchronized (lock) {
             numRequestedBuffers += numBuffersRead;
-            isRunning = false;
         }
-        if (numBuffersRead == 0) {
-            ioExecutor.schedule(this::mayTriggerReading, 5, TimeUnit.MILLISECONDS);
-        } else {
-            mayTriggerReading();
-        }
+        return numBuffersRead;
     }
 
     private List<ProducerMergePartitionSubpartitionReader> sortAvailableReaders() {
@@ -226,10 +213,11 @@ public class ProducerMergePartitionFileReader
     }
 
     private void failSubpartitionReaders(
-            Collection<ProducerMergePartitionSubpartitionReader> readers, Throwable failureCause) {
-        for (ProducerMergePartitionSubpartitionReader reader : readers) {
-            removeSubpartitionReaders(reader);
-            reader.fail(failureCause);
+            Collection<ProducerMergePartitionSubpartitionReader> subpartitionReaders,
+            Throwable failureCause) {
+        for (ProducerMergePartitionSubpartitionReader subpartitionReader : subpartitionReaders) {
+            removeSubpartitionReader(subpartitionReader);
+            subpartitionReader.fail(failureCause);
         }
     }
 
@@ -263,14 +251,12 @@ public class ProducerMergePartitionFileReader
         }
     }
 
-    private void mayTriggerReading() {
+    private void triggerReaderRunning() {
         synchronized (lock) {
-            if (!isRunning
-                    && !allSubpartitionReaders.isEmpty()
+            if (!allSubpartitionReaders.isEmpty()
                     && numRequestedBuffers + bufferPool.getNumBuffersPerRequest()
                             <= maxRequestedBuffers
                     && numRequestedBuffers < bufferPool.getAverageBuffersPerRequester()) {
-                isRunning = true;
                 ioExecutor.execute(
                         () -> {
                             try {
@@ -308,9 +294,10 @@ public class ProducerMergePartitionFileReader
         }
     }
 
-    public void removeSubpartitionReaders(ProducerMergePartitionSubpartitionReader reader) {
+    public void removeSubpartitionReader(
+            ProducerMergePartitionSubpartitionReader subpartitionReader) {
         synchronized (lock) {
-            allSubpartitionReaders.remove(reader);
+            allSubpartitionReaders.remove(subpartitionReader);
             if (allSubpartitionReaders.isEmpty()) {
                 bufferPool.unregisterRequester(this);
                 closeFileChannel();
@@ -341,7 +328,7 @@ public class ProducerMergePartitionFileReader
             bufferPool.recycle(segment);
             --numRequestedBuffers;
 
-            mayTriggerReading();
+            triggerReaderRunning();
         }
     }
 }
