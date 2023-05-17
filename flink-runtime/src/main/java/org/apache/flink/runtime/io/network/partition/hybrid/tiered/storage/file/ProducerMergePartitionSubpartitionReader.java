@@ -2,6 +2,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 
 import java.io.IOException;
@@ -22,7 +23,7 @@ public interface ProducerMergePartitionSubpartitionReader extends Comparable<Pro
     void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler) throws IOException;
 
 
-    void setNettyServiceView(NettyServiceView nettyServiceView);
+    NettyServiceView registerNettyService(BufferAvailabilityListener availabilityListener);
 
     /**
      * Fail the subpartition reader with the throwable.

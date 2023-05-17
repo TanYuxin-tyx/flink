@@ -22,10 +22,12 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 
 import java.io.IOException;
@@ -34,6 +36,8 @@ import java.nio.channels.FileChannel;
 import java.util.Deque;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.positionToNextBuffer;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
@@ -50,7 +54,7 @@ public class ProducerMergePartitionSubpartitionReaderImpl
 
     private final FileChannel dataFileChannel;
 
-    private  NettyServiceView nettyServiceView;
+    private NettyServiceView nettyServiceView;
 
     private final RegionCache regionCache;
 
@@ -62,31 +66,40 @@ public class ProducerMergePartitionSubpartitionReaderImpl
 
     private final int maxBufferReadAhead;
 
+    private final NettyService nettyService;
+
     private int nextToLoad = 0;
+
+    private final Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser;
 
     private volatile boolean isFailed;
 
     public ProducerMergePartitionSubpartitionReaderImpl(
             int subpartitionId,
             int maxBufferReadAhead,
-            Deque<BufferContext> loadedBuffers,
             ByteBuffer headerBuf,
             NettyServiceViewId nettyServiceViewId,
             FileChannel dataFileChannel,
-            RegionBufferIndexTracker dataIndex) {
+            RegionBufferIndexTracker dataIndex,
+            NettyService nettyService,
+            Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser) {
         this.subpartitionId = subpartitionId;
         this.nettyServiceViewId = nettyServiceViewId;
         this.dataFileChannel = dataFileChannel;
-        this.loadedBuffers = loadedBuffers;
+        this.loadedBuffers = new LinkedBlockingDeque<>();
         this.headerBuf = headerBuf;
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.dataIndex = dataIndex;
+        this.nettyService = nettyService;
+        this.readerReleaser = readerReleaser;
         this.regionCache = new RegionCache();
     }
 
     @Override
-    public void setNettyServiceView(NettyServiceView nettyServiceView) {
-        this.nettyServiceView = nettyServiceView;
+    public NettyServiceView registerNettyService(BufferAvailabilityListener availabilityListener) {
+        nettyServiceView = nettyService.register(
+                loadedBuffers, availabilityListener, () -> readerReleaser.accept(this));
+        return nettyServiceView;
     }
 
     public synchronized void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
@@ -175,7 +188,6 @@ public class ProducerMergePartitionSubpartitionReaderImpl
         }
         regionCache.skipAll(dataFileChannel.position());
     }
-
 
     private class RegionCache {
 

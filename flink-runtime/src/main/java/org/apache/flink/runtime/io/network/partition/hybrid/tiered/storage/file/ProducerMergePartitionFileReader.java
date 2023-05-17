@@ -9,7 +9,6 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
@@ -29,12 +28,10 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -153,22 +150,22 @@ public class ProducerMergePartitionFileReader
         synchronized (lock) {
             checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
             lazyInitialize();
-            Deque<BufferContext> bufferQueue = new LinkedBlockingDeque<>();
             ProducerMergePartitionSubpartitionReader subpartitionReader =
                     new ProducerMergePartitionSubpartitionReaderImpl(
                             subpartitionId,
                             maxBufferReadAhead,
-                            bufferQueue,
                             headerBuf,
                             nettyServiceViewId,
                             dataFileChannel,
-                            dataIndex);
-            NettyServiceView nettyServiceView = nettyService.register(bufferQueue, availabilityListener, () -> {
-                synchronized (lock) {
-                    removeSubpartitionReaders(Collections.singleton(subpartitionReader));
-                }
-            });
-            subpartitionReader.setNettyServiceView(nettyServiceView);
+                            dataIndex,
+                            nettyService,
+                            (ProducerMergePartitionSubpartitionReader reader) -> {
+                                synchronized (lock) {
+                                    removeSubpartitionReaders(reader);
+                                }
+                            });
+            NettyServiceView nettyServiceView =
+                    subpartitionReader.registerNettyService(availabilityListener);
             allSubpartitionReaders.add(subpartitionReader);
             mayTriggerReading();
             return nettyServiceView;
@@ -235,7 +232,9 @@ public class ProducerMergePartitionFileReader
     private void failSubpartitionReaders(
             Collection<ProducerMergePartitionSubpartitionReader> readers, Throwable failureCause) {
         synchronized (lock) {
-            removeSubpartitionReaders(readers);
+            for (ProducerMergePartitionSubpartitionReader reader : readers) {
+                removeSubpartitionReaders(reader);
+            }
         }
         for (ProducerMergePartitionSubpartitionReader reader : readers) {
             reader.fail(failureCause);
@@ -318,9 +317,8 @@ public class ProducerMergePartitionFileReader
     }
 
     @GuardedBy("lock")
-    private void removeSubpartitionReaders(
-            Collection<ProducerMergePartitionSubpartitionReader> readers) {
-        allSubpartitionReaders.removeAll(readers);
+    public void removeSubpartitionReaders(ProducerMergePartitionSubpartitionReader reader) {
+        allSubpartitionReaders.remove(reader);
         if (allSubpartitionReaders.isEmpty()) {
             bufferPool.unregisterRequester(this);
             closeFileChannel();
