@@ -159,11 +159,7 @@ public class ProducerMergePartitionFileReader
                             dataFileChannel,
                             dataIndex,
                             nettyService,
-                            (ProducerMergePartitionSubpartitionReader reader) -> {
-                                synchronized (lock) {
-                                    removeSubpartitionReaders(reader);
-                                }
-                            });
+                            this::removeSubpartitionReaders);
             NettyServiceView nettyServiceView =
                     subpartitionReader.registerNettyService(availabilityListener);
             allSubpartitionReaders.add(subpartitionReader);
@@ -231,12 +227,8 @@ public class ProducerMergePartitionFileReader
 
     private void failSubpartitionReaders(
             Collection<ProducerMergePartitionSubpartitionReader> readers, Throwable failureCause) {
-        synchronized (lock) {
-            for (ProducerMergePartitionSubpartitionReader reader : readers) {
-                removeSubpartitionReaders(reader);
-            }
-        }
         for (ProducerMergePartitionSubpartitionReader reader : readers) {
+            removeSubpartitionReaders(reader);
             reader.fail(failureCause);
         }
     }
@@ -316,12 +308,13 @@ public class ProducerMergePartitionFileReader
         }
     }
 
-    @GuardedBy("lock")
     public void removeSubpartitionReaders(ProducerMergePartitionSubpartitionReader reader) {
-        allSubpartitionReaders.remove(reader);
-        if (allSubpartitionReaders.isEmpty()) {
-            bufferPool.unregisterRequester(this);
-            closeFileChannel();
+        synchronized (lock) {
+            allSubpartitionReaders.remove(reader);
+            if (allSubpartitionReaders.isEmpty()) {
+                bufferPool.unregisterRequester(this);
+                closeFileChannel();
+            }
         }
     }
 
