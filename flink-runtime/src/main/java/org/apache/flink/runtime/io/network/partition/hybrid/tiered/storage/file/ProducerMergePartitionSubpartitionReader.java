@@ -102,7 +102,7 @@ public class ProducerMergePartitionSubpartitionReader
         return nettyServiceView;
     }
 
-    public synchronized void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
+    public void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
             throws IOException {
         if (isFailed) {
             throw new IOException(
