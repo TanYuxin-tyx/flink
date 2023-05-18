@@ -20,7 +20,9 @@
 //import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TierConfSpec;
 //import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 //import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
+//import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 //import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.LocalTierConsumerAgent;
+//import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory.MemoryTierConsumerAgent;
 //import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierConsumerAgent;
 //import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierMonitor;
 //
@@ -36,15 +38,14 @@
 //import java.util.Collections;
 //import java.util.Optional;
 //
-//import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.ADD_SEGMENT_ID_EVENT;
 //import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.DATA_BUFFER;
 //import static org.apache.flink.runtime.io.network.partition.InputChannelTestUtils.createSingleInputGate;
 //import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.createBaseSubpartitionPath;
 //import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.writeSegmentFinishFile;
 //import static org.assertj.core.api.Assertions.assertThat;
 //
-///** The test for {@link LocalTierConsumerAgent}. */
-//public class ConsumerAgentTest {
+///** The test for {@link TierConsumerAgent}. */
+//public class TierConsumerAgentTest {
 //
 //    private static final int SEGMENT_ID = 0;
 //
@@ -74,7 +75,10 @@
 //
 //    @Test
 //    void testLocalTierConsumerAgent() throws IOException, InterruptedException {
-//        LocalTierConsumerAgent localConsumerAgent = new LocalTierConsumerAgent();
+//        MemoryTierConsumerAgent localConsumerAgent = new MemoryTierConsumerAgent();
+//    }
+//
+//    private void testMemoryOrDiskTierConsumerAgent() {
 //        final SingleInputGate inputGate = createSingleInputGate(2);
 //        InputChannel inputChannel1 =
 //                new InputChannelBuilder().setChannelIndex(0).buildRemoteRecoveredChannel(inputGate);

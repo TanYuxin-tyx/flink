@@ -44,6 +44,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /** Tests for {@link NettyServiceView}. */
 class NettyServiceViewTest {
 
+    private static final String EXCEPTION_MESSAGE = "Excepted exception";
+
     private static final int SUBPARTITION_ID = 0;
 
     private static final int DEFAULT_BUFFER_SIZE = 0;
@@ -66,13 +68,13 @@ class NettyServiceViewTest {
     @Test
     void testGetNextBufferThrowException() {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
-        Throwable expectedException = new IOException("Excepted Exception");
+        Throwable expectedException = new IOException(EXCEPTION_MESSAGE);
         NettyServiceView nettyServiceView =
                 nettyServiceViewBuilder
                         .setBufferQueue(createBufferQueueWithExpectedException(expectedException))
                         .build();
         assertThatThrownBy(nettyServiceView::getNextBuffer)
-                .hasStackTraceContaining("Excepted Exception");
+                .hasStackTraceContaining(EXCEPTION_MESSAGE);
     }
 
     @Test
