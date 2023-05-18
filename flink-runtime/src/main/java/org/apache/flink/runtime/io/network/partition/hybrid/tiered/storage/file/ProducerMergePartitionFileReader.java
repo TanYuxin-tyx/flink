@@ -122,7 +122,7 @@ public class ProducerMergePartitionFileReader
             checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
             lazyInitialize();
             ProducerMergePartitionSubpartitionReader subpartitionReader =
-                    new ProducerMergePartitionSubpartitionReaderImpl(
+                    new ProducerMergePartitionSubpartitionReader(
                             subpartitionId,
                             maxBufferReadAhead,
                             headerBuf,
