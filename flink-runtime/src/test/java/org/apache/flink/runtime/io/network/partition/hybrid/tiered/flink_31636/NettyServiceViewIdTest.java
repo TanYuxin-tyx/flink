@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /** Tests for {@link NettyServiceViewId}. */
-class NettyBasedTierConsumerViewIdTest {
+class NettyServiceViewIdTest {
 
     @Test
     void testNewIdFromNull() {

@@ -97,7 +97,7 @@ public class NettyServiceViewImpl implements NettyServiceView {
     }
 
     @Override
-    public void release() throws IOException {
+    public void release() {
         if (isReleased) {
             return;
         }

@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView.AvailabilityWithBacklog;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -57,10 +56,6 @@ public interface NettyServiceView {
     /** Notify that the view is available. */
     void notifyDataAvailable();
 
-    /**
-     * Release the {@link NettyServiceView}.
-     *
-     * @throws IOException happened during releasing the view.
-     */
-    void release() throws IOException;
+    /** Release the {@link NettyServiceView}. */
+    void release();
 }
