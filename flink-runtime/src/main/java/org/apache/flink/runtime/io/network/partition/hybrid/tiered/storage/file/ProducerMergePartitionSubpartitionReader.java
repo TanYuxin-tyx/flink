@@ -48,13 +48,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class ProducerMergePartitionSubpartitionReader
         implements Comparable<ProducerMergePartitionSubpartitionReader> {
 
-    private final ByteBuffer headerBuf;
-
     private final NettyServiceViewId nettyServiceViewId;
 
-    private final FileChannel dataFileChannel;
+    private final ByteBuffer reusedHeaderBuffer;
 
-    private NettyServiceView nettyServiceView;
+    private final FileChannel dataFileChannel;
 
     private final RegionCache regionCache;
 
@@ -66,28 +64,30 @@ public class ProducerMergePartitionSubpartitionReader
 
     private final int maxBufferReadAhead;
 
+    private final Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser;
+
     private final NettyService nettyService;
+
+    private NettyServiceView nettyServiceView;
 
     private int nextToLoad = 0;
 
-    private final Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser;
-
-    private volatile boolean isFailed;
+    private boolean isFailed;
 
     public ProducerMergePartitionSubpartitionReader(
             int subpartitionId,
             int maxBufferReadAhead,
-            ByteBuffer headerBuf,
-            NettyServiceViewId nettyServiceViewId,
+            ByteBuffer reusedHeaderBuffer,
             FileChannel dataFileChannel,
             RegionBufferIndexTracker dataIndex,
-            NettyService nettyService,
-            Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser) {
+            Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser,
+            NettyServiceViewId nettyServiceViewId,
+            NettyService nettyService) {
         this.subpartitionId = subpartitionId;
         this.nettyServiceViewId = nettyServiceViewId;
         this.dataFileChannel = dataFileChannel;
         this.loadedBuffers = new LinkedBlockingDeque<>();
-        this.headerBuf = headerBuf;
+        this.reusedHeaderBuffer = reusedHeaderBuffer;
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.dataIndex = dataIndex;
         this.nettyService = nettyService;
@@ -106,7 +106,7 @@ public class ProducerMergePartitionSubpartitionReader
             throws IOException {
         if (isFailed) {
             throw new IOException(
-                    "The disk reader of subpartition "
+                    "The disk tier file reader of subpartition "
                             + subpartitionId
                             + " has already been failed.");
         }
@@ -128,7 +128,9 @@ public class ProducerMergePartitionSubpartitionReader
             MemorySegment segment = buffers.poll();
             Buffer buffer;
             try {
-                if ((buffer = readFromByteChannel(dataFileChannel, headerBuf, segment, recycler))
+                if ((buffer =
+                                readFromByteChannel(
+                                        dataFileChannel, reusedHeaderBuffer, segment, recycler))
                         == null) {
                     buffers.add(segment);
                     break;
@@ -183,7 +185,7 @@ public class ProducerMergePartitionSubpartitionReader
         Tuple2<Integer, Long> indexAndOffset = regionCache.getNumSkipAndFileOffset();
         dataFileChannel.position(indexAndOffset.f1);
         for (int i = 0; i < indexAndOffset.f0; ++i) {
-            positionToNextBuffer(dataFileChannel, headerBuf);
+            positionToNextBuffer(dataFileChannel, reusedHeaderBuffer);
         }
         regionCache.skipAll(dataFileChannel.position());
     }

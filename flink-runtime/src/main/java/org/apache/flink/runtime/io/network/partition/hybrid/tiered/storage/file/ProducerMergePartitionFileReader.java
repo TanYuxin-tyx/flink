@@ -126,11 +126,11 @@ public class ProducerMergePartitionFileReader
                             subpartitionId,
                             maxBufferReadAhead,
                             headerBuf,
-                            nettyServiceViewId,
                             dataFileChannel,
                             dataIndex,
-                            nettyService,
-                            this::removeSubpartitionReader);
+                            this::removeSubpartitionReader,
+                            nettyServiceViewId,
+                            nettyService);
             NettyServiceView nettyServiceView =
                     subpartitionReader.registerNettyService(availabilityListener);
             allSubpartitionReaders.add(subpartitionReader);
