@@ -191,7 +191,7 @@ public class ProducerMergePartitionFileReader
             }
             List<ProducerMergePartitionSubpartitionReader> availableReaders =
                     new ArrayList<>(allSubpartitionReaders);
-            Collections.sort(availableReaders);
+            //Collections.sort(availableReaders);
             return availableReaders;
         }
     }
