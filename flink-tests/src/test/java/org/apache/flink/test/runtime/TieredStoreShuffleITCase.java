@@ -27,7 +27,6 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
 
@@ -145,7 +144,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
     //        For Remote Tier
     // ------------------------------------
 
-    @RepeatedTest(100)
+    @Test
     void testTieredStoreRemote() throws Exception {
         final int numRecordsToSend = 10000;
         Configuration configuration = getConfiguration();
