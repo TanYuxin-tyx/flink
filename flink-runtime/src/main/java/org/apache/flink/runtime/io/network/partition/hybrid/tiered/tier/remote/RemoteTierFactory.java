@@ -85,14 +85,14 @@ public class RemoteTierFactory implements TierFactory {
             ExceptionUtils.rethrow(e, "Failed to create TieredStorageMemoryManger.");
         }
         RemoteTierMonitor remoteTierMonitor =
-                new RemoteTierMonitor(
+                RemoteTierMonitor.Factory.createRemoteTierMonitor(
+                        numSubpartitions,
+                        subpartitionIds,
                         jobID,
                         resultPartitionIDs,
                         baseRemoteStoragePath,
-                        subpartitionIds,
-                        numSubpartitions,
-                        isUpstreamBroadcastOnly,
-                        consumerNettyService);
+                        consumerNettyService,
+                        isUpstreamBroadcastOnly);
         return new RemoteTierConsumerAgent(
                 numSubpartitions, storageMemoryManager, remoteTierMonitor, consumerNettyService);
     }

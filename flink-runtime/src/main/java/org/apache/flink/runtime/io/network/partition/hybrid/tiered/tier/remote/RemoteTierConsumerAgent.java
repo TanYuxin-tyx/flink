@@ -58,14 +58,14 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     @Override
     public Optional<Buffer> getNextBuffer(int subpartitionId, int segmentId) {
         if (segmentId != requiredSegmentIds[subpartitionId]) {
-            remoteTierMonitor.requireSegmentId(subpartitionId, segmentId);
+            remoteTierMonitor.updateRequiredSegmentId(subpartitionId, segmentId);
             requiredSegmentIds[subpartitionId] = segmentId;
         }
         if (!remoteTierMonitor.isExist(subpartitionId, segmentId)) {
             return Optional.empty();
         }
         InputStream currentInputStream =
-                remoteTierMonitor.getInputStream(subpartitionId, segmentId);
+                remoteTierMonitor.getSegmentFileInputStream(subpartitionId, segmentId);
         try {
             if (currentInputStream.available() == 0) {
                 currentInputStream.close();
