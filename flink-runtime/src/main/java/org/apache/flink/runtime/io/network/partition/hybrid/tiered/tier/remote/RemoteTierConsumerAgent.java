@@ -69,11 +69,12 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         try {
             if (currentInputStream.available() == 0) {
                 currentInputStream.close();
-                return Optional.of(new NetworkBuffer(
-                        MemorySegmentFactory.allocateUnpooledSegment(0),
-                        FreeingBufferRecycler.INSTANCE,
-                        Buffer.DataType.END_OF_SEGMENT,
-                        0));
+                return Optional.of(
+                        new NetworkBuffer(
+                                MemorySegmentFactory.allocateUnpooledSegment(0),
+                                FreeingBufferRecycler.INSTANCE,
+                                Buffer.DataType.END_OF_SEGMENT,
+                                0));
             } else {
                 consumerNettyService.notifyResultSubpartitionAvailable(subpartitionId, false);
                 return Optional.of(readBuffer(currentInputStream));
@@ -107,7 +108,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         }
         Buffer.DataType dataType = header.getDataType();
         if (dataType.isBuffer()) {
-            BufferBuilder builder = storageMemoryManager.requestBufferBlocking();
+            BufferBuilder builder = storageMemoryManager.requestBufferBlocking(this);
             BufferConsumer bufferConsumer = builder.createBufferConsumer();
             Buffer buffer = bufferConsumer.build();
             MemorySegment memorySegment = buffer.getMemorySegment();

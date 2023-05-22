@@ -85,7 +85,7 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
 
     @Override
     public BufferBuilder requestBufferBlocking() {
-        return storageMemoryManager.requestBufferBlocking();
+        return storageMemoryManager.requestBufferBlocking(this);
     }
 
     private SubpartitionHashBufferAccumulator getSubpartitionHashAccumulator(

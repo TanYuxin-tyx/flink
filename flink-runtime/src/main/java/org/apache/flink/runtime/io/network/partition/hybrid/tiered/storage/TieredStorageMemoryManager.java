@@ -67,9 +67,10 @@ public interface TieredStorageMemoryManager {
     /**
      * Request a {@link BufferBuilder} instance from {@link LocalBufferPool} for a specific owner.
      *
+     * @param owner the owner to request buffer
      * @return the requested buffer
      */
-    BufferBuilder requestBufferBlocking();
+    BufferBuilder requestBufferBlocking(Object owner);
 
     /**
      * Return the number of the non-reclaimable buffers for the owner.
@@ -79,6 +80,14 @@ public interface TieredStorageMemoryManager {
      * owner, etc. So the caller should always check before requesting non-reclaimable buffers.
      */
     int getMaxNonReclaimableBuffers(Object owner);
+
+    /**
+     * Return the number of requested buffers belonging to a specific owner.
+     *
+     * @param owner the owner of requesting buffers
+     * @return the number of requested buffers belonging to the owner.
+     */
+    int numOwnerRequestedBuffer(Object owner);
 
     /**
      * Release all the resources(if exists) and check the state of the {@link

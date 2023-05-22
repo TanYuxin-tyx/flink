@@ -138,7 +138,9 @@ public class MemoryTierProducerAgent
     @Override
     public boolean canStoreNextSegment(int consumerId) {
         return isConsumerRegistered(consumerId)
-                && storageMemoryManager.getMaxNonReclaimableBuffers(this) > bufferNumberInSegment;
+                && (storageMemoryManager.getMaxNonReclaimableBuffers(this)
+                                - storageMemoryManager.numOwnerRequestedBuffer(this))
+                        > bufferNumberInSegment;
     }
 
     @Override
