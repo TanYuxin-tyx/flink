@@ -49,8 +49,9 @@ import static org.apache.flink.util.Preconditions.checkState;
  * from {@link LocalBufferPool} for different memory owners, for example, the tiers, the buffer
  * accumulator, etc.
  *
- * <p>Note that the memory owner should register its {@link TieredStorageMemorySpec} firstly before
- * requesting buffers.
+ * <p>Note that the {@link TieredStorageMemorySpec}s of the tiered storages should be ready when
+ * setting up the memory manager. Only after the setup process is finished, the tiered storage can
+ * request buffers from this manager.
  */
 public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManager {
 
@@ -79,7 +80,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     private final AtomicInteger numRequestedBuffers;
 
     /**
-     * The number of requested buffers from {@link BufferPool} for each memory owners. This field
+     * The number of requested buffers from {@link BufferPool} for each memory owner. This field
      * should be thread-safe because it can be touched both by the task thread and the netty thread.
      */
     private final Map<Object, AtomicInteger> numOwnerRequestedBuffers;

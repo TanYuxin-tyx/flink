@@ -67,9 +67,9 @@ public interface TieredStorageMemoryManager {
     /**
      * Request a {@link BufferBuilder} instance from {@link BufferPool} for a specific owner. The
      * {@link TieredStorageMemoryManagerImpl} will not check whether a buffer can be requested. The
-     * manager only record the number of requested buffers. If the buffers in the {@link BufferPool}
-     * is not enough, the manager will request each tiered storage to reclaim their requested
-     * buffers as much as possible.
+     * manager only records the number of requested buffers. If the buffers in the {@link
+     * BufferPool} is not enough, the manager will request each tiered storage to reclaim their
+     * requested buffers as much as possible.
      *
      * <p>This is not thread safe and is expected to be called only from the task thread.
      *
