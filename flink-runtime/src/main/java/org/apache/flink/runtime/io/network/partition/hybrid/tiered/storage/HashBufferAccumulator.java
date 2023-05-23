@@ -51,7 +51,7 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
     @Override
     public void setup(
             int numSubpartitions,
-            BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher) {
+            BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher) {
         this.subpartitionHashBufferAccumulators =
                 new SubpartitionHashBufferAccumulator[numSubpartitions];
 
@@ -62,7 +62,7 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
         }
 
         for (int i = 0; i < numSubpartitions; i++) {
-            subpartitionHashBufferAccumulators[i].setup(bufferFlusher);
+            subpartitionHashBufferAccumulators[i].setup(accumulatedBufferFlusher);
         }
     }
 

@@ -52,9 +52,9 @@ public class SubpartitionHashBufferAccumulator {
 
     private final int bufferSize;
 
-    private final HashBufferAccumulatorOperation hashBufferAccumulatorOperation;
+    private final HashBufferAccumulatorOperation bufferAccumulatorOperation;
 
-    private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher;
+    private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher;
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
@@ -62,14 +62,15 @@ public class SubpartitionHashBufferAccumulator {
     public SubpartitionHashBufferAccumulator(
             TieredStorageSubpartitionId subpartitionId,
             int bufferSize,
-            HashBufferAccumulatorOperation hashBufferAccumulatorOperation) {
+            HashBufferAccumulatorOperation bufferAccumulatorOperation) {
         this.subpartitionId = subpartitionId;
         this.bufferSize = bufferSize;
-        this.hashBufferAccumulatorOperation = hashBufferAccumulatorOperation;
+        this.bufferAccumulatorOperation = bufferAccumulatorOperation;
     }
 
-    public void setup(BiConsumer<TieredStorageSubpartitionId, List<Buffer>> bufferFlusher) {
-        this.bufferFlusher = bufferFlusher;
+    public void setup(
+            BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher) {
+        this.accumulatedBufferFlusher = accumulatedBufferFlusher;
     }
 
     // ------------------------------------------------------------------------
@@ -96,13 +97,12 @@ public class SubpartitionHashBufferAccumulator {
     private void writeEvent(ByteBuffer event, Buffer.DataType dataType) {
         checkArgument(dataType.isEvent());
 
-        // each Event must take an exclusive buffer
+        // Each event should take an exclusive buffer
         finishCurrentWritingBufferIfNotEmpty();
 
-        // store Events in adhoc heap segments, for network memory efficiency
+        // Store the events in the heap segments to improve network memory efficiency
         MemorySegment data = MemorySegmentFactory.wrap(event.array());
         flushFinishedBuffer(
-                // Note that the buffer recycler should be replaced before writing to the tiers.
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size()));
     }
 
@@ -125,7 +125,7 @@ public class SubpartitionHashBufferAccumulator {
                         .orElse(0);
 
         while (availableBytes < numRecordBytes) {
-            BufferBuilder bufferBuilder = hashBufferAccumulatorOperation.requestBufferBlocking();
+            BufferBuilder bufferBuilder = bufferAccumulatorOperation.requestBufferBlocking();
             unfinishedBuffers.add(bufferBuilder);
             availableBytes += bufferSize;
         }
@@ -133,9 +133,7 @@ public class SubpartitionHashBufferAccumulator {
 
     private void writeRecord(ByteBuffer record) {
         while (record.hasRemaining()) {
-            BufferBuilder currentWritingBuffer =
-                    checkNotNull(
-                            unfinishedBuffers.peek(), "Expect enough capacity for the record.");
+            BufferBuilder currentWritingBuffer = checkNotNull(unfinishedBuffers.peek());
             currentWritingBuffer.append(record);
             if (currentWritingBuffer.isFull()) {
                 finishCurrentWritingBuffer();
@@ -166,6 +164,6 @@ public class SubpartitionHashBufferAccumulator {
     }
 
     private void flushFinishedBuffer(Buffer finishedBuffer) {
-        bufferFlusher.accept(subpartitionId, Collections.singletonList(finishedBuffer));
+        accumulatedBufferFlusher.accept(subpartitionId, Collections.singletonList(finishedBuffer));
     }
 }
