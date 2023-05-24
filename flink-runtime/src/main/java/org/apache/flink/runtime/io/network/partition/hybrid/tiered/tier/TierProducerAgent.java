@@ -35,10 +35,7 @@ public interface TierProducerAgent {
 
     // forceUseCurrentTier is only for the tests
     boolean tryStartNewSegment(
-            TieredStorageSubpartitionId subpartitionId,
-            int segmentId,
-            boolean isBroadcastOnly,
-            boolean forceUseCurrentTier);
+            TieredStorageSubpartitionId subpartitionId, int segmentId, boolean forceUseCurrentTier);
 
     boolean write(int consumerId, Buffer finishedBuffer) throws IOException;
 

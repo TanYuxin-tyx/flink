@@ -136,7 +136,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
     public boolean tryStartNewSegment(
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            boolean isBroadcastOnly,
             boolean forceUseCurrentTier) {
         File filePath = dataFilePath.toFile();
         boolean canStartNewSegment =

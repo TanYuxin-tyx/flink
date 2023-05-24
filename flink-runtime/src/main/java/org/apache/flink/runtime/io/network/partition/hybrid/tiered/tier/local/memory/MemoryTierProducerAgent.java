@@ -140,7 +140,6 @@ public class MemoryTierProducerAgent
     public boolean tryStartNewSegment(
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            boolean isBroadcastOnly,
             boolean forceUseCurrentTier) {
         if (isBroadcastOnly && !forceUseCurrentTier) {
             return false;

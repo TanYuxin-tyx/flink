@@ -76,7 +76,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     public boolean tryStartNewSegment(
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            boolean isBroadcastOnly,
             boolean forceUseCurrentTier) {
         if (!segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentId)) {
             segmentIndexTracker.addSubpartitionSegmentIndex(subpartitionId, segmentId);
