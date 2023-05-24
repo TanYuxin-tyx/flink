@@ -31,8 +31,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * The implementation of {@link SubpartitionSegmentIdTracker}. Each {@link TierProducerAgent}'s data
- * manager has a separate {@link SubpartitionSegmentIdTrackerImpl}.
+ * The implementation of {@link SubpartitionSegmentIdTracker}. Each {@link TierProducerAgent} has a
+ * {@link SubpartitionSegmentIdTrackerImpl} to record the segments belong to the producer agent.
  */
 public class SubpartitionSegmentIdTrackerImpl implements SubpartitionSegmentIdTracker {
 
@@ -57,7 +57,7 @@ public class SubpartitionSegmentIdTrackerImpl implements SubpartitionSegmentIdTr
         this.isBroadCastOnly = isBroadcastOnly;
         int effectiveNumSubpartitions = isBroadcastOnly ? 1 : numSubpartitions;
         this.locks = new Lock[effectiveNumSubpartitions];
-        this.latestSegmentIds = new int[numSubpartitions];
+        this.latestSegmentIds = new int[effectiveNumSubpartitions];
         this.subpartitionSegmentIds = new HashMap<>();
 
         Arrays.fill(latestSegmentIds, -1);
