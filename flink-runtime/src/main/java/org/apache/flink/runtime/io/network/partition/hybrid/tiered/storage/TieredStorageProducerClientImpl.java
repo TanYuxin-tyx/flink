@@ -162,7 +162,7 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         if (tierProducerAgents.size() == 1) {
             if (tierProducerAgents
                     .get(0)
-                    .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, true)) {
+                    .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, false, true)) {
                 updateTierIndexForNextSegment(targetSubpartition, nextSegmentIndex, 0);
                 return;
             }
@@ -174,13 +174,18 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             if (!isBroadcastOnly
                     && tierProducerAgents
                             .get(0)
-                            .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, false)) {
+                            .tryStartNewSegment(
+                                    storageSubpartitionId,
+                                    nextSegmentIndex,
+                                    isBroadcastOnly,
+                                    false)) {
                 updateTierIndexForNextSegment(targetSubpartition, nextSegmentIndex, 0);
                 return;
             } else {
                 if (tierProducerAgents
                         .get(1)
-                        .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, false)) {
+                        .tryStartNewSegment(
+                                storageSubpartitionId, nextSegmentIndex, isBroadcastOnly, false)) {
                     updateTierIndexForNextSegment(targetSubpartition, nextSegmentIndex, 1);
                     return;
                 } else {
@@ -189,13 +194,10 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             }
         }
         for (int tierIndex = 0; tierIndex < tierProducerAgents.size(); ++tierIndex) {
-            TierProducerAgent tierProducerAgent = tierProducerAgents.get(tierIndex);
-            if (isBroadcastOnly && tierProducerAgent instanceof MemoryTierProducerAgent) {
-                continue;
-            }
             if (tierProducerAgents
                     .get(tierIndex)
-                    .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, false)) {
+                    .tryStartNewSegment(
+                            storageSubpartitionId, nextSegmentIndex, isBroadcastOnly, false)) {
                 updateTierIndexForNextSegment(targetSubpartition, nextSegmentIndex, tierIndex);
                 return;
             }

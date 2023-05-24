@@ -67,7 +67,6 @@ public class SubpartitionSegmentIndexTrackerImpl implements SubpartitionSegmentI
         }
     }
 
-    // Return true if this segment tracker did not already contain the specified segment index.
     @Override
     public void addSubpartitionSegmentIndex(
             TieredStorageSubpartitionId subpartitionId, int segmentIndex) {
