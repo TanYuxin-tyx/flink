@@ -28,8 +28,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettySe
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
@@ -80,7 +80,7 @@ public class MemoryTierProducerAgent
 
     private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
 
-    private final SubpartitionSegmentIndexTracker subpartitionSegmentIndexTracker;
+    private final SubpartitionSegmentIdTracker subpartitionSegmentIdTracker;
 
     public MemoryTierProducerAgent(
             int tierIndex,
@@ -100,8 +100,8 @@ public class MemoryTierProducerAgent
         Arrays.fill(numSubpartitionEmitBytes, 0);
         this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
         this.subpartitionMemoryDataManagers = new SubpartitionMemoryDataManager[numSubpartitions];
-        this.subpartitionSegmentIndexTracker =
-                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
+        this.subpartitionSegmentIdTracker =
+                new SubpartitionSegmentIdTrackerImpl(numSubpartitions, isBroadcastOnly);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionMemoryDataManagers[subpartitionId] =
                     new SubpartitionMemoryDataManager(
@@ -151,7 +151,7 @@ public class MemoryTierProducerAgent
                                         - storageMemoryManager.numOwnerRequestedBuffer(this))
                                 > bufferNumberInSegment;
         if (canStartNewSegment || forceUseCurrentTier) {
-            subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(subpartitionId, segmentId);
+            subpartitionSegmentIdTracker.addSubpartitionSegmentIndex(subpartitionId, segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;
     }
@@ -270,8 +270,8 @@ public class MemoryTierProducerAgent
         return subpartitionMemoryDataManagers[targetChannel];
     }
 
-    public SubpartitionSegmentIndexTracker getSegmentIndexTracker() {
-        return subpartitionSegmentIndexTracker;
+    public SubpartitionSegmentIdTracker getSegmentIndexTracker() {
+        return subpartitionSegmentIdTracker;
     }
 
     public SubpartitionMemoryDataManager[] getSubpartitionMemoryDataManagers() {

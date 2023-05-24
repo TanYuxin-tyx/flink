@@ -31,10 +31,10 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * The implementation of {@link SubpartitionSegmentIndexTracker}. Each {@link TierProducerAgent}'s
- * data manager has a separate {@link SubpartitionSegmentIndexTrackerImpl}.
+ * The implementation of {@link SubpartitionSegmentIdTracker}. Each {@link TierProducerAgent}'s data
+ * manager has a separate {@link SubpartitionSegmentIdTrackerImpl}.
  */
-public class SubpartitionSegmentIndexTrackerImpl implements SubpartitionSegmentIndexTracker {
+public class SubpartitionSegmentIdTrackerImpl implements SubpartitionSegmentIdTracker {
 
     /**
      * Each subpartition calculates the amount of data written to a tier separately. If the amount
@@ -42,7 +42,7 @@ public class SubpartitionSegmentIndexTrackerImpl implements SubpartitionSegmentI
      * different subpartitions may have duplicate segment indexes, this field needs to distinguish
      * between different subpartitions.
      */
-    private final Map<TieredStorageSubpartitionId, HashSet<Integer>> subpartitionSegmentIndexes;
+    private final Map<TieredStorageSubpartitionId, HashSet<Integer>> subpartitionSegmentIds;
 
     /** The locks for all subpartitions. */
     private final Lock[] locks;
@@ -51,55 +51,55 @@ public class SubpartitionSegmentIndexTrackerImpl implements SubpartitionSegmentI
     private final Boolean isBroadCastOnly;
 
     /** Record the latest segment index for each subpartition. */
-    private final int[] latestSegmentIndexes;
+    private final int[] latestSegmentIds;
 
-    public SubpartitionSegmentIndexTrackerImpl(int numSubpartitions, Boolean isBroadcastOnly) {
+    public SubpartitionSegmentIdTrackerImpl(int numSubpartitions, Boolean isBroadcastOnly) {
         this.isBroadCastOnly = isBroadcastOnly;
         int effectiveNumSubpartitions = isBroadcastOnly ? 1 : numSubpartitions;
         this.locks = new Lock[effectiveNumSubpartitions];
-        this.latestSegmentIndexes = new int[numSubpartitions];
-        this.subpartitionSegmentIndexes = new HashMap<>();
+        this.latestSegmentIds = new int[numSubpartitions];
+        this.subpartitionSegmentIds = new HashMap<>();
 
-        Arrays.fill(latestSegmentIndexes, -1);
+        Arrays.fill(latestSegmentIds, -1);
         for (int i = 0; i < effectiveNumSubpartitions; i++) {
             locks[i] = new ReentrantLock();
-            subpartitionSegmentIndexes.put(new TieredStorageSubpartitionId(i), new HashSet<>());
+            subpartitionSegmentIds.put(new TieredStorageSubpartitionId(i), new HashSet<>());
         }
     }
 
     @Override
     public void addSubpartitionSegmentIndex(
-            TieredStorageSubpartitionId subpartitionId, int segmentIndex) {
-        if (latestSegmentIndexes[subpartitionId.getSubpartitionId()] == segmentIndex) {
+            TieredStorageSubpartitionId subpartitionId, int segmentId) {
+        if (latestSegmentIds[subpartitionId.getSubpartitionId()] == segmentId) {
             return;
         }
-        latestSegmentIndexes[subpartitionId.getSubpartitionId()] = segmentIndex;
+        latestSegmentIds[subpartitionId.getSubpartitionId()] = segmentId;
         TieredStorageSubpartitionId effectiveSubpartitionId =
                 getEffectiveSubpartitionId(subpartitionId);
         callWithSubpartitionLock(
                 effectiveSubpartitionId.getSubpartitionId(),
-                () -> subpartitionSegmentIndexes.get(effectiveSubpartitionId).add(segmentIndex));
+                () -> subpartitionSegmentIds.get(effectiveSubpartitionId).add(segmentId));
     }
 
     @Override
-    public boolean hasCurrentSegment(TieredStorageSubpartitionId subpartitionId, int segmentIndex) {
+    public boolean hasCurrentSegment(TieredStorageSubpartitionId subpartitionId, int segmentId) {
         TieredStorageSubpartitionId effectiveSubpartitionId =
                 getEffectiveSubpartitionId(subpartitionId);
         return callWithSubpartitionLock(
                 effectiveSubpartitionId.getSubpartitionId(),
                 () -> {
                     Set<Integer> segmentIndexes =
-                            subpartitionSegmentIndexes.get(effectiveSubpartitionId);
+                            subpartitionSegmentIds.get(effectiveSubpartitionId);
                     if (segmentIndexes == null) {
                         return false;
                     }
-                    return segmentIndexes.contains(segmentIndex);
+                    return segmentIndexes.contains(segmentId);
                 });
     }
 
     @Override
     public void release() {
-        subpartitionSegmentIndexes.clear();
+        subpartitionSegmentIds.clear();
     }
 
     private TieredStorageSubpartitionId getEffectiveSubpartitionId(

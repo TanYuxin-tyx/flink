@@ -22,13 +22,13 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
 /**
- * {@link SubpartitionSegmentIndexTracker} is to track segment index for each subpartition. Each
- * {@link TierProducerAgent}'s data manager has a separate {@link SubpartitionSegmentIndexTracker}.
+ * {@link SubpartitionSegmentIdTracker} is to track segment index for each subpartition. Each {@link
+ * TierProducerAgent}'s data manager has a separate {@link SubpartitionSegmentIdTracker}.
  */
-public interface SubpartitionSegmentIndexTracker {
-    void addSubpartitionSegmentIndex(TieredStorageSubpartitionId subpartitionId, int segmentIndex);
+public interface SubpartitionSegmentIdTracker {
+    void addSubpartitionSegmentIndex(TieredStorageSubpartitionId subpartitionId, int segmentId);
 
-    boolean hasCurrentSegment(TieredStorageSubpartitionId subpartitionId, int segmentIndex);
+    boolean hasCurrentSegment(TieredStorageSubpartitionId subpartitionId, int segmentId);
 
     void release();
 }

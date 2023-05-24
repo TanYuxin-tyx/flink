@@ -22,8 +22,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
@@ -38,7 +38,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     // Record the byte number currently written to each sub partition.
     private final int[] numSubpartitionEmitBytes;
 
-    private final SubpartitionSegmentIndexTracker segmentIndexTracker;
+    private final SubpartitionSegmentIdTracker segmentIndexTracker;
 
     private final RemoteCacheManager cacheDataManager;
 
@@ -53,7 +53,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileManager partitionFileManager) {
         this.segmentIndexTracker =
-                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
+                new SubpartitionSegmentIdTrackerImpl(numSubpartitions, isBroadcastOnly);
         this.cacheDataManager =
                 new RemoteCacheManager(
                         isBroadcastOnly ? 1 : numSubpartitions,
@@ -125,7 +125,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
         return cacheDataManager;
     }
 
-    public SubpartitionSegmentIndexTracker getSegmentIndexTracker() {
+    public SubpartitionSegmentIdTracker getSegmentIndexTracker() {
         return segmentIndexTracker;
     }
 }

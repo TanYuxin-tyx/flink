@@ -30,8 +30,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettySe
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
@@ -73,7 +73,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
 
     private final int[] numSubpartitionEmitBytes;
 
-    private final SubpartitionSegmentIndexTracker segmentIndexTracker;
+    private final SubpartitionSegmentIdTracker segmentIndexTracker;
 
     private final DiskCacheManager diskCacheManager;
 
@@ -106,7 +106,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
 
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.segmentIndexTracker =
-                new SubpartitionSegmentIndexTrackerImpl(numSubpartitions, isBroadcastOnly);
+                new SubpartitionSegmentIdTrackerImpl(numSubpartitions, isBroadcastOnly);
         this.diskCacheManager =
                 new DiskCacheManager(
                         tierIndex,
@@ -215,7 +215,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
         return diskCacheManager;
     }
 
-    public SubpartitionSegmentIndexTracker getSegmentIndexTracker() {
+    public SubpartitionSegmentIdTracker getSegmentIndexTracker() {
         return segmentIndexTracker;
     }
 }
