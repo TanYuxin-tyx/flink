@@ -137,14 +137,6 @@ public class MemoryTierProducerAgent
     }
 
     @Override
-    public boolean canStoreNextSegment(int consumerId) {
-        return isConsumerRegistered(consumerId)
-                && (storageMemoryManager.getMaxNonReclaimableBuffers(this)
-                                - storageMemoryManager.numOwnerRequestedBuffer(this))
-                        > bufferNumberInSegment;
-    }
-
-    @Override
     public boolean tryStartNewSegment(
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
@@ -188,11 +180,6 @@ public class MemoryTierProducerAgent
     private static void checkMultipleConsumerIsAllowed(NettyServiceViewId lastNettyServiceViewId) {
         checkState(
                 lastNettyServiceViewId == null, "Memory Tier does not support multiple consumers");
-    }
-
-    @Override
-    public void startSegment(int consumerId, int segmentId) {
-        subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(consumerId, segmentId);
     }
 
     @Override

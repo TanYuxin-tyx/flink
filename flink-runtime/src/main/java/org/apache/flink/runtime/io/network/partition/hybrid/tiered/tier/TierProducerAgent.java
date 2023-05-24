@@ -31,15 +31,11 @@ import java.io.IOException;
  */
 public interface TierProducerAgent {
 
-    boolean canStoreNextSegment(int consumerId);
-
     void release();
 
     // forceUseCurrentTier is only for the tests
     boolean tryStartNewSegment(
             TieredStorageSubpartitionId subpartitionId, int segmentId, boolean forceUseCurrentTier);
-
-    void startSegment(int consumerId, int segmentId);
 
     boolean write(int consumerId, Buffer finishedBuffer) throws IOException;
 

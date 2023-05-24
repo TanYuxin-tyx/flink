@@ -73,11 +73,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     }
 
     @Override
-    public boolean canStoreNextSegment(int consumerId) {
-        return true;
-    }
-
-    @Override
     public boolean tryStartNewSegment(
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
@@ -96,15 +91,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     public void release() {
         getRemoteCacheManager().release();
         getSegmentIndexTracker().release();
-    }
-
-    @Override
-    public void startSegment(int consumerId, int segmentId) {
-        if (!segmentIndexTracker.hasCurrentSegment(consumerId, segmentId)) {
-            segmentIndexTracker.addSubpartitionSegmentIndex(consumerId, segmentId);
-            cacheDataManager.startSegment(consumerId, segmentId);
-        }
-        subpartitionLastestSegmentId[consumerId] = segmentId;
     }
 
     @Override

@@ -133,13 +133,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
     }
 
     @Override
-    public boolean canStoreNextSegment(int consumerId) {
-        File filePath = dataFilePath.toFile();
-        return filePath.getUsableSpace()
-                > (long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction);
-    }
-
-    @Override
     public boolean tryStartNewSegment(
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
@@ -173,11 +166,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
             getSegmentIndexTracker().release();
             isReleased = true;
         }
-    }
-
-    @Override
-    public void startSegment(int consumerId, int segmentId) {
-        segmentIndexTracker.addSubpartitionSegmentIndex(consumerId, segmentId);
     }
 
     @Override

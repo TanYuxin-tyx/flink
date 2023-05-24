@@ -23,12 +23,9 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.IOException;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 /** Tests for {@link RemoteTierProducerAgent}. */
 class RemoteTierStorageTest {
@@ -49,22 +46,16 @@ class RemoteTierStorageTest {
         tmpFolder.create();
     }
 
-    @Test
-    void testDataManagerStoreSegment() throws Exception {
-        RemoteTierProducerAgent dataManager = createRemoteTier();
-        assertThat(dataManager.canStoreNextSegment(0)).isTrue();
-    }
-
     private RemoteTierProducerAgent createRemoteTier() throws IOException {
         NetworkBufferPool networkBufferPool = new NetworkBufferPool(NUM_BUFFERS, BUFFER_SIZE);
         BufferPool bufferPool = networkBufferPool.createBufferPool(NUM_BUFFERS, NUM_BUFFERS);
-        //TieredStoreMemoryManager tieredStoreMemoryManager =
+        // TieredStoreMemoryManager tieredStoreMemoryManager =
         //        new UpstreamTieredStoreMemoryManager(
         //                TieredStoreTestUtils.getTierExclusiveBuffers(),
         //                NUM_SUBPARTITIONS,
         //                NUM_BUFFERS_TRIGGER_FLUSH_RATIO,
         //                new CacheFlushManager(NUM_BUFFERS_TRIGGER_FLUSH_RATIO));
-        //tieredStoreMemoryManager.setBufferPool(bufferPool);
+        // tieredStoreMemoryManager.setBufferPool(bufferPool);
 
         // return new RemoteTierStorage(
         //        NUM_SUBPARTITIONS,
