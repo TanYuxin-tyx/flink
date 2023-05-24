@@ -55,12 +55,12 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
     private OutputMetrics outputMetrics;
 
     /** Records the newest segment index belonged to each subpartition. */
-    private final int[] subpartitionSegmentIndexes;
-
-    private final boolean[] isSubpartitionSegmentFinished;
+    private final int[] currentSubpartitionSegmentId;
 
     /** Record the index of tier writer currently used by each subpartition. */
-    private final int[] subpartitionWriterIndex;
+    private final int[] currentSubpartitionTierIndex;
+
+    private final boolean[] isSubpartitionSegmentFinished;
 
     public TieredStorageProducerClientImpl(
             int numConsumers,
@@ -73,12 +73,12 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         this.bufferAccumulator = bufferAccumulator;
         this.bufferCompressor = bufferCompressor;
         this.tierProducerAgents = tierProducerAgents;
-        this.subpartitionSegmentIndexes = new int[numConsumers];
-        this.subpartitionWriterIndex = new int[numConsumers];
+        this.currentSubpartitionSegmentId = new int[numConsumers];
+        this.currentSubpartitionTierIndex = new int[numConsumers];
         this.isSubpartitionSegmentFinished = new boolean[numConsumers];
 
-        Arrays.fill(subpartitionSegmentIndexes, -1);
-        Arrays.fill(subpartitionWriterIndex, -1);
+        Arrays.fill(currentSubpartitionSegmentId, -1);
+        Arrays.fill(currentSubpartitionTierIndex, -1);
         Arrays.fill(isSubpartitionSegmentFinished, true);
 
         bufferAccumulator.setup(numConsumers, this::writeFinishedBuffers);
@@ -151,11 +151,11 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             chooseStorageTierIndex(subpartitionIndex);
             isSubpartitionSegmentFinished[subpartitionIndex] = false;
         }
-        return subpartitionWriterIndex[subpartitionIndex];
+        return currentSubpartitionTierIndex[subpartitionIndex];
     }
 
     private void chooseStorageTierIndex(int targetSubpartition) throws IOException {
-        int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
+        int segmentIndex = currentSubpartitionSegmentId[targetSubpartition];
         TieredStorageSubpartitionId storageSubpartitionId =
                 new TieredStorageSubpartitionId(targetSubpartition);
         int nextSegmentIndex = segmentIndex + 1;
@@ -207,8 +207,8 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
 
     private void updateTierIndexForNextSegment(
             int targetSubpartition, int nextSegmentIndex, int storageTierIndex) {
-        subpartitionSegmentIndexes[targetSubpartition] = nextSegmentIndex;
-        subpartitionWriterIndex[targetSubpartition] = storageTierIndex;
+        currentSubpartitionSegmentId[targetSubpartition] = nextSegmentIndex;
+        currentSubpartitionTierIndex[targetSubpartition] = storageTierIndex;
     }
 
     private Buffer compressBufferIfPossible(Buffer buffer) {
