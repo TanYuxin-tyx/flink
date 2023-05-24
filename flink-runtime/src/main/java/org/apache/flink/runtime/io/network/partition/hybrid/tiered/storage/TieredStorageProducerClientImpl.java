@@ -135,7 +135,7 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
     private void writeFinishedBuffer(
             TieredStorageSubpartitionId subpartitionId, Buffer finishedBuffer) throws IOException {
         int subpartitionIndex = subpartitionId.getSubpartitionId();
-        int tierIndex = chooseStorageTierIndexIfNeeded(subpartitionIndex);
+        int tierIndex = chooseStorageTierIfNeeded(subpartitionId);
 
         Buffer compressedBuffer = compressBufferIfPossible(finishedBuffer);
         updateStatistics(compressedBuffer);
@@ -146,24 +146,27 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         }
     }
 
-    private int chooseStorageTierIndexIfNeeded(int subpartitionIndex) throws IOException {
+    private int chooseStorageTierIfNeeded(TieredStorageSubpartitionId subpartitionId)
+            throws IOException {
+        int subpartitionIndex = subpartitionId.getSubpartitionId();
         if (isSubpartitionSegmentFinished[subpartitionIndex]) {
-            chooseStorageTierIndex(subpartitionIndex);
+            internalChooseStorageTier(subpartitionId);
             isSubpartitionSegmentFinished[subpartitionIndex] = false;
         }
         return currentSubpartitionTierIndex[subpartitionIndex];
     }
 
-    private void chooseStorageTierIndex(int targetSubpartition) throws IOException {
-        int segmentIndex = currentSubpartitionSegmentId[targetSubpartition];
-        TieredStorageSubpartitionId storageSubpartitionId =
-                new TieredStorageSubpartitionId(targetSubpartition);
+    private void internalChooseStorageTier(TieredStorageSubpartitionId subpartitionId)
+            throws IOException {
+        int subpartitionIndex = subpartitionId.getSubpartitionId();
+        int segmentIndex = currentSubpartitionSegmentId[subpartitionIndex];
         int nextSegmentIndex = segmentIndex + 1;
+
         if (tierProducerAgents.size() == 1) {
             if (tierProducerAgents
                     .get(0)
-                    .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, true)) {
-                updateTierIndexForNextSegment(targetSubpartition, nextSegmentIndex, 0);
+                    .tryStartNewSegment(subpartitionId, nextSegmentIndex, true)) {
+                updateTierIndexForNextSegment(subpartitionIndex, nextSegmentIndex, 0);
                 return;
             }
         }
@@ -174,14 +177,14 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             if (!isBroadcastOnly
                     && tierProducerAgents
                             .get(0)
-                            .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, false)) {
-                updateTierIndexForNextSegment(targetSubpartition, nextSegmentIndex, 0);
+                            .tryStartNewSegment(subpartitionId, nextSegmentIndex, false)) {
+                updateTierIndexForNextSegment(subpartitionIndex, nextSegmentIndex, 0);
                 return;
             } else {
                 if (tierProducerAgents
                         .get(1)
-                        .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, false)) {
-                    updateTierIndexForNextSegment(targetSubpartition, nextSegmentIndex, 1);
+                        .tryStartNewSegment(subpartitionId, nextSegmentIndex, false)) {
+                    updateTierIndexForNextSegment(subpartitionIndex, nextSegmentIndex, 1);
                     return;
                 } else {
                     throw new IOException("Failed to start new segment.");
@@ -191,8 +194,8 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         for (int tierIndex = 0; tierIndex < tierProducerAgents.size(); ++tierIndex) {
             if (tierProducerAgents
                     .get(tierIndex)
-                    .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, false)) {
-                updateTierIndexForNextSegment(targetSubpartition, nextSegmentIndex, tierIndex);
+                    .tryStartNewSegment(subpartitionId, nextSegmentIndex, false)) {
+                updateTierIndexForNextSegment(subpartitionIndex, nextSegmentIndex, tierIndex);
                 return;
             }
         }
