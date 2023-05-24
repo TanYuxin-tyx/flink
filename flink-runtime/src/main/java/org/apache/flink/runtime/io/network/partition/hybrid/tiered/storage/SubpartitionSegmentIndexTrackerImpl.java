@@ -24,6 +24,7 @@ import org.apache.flink.util.function.SupplierWithException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -34,23 +35,28 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public class SubpartitionSegmentIndexTrackerImpl implements SubpartitionSegmentIndexTracker {
 
-    // Each subpartition calculates the amount of data written to a tier separately. If the
-    // amount of data exceeds the threshold, the segment is switched. Different subpartitions
-    // may have duplicate segment indexes, so it is necessary to distinguish different
-    // subpartitions when determining whether a tier contains the segment data.
-    private final HashMap<Integer, HashSet<Integer>> subpartitionSegmentIndexes;
+    /**
+     * Each subpartition calculates the amount of data written to a tier separately. If the amount
+     * of data exceeds the threshold, the current writing segment will be finished. Because
+     * different subpartitions may have duplicate segment indexes, this field needs to distinguish
+     * between different subpartitions.
+     */
+    private final Map<Integer, HashSet<Integer>> subpartitionSegmentIndexes;
 
+    /** The locks for all subpartitions. */
     private final Lock[] locks;
 
+    /** Indicate whether this is a broadcast only partition. */
     private final Boolean isBroadCastOnly;
 
+    /** Record the latest segment index for each subpartition. */
     private final int[] latestSegmentIndexes;
 
-    public SubpartitionSegmentIndexTrackerImpl(int numSubpartitions, Boolean isBroadCastOnly) {
-        int effectiveNumSubpartitions = isBroadCastOnly ? 1 : numSubpartitions;
+    public SubpartitionSegmentIndexTrackerImpl(int numSubpartitions, Boolean isBroadcastOnly) {
+        this.isBroadCastOnly = isBroadcastOnly;
+        int effectiveNumSubpartitions = isBroadcastOnly ? 1 : numSubpartitions;
         this.locks = new Lock[effectiveNumSubpartitions];
         this.latestSegmentIndexes = new int[numSubpartitions];
-        this.isBroadCastOnly = isBroadCastOnly;
         this.subpartitionSegmentIndexes = new HashMap<>();
 
         Arrays.fill(latestSegmentIndexes, -1);
