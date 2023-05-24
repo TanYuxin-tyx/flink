@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 
 import java.io.IOException;
@@ -34,11 +35,16 @@ public interface TierProducerAgent {
 
     void release();
 
+    // forceUseCurrentTier is only for the tests
+    boolean tryStartNewSegment(
+            TieredStorageSubpartitionId subpartitionId, int segmentId, boolean forceUseCurrentTier);
+
     void startSegment(int consumerId, int segmentId);
 
     boolean write(int consumerId, Buffer finishedBuffer) throws IOException;
 
-    NettyServiceView registerNettyService(int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
+    NettyServiceView registerNettyService(
+            int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
 
     void close();
 }

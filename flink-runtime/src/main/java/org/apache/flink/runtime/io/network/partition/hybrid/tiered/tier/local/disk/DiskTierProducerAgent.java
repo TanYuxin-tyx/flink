@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
@@ -136,6 +137,22 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
         File filePath = dataFilePath.toFile();
         return filePath.getUsableSpace()
                 > (long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction);
+    }
+
+    @Override
+    public boolean tryStartNewSegment(
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId,
+            boolean forceUseCurrentTier) {
+        File filePath = dataFilePath.toFile();
+        boolean canStartNewSegment =
+                filePath.getUsableSpace()
+                        > (long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction);
+        if (canStartNewSegment || forceUseCurrentTier) {
+            segmentIndexTracker.addSubpartitionSegmentIndex(
+                    subpartitionId.getSubpartitionId(), segmentId);
+        }
+        return canStartNewSegment || forceUseCurrentTier;
     }
 
     @Override

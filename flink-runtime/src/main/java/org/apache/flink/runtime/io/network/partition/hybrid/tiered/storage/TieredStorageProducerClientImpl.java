@@ -57,8 +57,7 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
     /** Records the newest segment index belonged to each subpartition. */
     private final int[] subpartitionSegmentIndexes;
 
-    /** Records the newest segment index belonged to each subpartition. */
-    private final int[] lastSubpartitionSegmentIndexes;
+    private final boolean[] isSubpartitionSegmentFinished;
 
     /** Record the index of tier writer currently used by each subpartition. */
     private final int[] subpartitionWriterIndex;
@@ -75,12 +74,12 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         this.bufferCompressor = bufferCompressor;
         this.tierProducerAgents = tierProducerAgents;
         this.subpartitionSegmentIndexes = new int[numConsumers];
-        this.lastSubpartitionSegmentIndexes = new int[numConsumers];
         this.subpartitionWriterIndex = new int[numConsumers];
+        this.isSubpartitionSegmentFinished = new boolean[numConsumers];
 
-        Arrays.fill(subpartitionSegmentIndexes, 0);
-        Arrays.fill(lastSubpartitionSegmentIndexes, -1);
+        Arrays.fill(subpartitionSegmentIndexes, -1);
         Arrays.fill(subpartitionWriterIndex, -1);
+        Arrays.fill(isSubpartitionSegmentFinished, true);
 
         bufferAccumulator.setup(numConsumers, this::writeFinishedBuffers);
     }
@@ -137,48 +136,64 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             TieredStorageSubpartitionId subpartitionId, Buffer finishedBuffer) throws IOException {
         int subpartitionIndex = subpartitionId.getSubpartitionId();
         int tierIndex = subpartitionWriterIndex[subpartitionIndex];
-        // For the first buffer
-        if (tierIndex == -1) {
+        if (isSubpartitionSegmentFinished[subpartitionIndex]) {
             tierIndex = chooseStorageTierIndex(subpartitionIndex);
             subpartitionWriterIndex[subpartitionIndex] = tierIndex;
+            isSubpartitionSegmentFinished[subpartitionIndex] = false;
         }
 
-        int segmentIndex = subpartitionSegmentIndexes[subpartitionIndex];
         Buffer compressedBuffer = compressBufferIfPossible(finishedBuffer);
         updateStatistics(compressedBuffer);
-        if (segmentIndex != lastSubpartitionSegmentIndexes[subpartitionIndex]) {
-            tierProducerAgents.get(tierIndex).startSegment(subpartitionIndex, segmentIndex);
-            lastSubpartitionSegmentIndexes[subpartitionIndex] = segmentIndex;
-        }
         boolean isLastBufferInSegment =
                 tierProducerAgents.get(tierIndex).write(subpartitionIndex, compressedBuffer);
         if (isLastBufferInSegment) {
-            tierIndex = chooseStorageTierIndex(subpartitionIndex);
-            subpartitionWriterIndex[subpartitionIndex] = tierIndex;
-            subpartitionSegmentIndexes[subpartitionIndex] = (segmentIndex + 1);
+            isSubpartitionSegmentFinished[subpartitionIndex] = true;
         }
     }
 
     private int chooseStorageTierIndex(int targetSubpartition) throws IOException {
+        int segmentIndex = subpartitionSegmentIndexes[targetSubpartition];
+        TieredStorageSubpartitionId storageSubpartitionId =
+                new TieredStorageSubpartitionId(targetSubpartition);
+        int nextSegmentIndex = segmentIndex + 1;
         if (tierProducerAgents.size() == 1) {
-            return 0;
+            if (tierProducerAgents
+                    .get(0)
+                    .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, true)) {
+                subpartitionSegmentIndexes[targetSubpartition] = nextSegmentIndex;
+                return 0;
+            }
         }
         // only for test case Memory and Disk
         if (tierProducerAgents.size() == 2
                 && tierProducerAgents.get(0) instanceof MemoryTierProducerAgent
                 && tierProducerAgents.get(1) instanceof DiskTierProducerAgent) {
             if (!isBroadcastOnly
-                    && tierProducerAgents.get(0).canStoreNextSegment(targetSubpartition)) {
+                    && tierProducerAgents
+                            .get(0)
+                            .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, false)) {
+                subpartitionSegmentIndexes[targetSubpartition] = nextSegmentIndex;
                 return 0;
+            } else {
+                if (tierProducerAgents
+                        .get(1)
+                        .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, false)) {
+                    subpartitionSegmentIndexes[targetSubpartition] = nextSegmentIndex;
+                    return 1;
+                } else {
+                    throw new IOException("Failed to start new segment.");
+                }
             }
-            return 1;
         }
         for (int tierIndex = 0; tierIndex < tierProducerAgents.size(); ++tierIndex) {
             TierProducerAgent tierProducerAgent = tierProducerAgents.get(tierIndex);
             if (isBroadcastOnly && tierProducerAgent instanceof MemoryTierProducerAgent) {
                 continue;
             }
-            if (tierProducerAgents.get(tierIndex).canStoreNextSegment(targetSubpartition)) {
+            if (tierProducerAgents
+                    .get(tierIndex)
+                    .tryStartNewSegment(storageSubpartitionId, nextSegmentIndex, false)) {
+                subpartitionSegmentIndexes[targetSubpartition] = nextSegmentIndex;
                 return tierIndex;
             }
         }

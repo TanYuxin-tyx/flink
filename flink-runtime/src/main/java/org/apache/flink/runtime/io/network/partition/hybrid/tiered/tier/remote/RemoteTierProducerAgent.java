@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIndexTrackerImpl;
@@ -73,6 +74,21 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     @Override
     public boolean canStoreNextSegment(int consumerId) {
+        return true;
+    }
+
+    @Override
+    public boolean tryStartNewSegment(
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId,
+            boolean forceUseCurrentTier) {
+        if (!segmentIndexTracker.hasCurrentSegment(subpartitionId.getSubpartitionId(), segmentId)) {
+            segmentIndexTracker.addSubpartitionSegmentIndex(
+                    subpartitionId.getSubpartitionId(), segmentId);
+            cacheDataManager.startSegment(subpartitionId.getSubpartitionId(), segmentId);
+        }
+        subpartitionLastestSegmentId[subpartitionId.getSubpartitionId()] = segmentId;
+        // The remote storage tier should always be able to start a new segment.
         return true;
     }
 

@@ -23,6 +23,7 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
@@ -144,6 +145,24 @@ public class MemoryTierProducerAgent
     }
 
     @Override
+    public boolean tryStartNewSegment(
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId,
+            boolean forceUseCurrentTier) {
+        boolean canStartNewSegment =
+                isConsumerRegistered(subpartitionId)
+                        && (storageMemoryManager.getMaxNonReclaimableBuffers(this)
+                                        - storageMemoryManager.numOwnerRequestedBuffer(this))
+                                > bufferNumberInSegment;
+        if (canStartNewSegment || forceUseCurrentTier) {
+            // TODO, use TieredStorageSubpartitionId
+            subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(
+                    subpartitionId.getSubpartitionId(), segmentId);
+        }
+        return canStartNewSegment || forceUseCurrentTier;
+    }
+
+    @Override
     public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
         return getSegmentIndexTracker().hasCurrentSegment(subpartitionId, segmentIndex);
     }
@@ -215,6 +234,15 @@ public class MemoryTierProducerAgent
 
     public boolean isConsumerRegistered(int subpartitionId) {
         int numConsumers = subpartitionViewOperationsMap.get(subpartitionId).size();
+        if (isBroadcastOnly) {
+            return numConsumers == numSubpartitions;
+        }
+        return numConsumers > 0;
+    }
+
+    public boolean isConsumerRegistered(TieredStorageSubpartitionId subpartitionId) {
+        int numConsumers =
+                subpartitionViewOperationsMap.get(subpartitionId.getSubpartitionId()).size();
         if (isBroadcastOnly) {
             return numConsumers == numSubpartitions;
         }
