@@ -22,6 +22,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 
 import javax.annotation.Nullable;
@@ -176,7 +177,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     private boolean findTierReaderViewIndex() {
         for (int viewIndex = 0; viewIndex < segmentSearchers.size(); viewIndex++) {
             SegmentSearcher segmentSearcher = segmentSearchers.get(viewIndex);
-            if (segmentSearcher.hasCurrentSegment(subpartitionId, requiredSegmentId)) {
+            if (segmentSearcher.hasCurrentSegment(
+                    new TieredStorageSubpartitionId(subpartitionId), requiredSegmentId)) {
                 viewIndexContainsCurrentSegment = viewIndex;
                 return true;
             }

@@ -142,14 +142,13 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
                 filePath.getUsableSpace()
                         > (long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction);
         if (canStartNewSegment || forceUseCurrentTier) {
-            segmentIndexTracker.addSubpartitionSegmentIndex(
-                    subpartitionId.getSubpartitionId(), segmentId);
+            segmentIndexTracker.addSubpartitionSegmentIndex(subpartitionId, segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;
     }
 
     @Override
-    public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
+    public boolean hasCurrentSegment(TieredStorageSubpartitionId subpartitionId, int segmentIndex) {
         return getSegmentIndexTracker().hasCurrentSegment(subpartitionId, segmentIndex);
     }
 

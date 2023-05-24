@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.function.SupplierWithException;
 
@@ -41,7 +42,7 @@ public class SubpartitionSegmentIndexTrackerImpl implements SubpartitionSegmentI
      * different subpartitions may have duplicate segment indexes, this field needs to distinguish
      * between different subpartitions.
      */
-    private final Map<Integer, HashSet<Integer>> subpartitionSegmentIndexes;
+    private final Map<TieredStorageSubpartitionId, HashSet<Integer>> subpartitionSegmentIndexes;
 
     /** The locks for all subpartitions. */
     private final Lock[] locks;
@@ -62,28 +63,31 @@ public class SubpartitionSegmentIndexTrackerImpl implements SubpartitionSegmentI
         Arrays.fill(latestSegmentIndexes, -1);
         for (int i = 0; i < effectiveNumSubpartitions; i++) {
             locks[i] = new ReentrantLock();
-            subpartitionSegmentIndexes.put(i, new HashSet<>());
+            subpartitionSegmentIndexes.put(new TieredStorageSubpartitionId(i), new HashSet<>());
         }
     }
 
     // Return true if this segment tracker did not already contain the specified segment index.
     @Override
-    public void addSubpartitionSegmentIndex(int subpartitionId, int segmentIndex) {
-        if (latestSegmentIndexes[subpartitionId] == segmentIndex) {
+    public void addSubpartitionSegmentIndex(
+            TieredStorageSubpartitionId subpartitionId, int segmentIndex) {
+        if (latestSegmentIndexes[subpartitionId.getSubpartitionId()] == segmentIndex) {
             return;
         }
-        latestSegmentIndexes[subpartitionId] = segmentIndex;
-        int effectiveSubpartitionId = getEffectiveSubpartitionId(subpartitionId);
+        latestSegmentIndexes[subpartitionId.getSubpartitionId()] = segmentIndex;
+        TieredStorageSubpartitionId effectiveSubpartitionId =
+                getEffectiveSubpartitionId(subpartitionId);
         callWithSubpartitionLock(
-                effectiveSubpartitionId,
+                effectiveSubpartitionId.getSubpartitionId(),
                 () -> subpartitionSegmentIndexes.get(effectiveSubpartitionId).add(segmentIndex));
     }
 
     @Override
-    public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
-        int effectiveSubpartitionId = getEffectiveSubpartitionId(subpartitionId);
+    public boolean hasCurrentSegment(TieredStorageSubpartitionId subpartitionId, int segmentIndex) {
+        TieredStorageSubpartitionId effectiveSubpartitionId =
+                getEffectiveSubpartitionId(subpartitionId);
         return callWithSubpartitionLock(
-                effectiveSubpartitionId,
+                effectiveSubpartitionId.getSubpartitionId(),
                 () -> {
                     Set<Integer> segmentIndexes =
                             subpartitionSegmentIndexes.get(effectiveSubpartitionId);
@@ -99,8 +103,9 @@ public class SubpartitionSegmentIndexTrackerImpl implements SubpartitionSegmentI
         subpartitionSegmentIndexes.clear();
     }
 
-    private int getEffectiveSubpartitionId(int subpartitionId) {
-        return isBroadCastOnly ? 0 : subpartitionId;
+    private TieredStorageSubpartitionId getEffectiveSubpartitionId(
+            TieredStorageSubpartitionId subpartitionId) {
+        return isBroadCastOnly ? new TieredStorageSubpartitionId(0) : subpartitionId;
     }
 
     private <R, E extends Exception> R callWithSubpartitionLock(

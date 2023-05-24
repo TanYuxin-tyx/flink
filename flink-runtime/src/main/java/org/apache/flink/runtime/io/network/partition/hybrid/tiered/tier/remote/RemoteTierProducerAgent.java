@@ -77,9 +77,8 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             boolean forceUseCurrentTier) {
-        if (!segmentIndexTracker.hasCurrentSegment(subpartitionId.getSubpartitionId(), segmentId)) {
-            segmentIndexTracker.addSubpartitionSegmentIndex(
-                    subpartitionId.getSubpartitionId(), segmentId);
+        if (!segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentId)) {
+            segmentIndexTracker.addSubpartitionSegmentIndex(subpartitionId, segmentId);
             cacheDataManager.startSegment(subpartitionId.getSubpartitionId(), segmentId);
         }
         subpartitionLastestSegmentId[subpartitionId.getSubpartitionId()] = segmentId;

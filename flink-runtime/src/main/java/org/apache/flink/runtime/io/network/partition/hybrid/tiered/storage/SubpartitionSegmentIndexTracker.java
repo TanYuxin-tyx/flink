@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
 /**
@@ -25,9 +26,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProd
  * {@link TierProducerAgent}'s data manager has a separate {@link SubpartitionSegmentIndexTracker}.
  */
 public interface SubpartitionSegmentIndexTracker {
-    void addSubpartitionSegmentIndex(int subpartitionId, int segmentIndex);
+    void addSubpartitionSegmentIndex(TieredStorageSubpartitionId subpartitionId, int segmentIndex);
 
-    boolean hasCurrentSegment(int subpartitionId, int segmentIndex);
+    boolean hasCurrentSegment(TieredStorageSubpartitionId subpartitionId, int segmentIndex);
 
     void release();
 }

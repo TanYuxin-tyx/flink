@@ -147,15 +147,13 @@ public class MemoryTierProducerAgent
                                         - storageMemoryManager.numOwnerRequestedBuffer(this))
                                 > bufferNumberInSegment;
         if (canStartNewSegment || forceUseCurrentTier) {
-            // TODO, use TieredStorageSubpartitionId
-            subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(
-                    subpartitionId.getSubpartitionId(), segmentId);
+            subpartitionSegmentIndexTracker.addSubpartitionSegmentIndex(subpartitionId, segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;
     }
 
     @Override
-    public boolean hasCurrentSegment(int subpartitionId, int segmentIndex) {
+    public boolean hasCurrentSegment(TieredStorageSubpartitionId subpartitionId, int segmentIndex) {
         return getSegmentIndexTracker().hasCurrentSegment(subpartitionId, segmentIndex);
     }
 

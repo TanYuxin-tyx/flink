@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+
 /** {@link SegmentSearcher} is used to search the specific segment id in each tier. */
 public interface SegmentSearcher {
 
@@ -28,5 +30,5 @@ public interface SegmentSearcher {
      * @param segmentId indicate the id of segment.
      * @return whether the provider has the segment id.
      */
-    boolean hasCurrentSegment(int subpartitionId, int segmentId);
+    boolean hasCurrentSegment(TieredStorageSubpartitionId subpartitionId, int segmentId);
 }
