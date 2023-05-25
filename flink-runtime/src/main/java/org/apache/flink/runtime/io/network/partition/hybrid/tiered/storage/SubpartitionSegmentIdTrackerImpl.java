@@ -29,8 +29,6 @@ import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static org.apache.flink.util.Preconditions.checkNotNull;
-
 /**
  * The implementation of {@link SubpartitionSegmentIdTracker}. Each {@link TierProducerAgent} has a
  * {@link SubpartitionSegmentIdTrackerImpl} to record the segments belong to the producer agent.
@@ -89,9 +87,11 @@ public class SubpartitionSegmentIdTrackerImpl implements SubpartitionSegmentIdTr
                 getEffectiveSubpartitionId(subpartitionId);
         return callWithSubpartitionLock(
                 effectiveSubpartitionId.getSubpartitionId(),
-                () ->
-                        checkNotNull(subpartitionSegmentIds.get(effectiveSubpartitionId))
-                                .contains(segmentId));
+                () -> {
+                    HashSet<Integer> segmentIndexes =
+                            subpartitionSegmentIds.get(effectiveSubpartitionId);
+                    return segmentIndexes != null && segmentIndexes.contains(segmentId);
+                });
     }
 
     @Override
