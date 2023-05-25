@@ -26,9 +26,10 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * The implementation of {@link SubpartitionSegmentIdTracker}. Each {@link TierProducerAgent} has a
@@ -44,21 +45,21 @@ public class SubpartitionSegmentIdTrackerImpl implements SubpartitionSegmentIdTr
      */
     private final Map<TieredStorageSubpartitionId, HashSet<Integer>> subpartitionSegmentIds;
 
-    /** The locks for all subpartitions. */
-    private final Lock[] locks;
-
     /** Indicate whether this is a broadcast only partition. */
     private final Boolean isBroadCastOnly;
 
     /** Record the latest segment index for each subpartition. */
     private final int[] latestSegmentIds;
 
+    /** The locks for all subpartitions. */
+    private final Lock[] locks;
+
     public SubpartitionSegmentIdTrackerImpl(int numSubpartitions, Boolean isBroadcastOnly) {
         this.isBroadCastOnly = isBroadcastOnly;
         int effectiveNumSubpartitions = isBroadcastOnly ? 1 : numSubpartitions;
-        this.locks = new Lock[effectiveNumSubpartitions];
         this.latestSegmentIds = new int[effectiveNumSubpartitions];
         this.subpartitionSegmentIds = new HashMap<>();
+        this.locks = new Lock[effectiveNumSubpartitions];
 
         Arrays.fill(latestSegmentIds, -1);
         for (int i = 0; i < effectiveNumSubpartitions; i++) {
@@ -68,16 +69,17 @@ public class SubpartitionSegmentIdTrackerImpl implements SubpartitionSegmentIdTr
     }
 
     @Override
-    public void addSubpartitionSegmentIndex(
-            TieredStorageSubpartitionId subpartitionId, int segmentId) {
-        if (latestSegmentIds[subpartitionId.getSubpartitionId()] == segmentId) {
-            return;
-        }
-        latestSegmentIds[subpartitionId.getSubpartitionId()] = segmentId;
+    public void addSegmentIndex(TieredStorageSubpartitionId subpartitionId, int segmentId) {
         TieredStorageSubpartitionId effectiveSubpartitionId =
                 getEffectiveSubpartitionId(subpartitionId);
+        int subpartitionIndex = effectiveSubpartitionId.getSubpartitionId();
+        if (latestSegmentIds[subpartitionIndex] == segmentId) {
+            return;
+        }
+        latestSegmentIds[subpartitionIndex] = segmentId;
+
         callWithSubpartitionLock(
-                effectiveSubpartitionId.getSubpartitionId(),
+                subpartitionIndex,
                 () -> subpartitionSegmentIds.get(effectiveSubpartitionId).add(segmentId));
     }
 
@@ -87,14 +89,9 @@ public class SubpartitionSegmentIdTrackerImpl implements SubpartitionSegmentIdTr
                 getEffectiveSubpartitionId(subpartitionId);
         return callWithSubpartitionLock(
                 effectiveSubpartitionId.getSubpartitionId(),
-                () -> {
-                    Set<Integer> segmentIndexes =
-                            subpartitionSegmentIds.get(effectiveSubpartitionId);
-                    if (segmentIndexes == null) {
-                        return false;
-                    }
-                    return segmentIndexes.contains(segmentId);
-                });
+                () ->
+                        checkNotNull(subpartitionSegmentIds.get(effectiveSubpartitionId))
+                                .contains(segmentId));
     }
 
     @Override

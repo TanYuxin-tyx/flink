@@ -150,7 +150,7 @@ public class MemoryTierProducerAgent
                                         - storageMemoryManager.numOwnerRequestedBuffer(this))
                                 > bufferNumberInSegment;
         if (canStartNewSegment || forceUseCurrentTier) {
-            subpartitionSegmentIdTracker.addSubpartitionSegmentIndex(subpartitionId, segmentId);
+            subpartitionSegmentIdTracker.addSegmentIndex(subpartitionId, segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;
     }
