@@ -32,8 +32,8 @@ import java.util.Queue;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The implementation of {@link CreditBasedShuffleView}. */
-public class CreditBasedShuffleViewImpl implements CreditBasedShuffleView {
+/** The implementation of {@link CreditBasedBufferQueueView}. */
+public class CreditBasedBufferQueueViewImpl implements CreditBasedBufferQueueView {
 
     private final BufferAvailabilityListener availabilityListener;
 
@@ -47,7 +47,7 @@ public class CreditBasedShuffleViewImpl implements CreditBasedShuffleView {
 
     private final Runnable releaseNotifier;
 
-    public CreditBasedShuffleViewImpl(
+    public CreditBasedBufferQueueViewImpl(
             Queue<BufferContext> bufferQueue,
             BufferAvailabilityListener availabilityListener,
             Runnable releaseNotifier) {
@@ -74,7 +74,7 @@ public class CreditBasedShuffleViewImpl implements CreditBasedShuffleView {
     }
 
     @Override
-    public int getNumberOfQueuedBuffers() {
+    public int getBacklog() {
         return bufferQueue.size();
     }
 

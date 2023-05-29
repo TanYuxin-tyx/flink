@@ -25,8 +25,8 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueViewImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import org.junit.jupiter.api.Test;
@@ -41,7 +41,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Tests for {@link CreditBasedShuffleView}. */
+/** Tests for {@link CreditBasedBufferQueueView}. */
 class NettyServiceViewTest {
 
     private static final String EXCEPTION_MESSAGE = "Excepted exception";
@@ -55,11 +55,11 @@ class NettyServiceViewTest {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
         int bufferNumber = 1;
         DataType dataType = DataType.DATA_BUFFER;
-        CreditBasedShuffleView creditBasedShuffleView =
+        CreditBasedBufferQueueView creditBasedBufferQueueView =
                 nettyServiceViewBuilder
                         .setBufferQueue(createBufferQueue(bufferNumber, dataType))
                         .build();
-        Optional<Buffer> buffer = creditBasedShuffleView.getNextBuffer();
+        Optional<Buffer> buffer = creditBasedBufferQueueView.getNextBuffer();
         assertThat(buffer.isPresent()).isTrue();
         assertThat(buffer.get().isBuffer()).isTrue();
         assertThat(buffer.get().getDataType()).isEqualTo(dataType);
@@ -69,11 +69,11 @@ class NettyServiceViewTest {
     void testGetNextBufferThrowException() {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
         Throwable expectedException = new IOException(EXCEPTION_MESSAGE);
-        CreditBasedShuffleView creditBasedShuffleView =
+        CreditBasedBufferQueueView creditBasedBufferQueueView =
                 nettyServiceViewBuilder
                         .setBufferQueue(createBufferQueueWithExpectedException(expectedException))
                         .build();
-        assertThatThrownBy(creditBasedShuffleView::getNextBuffer)
+        assertThatThrownBy(creditBasedBufferQueueView::getNextBuffer)
                 .hasStackTraceContaining(EXCEPTION_MESSAGE);
     }
 
@@ -82,11 +82,11 @@ class NettyServiceViewTest {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
         int bufferNumber = 10;
         DataType dataType = DataType.DATA_BUFFER;
-        CreditBasedShuffleView creditBasedShuffleView =
+        CreditBasedBufferQueueView creditBasedBufferQueueView =
                 nettyServiceViewBuilder
                         .setBufferQueue(createBufferQueue(bufferNumber, dataType))
                         .build();
-        assertThat(creditBasedShuffleView.getNumberOfQueuedBuffers()).isEqualTo(bufferNumber);
+        assertThat(creditBasedBufferQueueView.getBacklog()).isEqualTo(bufferNumber);
     }
 
     @Test
@@ -94,25 +94,25 @@ class NettyServiceViewTest {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
         int bufferNumber = 1;
         DataType dataType = DataType.DATA_BUFFER;
-        CreditBasedShuffleView creditBasedShuffleView =
+        CreditBasedBufferQueueView creditBasedBufferQueueView =
                 nettyServiceViewBuilder
                         .setBufferQueue(createBufferQueue(bufferNumber, dataType))
                         .build();
-        assertThat(creditBasedShuffleView.getNextBufferDataType()).isEqualTo(dataType);
+        assertThat(creditBasedBufferQueueView.getNextBufferDataType()).isEqualTo(dataType);
     }
 
     @Test
     void testNotifyDataAvailable() throws ExecutionException, InterruptedException {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
         CompletableFuture<Boolean> notifyReceiver = new CompletableFuture<>();
-        CreditBasedShuffleView creditBasedShuffleView =
+        CreditBasedBufferQueueView creditBasedBufferQueueView =
                 nettyServiceViewBuilder
                         .setAvailabilityListener(
                                 () -> {
                                     notifyReceiver.complete(true);
                                 })
                         .build();
-        creditBasedShuffleView.notifyDataAvailable();
+        creditBasedBufferQueueView.notifyDataAvailable();
         assertThat(notifyReceiver.get()).isTrue();
     }
 
@@ -120,14 +120,14 @@ class NettyServiceViewTest {
     void testRelease() throws ExecutionException, InterruptedException, IOException {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
         CompletableFuture<Boolean> releaseReceiver = new CompletableFuture<>();
-        CreditBasedShuffleView creditBasedShuffleView =
+        CreditBasedBufferQueueView creditBasedBufferQueueView =
                 nettyServiceViewBuilder
                         .setReleaseNotifier(
                                 () -> {
                                     releaseReceiver.complete(true);
                                 })
                         .build();
-        creditBasedShuffleView.release();
+        creditBasedBufferQueueView.release();
         assertThat(releaseReceiver.get()).isTrue();
     }
 
@@ -179,8 +179,8 @@ class NettyServiceViewTest {
             return this;
         }
 
-        private CreditBasedShuffleView build() {
-            return new CreditBasedShuffleViewImpl(bufferQueue, availabilityListener, releaseNotifier);
+        private CreditBasedBufferQueueView build() {
+            return new CreditBasedBufferQueueViewImpl(bufferQueue, availabilityListener, releaseNotifier);
         }
     }
 }

@@ -25,9 +25,9 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.ProducerNettyServiceImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ProducerNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFileReader;
@@ -108,34 +108,34 @@ class ProducerMergePartitionFileReaderTest {
     @Test
     void testRegisterNettyService() throws Exception {
         producerMergePartitionFileReader = createProducerMergePartitionFileReader();
-        CreditBasedShuffleView creditBasedShuffleView =
+        CreditBasedBufferQueueView creditBasedBufferQueueView =
                 producerMergePartitionFileReader.registerNettyService(
                         SUBPARTITION_ID,
                         defaultCreditBasedShuffleViewId, defaultAvailabilityListener);
         int backlog;
         do {
-            backlog = creditBasedShuffleView.getNumberOfQueuedBuffers();
+            backlog = creditBasedBufferQueueView.getBacklog();
             TimeUnit.MILLISECONDS.sleep(50);
         } while (backlog != BUFFER_NUM_PER_SUBPARTITION);
-        assertThat(creditBasedShuffleView.getNumberOfQueuedBuffers())
+        assertThat(creditBasedBufferQueueView.getBacklog())
                 .isEqualTo(BUFFER_NUM_PER_SUBPARTITION);
     }
 
     @Test
     void testBuffersAreCorrectlyReleased() throws Throwable {
         producerMergePartitionFileReader = createProducerMergePartitionFileReader();
-        CreditBasedShuffleView creditBasedShuffleView =
+        CreditBasedBufferQueueView creditBasedBufferQueueView =
                 producerMergePartitionFileReader.registerNettyService(
                         SUBPARTITION_ID,
                         defaultCreditBasedShuffleViewId, defaultAvailabilityListener);
         int numberOfQueuedBuffers;
         do {
-            numberOfQueuedBuffers = creditBasedShuffleView.getNumberOfQueuedBuffers();
+            numberOfQueuedBuffers = creditBasedBufferQueueView.getBacklog();
             TimeUnit.MILLISECONDS.sleep(50);
         } while (numberOfQueuedBuffers != BUFFER_NUM_PER_SUBPARTITION);
         assertThat(numberOfQueuedBuffers).isEqualTo(BUFFER_NUM_PER_SUBPARTITION);
         for (int bufferIndex = 0; bufferIndex < numberOfQueuedBuffers; ++bufferIndex) {
-            Optional<Buffer> nextBuffer = creditBasedShuffleView.getNextBuffer();
+            Optional<Buffer> nextBuffer = creditBasedBufferQueueView.getNextBuffer();
             assertThat(nextBuffer).isPresent();
             nextBuffer.get().recycleBuffer();
         }

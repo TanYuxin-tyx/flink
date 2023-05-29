@@ -25,11 +25,10 @@ import java.io.IOException;
 import java.util.Optional;
 
 /**
- * {@link CreditBasedShuffleView} is the coordinator between a tier agent and the netty server. Netty
- * server could get the buffer and get available status of data from it, and tier agent could notify
- * it when the data is available.
+ * {@link CreditBasedBufferQueueView} is the view of the buffer queue related to the specific
+ * subpartition id, which will send buffer to netty server with the credit-based protocol.
  */
-public interface CreditBasedShuffleView {
+public interface CreditBasedBufferQueueView {
 
     /**
      * Get next required buffer.
@@ -44,7 +43,7 @@ public interface CreditBasedShuffleView {
      *
      * @return the number of queued buffers.
      */
-    int getNumberOfQueuedBuffers();
+    int getBacklog();
 
     /**
      * Get the data type of next buffer.
@@ -56,6 +55,6 @@ public interface CreditBasedShuffleView {
     /** Notify that the view is available. */
     void notifyDataAvailable();
 
-    /** Release the {@link CreditBasedShuffleView}. */
+    /** Release the {@link CreditBasedBufferQueueView}. */
     void release();
 }

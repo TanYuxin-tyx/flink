@@ -24,7 +24,7 @@ import java.util.Objects;
 
 /**
  * {@link CreditBasedShuffleViewId} represents the identifier of {@link
- * CreditBasedShuffleView}, Every {@link CreditBasedShuffleView} has a specific id.
+ * CreditBasedBufferQueueView}, Every {@link CreditBasedBufferQueueView} has a specific id.
  */
 public class CreditBasedShuffleViewId {
 

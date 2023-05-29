@@ -18,46 +18,33 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
-import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
-import java.util.Optional;
 import java.util.Queue;
-import java.util.function.BiConsumer;
 
-/** The implementation of {@link NettyService} in producer side. */
-public class ProducerNettyService implements NettyService {
+/** {@link ProducerNettyService} is used to transfer buffer to netty server in producer side. */
+public interface ProducerNettyService {
 
-    @Override
-    public CreditBasedShuffleView register(
-            Queue<BufferContext> bufferQueue,
-            BufferAvailabilityListener availabilityListener,
-            Runnable releaseNotifier) {
-        return new CreditBasedShuffleViewImpl(bufferQueue, availabilityListener, releaseNotifier);
-    }
+    /**
+     * Register a buffer queue related to a specific subpartition and the buffer will be consumed
+     * from the queue and sent to netty server.
+     *
+     * @param bufferQueue is the required buffer queue.
+     * @param serviceReleaseNotifier is used to notify that the service is released.
+     */
+    void register(
+            int subpartitionId, Queue<BufferContext> bufferQueue, Runnable serviceReleaseNotifier);
 
-    @Override
-    public void setup(
-            InputChannel[] inputChannels,
-            int[] lastPrioritySequenceNumber,
-            BiConsumer<Integer, Boolean> subpartitionAvailableNotifier) {
-        throw new UnsupportedOperationException("Not supported in producer side.");
-    }
-
-    @Override
-    public Optional<Buffer> readBuffer(int subpartitionId) {
-        throw new UnsupportedOperationException("Not supported in producer side.");
-    }
-
-    @Override
-    public void notifyResultSubpartitionAvailable(int subpartitionId, boolean priority) {
-        throw new UnsupportedOperationException("Not supported in producer side.");
-    }
-
-    @Override
-    public void notifyRequiredSegmentId(int subpartitionId, int segmentId) {
-        throw new UnsupportedOperationException("Not supported in producer side.");
-    }
+    /**
+     * Create a view of buffer queue in the specific subpartition, which will be used to transfer
+     * buffer in netty server with the credit-based protocol.
+     *
+     * @param subpartitionId subpartition id indicates the id of subpartition.
+     * @param availabilityListener availabilityListener is used to listen the available status of
+     *     buffer queue.
+     * @return the view of buffer queue with the credit-based protocol.
+     */
+    CreditBasedBufferQueueView createCreditBasedBufferQueueView(
+            int subpartitionId, BufferAvailabilityListener availabilityListener);
 }

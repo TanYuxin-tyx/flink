@@ -43,7 +43,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final List<SegmentSearcher> segmentSearchers;
 
-    private final List<CreditBasedShuffleView> creditBasedShuffleViews;
+    private final List<CreditBasedBufferQueueView> creditBasedBufferQueueViews;
 
     private boolean isReleased = false;
 
@@ -59,12 +59,12 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
             List<SegmentSearcher> segmentSearchers,
-            List<CreditBasedShuffleView> creditBasedShuffleViews) {
-        checkState(segmentSearchers.size() == creditBasedShuffleViews.size());
+            List<CreditBasedBufferQueueView> creditBasedBufferQueueViews) {
+        checkState(segmentSearchers.size() == creditBasedBufferQueueViews.size());
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
         this.segmentSearchers = segmentSearchers;
-        this.creditBasedShuffleViews = creditBasedShuffleViews;
+        this.creditBasedBufferQueueViews = creditBasedBufferQueueViews;
     }
 
     @Nullable
@@ -73,16 +73,16 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         if (stopSendingData || !findTierReaderViewIndex()) {
             return null;
         }
-        CreditBasedShuffleView currentCreditBasedShuffleView =
-                creditBasedShuffleViews.get(viewIndexContainsCurrentSegment);
-        Optional<Buffer> nextBuffer = currentCreditBasedShuffleView.getNextBuffer();
+        CreditBasedBufferQueueView currentCreditBasedBufferQueueView =
+                creditBasedBufferQueueViews.get(viewIndexContainsCurrentSegment);
+        Optional<Buffer> nextBuffer = currentCreditBasedBufferQueueView.getNextBuffer();
         if (nextBuffer.isPresent()) {
             stopSendingData = nextBuffer.get().getDataType() == END_OF_SEGMENT;
             currentSequenceNumber++;
             return BufferAndBacklog.fromBufferAndLookahead(
                     nextBuffer.get(),
-                    currentCreditBasedShuffleView.getNextBufferDataType(),
-                    currentCreditBasedShuffleView.getNumberOfQueuedBuffers(),
+                    currentCreditBasedBufferQueueView.getNextBufferDataType(),
+                    currentCreditBasedBufferQueueView.getBacklog(),
                     currentSequenceNumber);
         }
         return null;
@@ -91,16 +91,16 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     @Override
     public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
         if (findTierReaderViewIndex()) {
-            CreditBasedShuffleView currentCreditBasedShuffleView =
-                    creditBasedShuffleViews.get(viewIndexContainsCurrentSegment);
+            CreditBasedBufferQueueView currentCreditBasedBufferQueueView =
+                    creditBasedBufferQueueViews.get(viewIndexContainsCurrentSegment);
             boolean availability = numCreditsAvailable > 0;
             if (numCreditsAvailable <= 0
-                    && currentCreditBasedShuffleView.getNextBufferDataType()
+                    && currentCreditBasedBufferQueueView.getNextBufferDataType()
                             == Buffer.DataType.EVENT_BUFFER) {
                 availability = true;
             }
             return new AvailabilityWithBacklog(
-                    availability, currentCreditBasedShuffleView.getNumberOfQueuedBuffers());
+                    availability, currentCreditBasedBufferQueueView.getBacklog());
         }
         return new AvailabilityWithBacklog(false, 0);
     }
@@ -118,10 +118,10 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return;
         }
         isReleased = true;
-        for (CreditBasedShuffleView creditBasedShuffleView : creditBasedShuffleViews) {
-            creditBasedShuffleView.release();
+        for (CreditBasedBufferQueueView creditBasedBufferQueueView : creditBasedBufferQueueViews) {
+            creditBasedBufferQueueView.release();
         }
-        creditBasedShuffleViews.clear();
+        creditBasedBufferQueueViews.clear();
         segmentSearchers.clear();
     }
 
@@ -139,13 +139,13 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
         findTierReaderViewIndex();
-        return creditBasedShuffleViews.get(viewIndexContainsCurrentSegment).getNumberOfQueuedBuffers();
+        return creditBasedBufferQueueViews.get(viewIndexContainsCurrentSegment).getBacklog();
     }
 
     @Override
     public int getNumberOfQueuedBuffers() {
         findTierReaderViewIndex();
-        return creditBasedShuffleViews.get(viewIndexContainsCurrentSegment).getNumberOfQueuedBuffers();
+        return creditBasedBufferQueueViews.get(viewIndexContainsCurrentSegment).getBacklog();
     }
 
     @Override

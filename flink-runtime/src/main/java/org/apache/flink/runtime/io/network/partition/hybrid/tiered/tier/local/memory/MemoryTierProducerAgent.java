@@ -24,9 +24,9 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.ProducerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ProducerNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
@@ -76,7 +76,7 @@ public class MemoryTierProducerAgent
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<CreditBasedShuffleViewId, CreditBasedShuffleView>> subpartitionViewOperationsMap;
+    private final List<Map<CreditBasedShuffleViewId, CreditBasedBufferQueueView>> subpartitionViewOperationsMap;
 
     private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
 
@@ -111,7 +111,7 @@ public class MemoryTierProducerAgent
     }
 
     @Override
-    public CreditBasedShuffleView registerNettyService(
+    public CreditBasedBufferQueueView registerNettyService(
             int subpartitionId, BufferAvailabilityListener availabilityListener) {
         // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
         // channel.
@@ -125,16 +125,16 @@ public class MemoryTierProducerAgent
         CreditBasedShuffleViewId creditBasedShuffleViewId = CreditBasedShuffleViewId.newId(
                 lastCreditBasedShuffleViewId);
         lastCreditBasedShuffleViewIds[subpartitionId] = creditBasedShuffleViewId;
-        CreditBasedShuffleView creditBasedShuffleView =
+        CreditBasedBufferQueueView creditBasedBufferQueueView =
                 subpartitionMemoryDataManagers[subpartitionId].registerNettyService(
                         creditBasedShuffleViewId, availabilityListener);
-        CreditBasedShuffleView oldView =
+        CreditBasedBufferQueueView oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
-                        .put(creditBasedShuffleViewId, creditBasedShuffleView);
+                        .put(creditBasedShuffleViewId, creditBasedBufferQueueView);
         Preconditions.checkState(
                 oldView == null, "Each subpartition view should have unique consumerId.");
-        return creditBasedShuffleView;
+        return creditBasedBufferQueueView;
     }
 
     @Override
@@ -245,13 +245,13 @@ public class MemoryTierProducerAgent
     @Override
     public void onDataAvailable(
             int subpartitionId, Collection<CreditBasedShuffleViewId> creditBasedShuffleViewIds) {
-        Map<CreditBasedShuffleViewId, CreditBasedShuffleView> consumerViewMap =
+        Map<CreditBasedShuffleViewId, CreditBasedBufferQueueView> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
         creditBasedShuffleViewIds.forEach(
                 consumerId -> {
-                    CreditBasedShuffleView creditBasedShuffleView = consumerViewMap.get(consumerId);
-                    if (creditBasedShuffleView != null) {
-                        creditBasedShuffleView.notifyDataAvailable();
+                    CreditBasedBufferQueueView creditBasedBufferQueueView = consumerViewMap.get(consumerId);
+                    if (creditBasedBufferQueueView != null) {
+                        creditBasedBufferQueueView.notifyDataAvailable();
                     }
                 });
     }

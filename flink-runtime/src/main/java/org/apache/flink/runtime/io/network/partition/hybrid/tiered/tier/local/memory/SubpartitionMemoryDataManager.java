@@ -28,9 +28,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.ProducerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ProducerNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import javax.annotation.Nullable;
@@ -105,7 +105,7 @@ public class SubpartitionMemoryDataManager {
         allBuffers.clear();
     }
 
-    public CreditBasedShuffleView registerNettyService(
+    public CreditBasedBufferQueueView registerNettyService(
             CreditBasedShuffleViewId creditBasedShuffleViewId,
             BufferAvailabilityListener availabilityListener) {
         checkState(!consumerSet.contains(creditBasedShuffleViewId));
@@ -115,11 +115,11 @@ public class SubpartitionMemoryDataManager {
                         () ->
                                 memoryTierProducerAgentOperation.onConsumerReleased(
                                         subpartitionId, creditBasedShuffleViewId));
-        CreditBasedShuffleView creditBasedShuffleView = nettyService.createCreditBasedShuffleView(
+        CreditBasedBufferQueueView creditBasedBufferQueueView = nettyService.createCreditBasedBufferQueueView(
                 subpartitionId,
                 availabilityListener);
         consumerSet.add(creditBasedShuffleViewId);
-        return creditBasedShuffleView;
+        return creditBasedBufferQueueView;
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")

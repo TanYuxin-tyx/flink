@@ -19,72 +19,47 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
-import org.apache.flink.util.ExceptionUtils;
 
-import java.io.IOException;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.function.BiConsumer;
 
-/** The implementation of {@link NettyService} in consumer side. */
-public class ConsumerNettyService implements NettyService {
+/** {@link ConsumerNettyService} is used to consume buffer from netty client in consumer side. */
+public interface ConsumerNettyService {
 
-    private InputChannel[] inputChannels;
-
-    private BiConsumer<Integer, Boolean> subpartitionAvailableNotifier;
-
-    private int[] lastPrioritySequenceNumber;
-
-    @Override
-    public void setup(
+    /**
+     * Set up the netty service in consumer side.
+     *
+     * @param inputChannels in consumer side.
+     * @param lastPrioritySequenceNumber is the array to record the priority sequence number.
+     * @param subpartitionAvailableNotifier is used to notify the subpartition is available.
+     */
+    void setup(
             InputChannel[] inputChannels,
             int[] lastPrioritySequenceNumber,
-            BiConsumer<Integer, Boolean> subpartitionAvailableNotifier) {
-        this.inputChannels = inputChannels;
-        this.lastPrioritySequenceNumber = lastPrioritySequenceNumber;
-        this.subpartitionAvailableNotifier = subpartitionAvailableNotifier;
-    }
+            BiConsumer<Integer, Boolean> subpartitionAvailableNotifier);
 
-    @Override
-    public Optional<Buffer> readBuffer(int subpartitionId) {
-        Optional<BufferAndAvailability> bufferAndAvailability = Optional.empty();
-        try {
-            bufferAndAvailability = inputChannels[subpartitionId].getNextBuffer();
-        } catch (IOException | InterruptedException e) {
-            ExceptionUtils.rethrow(e, "Failed to read buffer in Consumer Netty Service.");
-        }
-        if (bufferAndAvailability.isPresent()) {
-            if (bufferAndAvailability.get().moreAvailable()) {
-                notifyResultSubpartitionAvailable(
-                        subpartitionId, bufferAndAvailability.get().hasPriority());
-            }
-            if (bufferAndAvailability.get().hasPriority()) {
-                lastPrioritySequenceNumber[subpartitionId] =
-                        bufferAndAvailability.get().getSequenceNumber();
-            }
-        }
-        return bufferAndAvailability.map(BufferAndAvailability::buffer);
-    }
+    /**
+     * Read a buffer related to the specific subpartition from NettyService.
+     *
+     * @param subpartitionId indicate the subpartition.
+     * @return a buffer.
+     */
+    Optional<Buffer> readBuffer(int subpartitionId);
 
-    @Override
-    public void notifyResultSubpartitionAvailable(int subpartitionId, boolean priority) {
-        subpartitionAvailableNotifier.accept(subpartitionId, priority);
-    }
+    /**
+     * Notify that the data responding to a subpartition is available.
+     *
+     * @param subpartitionId indicate the subpartition.
+     * @param priority indicate that if the subpartition is priority.
+     */
+    void notifyResultSubpartitionAvailable(int subpartitionId, boolean priority);
 
-    @Override
-    public void notifyRequiredSegmentId(int subpartitionId, int segmentId) {
-        inputChannels[subpartitionId].notifyRequiredSegmentId(segmentId);
-    }
-
-    @Override
-    public CreditBasedShuffleView register(
-            Queue<BufferContext> bufferQueue,
-            BufferAvailabilityListener availabilityListener,
-            Runnable releaseNotifier) {
-        throw new UnsupportedOperationException("Not supported in consumer side.");
-    }
+    /**
+     * Notify that the specific segment is required according to the subpartitionId and segmentId.
+     *
+     * @param subpartitionId indicate the subpartition.
+     * @param segmentId indicate the id of segment.
+     */
+    void notifyRequiredSegmentId(int subpartitionId, int segmentId);
 }

@@ -24,9 +24,9 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.ProducerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ProducerNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 
@@ -68,7 +68,7 @@ public class ProducerMergePartitionSubpartitionReader
 
     private final ProducerNettyService nettyService;
 
-    private CreditBasedShuffleView creditBasedShuffleView;
+    private CreditBasedBufferQueueView creditBasedBufferQueueView;
 
     private int nextToLoad = 0;
 
@@ -95,11 +95,11 @@ public class ProducerMergePartitionSubpartitionReader
         this.regionCache = new RegionCache();
     }
 
-    public CreditBasedShuffleView registerNettyService(BufferAvailabilityListener availabilityListener) {
+    public CreditBasedBufferQueueView registerNettyService(BufferAvailabilityListener availabilityListener) {
         nettyService.register(
                         subpartitionId, loadedBuffers, () -> readerReleaser.accept(this));
-        creditBasedShuffleView = nettyService.createCreditBasedShuffleView(subpartitionId, availabilityListener);
-        return creditBasedShuffleView;
+        creditBasedBufferQueueView = nettyService.createCreditBasedBufferQueueView(subpartitionId, availabilityListener);
+        return creditBasedBufferQueueView;
     }
 
     public void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
@@ -144,7 +144,7 @@ public class ProducerMergePartitionSubpartitionReader
             ++numLoaded;
         }
         if (loadedBuffers.size() <= numLoaded) {
-            creditBasedShuffleView.notifyDataAvailable();
+            creditBasedBufferQueueView.notifyDataAvailable();
         }
     }
 
@@ -160,7 +160,7 @@ public class ProducerMergePartitionSubpartitionReader
             }
         }
         loadedBuffers.add(new BufferContext(failureCause));
-        creditBasedShuffleView.notifyDataAvailable();
+        creditBasedBufferQueueView.notifyDataAvailable();
     }
 
     @Override
