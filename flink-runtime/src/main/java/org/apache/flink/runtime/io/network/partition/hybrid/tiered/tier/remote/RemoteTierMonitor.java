@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.ConsumerNettyService;
 
 import java.io.InputStream;
 import java.util.List;
@@ -72,7 +72,7 @@ public interface RemoteTierMonitor extends Runnable {
                 JobID jobID,
                 List<ResultPartitionID> resultPartitionIDs,
                 String baseRemoteStoragePath,
-                NettyService consumerNettyService,
+                ConsumerNettyService consumerNettyService,
                 boolean isUpstreamBroadcastOnly) {
             return new RemoteTierMonitorImpl(
                     jobID,

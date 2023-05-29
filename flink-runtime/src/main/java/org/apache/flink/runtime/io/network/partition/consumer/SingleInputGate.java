@@ -43,7 +43,7 @@ import org.apache.flink.runtime.io.network.partition.PrioritizedDeque;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.ConsumerNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -240,7 +240,7 @@ public class SingleInputGate extends IndexedInputGate {
             List<ResultPartitionID> resultPartitionIds,
             List<Integer> subpartitionIds,
             @Nullable String baseRemoteStoragePath,
-            NettyService nettyService) {
+            ConsumerNettyService nettyService) {
 
         this.owningTaskName = checkNotNull(owningTaskName);
         Preconditions.checkArgument(0 <= gateIndex, "The gate index must be positive.");

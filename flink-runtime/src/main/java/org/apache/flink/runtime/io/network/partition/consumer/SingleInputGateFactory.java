@@ -37,7 +37,7 @@ import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvi
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ConsumerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.TieredStorageNettyService;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
@@ -139,7 +139,8 @@ public class SingleInputGateFactory {
             int gateIndex,
             @Nonnull InputGateDeploymentDescriptor igdd,
             @Nonnull PartitionProducerStateProvider partitionProducerStateProvider,
-            @Nonnull InputChannelMetrics metrics) {
+            @Nonnull InputChannelMetrics metrics,
+            @Nonnull TieredStorageNettyService nettyService) {
         GateBuffersSpec gateBuffersSpec =
                 createGateBuffersSpec(
                         maxRequiredBuffersPerGate,
@@ -204,7 +205,8 @@ public class SingleInputGateFactory {
                         owner.getJobID(),
                         resultPartitionIds,
                         subpartitionIds,
-                        baseRemoteStoragePath);
+                        baseRemoteStoragePath,
+                        nettyService);
 
         createInputChannels(
                 owningTaskName, igdd, inputGate, subpartitionIndexRange, gateBuffersSpec, metrics);
@@ -333,7 +335,8 @@ public class SingleInputGateFactory {
             JobID jobID,
             List<ResultPartitionID> resultPartitionIds,
             List<Integer> subpartitionIds,
-            @Nullable String baseRemoteStoragePath) {
+            @Nullable String baseRemoteStoragePath,
+            TieredStorageNettyService nettyService) {
 
         return new SingleInputGate(
                 owningTaskName,
@@ -355,7 +358,7 @@ public class SingleInputGateFactory {
                 resultPartitionIds,
                 subpartitionIds,
                 baseRemoteStoragePath,
-                new ConsumerNettyService());
+                nettyService.createConsumerNettyService());
     }
 
     protected static int calculateNumChannels(

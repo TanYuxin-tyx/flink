@@ -39,6 +39,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateBuilder;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
 import org.apache.flink.runtime.io.network.partition.consumer.UnionInputGate;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.TieredStorageNettyService;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
@@ -281,7 +282,8 @@ public class StreamNetworkBenchmarkEnvironment<T extends IOReadableWritable> {
                         gateIndex,
                         gateDescriptor,
                         SingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
-                        newUnregisteredInputChannelMetrics());
+                        newUnregisteredInputChannelMetrics(),
+                        new TieredStorageNettyService());
 
         return new InputGateWithMetrics(singleGate, new SimpleCounter());
     }

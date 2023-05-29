@@ -22,7 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.ConsumerNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.ProducerNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
@@ -81,7 +81,7 @@ public class DiskTierFactory implements TierFactory {
             List<ResultPartitionID> resultPartitionIDs,
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
-            NettyService consumerNettyService,
+            ConsumerNettyService consumerNettyService,
             boolean isUpstreamBroadcastOnly) {
         return new DiskTierConsumerAgent(requiredSegmentIds, consumerNettyService);
     }

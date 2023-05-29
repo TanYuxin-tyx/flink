@@ -281,7 +281,8 @@ public class NettyShuffleEnvironment
                                 gateIndex,
                                 igdd,
                                 partitionProducerStateProvider,
-                                inputChannelMetrics);
+                                inputChannelMetrics,
+                                nettyService);
                 InputGateID id =
                         new InputGateID(
                                 igdd.getConsumedResultId(), ownerContext.getExecutionAttemptID());
