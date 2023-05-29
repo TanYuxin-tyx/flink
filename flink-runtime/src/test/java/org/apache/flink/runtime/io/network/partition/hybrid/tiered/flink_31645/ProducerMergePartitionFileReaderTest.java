@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ProducerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.ProducerNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFileReader;
@@ -170,7 +170,7 @@ class ProducerMergePartitionFileReaderTest {
                 bufferPool.getNumBuffersPerRequest(),
                 Duration.ofDays(1),
                 5,
-                new ProducerNettyService());
+                new ProducerNettyServiceImpl());
     }
 
     private void generateShuffleData(Path tempDir)

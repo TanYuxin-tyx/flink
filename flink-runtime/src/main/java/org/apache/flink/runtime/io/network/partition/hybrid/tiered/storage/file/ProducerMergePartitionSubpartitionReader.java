@@ -24,9 +24,9 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.ProducerNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 
@@ -66,7 +66,7 @@ public class ProducerMergePartitionSubpartitionReader
 
     private final Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser;
 
-    private final NettyService nettyService;
+    private final ProducerNettyService nettyService;
 
     private CreditBasedShuffleView creditBasedShuffleView;
 
@@ -82,7 +82,7 @@ public class ProducerMergePartitionSubpartitionReader
             RegionBufferIndexTracker dataIndex,
             Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser,
             CreditBasedShuffleViewId creditBasedShuffleViewId,
-            NettyService nettyService) {
+            ProducerNettyService nettyService) {
         this.subpartitionId = subpartitionId;
         this.creditBasedShuffleViewId = creditBasedShuffleViewId;
         this.dataFileChannel = dataFileChannel;
@@ -96,9 +96,9 @@ public class ProducerMergePartitionSubpartitionReader
     }
 
     public CreditBasedShuffleView registerNettyService(BufferAvailabilityListener availabilityListener) {
-        creditBasedShuffleView =
-                nettyService.register(
-                        loadedBuffers, availabilityListener, () -> readerReleaser.accept(this));
+        nettyService.register(
+                        subpartitionId, loadedBuffers, () -> readerReleaser.accept(this));
+        creditBasedShuffleView = nettyService.createCreditBasedShuffleView(subpartitionId, availabilityListener);
         return creditBasedShuffleView;
     }
 

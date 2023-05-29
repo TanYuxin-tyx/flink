@@ -10,10 +10,10 @@ import java.util.Queue;
 public interface ProducerNettyService {
 
     /**
-     * Register a buffer queue to the NettyService and the buffer will be consumed from the queue
-     * and sent to netty.
+     * Register a buffer queue related to a specific subpartition and the buffer will be consumed
+     * from the queue and sent to netty server.
      *
-     * @param bufferQueue is the required queue.
+     * @param bufferQueue is the required buffer queue.
      * @param serviceReleaseNotifier is used to notify that the service is released.
      */
     void register(

@@ -28,9 +28,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.ProducerNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import javax.annotation.Nullable;
@@ -53,7 +53,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** TODO. */
 public class SubpartitionMemoryDataManager {
 
-    private final int targetChannel;
+    private final int subpartitionId;
 
     private final int bufferSize;
 
@@ -72,15 +72,15 @@ public class SubpartitionMemoryDataManager {
 
     @Nullable private final BufferCompressor bufferCompressor;
 
-    private NettyService nettyService;
+    private ProducerNettyService nettyService;
 
     public SubpartitionMemoryDataManager(
-            int targetChannel,
+            int subpartitionId,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
             MemoryTierProducerAgentOperation memoryTierProducerAgentOperation,
-            NettyService nettyService) {
-        this.targetChannel = targetChannel;
+            ProducerNettyService nettyService) {
+        this.subpartitionId = subpartitionId;
         this.bufferSize = bufferSize;
         this.memoryTierProducerAgentOperation = memoryTierProducerAgentOperation;
         this.bufferCompressor = bufferCompressor;
@@ -109,13 +109,15 @@ public class SubpartitionMemoryDataManager {
             CreditBasedShuffleViewId creditBasedShuffleViewId,
             BufferAvailabilityListener availabilityListener) {
         checkState(!consumerSet.contains(creditBasedShuffleViewId));
-        CreditBasedShuffleView creditBasedShuffleView =
-                nettyService.register(
+        nettyService.register(
+                subpartitionId,
                         allBuffers,
-                        availabilityListener,
                         () ->
                                 memoryTierProducerAgentOperation.onConsumerReleased(
-                                        targetChannel, creditBasedShuffleViewId));
+                                        subpartitionId, creditBasedShuffleViewId));
+        CreditBasedShuffleView creditBasedShuffleView = nettyService.createCreditBasedShuffleView(
+                subpartitionId,
+                availabilityListener);
         consumerSet.add(creditBasedShuffleViewId);
         return creditBasedShuffleView;
     }
@@ -140,7 +142,7 @@ public class SubpartitionMemoryDataManager {
         Buffer buffer =
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
-        BufferContext bufferContext = new BufferContext(buffer, finishedBufferIndex, targetChannel);
+        BufferContext bufferContext = new BufferContext(buffer, finishedBufferIndex, subpartitionId);
         addFinishedBuffer(bufferContext);
     }
 
@@ -165,7 +167,7 @@ public class SubpartitionMemoryDataManager {
         bufferConsumer.close();
         BufferContext bufferContext =
                 new BufferContext(
-                        compressBuffersIfPossible(buffer), finishedBufferIndex, targetChannel);
+                        compressBuffersIfPossible(buffer), finishedBufferIndex, subpartitionId);
         addFinishedBuffer(bufferContext);
     }
 
@@ -185,7 +187,7 @@ public class SubpartitionMemoryDataManager {
     }
 
     void addFinishedBuffer(Buffer buffer) {
-        BufferContext toAddBuffer = new BufferContext(buffer, finishedBufferIndex, targetChannel);
+        BufferContext toAddBuffer = new BufferContext(buffer, finishedBufferIndex, subpartitionId);
         addFinishedBuffer(toAddBuffer);
     }
 
@@ -198,6 +200,6 @@ public class SubpartitionMemoryDataManager {
                 needNotify.add(consumerEntry);
             }
         }
-        memoryTierProducerAgentOperation.onDataAvailable(targetChannel, needNotify);
+        memoryTierProducerAgentOperation.onDataAvailable(subpartitionId, needNotify);
     }
 }

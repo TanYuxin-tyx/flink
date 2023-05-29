@@ -4,7 +4,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty2.ProducerNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 
 import java.nio.file.Path;
@@ -74,7 +74,7 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
     }
 
     @Override
-    public PartitionFileReader createPartitionFileReader(PartitionFileType partitionFileType, NettyService nettyService) {
+    public PartitionFileReader createPartitionFileReader(PartitionFileType partitionFileType, ProducerNettyService nettyService) {
         if (partitionFileType == PartitionFileType.PRODUCER_MERGE) {
             return new ProducerMergePartitionFileReader(
                     readBufferPool,
