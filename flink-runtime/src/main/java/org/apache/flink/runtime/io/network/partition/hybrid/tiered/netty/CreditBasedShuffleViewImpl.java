@@ -32,8 +32,8 @@ import java.util.Queue;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The implementation of {@link NettyServiceView}. */
-public class NettyServiceViewImpl implements NettyServiceView {
+/** The implementation of {@link CreditBasedShuffleView}. */
+public class CreditBasedShuffleViewImpl implements CreditBasedShuffleView {
 
     private final BufferAvailabilityListener availabilityListener;
 
@@ -47,7 +47,7 @@ public class NettyServiceViewImpl implements NettyServiceView {
 
     private final Runnable releaseNotifier;
 
-    public NettyServiceViewImpl(
+    public CreditBasedShuffleViewImpl(
             Queue<BufferContext> bufferQueue,
             BufferAvailabilityListener availabilityListener,
             Runnable releaseNotifier) {

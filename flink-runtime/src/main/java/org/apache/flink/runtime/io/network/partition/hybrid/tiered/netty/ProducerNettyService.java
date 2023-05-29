@@ -31,11 +31,11 @@ import java.util.function.BiConsumer;
 public class ProducerNettyService implements NettyService {
 
     @Override
-    public NettyServiceView register(
+    public CreditBasedShuffleView register(
             Queue<BufferContext> bufferQueue,
             BufferAvailabilityListener availabilityListener,
             Runnable releaseNotifier) {
-        return new NettyServiceViewImpl(bufferQueue, availabilityListener, releaseNotifier);
+        return new CreditBasedShuffleViewImpl(bufferQueue, availabilityListener, releaseNotifier);
     }
 
     @Override

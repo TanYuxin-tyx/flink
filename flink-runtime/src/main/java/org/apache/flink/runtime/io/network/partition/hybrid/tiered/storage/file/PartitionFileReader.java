@@ -1,8 +1,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
 
 import java.io.IOException;
 
@@ -16,14 +16,14 @@ public interface PartitionFileReader {
      * Register to netty service and provide buffer to transfer to down stream.
      *
      * @param subpartitionId the id of subpartition.
-     * @param nettyServiceViewId the id of netty service view.
+     * @param creditBasedShuffleViewId the id of netty service view.
      * @param availabilityListener the availability listener of the reader.
      * @return the view of netty service
      * @throws IOException if the reader cannot register to netty service.
      */
-    NettyServiceView registerNettyService(
+    CreditBasedShuffleView registerNettyService(
             int subpartitionId,
-            NettyServiceViewId nettyServiceViewId,
+            CreditBasedShuffleViewId creditBasedShuffleViewId,
             BufferAvailabilityListener availabilityListener)
             throws IOException;
 

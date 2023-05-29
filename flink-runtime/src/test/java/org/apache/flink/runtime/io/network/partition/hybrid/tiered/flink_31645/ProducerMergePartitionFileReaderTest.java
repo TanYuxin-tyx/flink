@@ -25,8 +25,8 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ProducerNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
@@ -84,7 +84,7 @@ class ProducerMergePartitionFileReaderTest {
     private final BufferAvailabilityListener defaultAvailabilityListener =
             new NoOpBufferAvailablityListener();
 
-    private final NettyServiceViewId defaultNettyServiceViewId = NettyServiceViewId.DEFAULT;
+    private final CreditBasedShuffleViewId defaultCreditBasedShuffleViewId = CreditBasedShuffleViewId.DEFAULT;
 
     @BeforeEach
     void before(@TempDir Path tempDir)
@@ -108,32 +108,34 @@ class ProducerMergePartitionFileReaderTest {
     @Test
     void testRegisterNettyService() throws Exception {
         producerMergePartitionFileReader = createProducerMergePartitionFileReader();
-        NettyServiceView nettyServiceView =
+        CreditBasedShuffleView creditBasedShuffleView =
                 producerMergePartitionFileReader.registerNettyService(
-                        SUBPARTITION_ID, defaultNettyServiceViewId, defaultAvailabilityListener);
+                        SUBPARTITION_ID,
+                        defaultCreditBasedShuffleViewId, defaultAvailabilityListener);
         int backlog;
         do {
-            backlog = nettyServiceView.getNumberOfQueuedBuffers();
+            backlog = creditBasedShuffleView.getNumberOfQueuedBuffers();
             TimeUnit.MILLISECONDS.sleep(50);
         } while (backlog != BUFFER_NUM_PER_SUBPARTITION);
-        assertThat(nettyServiceView.getNumberOfQueuedBuffers())
+        assertThat(creditBasedShuffleView.getNumberOfQueuedBuffers())
                 .isEqualTo(BUFFER_NUM_PER_SUBPARTITION);
     }
 
     @Test
     void testBuffersAreCorrectlyReleased() throws Throwable {
         producerMergePartitionFileReader = createProducerMergePartitionFileReader();
-        NettyServiceView nettyServiceView =
+        CreditBasedShuffleView creditBasedShuffleView =
                 producerMergePartitionFileReader.registerNettyService(
-                        SUBPARTITION_ID, defaultNettyServiceViewId, defaultAvailabilityListener);
+                        SUBPARTITION_ID,
+                        defaultCreditBasedShuffleViewId, defaultAvailabilityListener);
         int numberOfQueuedBuffers;
         do {
-            numberOfQueuedBuffers = nettyServiceView.getNumberOfQueuedBuffers();
+            numberOfQueuedBuffers = creditBasedShuffleView.getNumberOfQueuedBuffers();
             TimeUnit.MILLISECONDS.sleep(50);
         } while (numberOfQueuedBuffers != BUFFER_NUM_PER_SUBPARTITION);
         assertThat(numberOfQueuedBuffers).isEqualTo(BUFFER_NUM_PER_SUBPARTITION);
         for (int bufferIndex = 0; bufferIndex < numberOfQueuedBuffers; ++bufferIndex) {
-            Optional<Buffer> nextBuffer = nettyServiceView.getNextBuffer();
+            Optional<Buffer> nextBuffer = creditBasedShuffleView.getNextBuffer();
             assertThat(nextBuffer).isPresent();
             nextBuffer.get().recycleBuffer();
         }
@@ -148,7 +150,7 @@ class ProducerMergePartitionFileReaderTest {
                         () -> {
                             producerMergePartitionFileReader.registerNettyService(
                                     SUBPARTITION_ID,
-                                    defaultNettyServiceViewId,
+                                    defaultCreditBasedShuffleViewId,
                                     defaultAvailabilityListener);
                         })
                 .isInstanceOf(IllegalStateException.class)

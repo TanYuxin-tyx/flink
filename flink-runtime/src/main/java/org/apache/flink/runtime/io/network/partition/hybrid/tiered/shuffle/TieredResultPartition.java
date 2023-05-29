@@ -36,7 +36,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoreResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
@@ -192,17 +192,17 @@ public class TieredResultPartition extends ResultPartition {
             throws IOException {
         checkState(!isReleased(), "ResultPartition already released.");
         List<SegmentSearcher> segmentSearchers = new ArrayList<>();
-        List<NettyServiceView> nettyServiceViews = new ArrayList<>();
+        List<CreditBasedShuffleView> creditBasedShuffleViews = new ArrayList<>();
         for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
-            NettyServiceView nettyServiceView =
+            CreditBasedShuffleView creditBasedShuffleView =
                     tierProducerAgent.registerNettyService(subpartitionId, availabilityListener);
-            if (nettyServiceView != null) {
-                nettyServiceViews.add(nettyServiceView);
+            if (creditBasedShuffleView != null) {
+                creditBasedShuffleViews.add(creditBasedShuffleView);
                 segmentSearchers.add((SegmentSearcher) tierProducerAgent);
             }
         }
         return new TieredStoreResultSubpartitionView(
-                subpartitionId, availabilityListener, segmentSearchers, nettyServiceViews);
+                subpartitionId, availabilityListener, segmentSearchers, creditBasedShuffleViews);
     }
 
     @Override

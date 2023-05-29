@@ -25,8 +25,8 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import org.junit.jupiter.api.Test;
@@ -41,7 +41,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/** Tests for {@link NettyServiceView}. */
+/** Tests for {@link CreditBasedShuffleView}. */
 class NettyServiceViewTest {
 
     private static final String EXCEPTION_MESSAGE = "Excepted exception";
@@ -55,11 +55,11 @@ class NettyServiceViewTest {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
         int bufferNumber = 1;
         DataType dataType = DataType.DATA_BUFFER;
-        NettyServiceView nettyServiceView =
+        CreditBasedShuffleView creditBasedShuffleView =
                 nettyServiceViewBuilder
                         .setBufferQueue(createBufferQueue(bufferNumber, dataType))
                         .build();
-        Optional<Buffer> buffer = nettyServiceView.getNextBuffer();
+        Optional<Buffer> buffer = creditBasedShuffleView.getNextBuffer();
         assertThat(buffer.isPresent()).isTrue();
         assertThat(buffer.get().isBuffer()).isTrue();
         assertThat(buffer.get().getDataType()).isEqualTo(dataType);
@@ -69,11 +69,11 @@ class NettyServiceViewTest {
     void testGetNextBufferThrowException() {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
         Throwable expectedException = new IOException(EXCEPTION_MESSAGE);
-        NettyServiceView nettyServiceView =
+        CreditBasedShuffleView creditBasedShuffleView =
                 nettyServiceViewBuilder
                         .setBufferQueue(createBufferQueueWithExpectedException(expectedException))
                         .build();
-        assertThatThrownBy(nettyServiceView::getNextBuffer)
+        assertThatThrownBy(creditBasedShuffleView::getNextBuffer)
                 .hasStackTraceContaining(EXCEPTION_MESSAGE);
     }
 
@@ -82,11 +82,11 @@ class NettyServiceViewTest {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
         int bufferNumber = 10;
         DataType dataType = DataType.DATA_BUFFER;
-        NettyServiceView nettyServiceView =
+        CreditBasedShuffleView creditBasedShuffleView =
                 nettyServiceViewBuilder
                         .setBufferQueue(createBufferQueue(bufferNumber, dataType))
                         .build();
-        assertThat(nettyServiceView.getNumberOfQueuedBuffers()).isEqualTo(bufferNumber);
+        assertThat(creditBasedShuffleView.getNumberOfQueuedBuffers()).isEqualTo(bufferNumber);
     }
 
     @Test
@@ -94,25 +94,25 @@ class NettyServiceViewTest {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
         int bufferNumber = 1;
         DataType dataType = DataType.DATA_BUFFER;
-        NettyServiceView nettyServiceView =
+        CreditBasedShuffleView creditBasedShuffleView =
                 nettyServiceViewBuilder
                         .setBufferQueue(createBufferQueue(bufferNumber, dataType))
                         .build();
-        assertThat(nettyServiceView.getNextBufferDataType()).isEqualTo(dataType);
+        assertThat(creditBasedShuffleView.getNextBufferDataType()).isEqualTo(dataType);
     }
 
     @Test
     void testNotifyDataAvailable() throws ExecutionException, InterruptedException {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
         CompletableFuture<Boolean> notifyReceiver = new CompletableFuture<>();
-        NettyServiceView nettyServiceView =
+        CreditBasedShuffleView creditBasedShuffleView =
                 nettyServiceViewBuilder
                         .setAvailabilityListener(
                                 () -> {
                                     notifyReceiver.complete(true);
                                 })
                         .build();
-        nettyServiceView.notifyDataAvailable();
+        creditBasedShuffleView.notifyDataAvailable();
         assertThat(notifyReceiver.get()).isTrue();
     }
 
@@ -120,14 +120,14 @@ class NettyServiceViewTest {
     void testRelease() throws ExecutionException, InterruptedException, IOException {
         NettyServiceViewBuilder nettyServiceViewBuilder = new NettyServiceViewBuilder();
         CompletableFuture<Boolean> releaseReceiver = new CompletableFuture<>();
-        NettyServiceView nettyServiceView =
+        CreditBasedShuffleView creditBasedShuffleView =
                 nettyServiceViewBuilder
                         .setReleaseNotifier(
                                 () -> {
                                     releaseReceiver.complete(true);
                                 })
                         .build();
-        nettyServiceView.release();
+        creditBasedShuffleView.release();
         assertThat(releaseReceiver.get()).isTrue();
     }
 
@@ -179,8 +179,8 @@ class NettyServiceViewTest {
             return this;
         }
 
-        private NettyServiceView build() {
-            return new NettyServiceViewImpl(bufferQueue, availabilityListener, releaseNotifier);
+        private CreditBasedShuffleView build() {
+            return new CreditBasedShuffleViewImpl(bufferQueue, availabilityListener, releaseNotifier);
         }
     }
 }

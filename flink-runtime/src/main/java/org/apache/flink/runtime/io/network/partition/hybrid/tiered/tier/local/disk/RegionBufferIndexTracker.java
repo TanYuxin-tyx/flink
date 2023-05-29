@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
 
 import java.util.List;
 import java.util.Optional;
@@ -48,7 +48,7 @@ public interface RegionBufferIndexTracker {
     Optional<ReadableRegion> getReadableRegion(
             int subpartitionId,
             int bufferIndex,
-            NettyServiceViewId nettyServiceViewId);
+            CreditBasedShuffleViewId creditBasedShuffleViewId);
 
     /**
      * Add buffers to the index.

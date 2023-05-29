@@ -18,36 +18,36 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.flink_31636;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Tests for {@link NettyServiceViewId}. */
+/** Tests for {@link CreditBasedShuffleViewId}. */
 class NettyServiceViewIdTest {
 
     @Test
     void testNewIdFromNull() {
-        NettyServiceViewId nettyServiceViewId =
-                NettyServiceViewId.newId(null);
-        assertThat(nettyServiceViewId)
+        CreditBasedShuffleViewId creditBasedShuffleViewId =
+                CreditBasedShuffleViewId.newId(null);
+        assertThat(creditBasedShuffleViewId)
                 .isNotNull()
-                .isEqualTo(NettyServiceViewId.DEFAULT);
+                .isEqualTo(CreditBasedShuffleViewId.DEFAULT);
     }
 
     @Test
     void testConsumerIdEquals() {
-        NettyServiceViewId nettyServiceViewId =
-                NettyServiceViewId.newId(null);
-        NettyServiceViewId nettyServiceViewId1 =
-                NettyServiceViewId.newId(nettyServiceViewId);
-        NettyServiceViewId nettyServiceViewId2 =
-                NettyServiceViewId.newId(nettyServiceViewId);
-        assertThat(nettyServiceViewId1.hashCode())
-                .isEqualTo(nettyServiceViewId2.hashCode());
-        assertThat(nettyServiceViewId1).isEqualTo(nettyServiceViewId2);
+        CreditBasedShuffleViewId creditBasedShuffleViewId =
+                CreditBasedShuffleViewId.newId(null);
+        CreditBasedShuffleViewId creditBasedShuffleViewId1 =
+                CreditBasedShuffleViewId.newId(creditBasedShuffleViewId);
+        CreditBasedShuffleViewId creditBasedShuffleViewId2 =
+                CreditBasedShuffleViewId.newId(creditBasedShuffleViewId);
+        assertThat(creditBasedShuffleViewId1.hashCode())
+                .isEqualTo(creditBasedShuffleViewId2.hashCode());
+        assertThat(creditBasedShuffleViewId1).isEqualTo(creditBasedShuffleViewId2);
 
-        assertThat(NettyServiceViewId.newId(nettyServiceViewId2))
-                .isNotEqualTo(nettyServiceViewId2);
+        assertThat(CreditBasedShuffleViewId.newId(creditBasedShuffleViewId2))
+                .isNotEqualTo(creditBasedShuffleViewId2);
     }
 }

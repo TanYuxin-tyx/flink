@@ -25,8 +25,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
@@ -61,7 +61,7 @@ public class MemoryTierProducerAgent
     private final boolean isBroadcastOnly;
 
     /** Record the last assigned consumerId for each subpartition. */
-    private final NettyServiceViewId[] lastNettyServiceViewIds;
+    private final CreditBasedShuffleViewId[] lastCreditBasedShuffleViewIds;
 
     public static final int MEMORY_TIER_SEGMENT_BYTES = 10 * 32 * 1024;
 
@@ -76,7 +76,7 @@ public class MemoryTierProducerAgent
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<NettyServiceViewId, NettyServiceView>> subpartitionViewOperationsMap;
+    private final List<Map<CreditBasedShuffleViewId, CreditBasedShuffleView>> subpartitionViewOperationsMap;
 
     private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
 
@@ -94,7 +94,7 @@ public class MemoryTierProducerAgent
         this.numSubpartitions = numSubpartitions;
         this.isBroadcastOnly = isBroadcastOnly;
         this.storageMemoryManager = storageMemoryManager;
-        this.lastNettyServiceViewIds = new NettyServiceViewId[numSubpartitions];
+        this.lastCreditBasedShuffleViewIds = new CreditBasedShuffleViewId[numSubpartitions];
 
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
@@ -111,29 +111,30 @@ public class MemoryTierProducerAgent
     }
 
     @Override
-    public NettyServiceView registerNettyService(
+    public CreditBasedShuffleView registerNettyService(
             int subpartitionId, BufferAvailabilityListener availabilityListener) {
         // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
         // channel.
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
 
         // NettyServiceViewImpl memoryReaderView = new NettyServiceViewImpl(availabilityListener);
-        NettyServiceViewId lastNettyServiceViewId = lastNettyServiceViewIds[subpartitionId];
-        checkMultipleConsumerIsAllowed(lastNettyServiceViewId);
+        CreditBasedShuffleViewId lastCreditBasedShuffleViewId = lastCreditBasedShuffleViewIds[subpartitionId];
+        checkMultipleConsumerIsAllowed(lastCreditBasedShuffleViewId);
         // assign a unique id for each consumer, now it is guaranteed by the value that is one
         // higher than the last consumerId's id field.
-        NettyServiceViewId nettyServiceViewId = NettyServiceViewId.newId(lastNettyServiceViewId);
-        lastNettyServiceViewIds[subpartitionId] = nettyServiceViewId;
-        NettyServiceView nettyServiceView =
+        CreditBasedShuffleViewId creditBasedShuffleViewId = CreditBasedShuffleViewId.newId(
+                lastCreditBasedShuffleViewId);
+        lastCreditBasedShuffleViewIds[subpartitionId] = creditBasedShuffleViewId;
+        CreditBasedShuffleView creditBasedShuffleView =
                 subpartitionMemoryDataManagers[subpartitionId].registerNettyService(
-                        nettyServiceViewId, availabilityListener);
-        NettyServiceView oldView =
+                        creditBasedShuffleViewId, availabilityListener);
+        CreditBasedShuffleView oldView =
                 subpartitionViewOperationsMap
                         .get(subpartitionId)
-                        .put(nettyServiceViewId, nettyServiceView);
+                        .put(creditBasedShuffleViewId, creditBasedShuffleView);
         Preconditions.checkState(
                 oldView == null, "Each subpartition view should have unique consumerId.");
-        return nettyServiceView;
+        return creditBasedShuffleView;
     }
 
     @Override
@@ -178,9 +179,9 @@ public class MemoryTierProducerAgent
         }
     }
 
-    private static void checkMultipleConsumerIsAllowed(NettyServiceViewId lastNettyServiceViewId) {
+    private static void checkMultipleConsumerIsAllowed(CreditBasedShuffleViewId lastCreditBasedShuffleViewId) {
         checkState(
-                lastNettyServiceViewId == null, "Memory Tier does not support multiple consumers");
+                lastCreditBasedShuffleViewId == null, "Memory Tier does not support multiple consumers");
     }
 
     @Override
@@ -243,22 +244,22 @@ public class MemoryTierProducerAgent
 
     @Override
     public void onDataAvailable(
-            int subpartitionId, Collection<NettyServiceViewId> nettyServiceViewIds) {
-        Map<NettyServiceViewId, NettyServiceView> consumerViewMap =
+            int subpartitionId, Collection<CreditBasedShuffleViewId> creditBasedShuffleViewIds) {
+        Map<CreditBasedShuffleViewId, CreditBasedShuffleView> consumerViewMap =
                 subpartitionViewOperationsMap.get(subpartitionId);
-        nettyServiceViewIds.forEach(
+        creditBasedShuffleViewIds.forEach(
                 consumerId -> {
-                    NettyServiceView nettyServiceView = consumerViewMap.get(consumerId);
-                    if (nettyServiceView != null) {
-                        nettyServiceView.notifyDataAvailable();
+                    CreditBasedShuffleView creditBasedShuffleView = consumerViewMap.get(consumerId);
+                    if (creditBasedShuffleView != null) {
+                        creditBasedShuffleView.notifyDataAvailable();
                     }
                 });
     }
 
     @Override
-    public void onConsumerReleased(int subpartitionId, NettyServiceViewId nettyServiceViewId) {
-        subpartitionViewOperationsMap.get(subpartitionId).remove(nettyServiceViewId);
-        getSubpartitionMemoryDataManager(subpartitionId).releaseConsumer(nettyServiceViewId);
+    public void onConsumerReleased(int subpartitionId, CreditBasedShuffleViewId creditBasedShuffleViewId) {
+        subpartitionViewOperationsMap.get(subpartitionId).remove(creditBasedShuffleViewId);
+        getSubpartitionMemoryDataManager(subpartitionId).releaseConsumer(creditBasedShuffleViewId);
     }
 
     // ------------------------------------

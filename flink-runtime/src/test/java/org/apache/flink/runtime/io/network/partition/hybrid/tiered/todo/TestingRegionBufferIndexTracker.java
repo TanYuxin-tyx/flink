@@ -19,7 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
 import org.apache.flink.util.function.TriFunction;
 
 import java.util.List;
@@ -50,7 +50,7 @@ public class TestingRegionBufferIndexTracker implements RegionBufferIndexTracker
     public Optional<ReadableRegion> getReadableRegion(
             int subpartitionId,
             int bufferIndex,
-            NettyServiceViewId nettyServiceViewId) {
+            CreditBasedShuffleViewId creditBasedShuffleViewId) {
         return getReadableRegionFunction.apply(subpartitionId, bufferIndex, 0);
     }
 

@@ -23,24 +23,24 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 
 /**
- * {@link NettyServiceViewId} represents the identifier of {@link
- * NettyServiceView}, Every {@link NettyServiceView} has a specific id.
+ * {@link CreditBasedShuffleViewId} represents the identifier of {@link
+ * CreditBasedShuffleView}, Every {@link CreditBasedShuffleView} has a specific id.
  */
-public class NettyServiceViewId {
+public class CreditBasedShuffleViewId {
 
     /** This is the first consumer view id of a single subpartition. */
-    public static final NettyServiceViewId DEFAULT = new NettyServiceViewId(0);
+    public static final CreditBasedShuffleViewId DEFAULT = new CreditBasedShuffleViewId(0);
 
     /** This is a unique field for each consumer view of a single subpartition. */
     private final int id;
 
-    private NettyServiceViewId(int id) {
+    private CreditBasedShuffleViewId(int id) {
         this.id = id;
     }
 
-    public static NettyServiceViewId newId(
-            @Nullable NettyServiceViewId lastId) {
-        return lastId == null ? DEFAULT : new NettyServiceViewId(lastId.id + 1);
+    public static CreditBasedShuffleViewId newId(
+            @Nullable CreditBasedShuffleViewId lastId) {
+        return lastId == null ? DEFAULT : new CreditBasedShuffleViewId(lastId.id + 1);
     }
 
     @Override
@@ -51,7 +51,7 @@ public class NettyServiceViewId {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        NettyServiceViewId that = (NettyServiceViewId) o;
+        CreditBasedShuffleViewId that = (CreditBasedShuffleViewId) o;
         return id == that.id;
     }
 

@@ -29,8 +29,8 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import javax.annotation.Nullable;
@@ -68,7 +68,7 @@ public class SubpartitionMemoryDataManager {
     @GuardedBy("subpartitionLock")
     private final LinkedBlockingDeque<BufferContext> allBuffers = new LinkedBlockingDeque<>();
 
-    private final Set<NettyServiceViewId> consumerSet;
+    private final Set<CreditBasedShuffleViewId> consumerSet;
 
     @Nullable private final BufferCompressor bufferCompressor;
 
@@ -105,24 +105,24 @@ public class SubpartitionMemoryDataManager {
         allBuffers.clear();
     }
 
-    public NettyServiceView registerNettyService(
-            NettyServiceViewId nettyServiceViewId,
+    public CreditBasedShuffleView registerNettyService(
+            CreditBasedShuffleViewId creditBasedShuffleViewId,
             BufferAvailabilityListener availabilityListener) {
-        checkState(!consumerSet.contains(nettyServiceViewId));
-        NettyServiceView nettyServiceView =
+        checkState(!consumerSet.contains(creditBasedShuffleViewId));
+        CreditBasedShuffleView creditBasedShuffleView =
                 nettyService.register(
                         allBuffers,
                         availabilityListener,
                         () ->
                                 memoryTierProducerAgentOperation.onConsumerReleased(
-                                        targetChannel, nettyServiceViewId));
-        consumerSet.add(nettyServiceViewId);
-        return nettyServiceView;
+                                        targetChannel, creditBasedShuffleViewId));
+        consumerSet.add(creditBasedShuffleViewId);
+        return creditBasedShuffleView;
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
-    public void releaseConsumer(NettyServiceViewId nettyServiceViewId) {
-        checkNotNull(consumerSet.remove(nettyServiceViewId));
+    public void releaseConsumer(CreditBasedShuffleViewId creditBasedShuffleViewId) {
+        checkNotNull(consumerSet.remove(creditBasedShuffleViewId));
     }
 
     // ------------------------------------------------------------------------
@@ -190,10 +190,10 @@ public class SubpartitionMemoryDataManager {
     }
 
     private void addFinishedBuffer(BufferContext bufferContext) {
-        List<NettyServiceViewId> needNotify = new ArrayList<>(consumerSet.size());
+        List<CreditBasedShuffleViewId> needNotify = new ArrayList<>(consumerSet.size());
         finishedBufferIndex++;
         allBuffers.add(bufferContext);
-        for (NettyServiceViewId consumerEntry : consumerSet) {
+        for (CreditBasedShuffleViewId consumerEntry : consumerSet) {
             if (allBuffers.size() <= 1) {
                 needNotify.add(consumerEntry);
             }

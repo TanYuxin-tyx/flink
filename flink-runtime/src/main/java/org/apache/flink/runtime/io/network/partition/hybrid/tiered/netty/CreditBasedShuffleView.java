@@ -25,11 +25,11 @@ import java.io.IOException;
 import java.util.Optional;
 
 /**
- * {@link NettyServiceView} is the coordinator between a tier agent and the netty server. Netty
+ * {@link CreditBasedShuffleView} is the coordinator between a tier agent and the netty server. Netty
  * server could get the buffer and get available status of data from it, and tier agent could notify
  * it when the data is available.
  */
-public interface NettyServiceView {
+public interface CreditBasedShuffleView {
 
     /**
      * Get next required buffer.
@@ -56,6 +56,6 @@ public interface NettyServiceView {
     /** Notify that the view is available. */
     void notifyDataAvailable();
 
-    /** Release the {@link NettyServiceView}. */
+    /** Release the {@link CreditBasedShuffleView}. */
     void release();
 }

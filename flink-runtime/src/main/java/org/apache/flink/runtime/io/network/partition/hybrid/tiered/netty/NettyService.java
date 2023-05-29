@@ -46,7 +46,7 @@ public interface NettyService {
      * @param serviceReleaseNotifier is used to notify that the service is released.
      * @return the view of netty service.
      */
-    NettyServiceView register(
+    CreditBasedShuffleView register(
             Queue<BufferContext> bufferQueue,
             BufferAvailabilityListener availabilityListener,
             Runnable serviceReleaseNotifier);

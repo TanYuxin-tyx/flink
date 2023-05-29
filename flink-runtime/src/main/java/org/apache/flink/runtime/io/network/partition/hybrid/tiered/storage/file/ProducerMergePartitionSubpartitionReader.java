@@ -25,8 +25,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 
@@ -48,7 +48,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class ProducerMergePartitionSubpartitionReader
         implements Comparable<ProducerMergePartitionSubpartitionReader> {
 
-    private final NettyServiceViewId nettyServiceViewId;
+    private final CreditBasedShuffleViewId creditBasedShuffleViewId;
 
     private final ByteBuffer reusedHeaderBuffer;
 
@@ -68,7 +68,7 @@ public class ProducerMergePartitionSubpartitionReader
 
     private final NettyService nettyService;
 
-    private NettyServiceView nettyServiceView;
+    private CreditBasedShuffleView creditBasedShuffleView;
 
     private int nextToLoad = 0;
 
@@ -81,10 +81,10 @@ public class ProducerMergePartitionSubpartitionReader
             FileChannel dataFileChannel,
             RegionBufferIndexTracker dataIndex,
             Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser,
-            NettyServiceViewId nettyServiceViewId,
+            CreditBasedShuffleViewId creditBasedShuffleViewId,
             NettyService nettyService) {
         this.subpartitionId = subpartitionId;
-        this.nettyServiceViewId = nettyServiceViewId;
+        this.creditBasedShuffleViewId = creditBasedShuffleViewId;
         this.dataFileChannel = dataFileChannel;
         this.loadedBuffers = new LinkedBlockingDeque<>();
         this.reusedHeaderBuffer = reusedHeaderBuffer;
@@ -95,11 +95,11 @@ public class ProducerMergePartitionSubpartitionReader
         this.regionCache = new RegionCache();
     }
 
-    public NettyServiceView registerNettyService(BufferAvailabilityListener availabilityListener) {
-        nettyServiceView =
+    public CreditBasedShuffleView registerNettyService(BufferAvailabilityListener availabilityListener) {
+        creditBasedShuffleView =
                 nettyService.register(
                         loadedBuffers, availabilityListener, () -> readerReleaser.accept(this));
-        return nettyServiceView;
+        return creditBasedShuffleView;
     }
 
     public void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
@@ -115,7 +115,7 @@ public class ProducerMergePartitionSubpartitionReader
             return;
         }
         int numRemainingBuffer =
-                regionCache.getRemainingBuffersInRegion(nextToLoad, nettyServiceViewId);
+                regionCache.getRemainingBuffersInRegion(nextToLoad, creditBasedShuffleViewId);
         // If there is no data in index, skip this time.
         if (numRemainingBuffer == 0) {
             return;
@@ -144,7 +144,7 @@ public class ProducerMergePartitionSubpartitionReader
             ++numLoaded;
         }
         if (loadedBuffers.size() <= numLoaded) {
-            nettyServiceView.notifyDataAvailable();
+            creditBasedShuffleView.notifyDataAvailable();
         }
     }
 
@@ -160,7 +160,7 @@ public class ProducerMergePartitionSubpartitionReader
             }
         }
         loadedBuffers.add(new BufferContext(failureCause));
-        nettyServiceView.notifyDataAvailable();
+        creditBasedShuffleView.notifyDataAvailable();
     }
 
     @Override
@@ -198,8 +198,8 @@ public class ProducerMergePartitionSubpartitionReader
         private long offset;
 
         private int getRemainingBuffersInRegion(
-                int bufferIndex, NettyServiceViewId nettyServiceViewId) {
-            updateCachedRegionIfNeeded(bufferIndex, nettyServiceViewId);
+                int bufferIndex, CreditBasedShuffleViewId creditBasedShuffleViewId) {
+            updateCachedRegionIfNeeded(bufferIndex, creditBasedShuffleViewId);
             return numReadable;
         }
 
@@ -225,7 +225,7 @@ public class ProducerMergePartitionSubpartitionReader
         // ------------------------------------------------------------------------
 
         private void updateCachedRegionIfNeeded(
-                int bufferIndex, NettyServiceViewId nettyServiceViewId) {
+                int bufferIndex, CreditBasedShuffleViewId creditBasedShuffleViewId) {
             if (isInCachedRegion(bufferIndex)) {
                 int numAdvance = bufferIndex - currentBufferIndex;
                 numSkip += numAdvance;
@@ -235,7 +235,8 @@ public class ProducerMergePartitionSubpartitionReader
             }
 
             Optional<RegionBufferIndexTracker.ReadableRegion> lookupResultOpt =
-                    dataIndex.getReadableRegion(subpartitionId, bufferIndex, nettyServiceViewId);
+                    dataIndex.getReadableRegion(subpartitionId, bufferIndex,
+                            creditBasedShuffleViewId);
             if (!lookupResultOpt.isPresent()) {
                 currentBufferIndex = -1;
                 numReadable = 0;
