@@ -39,9 +39,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * tier dynamically.
  *
  * <p>To avoid the buffer waiting deadlock between the subpartitions, the {@link
- * HashBufferAccumulator} requires at least n buffers (n is the parallelism) to make sure that each
- * subpartition has at least one buffer to accumulate the receiving data. Once an accumulated buffer
- * is finished, the buffer will be flushed immediately.
+ * HashBufferAccumulator} requires at least n buffers (n is the number of subpartitions) to make
+ * sure that each subpartition has at least one buffer to accumulate the receiving data. Once an
+ * accumulated buffer is finished, the buffer will be flushed immediately.
  *
  * <p>Note that this class need not be thread-safe, because it should only be accessed from the main
  * thread.
@@ -49,7 +49,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class HashBufferAccumulator
         implements BufferAccumulator, HashSubpartitionBufferAccumulatorContext {
 
-    private final TieredStorageMemoryManager storageMemoryManager;
+    private final TieredStorageMemoryManager memoryManager;
 
     private final HashSubpartitionBufferAccumulator[] hashSubpartitionBufferAccumulators;
 
@@ -62,8 +62,8 @@ public class HashBufferAccumulator
     private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher;
 
     public HashBufferAccumulator(
-            int numSubpartitions, int bufferSize, TieredStorageMemoryManager storageMemoryManager) {
-        this.storageMemoryManager = storageMemoryManager;
+            int numSubpartitions, int bufferSize, TieredStorageMemoryManager memoryManager) {
+        this.memoryManager = memoryManager;
         this.hashSubpartitionBufferAccumulators =
                 new HashSubpartitionBufferAccumulator[numSubpartitions];
         for (int i = 0; i < numSubpartitions; i++) {
@@ -94,7 +94,7 @@ public class HashBufferAccumulator
 
     @Override
     public BufferBuilder requestBufferBlocking() {
-        return storageMemoryManager.requestBufferBlocking(this);
+        return memoryManager.requestBufferBlocking(this);
     }
 
     @Override

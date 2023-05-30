@@ -36,6 +36,7 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** Tests for {@link HashBufferAccumulator}. */
 class HashBufferAccumulatorTest {
@@ -78,65 +79,76 @@ class HashBufferAccumulatorTest {
                                         buffer.recycleBuffer();
                                     })));
 
-            int numSentBytes = 0;
+            int numRecordBytesSinceLastEvent = 0;
+            int numExpectBuffers = 0;
             for (int i = 0; i < numRecords; i++) {
-                int numBytes = random.nextInt(2 * NETWORK_BUFFER_SIZE) + 1;
-                numSentBytes += numBytes;
-                ByteBuffer record = generateRandomData(numBytes, random);
-                bufferAccumulator.receive(record, subpartitionId, Buffer.DataType.DATA_BUFFER);
+                boolean isBuffer = random.nextBoolean() && i != numRecords - 1;
+                ByteBuffer record;
+                Buffer.DataType dataType =
+                        isBuffer ? Buffer.DataType.DATA_BUFFER : Buffer.DataType.EVENT_BUFFER;
+                if (isBuffer) {
+                    int numBytes = random.nextInt(2 * NETWORK_BUFFER_SIZE) + 1;
+                    numRecordBytesSinceLastEvent += numBytes;
+                    record = generateRandomData(numBytes, random);
+                } else {
+                    numExpectBuffers +=
+                            numRecordBytesSinceLastEvent / NETWORK_BUFFER_SIZE
+                                    + (numRecordBytesSinceLastEvent % NETWORK_BUFFER_SIZE == 0
+                                            ? 0
+                                            : 1);
+                    record = EventSerializer.toSerializedEvent(EndOfPartitionEvent.INSTANCE);
+                    numExpectBuffers++;
+                    numRecordBytesSinceLastEvent = 0;
+                }
+                bufferAccumulator.receive(record, subpartitionId, dataType);
             }
-            ByteBuffer endEvent = EventSerializer.toSerializedEvent(EndOfPartitionEvent.INSTANCE);
-            bufferAccumulator.receive(endEvent, subpartitionId, Buffer.DataType.EVENT_BUFFER);
 
-            int numExpectBuffers =
-                    numSentBytes / NETWORK_BUFFER_SIZE
-                            + (numSentBytes % NETWORK_BUFFER_SIZE == 0 ? 0 : 1);
-
-            assertThat(numReceivedFinishedBuffer.get()).isEqualTo(numExpectBuffers + 1);
+            assertThat(numReceivedFinishedBuffer.get()).isEqualTo(numExpectBuffers);
         }
     }
 
     @Test
-    void testEmitEventsBetweenRecords() throws IOException {
+    void testEventShouldNotRequestBufferFromMemoryManager() throws IOException {
         int numBuffers = 10;
-        int numRecords = 1000;
-        TieredStorageSubpartitionId subpartitionId = new TieredStorageSubpartitionId(0);
-        Random random = new Random();
 
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
         try (HashBufferAccumulator bufferAccumulator =
                 new HashBufferAccumulator(1, NETWORK_BUFFER_SIZE, tieredStorageMemoryManager)) {
-            AtomicInteger numReceivedFinishedBuffer = new AtomicInteger(0);
             bufferAccumulator.setup(
-                    ((subpartition, buffers) ->
-                            buffers.forEach(
-                                    buffer -> {
-                                        numReceivedFinishedBuffer.incrementAndGet();
-                                        buffer.recycleBuffer();
-                                    })));
+                    ((subpartition, buffers) -> buffers.forEach(Buffer::recycleBuffer)));
 
-            int numExpectBuffers = 0;
-            for (int i = 0; i < numRecords; i++) {
-                ByteBuffer byteBuffer;
-                Buffer.DataType dataType;
-                if (i % 2 == 0) {
-                    // Need 3 network buffer to store this large record.
-                    byteBuffer = generateRandomData(NETWORK_BUFFER_SIZE * 2 + 1, random);
-                    dataType = Buffer.DataType.DATA_BUFFER;
-                    numExpectBuffers += 3;
-                } else {
-                    byteBuffer = EventSerializer.toSerializedEvent(EndOfPartitionEvent.INSTANCE);
-                    dataType = Buffer.DataType.EVENT_BUFFER;
-                    numExpectBuffers++;
-                }
-                bufferAccumulator.receive(byteBuffer, subpartitionId, dataType);
-            }
             ByteBuffer endEvent = EventSerializer.toSerializedEvent(EndOfPartitionEvent.INSTANCE);
-            bufferAccumulator.receive(endEvent, subpartitionId, Buffer.DataType.EVENT_BUFFER);
+            bufferAccumulator.receive(
+                    endEvent, new TieredStorageSubpartitionId(0), Buffer.DataType.EVENT_BUFFER);
 
-            assertThat(numReceivedFinishedBuffer.get()).isEqualTo(numExpectBuffers + 1);
+            assertThat(tieredStorageMemoryManager.numOwnerRequestedBuffer(bufferAccumulator))
+                    .isZero();
         }
+    }
+
+    @Test
+    void testCloseWithUnFinishedBuffers() throws IOException {
+        int numBuffers = 10;
+
+        TieredStorageMemoryManager tieredStorageMemoryManager =
+                createStorageMemoryManager(numBuffers);
+        assertThatThrownBy(
+                        () -> {
+                            try (HashBufferAccumulator bufferAccumulator =
+                                    new HashBufferAccumulator(
+                                            1, NETWORK_BUFFER_SIZE, tieredStorageMemoryManager)) {
+                                bufferAccumulator.setup(
+                                        ((subpartition, buffers) ->
+                                                buffers.forEach(Buffer::recycleBuffer)));
+                                bufferAccumulator.receive(
+                                        generateRandomData(1, new Random()),
+                                        new TieredStorageSubpartitionId(0),
+                                        Buffer.DataType.DATA_BUFFER);
+                            }
+                        })
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("There are unfinished buffers");
     }
 
     private TieredStorageMemoryManagerImpl createStorageMemoryManager(int numBuffersInBufferPool)
