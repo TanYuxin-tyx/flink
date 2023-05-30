@@ -225,6 +225,7 @@ public class TieredResultPartition extends ResultPartition {
                 throw new RuntimeException("FAILED!, subpartitionId is " + subpartitionId + " is Broadcast? " + isBroadcast);
             }
 
+            registeredSubpartitionIds.add(subpartitionId);
 
             List<SegmentSearcher> segmentSearchers = new ArrayList<>();
             for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
