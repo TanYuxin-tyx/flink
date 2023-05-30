@@ -25,8 +25,21 @@ import java.util.function.BiConsumer;
 /** {@link TieredStorageNettyService2} is used to create writers and readers to netty. */
 public interface TieredStorageNettyService2 {
 
-    NettyServiceWriter registerProducer(int subpartition);
+    /**
+     * Register to {@link TieredStorageNettyService2} and create a {@link NettyServiceWriter).
+     * @param subpartitionId subpartition id indicates the id of subpartition.
+     * @param serviceReleaseNotifier is used to notify that the service is released.
+     * @return the writer.
+     */
+    NettyServiceWriter registerProducer(int subpartition, Runnable serviceReleaseNotifier);
 
+    /**
+     * Register to {@link TieredStorageNettyService2} and create a {@link NettyServiceReader).
+     * @param inputChannels in consumer side.
+     * @param lastPrioritySequenceNumber is the array to record the priority sequence number.
+     * @param subpartitionAvailableNotifier is used to notify the subpartition is available.
+     * @return the reader.
+     */
     NettyServiceReader registerConsumer(
             InputChannel[] inputChannels,
             BiConsumer<Integer, Boolean> subpartitionAvailableNotifier,

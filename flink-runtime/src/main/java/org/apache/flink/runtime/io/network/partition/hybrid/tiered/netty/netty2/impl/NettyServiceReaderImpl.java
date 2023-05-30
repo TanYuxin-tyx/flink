@@ -16,10 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ConsumerNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceReader;
 import org.apache.flink.util.ExceptionUtils;
 
