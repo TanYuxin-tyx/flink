@@ -204,29 +204,29 @@ public class TieredResultPartition extends ResultPartition {
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         checkState(!isReleased(), "ResultPartition already released.");
-        if (isBroadcast) {
-            synchronized (subpartitionIdRecorder) {
+        synchronized (this) {
+            if (isBroadcast) {
                 subpartitionId = subpartitionIdRecorder.get();
                 subpartitionIdRecorder.incrementAndGet();
             }
-        }
 
-        if (tierProducerAgents.size() == 1
-                && tierProducerAgents.get(0) instanceof RemoteTierProducerAgent) {
-            return new TieredStoreResultSubpartitionView(
-                    subpartitionId, availabilityListener, new ArrayList<>(), new ArrayList<>());
-        }
-
-        List<SegmentSearcher> segmentSearchers = new ArrayList<>();
-        for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
-            tierProducerAgent.registerNettyService(subpartitionId, availabilityListener);
-            if (tierProducerAgent instanceof SegmentSearcher) {
-                segmentSearchers.add((SegmentSearcher) tierProducerAgent);
+            if (tierProducerAgents.size() == 1
+                    && tierProducerAgents.get(0) instanceof RemoteTierProducerAgent) {
+                return new TieredStoreResultSubpartitionView(
+                        subpartitionId, availabilityListener, new ArrayList<>(), new ArrayList<>());
             }
+
+            List<SegmentSearcher> segmentSearchers = new ArrayList<>();
+            for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
+                tierProducerAgent.registerNettyService(subpartitionId, availabilityListener);
+                if (tierProducerAgent instanceof SegmentSearcher) {
+                    segmentSearchers.add((SegmentSearcher) tierProducerAgent);
+                }
+            }
+            return ((TieredStorageNettyServiceImpl2) nettyService)
+                    .createResultSubpartitionView(
+                            partitionId, subpartitionId, availabilityListener, segmentSearchers);
         }
-        return ((TieredStorageNettyServiceImpl2) nettyService)
-                .createResultSubpartitionView(
-                        partitionId, subpartitionId, availabilityListener, segmentSearchers);
     }
 
     @Override
