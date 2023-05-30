@@ -201,7 +201,6 @@ public class TieredResultPartition extends ResultPartition {
         checkNotNull(tieredStorageProducerClient).emit(record, consumerId, dataType, isBroadcast);
     }
 
-
     private Set<Integer> registeredSubpartitionIds = new HashSet<>();
 
     @Override
@@ -221,8 +220,16 @@ public class TieredResultPartition extends ResultPartition {
                         subpartitionId, availabilityListener, new ArrayList<>(), new ArrayList<>());
             }
 
-            if(registeredSubpartitionIds.contains(subpartitionId)){
-                throw new RuntimeException("FAILED!, subpartitionId is " + subpartitionId + " is Broadcast? " + isBroadcast);
+            if (registeredSubpartitionIds.contains(subpartitionId)) {
+                throw new RuntimeException(
+                        "FAILED!, subpartitionId is "
+                                + subpartitionId
+                                + " is Broadcast? "
+                                + isBroadcast
+                                + "PartitionName \n"
+                                + getOwningTaskName()
+                                + "num subpartitions "
+                                + numSubpartitions);
             }
 
             registeredSubpartitionIds.add(subpartitionId);
