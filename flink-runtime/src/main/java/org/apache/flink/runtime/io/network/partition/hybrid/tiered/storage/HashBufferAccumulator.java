@@ -21,7 +21,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.util.ExceptionUtils;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -29,58 +30,66 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.BiConsumer;
 
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
 /**
  * The hash implementation of the {@link BufferAccumulator}. The {@link BufferAccumulator} receives
  * the records from {@link TieredStorageProducerClient} and the records will accumulate and
- * transform to finished buffers. The finished buffers will be transferred to the corresponding tier
- * dynamically.
+ * transform to finished buffers. The accumulated buffers will be transferred to the corresponding
+ * tier dynamically.
+ *
+ * <p>To avoid the buffer waiting deadlock between the subpartitions, the {@link
+ * HashBufferAccumulator} requires at least n buffers (n is the parallelism) to make sure that each
+ * subpartition has at least one buffer to accumulate the receiving data. Once an accumulated buffer
+ * is finished, the buffer will be flushed immediately.
+ *
+ * <p>Note that this class need not be thread-safe, because it should only be accessed from the main
+ * thread.
  */
-public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccumulatorOperation {
-
-    private final int bufferSize;
+public class HashBufferAccumulator
+        implements BufferAccumulator, HashSubpartitionBufferAccumulatorContext {
 
     private final TieredStorageMemoryManager storageMemoryManager;
 
-    private SubpartitionHashBufferAccumulator[] subpartitionHashBufferAccumulators;
+    private final HashSubpartitionBufferAccumulator[] hashSubpartitionBufferAccumulators;
 
-    public HashBufferAccumulator(int bufferSize, TieredStorageMemoryManager storageMemoryManager) {
-        this.bufferSize = bufferSize;
+    /**
+     * The {@link HashBufferAccumulator}'s accumulated buffer flusher is not prepared during
+     * construction, requiring the field to be initialized during setup. Therefore, it is necessary
+     * to verify whether this field is null before using it.
+     */
+    @Nullable
+    private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher;
+
+    public HashBufferAccumulator(
+            int numSubpartitions, int bufferSize, TieredStorageMemoryManager storageMemoryManager) {
         this.storageMemoryManager = storageMemoryManager;
+        this.hashSubpartitionBufferAccumulators =
+                new HashSubpartitionBufferAccumulator[numSubpartitions];
+        for (int i = 0; i < numSubpartitions; i++) {
+            hashSubpartitionBufferAccumulators[i] =
+                    new HashSubpartitionBufferAccumulator(
+                            new TieredStorageSubpartitionId(i), bufferSize, this);
+        }
     }
 
     @Override
     public void setup(
-            int numSubpartitions,
             BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher) {
-        this.subpartitionHashBufferAccumulators =
-                new SubpartitionHashBufferAccumulator[numSubpartitions];
-
-        for (int i = 0; i < numSubpartitions; i++) {
-            subpartitionHashBufferAccumulators[i] =
-                    new SubpartitionHashBufferAccumulator(
-                            new TieredStorageSubpartitionId(i), bufferSize, this);
-        }
-
-        for (int i = 0; i < numSubpartitions; i++) {
-            subpartitionHashBufferAccumulators[i].setup(accumulatedBufferFlusher);
-        }
+        this.accumulatedBufferFlusher = accumulatedBufferFlusher;
     }
 
     @Override
     public void receive(
             ByteBuffer record, TieredStorageSubpartitionId subpartitionId, Buffer.DataType dataType)
             throws IOException {
-        try {
-            getSubpartitionHashAccumulator(subpartitionId).append(record, dataType);
-        } catch (InterruptedException e) {
-            ExceptionUtils.rethrow(e);
-        }
+        getSubpartitionAccumulator(subpartitionId).append(record, dataType);
     }
 
     @Override
     public void close() {
-        Arrays.stream(subpartitionHashBufferAccumulators)
-                .forEach(SubpartitionHashBufferAccumulator::close);
+        Arrays.stream(hashSubpartitionBufferAccumulators)
+                .forEach(HashSubpartitionBufferAccumulator::close);
     }
 
     @Override
@@ -88,8 +97,14 @@ public class HashBufferAccumulator implements BufferAccumulator, HashBufferAccum
         return storageMemoryManager.requestBufferBlocking(this);
     }
 
-    private SubpartitionHashBufferAccumulator getSubpartitionHashAccumulator(
+    @Override
+    public void flushAccumulatedBuffers(
+            TieredStorageSubpartitionId subpartitionId, List<Buffer> accumulatedBuffers) {
+        checkNotNull(accumulatedBufferFlusher).accept(subpartitionId, accumulatedBuffers);
+    }
+
+    private HashSubpartitionBufferAccumulator getSubpartitionAccumulator(
             TieredStorageSubpartitionId subpartitionId) {
-        return subpartitionHashBufferAccumulators[subpartitionId.getSubpartitionId()];
+        return hashSubpartitionBufferAccumulators[subpartitionId.getSubpartitionId()];
     }
 }

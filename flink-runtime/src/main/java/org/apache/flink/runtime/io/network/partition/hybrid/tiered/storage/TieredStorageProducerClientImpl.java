@@ -81,7 +81,7 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         Arrays.fill(currentSubpartitionTierIndex, -1);
         Arrays.fill(isSubpartitionSegmentFinished, true);
 
-        bufferAccumulator.setup(numConsumers, this::writeFinishedBuffers);
+        bufferAccumulator.setup(this::writeFinishedBuffers);
     }
 
     @Override

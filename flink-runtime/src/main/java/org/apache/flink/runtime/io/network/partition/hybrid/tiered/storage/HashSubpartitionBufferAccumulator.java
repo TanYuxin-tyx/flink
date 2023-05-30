@@ -31,54 +31,43 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.function.BiConsumer;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * {@link SubpartitionHashBufferAccumulator} accumulates the records in a subpartition.
+ * {@link HashSubpartitionBufferAccumulator} accumulates the records in a subpartition.
  *
- * <p>Note that {@link #setup} need an argument of buffer flush listener to accept the finished
- * accumulated buffers.
+ * <p>Note that this class need not be thread-safe, because it should only be accessed from the main
+ * thread.
  */
-public class SubpartitionHashBufferAccumulator {
+public class HashSubpartitionBufferAccumulator {
 
     private final TieredStorageSubpartitionId subpartitionId;
 
     private final int bufferSize;
 
-    private final HashBufferAccumulatorOperation bufferAccumulatorOperation;
+    private final HashSubpartitionBufferAccumulatorContext bufferAccumulatorContext;
 
-    private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher;
-
-    // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
-    public SubpartitionHashBufferAccumulator(
+    public HashSubpartitionBufferAccumulator(
             TieredStorageSubpartitionId subpartitionId,
             int bufferSize,
-            HashBufferAccumulatorOperation bufferAccumulatorOperation) {
+            HashSubpartitionBufferAccumulatorContext bufferAccumulatorContext) {
         this.subpartitionId = subpartitionId;
         this.bufferSize = bufferSize;
-        this.bufferAccumulatorOperation = bufferAccumulatorOperation;
-    }
-
-    public void setup(
-            BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher) {
-        this.accumulatedBufferFlusher = accumulatedBufferFlusher;
+        this.bufferAccumulatorContext = bufferAccumulatorContext;
     }
 
     // ------------------------------------------------------------------------
     //  Called by HashBufferAccumulator
     // ------------------------------------------------------------------------
 
-    public void append(ByteBuffer record, Buffer.DataType dataType)
-            throws IOException, InterruptedException {
+    public void append(ByteBuffer record, Buffer.DataType dataType) throws IOException {
         if (dataType.isEvent()) {
             writeEvent(record, dataType);
         } else {
@@ -125,7 +114,7 @@ public class SubpartitionHashBufferAccumulator {
                         .orElse(0);
 
         while (availableBytes < numRecordBytes) {
-            BufferBuilder bufferBuilder = bufferAccumulatorOperation.requestBufferBlocking();
+            BufferBuilder bufferBuilder = bufferAccumulatorContext.requestBufferBlocking();
             unfinishedBuffers.add(bufferBuilder);
             availableBytes += bufferSize;
         }
@@ -164,6 +153,7 @@ public class SubpartitionHashBufferAccumulator {
     }
 
     private void flushFinishedBuffer(Buffer finishedBuffer) {
-        accumulatedBufferFlusher.accept(subpartitionId, Collections.singletonList(finishedBuffer));
+        bufferAccumulatorContext.flushAccumulatedBuffers(
+                subpartitionId, Collections.singletonList(finishedBuffer));
     }
 }

@@ -293,7 +293,8 @@ public class ResultPartitionFactory {
                                 nettyService);
 
                 BufferAccumulator bufferAccumulator =
-                        new HashBufferAccumulator(networkBufferSize, storageMemoryManager);
+                        new HashBufferAccumulator(
+                                subpartitions.length, networkBufferSize, storageMemoryManager);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(
                                 subpartitions.length,
