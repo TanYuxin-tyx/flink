@@ -5,6 +5,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ConsumerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierFactory;
@@ -25,7 +26,7 @@ public class TieredStorageConsumerClient {
 
     private final int[] subpartitionNextSegmentIds;
 
-    private final ConsumerNettyService consumerNettyService;
+    private final NettyServiceReader consumerNettyService;
 
     public TieredStorageConsumerClient(
             int numSubpartitions,
@@ -34,7 +35,7 @@ public class TieredStorageConsumerClient {
             List<ResultPartitionID> resultPartitionIDs,
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
-            ConsumerNettyService consumerNettyService,
+            NettyServiceReader consumerNettyService,
             boolean isUpstreamBroadcast) {
         this.tierFactories = createTierFactories(baseRemoteStoragePath);
         this.tierConsumerAgents =
@@ -103,7 +104,7 @@ public class TieredStorageConsumerClient {
             List<ResultPartitionID> resultPartitionIDs,
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
-            ConsumerNettyService consumerNettyService,
+            NettyServiceReader consumerNettyService,
             boolean isUpstreamBroadcastOnly) {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
         int[] requiredSegmentIds = new int[numSubpartitions];

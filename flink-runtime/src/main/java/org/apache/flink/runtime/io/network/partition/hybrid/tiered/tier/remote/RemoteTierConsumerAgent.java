@@ -8,7 +8,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ConsumerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.util.ExceptionUtils;
@@ -32,7 +32,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
     private final TieredStorageMemoryManager storageMemoryManager;
 
-    private final ConsumerNettyService consumerNettyService;
+    private final NettyServiceReader consumerNettyService;
 
     private final ByteBuffer headerBuffer;
 
@@ -40,7 +40,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             int numInputChannels,
             TieredStorageMemoryManager storageMemoryManager,
             RemoteTierMonitor remoteTierMonitor,
-            ConsumerNettyService consumerNettyService) {
+            NettyServiceReader consumerNettyService) {
         this.remoteTierMonitor = remoteTierMonitor;
         this.storageMemoryManager = storageMemoryManager;
         this.consumerNettyService = consumerNettyService;

@@ -78,7 +78,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateBui
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
 import org.apache.flink.runtime.io.network.partition.consumer.TestInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.UnknownInputChannel;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredStoreShuffleEnvironment;
 import org.apache.flink.runtime.io.network.util.TestTaskEvent;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -1416,7 +1416,7 @@ public class SingleInputGateTieredStoreTest extends InputGateTestBase {
                         gateDesc,
                         SingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
                         newUnregisteredInputChannelMetrics(),
-                        new TieredStorageNettyService());
+                        new TieredStorageNettyServiceImpl2());
     }
 
     private static Map<InputGateID, SingleInputGate> createInputGateWithLocalChannels(

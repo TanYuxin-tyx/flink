@@ -22,7 +22,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ConsumerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceReader;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
@@ -57,7 +57,7 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
                             .setNameFormat("tiered store remote tier monitor")
                             .build());
 
-    private final ConsumerNettyService consumerNettyService;
+    private final NettyServiceReader consumerNettyService;
 
     private final String baseRemoteStoragePath;
 
@@ -80,7 +80,7 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
             List<Integer> subpartitionIndexes,
             int numSubpartitions,
             boolean isUpstreamBroadcast,
-            ConsumerNettyService consumerNettyService) {
+            NettyServiceReader consumerNettyService) {
         this.requiredSegmentIds = new int[subpartitionIndexes.size()];
         this.scanningSegmentIds = new int[subpartitionIndexes.size()];
         this.readingSegmentIds = new int[subpartitionIndexes.size()];

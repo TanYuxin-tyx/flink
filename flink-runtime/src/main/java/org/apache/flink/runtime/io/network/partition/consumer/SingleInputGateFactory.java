@@ -37,7 +37,7 @@ import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvi
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
@@ -140,7 +140,7 @@ public class SingleInputGateFactory {
             @Nonnull InputGateDeploymentDescriptor igdd,
             @Nonnull PartitionProducerStateProvider partitionProducerStateProvider,
             @Nonnull InputChannelMetrics metrics,
-            @Nonnull TieredStorageNettyService nettyService) {
+            @Nonnull TieredStorageNettyService2 nettyService) {
         GateBuffersSpec gateBuffersSpec =
                 createGateBuffersSpec(
                         maxRequiredBuffersPerGate,
@@ -336,7 +336,7 @@ public class SingleInputGateFactory {
             List<ResultPartitionID> resultPartitionIds,
             List<Integer> subpartitionIds,
             @Nullable String baseRemoteStoragePath,
-            TieredStorageNettyService nettyService) {
+            TieredStorageNettyService2 nettyService) {
 
         return new SingleInputGate(
                 owningTaskName,
@@ -358,7 +358,7 @@ public class SingleInputGateFactory {
                 resultPartitionIds,
                 subpartitionIds,
                 baseRemoteStoragePath,
-                nettyService.createConsumerNettyService());
+                nettyService);
     }
 
     protected static int calculateNumChannels(

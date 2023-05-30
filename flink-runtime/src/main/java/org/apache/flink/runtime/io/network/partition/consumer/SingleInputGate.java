@@ -44,6 +44,8 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ConsumerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -240,7 +242,7 @@ public class SingleInputGate extends IndexedInputGate {
             List<ResultPartitionID> resultPartitionIds,
             List<Integer> subpartitionIds,
             @Nullable String baseRemoteStoragePath,
-            ConsumerNettyService nettyService) {
+            TieredStorageNettyService2 nettyService) {
 
         this.owningTaskName = checkNotNull(owningTaskName);
         Preconditions.checkArgument(0 <= gateIndex, "The gate index must be positive.");
@@ -273,11 +275,11 @@ public class SingleInputGate extends IndexedInputGate {
         this.unpooledSegment = MemorySegmentFactory.allocateUnpooledSegment(segmentSize);
         this.bufferDebloater = bufferDebloater;
         this.throughputCalculator = checkNotNull(throughputCalculator);
-        nettyService.setup(
+        NettyServiceReader nettyServiceReader = nettyService.registerConsumer(
                 channels,
-                lastPrioritySequenceNumber,
                 (subpartitionId, priority) ->
-                        queueChannel(channels[subpartitionId], null, priority));
+                        queueChannel(channels[subpartitionId], null, priority),
+                lastPrioritySequenceNumber);
         this.tieredStorageConsumerClient =
                 enableTieredStoreMode
                         ? new TieredStorageConsumerClient(
@@ -286,8 +288,7 @@ public class SingleInputGate extends IndexedInputGate {
                                 jobID,
                                 resultPartitionIds,
                                 (NetworkBufferPool) memorySegmentProvider,
-                                baseRemoteStoragePath,
-                                nettyService,
+                                baseRemoteStoragePath, nettyServiceReader,
                                 isUpstreamBroadcastOnly)
                         : null;
     }

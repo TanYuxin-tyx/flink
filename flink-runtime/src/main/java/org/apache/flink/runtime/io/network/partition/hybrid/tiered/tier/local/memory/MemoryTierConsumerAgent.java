@@ -1,7 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ConsumerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 
 import java.io.IOException;
@@ -12,9 +12,9 @@ public class MemoryTierConsumerAgent implements TierConsumerAgent {
 
     private final int[] requiredSegmentIds;
 
-    private final ConsumerNettyService consumerNettyService;
+    private final NettyServiceReader consumerNettyService;
 
-    public MemoryTierConsumerAgent(int[] requiredSegmentIds, ConsumerNettyService consumerNettyService) {
+    public MemoryTierConsumerAgent(int[] requiredSegmentIds, NettyServiceReader consumerNettyService) {
         this.requiredSegmentIds = requiredSegmentIds;
         this.consumerNettyService = consumerNettyService;
     }
