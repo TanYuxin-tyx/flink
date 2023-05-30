@@ -27,7 +27,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriter;
@@ -100,10 +99,6 @@ public class SubpartitionMemoryDataManager {
 
     public void release() {
         nettyServiceWriter.clear();
-    }
-
-    public void registerNettyService(BufferAvailabilityListener availabilityListener) {
-        // nothing to do.
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")

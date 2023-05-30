@@ -60,10 +60,6 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             BufferAvailabilityListener availabilityListener,
             List<SegmentSearcher> segmentSearchers,
             List<CreditBasedBufferQueueView> creditBasedBufferQueueViews) {
-        if(segmentSearchers.size() != creditBasedBufferQueueViews.size()){
-            System.out.println();
-        }
-
         checkState(segmentSearchers.size() == creditBasedBufferQueueViews.size());
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;

@@ -116,7 +116,6 @@ public class MemoryTierProducerAgent
         if(isBroadcastOnly){
             throw new RuntimeException("Illegal to register on broadcast only result partition.");
         }
-        subpartitionMemoryDataManagers[subpartitionId].registerNettyService(availabilityListener);
     }
 
     @Override

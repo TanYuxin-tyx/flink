@@ -56,7 +56,9 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -199,6 +201,9 @@ public class TieredResultPartition extends ResultPartition {
         checkNotNull(tieredStorageProducerClient).emit(record, consumerId, dataType, isBroadcast);
     }
 
+
+    private Set<Integer> registeredSubpartitionIds = new HashSet<>();
+
     @Override
     public ResultSubpartitionView createSubpartitionView(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
@@ -215,6 +220,11 @@ public class TieredResultPartition extends ResultPartition {
                 return new TieredStoreResultSubpartitionView(
                         subpartitionId, availabilityListener, new ArrayList<>(), new ArrayList<>());
             }
+
+            if(registeredSubpartitionIds.contains(subpartitionId)){
+                throw new RuntimeException("FAILED!, subpartitionId is " + subpartitionId + " is Broadcast? " + isBroadcast);
+            }
+
 
             List<SegmentSearcher> segmentSearchers = new ArrayList<>();
             for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
