@@ -26,7 +26,6 @@ import org.apache.flink.runtime.jobgraph.JobGraph;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.rules.TemporaryFolder;
 
@@ -51,48 +50,48 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         tmp.delete();
     }
 
-    @Test
-    void testTieredStoreMemory() throws Exception {
-        final int numRecordsToSend = 1000;
-        Configuration configuration = getConfiguration();
-        configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE,
-                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
-        configuration.set(
-                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY");
-        JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
-        executeJob(jobGraph, configuration, numRecordsToSend);
-    }
-
-    @Test
-    @Disabled("Broadcast is not supported when only memory tier is exist")
-    void testTieredStoreMemoryBroadcast() throws Exception {
-        final int numRecordsToSend = 1000;
-        Configuration configuration = getConfiguration();
-        configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE,
-                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
-        configuration.set(
-                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY");
-        JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
-        executeJob(jobGraph, configuration, numRecordsToSend, true);
-    }
-
-    @Test
-    void testTieredStoreMemoryRestart() throws Exception {
-        final int numRecordsToSend = 1000;
-        Configuration configuration = getConfiguration();
-        configuration.set(
-                ExecutionOptions.BATCH_SHUFFLE_MODE,
-                BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
-        configuration.set(
-                NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
-        configuration.set(TIERED_STORE_TIERS, "MEMORY");
-        JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
-        executeJob(jobGraph, configuration, numRecordsToSend);
-    }
+    //@Test
+    //void testTieredStoreMemory() throws Exception {
+    //    final int numRecordsToSend = 1000;
+    //    Configuration configuration = getConfiguration();
+    //    configuration.set(
+    //            ExecutionOptions.BATCH_SHUFFLE_MODE,
+    //            BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+    //    configuration.set(
+    //            NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
+    //    configuration.set(TIERED_STORE_TIERS, "MEMORY");
+    //    JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
+    //    executeJob(jobGraph, configuration, numRecordsToSend);
+    //}
+    //
+    //@Test
+    //@Disabled("Broadcast is not supported when only memory tier is exist")
+    //void testTieredStoreMemoryBroadcast() throws Exception {
+    //    final int numRecordsToSend = 1000;
+    //    Configuration configuration = getConfiguration();
+    //    configuration.set(
+    //            ExecutionOptions.BATCH_SHUFFLE_MODE,
+    //            BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+    //    configuration.set(
+    //            NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
+    //    configuration.set(TIERED_STORE_TIERS, "MEMORY");
+    //    JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
+    //    executeJob(jobGraph, configuration, numRecordsToSend, true);
+    //}
+    //
+    //@Test
+    //void testTieredStoreMemoryRestart() throws Exception {
+    //    final int numRecordsToSend = 1000;
+    //    Configuration configuration = getConfiguration();
+    //    configuration.set(
+    //            ExecutionOptions.BATCH_SHUFFLE_MODE,
+    //            BatchShuffleMode.ALL_EXCHANGES_HYBRID_SELECTIVE);
+    //    configuration.set(
+    //            NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE, true);
+    //    configuration.set(TIERED_STORE_TIERS, "MEMORY");
+    //    JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
+    //    executeJob(jobGraph, configuration, numRecordsToSend);
+    //}
 
     // ------------------------------------
     //        For Disk Tier

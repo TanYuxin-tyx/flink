@@ -22,11 +22,9 @@ import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
@@ -36,31 +34,19 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProd
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
 public class MemoryTierProducerAgent
         implements TierProducerAgent, MemoryTierProducerAgentOperation, SegmentSearcher {
-
-    public static final int BROADCAST_CHANNEL = 0;
-
-    private final int tierIndex;
 
     private final int numSubpartitions;
 
     private final TieredStorageMemoryManager storageMemoryManager;
 
     private final boolean isBroadcastOnly;
-
-    /** Record the last assigned consumerId for each subpartition. */
-    private final CreditBasedShuffleViewId[] lastCreditBasedShuffleViewIds;
 
     public static final int MEMORY_TIER_SEGMENT_BYTES = 10 * 32 * 1024;
 
@@ -75,7 +61,7 @@ public class MemoryTierProducerAgent
      * Each element of the list is all views of the subpartition corresponding to its index, which
      * are stored in the form of a map that maps consumer id to its subpartition view.
      */
-    private final List<Map<CreditBasedShuffleViewId, CreditBasedBufferQueueView>> subpartitionViewOperationsMap;
+    private final boolean[] nettyServiceRegistered;
 
     private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
 
@@ -90,32 +76,36 @@ public class MemoryTierProducerAgent
             BufferCompressor bufferCompressor,
             int bufferSize,
             TieredStorageNettyService2 nettyService) {
-        this.tierIndex = tierIndex;
         this.numSubpartitions = numSubpartitions;
         this.isBroadcastOnly = isBroadcastOnly;
         this.storageMemoryManager = storageMemoryManager;
-        this.lastCreditBasedShuffleViewIds = new CreditBasedShuffleViewId[numSubpartitions];
 
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
-        this.subpartitionViewOperationsMap = new ArrayList<>(numSubpartitions);
+        this.nettyServiceRegistered = new boolean[numSubpartitions];
         this.subpartitionMemoryDataManagers = new SubpartitionMemoryDataManager[numSubpartitions];
         this.subpartitionSegmentIdTracker =
                 new SubpartitionSegmentIdTrackerImpl(numSubpartitions, isBroadcastOnly);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionMemoryDataManagers[subpartitionId] =
                     new SubpartitionMemoryDataManager(
-                            partitionId, subpartitionId, bufferSize, bufferCompressor, this, nettyService);
-            subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
+                            subpartitionId,
+                            bufferSize,
+                            bufferCompressor,
+                            this,
+                            nettyService);
         }
     }
 
     @Override
     public void registerNettyService(
-            int subpartitionId, BufferAvailabilityListener availabilityListener) {
-        if(isBroadcastOnly){
+            int subpartitionId,
+            NettyServiceWriterId nettyServiceWriterId) {
+        if (isBroadcastOnly) {
             throw new RuntimeException("Illegal to register on broadcast only result partition.");
         }
+        this.subpartitionMemoryDataManagers[subpartitionId].registerNettyService(nettyServiceWriterId);
+        nettyServiceRegistered[subpartitionId] = true;
     }
 
     @Override
@@ -160,11 +150,6 @@ public class MemoryTierProducerAgent
         }
     }
 
-    private static void checkMultipleConsumerIsAllowed(CreditBasedShuffleViewId lastCreditBasedShuffleViewId) {
-        checkState(
-                lastCreditBasedShuffleViewId == null, "Memory Tier does not support multiple consumers");
-    }
-
     @Override
     public boolean write(int consumerId, Buffer finishedBuffer) {
         boolean isLastBufferInSegment = false;
@@ -203,9 +188,7 @@ public class MemoryTierProducerAgent
     public void close() {}
 
     public boolean isConsumerRegistered(TieredStorageSubpartitionId subpartitionId) {
-        int numConsumers =
-                subpartitionViewOperationsMap.get(subpartitionId.getSubpartitionId()).size();
-        return numConsumers > 0;
+        return nettyServiceRegistered[subpartitionId.getSubpartitionId()];
     }
 
     // ------------------------------------

@@ -27,9 +27,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
@@ -61,50 +60,50 @@ public class SubpartitionMemoryDataManager {
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
 
-    private final Set<CreditBasedShuffleViewId> consumerSet;
+    private final Set<NettyServiceWriterId> consumerSet;
 
     @Nullable private final BufferCompressor bufferCompressor;
 
     private final TieredStorageNettyService2 nettyService;
 
-    private final NettyServiceWriter nettyServiceWriter;
+    private NettyServiceWriter nettyServiceWriter;
 
-    private ResultPartitionID partitionId;
+    private NettyServiceWriterId nettyServiceWriterId;
 
     public SubpartitionMemoryDataManager(
-            ResultPartitionID partitionId,
             int subpartitionId,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
             MemoryTierProducerAgentOperation memoryTierProducerAgentOperation,
             TieredStorageNettyService2 nettyService) {
-        this.partitionId = partitionId;
         this.subpartitionId = subpartitionId;
         this.bufferSize = bufferSize;
         this.memoryTierProducerAgentOperation = memoryTierProducerAgentOperation;
         this.bufferCompressor = bufferCompressor;
         this.consumerSet = Collections.synchronizedSet(new HashSet<>());
         this.nettyService = nettyService;
-        this.nettyServiceWriter =
-                nettyService.registerProducer(partitionId, subpartitionId, () -> {});
     }
 
     // ------------------------------------------------------------------------
     //  Called by MemoryDataManager
     // ------------------------------------------------------------------------
 
+    public void registerNettyService(NettyServiceWriterId nettyServiceWriterId) {
+        this.nettyServiceWriterId = nettyServiceWriterId;
+        this.nettyServiceWriter = nettyService.registerProducer(nettyServiceWriterId, () -> {});
+    }
+
     public void appendSegmentEvent(ByteBuffer record, DataType dataType) {
         writeEvent(record, dataType);
     }
 
     public void release() {
-        nettyServiceWriter.clear();
+        if(nettyServiceWriter != null){
+            nettyServiceWriter.clear();
+        }
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
-    public void releaseConsumer(CreditBasedShuffleViewId creditBasedShuffleViewId) {
-        checkNotNull(consumerSet.remove(creditBasedShuffleViewId));
-    }
 
     // ------------------------------------------------------------------------
     //  Internal Methods
@@ -176,7 +175,7 @@ public class SubpartitionMemoryDataManager {
         nettyServiceWriter.writeBuffer(bufferContext);
         if (nettyServiceWriter.size() <= 1) {
             ((TieredStorageNettyServiceImpl2) nettyService)
-                    .notifyResultSubpartitionViewSendBuffer(partitionId, subpartitionId);
+                    .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
         }
     }
 }

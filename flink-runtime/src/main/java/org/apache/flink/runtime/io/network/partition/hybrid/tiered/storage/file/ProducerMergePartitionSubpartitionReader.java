@@ -22,11 +22,10 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
-import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
@@ -47,7 +46,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 public class ProducerMergePartitionSubpartitionReader
         implements Comparable<ProducerMergePartitionSubpartitionReader> {
 
-    private final CreditBasedShuffleViewId creditBasedShuffleViewId;
+    private final NettyServiceWriterId nettyServiceWriterId;
 
     private final ByteBuffer reusedHeaderBuffer;
 
@@ -58,8 +57,6 @@ public class ProducerMergePartitionSubpartitionReader
     private final RegionBufferIndexTracker dataIndex;
 
     private final int subpartitionId;
-
-    private final int actualSubpartitionId;
 
     private final int maxBufferReadAhead;
 
@@ -76,29 +73,23 @@ public class ProducerMergePartitionSubpartitionReader
     public ProducerMergePartitionSubpartitionReader(
             ResultPartitionID id,
             int subpartitionId,
-            int actualSubpartitionId,
             int maxBufferReadAhead,
             ByteBuffer reusedHeaderBuffer,
             FileChannel dataFileChannel,
             RegionBufferIndexTracker dataIndex,
             Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser,
-            CreditBasedShuffleViewId creditBasedShuffleViewId,
+            NettyServiceWriterId nettyServiceWriterId,
             TieredStorageNettyService2 nettyService) {
         this.id = id;
         this.subpartitionId = subpartitionId;
-        this.actualSubpartitionId = actualSubpartitionId;
-        this.creditBasedShuffleViewId = creditBasedShuffleViewId;
+        this.nettyServiceWriterId = nettyServiceWriterId;
         this.dataFileChannel = dataFileChannel;
         this.reusedHeaderBuffer = reusedHeaderBuffer;
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.dataIndex = dataIndex;
         this.nettyService = nettyService;
-        this.nettyServiceWriter = nettyService.registerProducer(id, actualSubpartitionId, () -> readerReleaser.accept(this));
+        this.nettyServiceWriter = nettyService.registerProducer(nettyServiceWriterId, () -> readerReleaser.accept(this));
         this.regionCache = new RegionCache();
-    }
-
-    public void registerNettyService(BufferAvailabilityListener availabilityListener) {
-        // nothing to do.
     }
 
     public void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
@@ -114,7 +105,7 @@ public class ProducerMergePartitionSubpartitionReader
             return;
         }
         int numRemainingBuffer =
-                regionCache.getRemainingBuffersInRegion(nextToLoad, creditBasedShuffleViewId);
+                regionCache.getRemainingBuffersInRegion(nextToLoad, nettyServiceWriterId);
         // If there is no data in index, skip this time.
         if (numRemainingBuffer == 0) {
             return;
@@ -143,7 +134,7 @@ public class ProducerMergePartitionSubpartitionReader
             ++numLoaded;
         }
         if (nettyServiceWriter.size() <= numLoaded) {
-            ((TieredStorageNettyServiceImpl2)nettyService).notifyResultSubpartitionViewSendBuffer(id, actualSubpartitionId);
+            ((TieredStorageNettyServiceImpl2)nettyService).notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
         }
     }
 
@@ -154,7 +145,7 @@ public class ProducerMergePartitionSubpartitionReader
         isFailed = true;
         nettyServiceWriter.clear();
         nettyServiceWriter.writeBuffer(new BufferContext(failureCause));
-        ((TieredStorageNettyServiceImpl2)nettyService).notifyResultSubpartitionViewSendBuffer(id, actualSubpartitionId);
+        ((TieredStorageNettyServiceImpl2)nettyService).notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
     }
 
     @Override
@@ -192,8 +183,8 @@ public class ProducerMergePartitionSubpartitionReader
         private long offset;
 
         private int getRemainingBuffersInRegion(
-                int bufferIndex, CreditBasedShuffleViewId creditBasedShuffleViewId) {
-            updateCachedRegionIfNeeded(bufferIndex, creditBasedShuffleViewId);
+                int bufferIndex, NettyServiceWriterId nettyServiceWriterId) {
+            updateCachedRegionIfNeeded(bufferIndex, nettyServiceWriterId);
             return numReadable;
         }
 
@@ -219,7 +210,7 @@ public class ProducerMergePartitionSubpartitionReader
         // ------------------------------------------------------------------------
 
         private void updateCachedRegionIfNeeded(
-                int bufferIndex, CreditBasedShuffleViewId creditBasedShuffleViewId) {
+                int bufferIndex, NettyServiceWriterId nettyServiceWriterId) {
             if (isInCachedRegion(bufferIndex)) {
                 int numAdvance = bufferIndex - currentBufferIndex;
                 numSkip += numAdvance;
@@ -230,7 +221,7 @@ public class ProducerMergePartitionSubpartitionReader
 
             Optional<RegionBufferIndexTracker.ReadableRegion> lookupResultOpt =
                     dataIndex.getReadableRegion(
-                            subpartitionId, bufferIndex, creditBasedShuffleViewId);
+                            subpartitionId, bufferIndex, nettyServiceWriterId);
             if (!lookupResultOpt.isPresent()) {
                 currentBufferIndex = -1;
                 numReadable = 0;

@@ -318,8 +318,7 @@ public class ResultPartitionFactory {
                                 tieredStorageProducerClient,
                                 bufferPoolFactory,
                                 resourceRegistry,
-                                nettyService,
-                                isBroadcast);
+                                nettyService);
             } else {
                 partition =
                         new HsResultPartition(

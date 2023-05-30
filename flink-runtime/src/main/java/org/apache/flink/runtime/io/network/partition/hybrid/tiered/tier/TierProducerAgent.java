@@ -19,8 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
 
 import java.io.IOException;
 
@@ -39,7 +39,7 @@ public interface TierProducerAgent {
     boolean write(int consumerId, Buffer finishedBuffer) throws IOException;
 
     void registerNettyService(
-            int subpartitionId, BufferAvailabilityListener availabilityListener) throws IOException;
+            int subpartitionId, NettyServiceWriterId nettyServiceWriterId) throws IOException;
 
     void close();
 }

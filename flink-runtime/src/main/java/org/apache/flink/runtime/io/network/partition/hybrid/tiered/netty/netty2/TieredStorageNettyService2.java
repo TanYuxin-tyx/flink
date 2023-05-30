@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2;
 
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 
 import java.util.function.BiConsumer;
@@ -33,9 +32,7 @@ public interface TieredStorageNettyService2 {
      * @return the writer.
      */
     NettyServiceWriter registerProducer(
-            ResultPartitionID partitionId,
-            int subpartition,
-            Runnable serviceReleaseNotifier);
+            NettyServiceWriterId writerId, Runnable serviceReleaseNotifier);
 
     /**
      * Register to {@link TieredStorageNettyService2} and create a {@link NettyServiceReader).

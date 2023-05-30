@@ -22,11 +22,10 @@ import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
@@ -64,7 +63,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
     private final boolean isBroadcastOnly;
 
     /** Record the last assigned consumerId for each subpartition. */
-    private final CreditBasedShuffleViewId[] lastCreditBasedShuffleViewIds;
+    private final NettyServiceWriterId[] lastNettyServiceWriterIds;
 
     private final PartitionFileReader partitionFileReader;
 
@@ -98,7 +97,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.lastCreditBasedShuffleViewIds = new CreditBasedShuffleViewId[numSubpartitions];
+        this.lastNettyServiceWriterIds = new NettyServiceWriterId[numSubpartitions];
         this.partitionFileReader =
                 partitionFileManager.createPartitionFileReader(
                         PartitionFileType.PRODUCER_MERGE, nettyService);
@@ -118,22 +117,14 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
 
     @Override
     public void registerNettyService(
-            int subpartitionId, BufferAvailabilityListener availabilityListener)
+            int subpartitionId,
+            NettyServiceWriterId nettyServiceWriterId)
             throws IOException {
         if (!Files.isReadable(dataFilePath)) {
             throw new PartitionNotFoundException(resultPartitionID);
         }
-        //if(isBroadcastOnly && subpartitionId != 0){
-        //    System.out.println("");
-        //}
-        int actualSubpartitionId = subpartitionId;
-        subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
-        CreditBasedShuffleViewId lastCreditBasedShuffleViewId = lastCreditBasedShuffleViewIds[subpartitionId];
-        CreditBasedShuffleViewId creditBasedShuffleViewId = CreditBasedShuffleViewId.newId(
-                lastCreditBasedShuffleViewId);
-        lastCreditBasedShuffleViewIds[subpartitionId] = creditBasedShuffleViewId;
         partitionFileReader.registerNettyService(
-                subpartitionId, actualSubpartitionId, creditBasedShuffleViewId, availabilityListener);
+                subpartitionId, nettyServiceWriterId);
     }
 
     @Override

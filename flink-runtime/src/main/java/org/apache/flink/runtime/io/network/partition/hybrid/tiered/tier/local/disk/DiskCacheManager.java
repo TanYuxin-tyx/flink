@@ -21,7 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.d
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
@@ -45,7 +45,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
 
     private final SubpartitionDiskCacheManager[] subpartitionDiskCacheManagers;
 
-    private final List<Map<CreditBasedShuffleViewId, CreditBasedBufferQueueView>> tierReaderViewMap;
+    private final List<Map<NettyServiceWriterId, CreditBasedBufferQueueView>> tierReaderViewMap;
 
     private volatile CompletableFuture<Void> hasFlushCompleted =
             CompletableFuture.completedFuture(null);
@@ -146,8 +146,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
     // ------------------------------------
 
     @Override
-    public void onConsumerReleased(int subpartitionId, CreditBasedShuffleViewId creditBasedShuffleViewId) {
-        tierReaderViewMap.get(subpartitionId).remove(creditBasedShuffleViewId);
+    public void onConsumerReleased(int subpartitionId, NettyServiceWriterId nettyServiceWriterId) {
+        tierReaderViewMap.get(subpartitionId).remove(nettyServiceWriterId);
     }
 
     // ------------------------------------

@@ -25,7 +25,6 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
@@ -78,7 +77,7 @@ class ProducerMergePartitionFileReaderTest {
     private final BufferAvailabilityListener defaultAvailabilityListener =
             new NoOpBufferAvailablityListener();
 
-    private final CreditBasedShuffleViewId defaultCreditBasedShuffleViewId = CreditBasedShuffleViewId.DEFAULT;
+    //private final NettyServiceWriterId defaultNettyServiceWriterId = NettyServiceWriterId.DEFAULT;
 
     @BeforeEach
     void before(@TempDir Path tempDir)

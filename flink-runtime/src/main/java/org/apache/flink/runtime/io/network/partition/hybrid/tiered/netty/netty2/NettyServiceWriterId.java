@@ -16,31 +16,25 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
-
-import javax.annotation.Nullable;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2;
 
 import java.util.Objects;
 
-/**
- * {@link CreditBasedShuffleViewId} represents the identifier of {@link
- * CreditBasedBufferQueueView}, Every {@link CreditBasedBufferQueueView} has a specific id.
- */
-public class CreditBasedShuffleViewId {
 
-    /** This is the first consumer view id of a single subpartition. */
-    public static final CreditBasedShuffleViewId DEFAULT = new CreditBasedShuffleViewId(0);
+public class NettyServiceWriterId {
 
-    /** This is a unique field for each consumer view of a single subpartition. */
+    private static int defaultId = 0;
+
     private final int id;
 
-    private CreditBasedShuffleViewId(int id) {
+    private NettyServiceWriterId(int id) {
         this.id = id;
     }
 
-    public static CreditBasedShuffleViewId newId(
-            @Nullable CreditBasedShuffleViewId lastId) {
-        return lastId == null ? DEFAULT : new CreditBasedShuffleViewId(lastId.id + 1);
+    public static NettyServiceWriterId newId() {
+        synchronized (NettyServiceWriterId.class) {
+            return new NettyServiceWriterId(defaultId++);
+        }
     }
 
     @Override
@@ -51,7 +45,7 @@ public class CreditBasedShuffleViewId {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        CreditBasedShuffleViewId that = (CreditBasedShuffleViewId) o;
+        NettyServiceWriterId that = (NettyServiceWriterId) o;
         return id == that.id;
     }
 

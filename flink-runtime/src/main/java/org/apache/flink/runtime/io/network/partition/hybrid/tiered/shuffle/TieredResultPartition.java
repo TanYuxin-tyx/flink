@@ -37,6 +37,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Output
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoreResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
@@ -58,7 +59,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -88,10 +88,6 @@ public class TieredResultPartition extends ResultPartition {
 
     private final TieredStorageNettyService2 nettyService;
 
-    private final AtomicInteger subpartitionIdRecorder = new AtomicInteger(0);
-
-    private final Boolean isBroadcast;
-
     public TieredResultPartition(
             String owningTaskName,
             int partitionIndex,
@@ -108,8 +104,7 @@ public class TieredResultPartition extends ResultPartition {
             TieredStorageProducerClient tieredStorageProducerClient,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
             TieredStorageResourceRegistry resourceRegistry,
-            TieredStorageNettyService2 nettyService,
-            Boolean isBroadcast) {
+            TieredStorageNettyService2 nettyService) {
         super(
                 owningTaskName,
                 partitionIndex,
@@ -129,7 +124,6 @@ public class TieredResultPartition extends ResultPartition {
         this.resourceRegistry = resourceRegistry;
         this.storagePartitionId = TieredStorageIdMappingUtils.convertId(partitionId);
         this.nettyService = nettyService;
-        this.isBroadcast = isBroadcast;
 
         checkState(
                 tierProducerAgents.size() == tierExclusiveBuffers.length, "Wrong number of tiers.");
@@ -199,50 +193,43 @@ public class TieredResultPartition extends ResultPartition {
         checkNotNull(tieredStorageProducerClient).emit(record, consumerId, dataType, isBroadcast);
     }
 
-    //private Set<Integer> registeredSubpartitionIds = new HashSet<>();
+    // private Set<Integer> registeredSubpartitionIds = new HashSet<>();
 
     @Override
     public ResultSubpartitionView createSubpartitionView(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         checkState(!isReleased(), "ResultPartition already released.");
-        synchronized (this) {
-            if (numSubpartitions == 1) {
-                subpartitionId = subpartitionIdRecorder.get();
-                subpartitionIdRecorder.incrementAndGet();
-            }
-
-            if (tierProducerAgents.size() == 1
-                    && tierProducerAgents.get(0) instanceof RemoteTierProducerAgent) {
-                return new TieredStoreResultSubpartitionView(
-                        subpartitionId, availabilityListener, new ArrayList<>(), new ArrayList<>());
-            }
-
-            //if (registeredSubpartitionIds.contains(subpartitionId)) {
-            //    throw new RuntimeException(
-            //            "FAILED!, subpartitionId is "
-            //                    + subpartitionId
-            //                    + " is Broadcast? "
-            //                    + isBroadcast
-            //                    + "PartitionName \n"
-            //                    + getOwningTaskName()
-            //                    + "num subpartitions "
-            //                    + numSubpartitions);
-            //}
-
-            //registeredSubpartitionIds.add(subpartitionId);
-
-            List<SegmentSearcher> segmentSearchers = new ArrayList<>();
-            for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
-                tierProducerAgent.registerNettyService(subpartitionId, availabilityListener);
-                if (tierProducerAgent instanceof SegmentSearcher) {
-                    segmentSearchers.add((SegmentSearcher) tierProducerAgent);
-                }
-            }
-            return ((TieredStorageNettyServiceImpl2) nettyService)
-                    .createResultSubpartitionView(
-                            partitionId, subpartitionId, availabilityListener, segmentSearchers);
+        if (tierProducerAgents.size() == 1
+                && tierProducerAgents.get(0) instanceof RemoteTierProducerAgent) {
+            return new TieredStoreResultSubpartitionView(
+                    subpartitionId, availabilityListener, new ArrayList<>(), new ArrayList<>());
         }
+
+        // if (registeredSubpartitionIds.contains(subpartitionId)) {
+        //    throw new RuntimeException(
+        //            "FAILED!, subpartitionId is "
+        //                    + subpartitionId
+        //                    + " is Broadcast? "
+        //                    + isBroadcast
+        //                    + "PartitionName \n"
+        //                    + getOwningTaskName()
+        //                    + "num subpartitions "
+        //                    + numSubpartitions);
+        // }
+
+        // registeredSubpartitionIds.add(subpartitionId);
+        NettyServiceWriterId writerId = NettyServiceWriterId.newId();
+        List<SegmentSearcher> segmentSearchers = new ArrayList<>();
+        for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
+            tierProducerAgent.registerNettyService(subpartitionId, writerId);
+            if (tierProducerAgent instanceof SegmentSearcher) {
+                segmentSearchers.add((SegmentSearcher) tierProducerAgent);
+            }
+        }
+        return ((TieredStorageNettyServiceImpl2) nettyService)
+                .createResultSubpartitionView(
+                        subpartitionId, writerId, availabilityListener, segmentSearchers);
     }
 
     @Override

@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -38,7 +38,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
     @GuardedBy("lock")
     private final List<List<InternalRegion>> subpartitionFirstBufferIndexInternalRegions;
 
-    private final List<Map<CreditBasedShuffleViewId, Integer>> lastestIndexOfReader;
+    private final List<Map<NettyServiceWriterId, Integer>> lastestIndexOfReader;
 
     private final Object lock = new Object();
 
@@ -57,9 +57,9 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
     public Optional<ReadableRegion> getReadableRegion(
             int subpartitionId,
             int bufferIndex,
-            CreditBasedShuffleViewId creditBasedShuffleViewId) {
+            NettyServiceWriterId nettyServiceWriterId) {
         synchronized (lock) {
-            return getInternalRegion(subpartitionId, bufferIndex, creditBasedShuffleViewId)
+            return getInternalRegion(subpartitionId, bufferIndex, nettyServiceWriterId)
                     .map(
                             internalRegion ->
                                     internalRegion.toReadableRegion(bufferIndex))
@@ -94,7 +94,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
     private Optional<InternalRegion> getInternalRegion(
             int subpartitionId,
             int bufferIndex,
-            CreditBasedShuffleViewId creditBasedShuffleViewId) {
+            NettyServiceWriterId nettyServiceWriterId) {
         if (isReleased) {
             return Optional.empty();
         }
@@ -102,7 +102,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
         int currentRegionIndex =
                 lastestIndexOfReader
                         .get(subpartitionId)
-                        .getOrDefault(creditBasedShuffleViewId, 0);
+                        .getOrDefault(nettyServiceWriterId, 0);
         List<InternalRegion> currentRegions =
                 subpartitionFirstBufferIndexInternalRegions.get(subpartitionId);
         while (currentRegionIndex < currentRegions.size()) {
@@ -113,7 +113,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
             ++currentRegionIndex;
             lastestIndexOfReader
                     .get(subpartitionId)
-                    .put(creditBasedShuffleViewId, currentRegionIndex);
+                    .put(nettyServiceWriterId, currentRegionIndex);
         }
         return Optional.empty();
     }

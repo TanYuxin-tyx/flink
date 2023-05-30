@@ -19,8 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -66,7 +66,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     @Override
     public void registerNettyService(
-            int subpartitionId, BufferAvailabilityListener availabilityListener)
+            int subpartitionId, NettyServiceWriterId nettyServiceWriterId)
             throws IOException {
         // nothing to do.
     }

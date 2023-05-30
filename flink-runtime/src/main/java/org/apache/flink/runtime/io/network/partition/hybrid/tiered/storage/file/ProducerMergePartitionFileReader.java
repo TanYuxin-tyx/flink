@@ -4,10 +4,9 @@ import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
-import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
@@ -119,9 +118,7 @@ public class ProducerMergePartitionFileReader
     @Override
     public void registerNettyService(
             int subpartitionId,
-            int actualSubpartitionId,
-            CreditBasedShuffleViewId creditBasedShuffleViewId,
-            BufferAvailabilityListener availabilityListener)
+            NettyServiceWriterId nettyServiceWriterId)
             throws IOException {
         synchronized (lock) {
             checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
@@ -130,15 +127,13 @@ public class ProducerMergePartitionFileReader
                     new ProducerMergePartitionSubpartitionReader(
                             resultPartitionID,
                             subpartitionId,
-                            actualSubpartitionId,
                             maxBufferReadAhead,
                             headerBuf,
                             dataFileChannel,
                             dataIndex,
                             this::removeSubpartitionReader,
-                            creditBasedShuffleViewId,
+                            nettyServiceWriterId,
                             nettyService);
-            subpartitionReader.registerNettyService(availabilityListener);
             allSubpartitionReaders.add(subpartitionReader);
             triggerReaderRunning();
         }
