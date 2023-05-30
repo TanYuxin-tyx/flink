@@ -56,9 +56,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -201,7 +199,7 @@ public class TieredResultPartition extends ResultPartition {
         checkNotNull(tieredStorageProducerClient).emit(record, consumerId, dataType, isBroadcast);
     }
 
-    private Set<Integer> registeredSubpartitionIds = new HashSet<>();
+    //private Set<Integer> registeredSubpartitionIds = new HashSet<>();
 
     @Override
     public ResultSubpartitionView createSubpartitionView(
@@ -209,7 +207,7 @@ public class TieredResultPartition extends ResultPartition {
             throws IOException {
         checkState(!isReleased(), "ResultPartition already released.");
         synchronized (this) {
-            if (isBroadcast) {
+            if (numSubpartitions == 1) {
                 subpartitionId = subpartitionIdRecorder.get();
                 subpartitionIdRecorder.incrementAndGet();
             }
@@ -220,19 +218,19 @@ public class TieredResultPartition extends ResultPartition {
                         subpartitionId, availabilityListener, new ArrayList<>(), new ArrayList<>());
             }
 
-            if (registeredSubpartitionIds.contains(subpartitionId)) {
-                throw new RuntimeException(
-                        "FAILED!, subpartitionId is "
-                                + subpartitionId
-                                + " is Broadcast? "
-                                + isBroadcast
-                                + "PartitionName \n"
-                                + getOwningTaskName()
-                                + "num subpartitions "
-                                + numSubpartitions);
-            }
+            //if (registeredSubpartitionIds.contains(subpartitionId)) {
+            //    throw new RuntimeException(
+            //            "FAILED!, subpartitionId is "
+            //                    + subpartitionId
+            //                    + " is Broadcast? "
+            //                    + isBroadcast
+            //                    + "PartitionName \n"
+            //                    + getOwningTaskName()
+            //                    + "num subpartitions "
+            //                    + numSubpartitions);
+            //}
 
-            registeredSubpartitionIds.add(subpartitionId);
+            //registeredSubpartitionIds.add(subpartitionId);
 
             List<SegmentSearcher> segmentSearchers = new ArrayList<>();
             for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
