@@ -205,20 +205,6 @@ public class TieredResultPartition extends ResultPartition {
             return new TieredStoreResultSubpartitionView(
                     subpartitionId, availabilityListener, new ArrayList<>(), new ArrayList<>());
         }
-
-        // if (registeredSubpartitionIds.contains(subpartitionId)) {
-        //    throw new RuntimeException(
-        //            "FAILED!, subpartitionId is "
-        //                    + subpartitionId
-        //                    + " is Broadcast? "
-        //                    + isBroadcast
-        //                    + "PartitionName \n"
-        //                    + getOwningTaskName()
-        //                    + "num subpartitions "
-        //                    + numSubpartitions);
-        // }
-
-        // registeredSubpartitionIds.add(subpartitionId);
         NettyServiceWriterId writerId = NettyServiceWriterId.newId();
         List<SegmentSearcher> segmentSearchers = new ArrayList<>();
         for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
