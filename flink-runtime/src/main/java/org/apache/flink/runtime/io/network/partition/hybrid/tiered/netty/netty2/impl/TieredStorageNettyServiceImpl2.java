@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl;
 
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
@@ -31,6 +32,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Buffe
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -46,27 +48,36 @@ import static org.apache.flink.shaded.guava30.com.google.common.base.Preconditio
  */
 public class TieredStorageNettyServiceImpl2 implements TieredStorageNettyService2 {
 
-    private final Map<Integer, List<Queue<BufferContext>>> registeredBufferQueues =
+    private final Map<ResultPartitionID, Map<Integer, List<Queue<BufferContext>>>>
+            registeredBufferQueues = new ConcurrentHashMap<>();
+
+    private final Map<ResultPartitionID, Map<Integer, List<Runnable>>> registeredReleaseNotifiers =
             new ConcurrentHashMap<>();
 
-    private final Map<Integer, List<Runnable>> registeredReleaseNotifiers =
-            new ConcurrentHashMap<>();
-
-    private final Map<Integer, BufferAvailabilityListener> registeredAvailabilityListeners =
-            new ConcurrentHashMap<>();
+    private final Map<ResultPartitionID, Map<Integer, BufferAvailabilityListener>>
+            registeredAvailabilityListeners = new ConcurrentHashMap<>();
 
     @Override
-    public NettyServiceWriter registerProducer(int subpartition, Runnable serviceReleaseNotifier) {
-        Queue<BufferContext> bufferQueue = new LinkedBlockingQueue<>();
-        List<Queue<BufferContext>> bufferQueues =
-                registeredBufferQueues.getOrDefault(subpartition, new ArrayList<>());
-        List<Runnable> notifiers =
-                registeredReleaseNotifiers.getOrDefault(subpartition, new ArrayList<>());
-        bufferQueues.add(bufferQueue);
-        notifiers.add(serviceReleaseNotifier);
-        registeredBufferQueues.put(subpartition, bufferQueues);
-        registeredReleaseNotifiers.put(subpartition, notifiers);
-        return new NettyServiceWriterImpl(bufferQueue);
+    public NettyServiceWriter registerProducer(
+            ResultPartitionID partitionId, int subpartitionId, Runnable serviceReleaseNotifier) {
+        synchronized (this) {
+            Queue<BufferContext> bufferQueue = new LinkedBlockingQueue<>();
+            Map<Integer, List<Queue<BufferContext>>> subpartitionBufferQueues =
+                    registeredBufferQueues.getOrDefault(partitionId, new HashMap<>());
+            Map<Integer, List<Runnable>> subpartitionReleaseNotifiers =
+                    registeredReleaseNotifiers.getOrDefault(partitionId, new HashMap<>());
+            List<Queue<BufferContext>> bufferQueues =
+                    subpartitionBufferQueues.getOrDefault(subpartitionId, new ArrayList<>());
+            List<Runnable> notifiers =
+                    subpartitionReleaseNotifiers.getOrDefault(subpartitionId, new ArrayList<>());
+            bufferQueues.add(bufferQueue);
+            notifiers.add(serviceReleaseNotifier);
+            subpartitionBufferQueues.put(subpartitionId, bufferQueues);
+            subpartitionReleaseNotifiers.put(subpartitionId, notifiers);
+            registeredBufferQueues.put(partitionId, subpartitionBufferQueues);
+            registeredReleaseNotifiers.put(partitionId, subpartitionReleaseNotifiers);
+            return new NettyServiceWriterImpl(bufferQueue);
+        }
     }
 
     @Override
@@ -79,29 +90,48 @@ public class TieredStorageNettyServiceImpl2 implements TieredStorageNettyService
     }
 
     public ResultSubpartitionView createResultSubpartitionView(
+            ResultPartitionID partitionId,
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
             List<SegmentSearcher> segmentSearchers) {
-        List<Queue<BufferContext>> bufferQueues = registeredBufferQueues.get(subpartitionId);
-        List<Runnable> releaseNotifiers = registeredReleaseNotifiers.get(subpartitionId);
-        checkState(bufferQueues.size() != 0 && bufferQueues.size() == releaseNotifiers.size());
-        registeredAvailabilityListeners.put(subpartitionId, availabilityListener);
-        List<CreditBasedBufferQueueView> creditBasedBufferQueueViews = new ArrayList<>();
-        for (int index = 0; index < bufferQueues.size(); ++index) {
-            creditBasedBufferQueueViews.add(
-                    new CreditBasedBufferQueueViewImpl(
-                            bufferQueues.get(index),
-                            availabilityListener,
-                            releaseNotifiers.get(index)));
+        synchronized (this) {
+            List<Queue<BufferContext>> bufferQueues =
+                    registeredBufferQueues.get(partitionId).get(subpartitionId);
+            List<Runnable> releaseNotifiers =
+                    registeredReleaseNotifiers.get(partitionId).get(subpartitionId);
+            checkState(bufferQueues.size() != 0 && bufferQueues.size() == releaseNotifiers.size());
+            Map<Integer, BufferAvailabilityListener> listeners =
+                    registeredAvailabilityListeners.getOrDefault(partitionId, new HashMap<>());
+            listeners.put(subpartitionId, availabilityListener);
+            registeredAvailabilityListeners.put(partitionId, listeners);
+            List<CreditBasedBufferQueueView> creditBasedBufferQueueViews = new ArrayList<>();
+            for (int index = 0; index < bufferQueues.size(); ++index) {
+                creditBasedBufferQueueViews.add(
+                        new CreditBasedBufferQueueViewImpl(
+                                bufferQueues.get(index),
+                                availabilityListener,
+                                releaseNotifiers.get(index)));
+            }
+            return new TieredStoreResultSubpartitionView(
+                    subpartitionId,
+                    availabilityListener,
+                    segmentSearchers,
+                    creditBasedBufferQueueViews);
         }
-        return new TieredStoreResultSubpartitionView(
-                subpartitionId,
-                availabilityListener,
-                segmentSearchers,
-                creditBasedBufferQueueViews);
     }
 
-    public void notifyResultSubpartitionViewSendBuffer(int subpartitionId) {
-        registeredAvailabilityListeners.get(subpartitionId).notifyDataAvailable();
+    public void notifyResultSubpartitionViewSendBuffer(
+            ResultPartitionID partitionId, int subpartitionId) {
+        synchronized (this) {
+            Map<Integer, BufferAvailabilityListener> listeners =
+                    registeredAvailabilityListeners.get(partitionId);
+            if (listeners != null) {
+                BufferAvailabilityListener bufferAvailabilityListener =
+                        listeners.get(subpartitionId);
+                if (bufferAvailabilityListener != null) {
+                    bufferAvailabilityListener.notifyDataAvailable();
+                }
+            }
+        }
     }
 }

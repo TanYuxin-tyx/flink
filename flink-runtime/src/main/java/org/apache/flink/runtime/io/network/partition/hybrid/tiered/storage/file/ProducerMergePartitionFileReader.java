@@ -6,9 +6,9 @@ import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ProducerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
@@ -80,9 +80,12 @@ public class ProducerMergePartitionFileReader
     @GuardedBy("lock")
     private volatile boolean isReleased;
 
-    private final ProducerNettyService nettyService;
+    private final TieredStorageNettyService2 nettyService;
+
+    private final ResultPartitionID resultPartitionID;
 
     public ProducerMergePartitionFileReader(
+            ResultPartitionID partitionId,
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
             RegionBufferIndexTracker dataIndex,
@@ -90,7 +93,8 @@ public class ProducerMergePartitionFileReader
             int maxRequestedBuffers,
             Duration bufferRequestTimeout,
             int maxBufferReadAhead,
-            ProducerNettyService nettyService) {
+            TieredStorageNettyService2 nettyService) {
+        this.resultPartitionID = partitionId;
         this.dataIndex = checkNotNull(dataIndex);
         this.dataFilePath = checkNotNull(dataFilePath);
         this.bufferPool = checkNotNull(bufferPool);
@@ -113,8 +117,9 @@ public class ProducerMergePartitionFileReader
     }
 
     @Override
-    public CreditBasedBufferQueueView registerNettyService(
+    public void registerNettyService(
             int subpartitionId,
+            int actualSubpartitionId,
             CreditBasedShuffleViewId creditBasedShuffleViewId,
             BufferAvailabilityListener availabilityListener)
             throws IOException {
@@ -123,7 +128,9 @@ public class ProducerMergePartitionFileReader
             lazyInitialize();
             ProducerMergePartitionSubpartitionReader subpartitionReader =
                     new ProducerMergePartitionSubpartitionReader(
+                            resultPartitionID,
                             subpartitionId,
+                            actualSubpartitionId,
                             maxBufferReadAhead,
                             headerBuf,
                             dataFileChannel,
@@ -131,11 +138,9 @@ public class ProducerMergePartitionFileReader
                             this::removeSubpartitionReader,
                             creditBasedShuffleViewId,
                             nettyService);
-            CreditBasedBufferQueueView creditBasedBufferQueueView =
-                    subpartitionReader.registerNettyService(availabilityListener);
+            subpartitionReader.registerNettyService(availabilityListener);
             allSubpartitionReaders.add(subpartitionReader);
             triggerReaderRunning();
-            return creditBasedBufferQueueView;
         }
     }
 

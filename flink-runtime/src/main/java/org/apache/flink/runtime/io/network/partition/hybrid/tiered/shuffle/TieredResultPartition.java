@@ -36,8 +36,9 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoreResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -45,6 +46,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.util.function.SupplierWithException;
@@ -56,6 +58,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -83,6 +86,12 @@ public class TieredResultPartition extends ResultPartition {
 
     private final TieredStoragePartitionId storagePartitionId;
 
+    private final TieredStorageNettyService2 nettyService;
+
+    private final AtomicInteger subpartitionIdRecorder = new AtomicInteger(0);
+
+    private final Boolean isBroadcast;
+
     public TieredResultPartition(
             String owningTaskName,
             int partitionIndex,
@@ -98,7 +107,9 @@ public class TieredResultPartition extends ResultPartition {
             @Nullable BufferCompressor bufferCompressor,
             TieredStorageProducerClient tieredStorageProducerClient,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
-            TieredStorageResourceRegistry resourceRegistry) {
+            TieredStorageResourceRegistry resourceRegistry,
+            TieredStorageNettyService2 nettyService,
+            Boolean isBroadcast) {
         super(
                 owningTaskName,
                 partitionIndex,
@@ -117,6 +128,8 @@ public class TieredResultPartition extends ResultPartition {
         this.tieredStorageProducerClient = tieredStorageProducerClient;
         this.resourceRegistry = resourceRegistry;
         this.storagePartitionId = TieredStorageIdMappingUtils.convertId(partitionId);
+        this.nettyService = nettyService;
+        this.isBroadcast = isBroadcast;
 
         checkState(
                 tierProducerAgents.size() == tierExclusiveBuffers.length, "Wrong number of tiers.");
@@ -191,18 +204,29 @@ public class TieredResultPartition extends ResultPartition {
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         checkState(!isReleased(), "ResultPartition already released.");
+        if (isBroadcast) {
+            synchronized (subpartitionIdRecorder) {
+                subpartitionId = subpartitionIdRecorder.get();
+                subpartitionIdRecorder.incrementAndGet();
+            }
+        }
+
+        if (tierProducerAgents.size() == 1
+                && tierProducerAgents.get(0) instanceof RemoteTierProducerAgent) {
+            return new TieredStoreResultSubpartitionView(
+                    subpartitionId, availabilityListener, new ArrayList<>(), new ArrayList<>());
+        }
+
         List<SegmentSearcher> segmentSearchers = new ArrayList<>();
-        List<CreditBasedBufferQueueView> creditBasedBufferQueueViews = new ArrayList<>();
         for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
-            CreditBasedBufferQueueView creditBasedBufferQueueView =
-                    tierProducerAgent.registerNettyService(subpartitionId, availabilityListener);
-            if (creditBasedBufferQueueView != null) {
-                creditBasedBufferQueueViews.add(creditBasedBufferQueueView);
+            tierProducerAgent.registerNettyService(subpartitionId, availabilityListener);
+            if (tierProducerAgent instanceof SegmentSearcher) {
                 segmentSearchers.add((SegmentSearcher) tierProducerAgent);
             }
         }
-        return new TieredStoreResultSubpartitionView(
-                subpartitionId, availabilityListener, segmentSearchers, creditBasedBufferQueueViews);
+        return ((TieredStorageNettyServiceImpl2) nettyService)
+                .createResultSubpartitionView(
+                        partitionId, subpartitionId, availabilityListener, segmentSearchers);
     }
 
     @Override

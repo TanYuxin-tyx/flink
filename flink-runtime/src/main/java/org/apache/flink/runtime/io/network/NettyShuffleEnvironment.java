@@ -41,7 +41,6 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGateID;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
@@ -114,8 +113,6 @@ public class NettyShuffleEnvironment
 
     private final TieredStorageResourceRegistry resourceRegistry;
 
-    private final TieredStorageNettyService nettyService;
-
     private final TieredStorageNettyService2 nettyService2;
 
     private boolean isClosed;
@@ -145,7 +142,6 @@ public class NettyShuffleEnvironment
         this.batchShuffleReadBufferPool = batchShuffleReadBufferPool;
         this.batchShuffleReadIOExecutor = batchShuffleReadIOExecutor;
         this.resourceRegistry = new TieredStorageResourceRegistry();
-        this.nettyService = new TieredStorageNettyService();
         this.nettyService2 = new TieredStorageNettyServiceImpl2();
         this.isClosed = false;
     }
@@ -250,7 +246,7 @@ public class NettyShuffleEnvironment
                                 partitionIndex,
                                 resultPartitionDeploymentDescriptors.get(partitionIndex),
                                 resourceRegistry,
-                                nettyService);
+                                nettyService2);
             }
 
             registerOutputMetrics(

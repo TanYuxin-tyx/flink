@@ -39,6 +39,6 @@ public interface NettyServiceWriter {
      */
     int size();
 
-    /** Close and recycle all existed buffers. */
-    void close();
+    /** Clear and recycle all existed buffers. */
+    void clear();
 }

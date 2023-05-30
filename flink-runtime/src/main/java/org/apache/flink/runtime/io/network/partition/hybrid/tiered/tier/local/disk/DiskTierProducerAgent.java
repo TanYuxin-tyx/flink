@@ -26,9 +26,8 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ProducerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
@@ -93,7 +92,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
             int networkBufferSize,
             BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
-            ProducerNettyService nettyService) {
+            TieredStorageNettyService2 nettyService) {
         this.tierIndex = tierIndex;
         this.resultPartitionID = resultPartitionID;
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
@@ -118,19 +117,23 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
     }
 
     @Override
-    public CreditBasedBufferQueueView registerNettyService(
+    public void registerNettyService(
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         if (!Files.isReadable(dataFilePath)) {
             throw new PartitionNotFoundException(resultPartitionID);
         }
+        //if(isBroadcastOnly && subpartitionId != 0){
+        //    System.out.println("");
+        //}
+        int actualSubpartitionId = subpartitionId;
         subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
         CreditBasedShuffleViewId lastCreditBasedShuffleViewId = lastCreditBasedShuffleViewIds[subpartitionId];
         CreditBasedShuffleViewId creditBasedShuffleViewId = CreditBasedShuffleViewId.newId(
                 lastCreditBasedShuffleViewId);
         lastCreditBasedShuffleViewIds[subpartitionId] = creditBasedShuffleViewId;
-        return partitionFileReader.registerNettyService(
-                subpartitionId, creditBasedShuffleViewId, availabilityListener);
+        partitionFileReader.registerNettyService(
+                subpartitionId, actualSubpartitionId, creditBasedShuffleViewId, availabilityListener);
     }
 
     @Override

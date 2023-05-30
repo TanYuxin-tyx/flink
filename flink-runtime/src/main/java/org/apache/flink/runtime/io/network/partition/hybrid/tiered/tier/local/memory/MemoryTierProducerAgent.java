@@ -23,22 +23,21 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ProducerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
-import org.apache.flink.util.Preconditions;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -83,13 +82,14 @@ public class MemoryTierProducerAgent
     private final SubpartitionSegmentIdTracker subpartitionSegmentIdTracker;
 
     public MemoryTierProducerAgent(
+            ResultPartitionID partitionId,
             int tierIndex,
             int numSubpartitions,
             TieredStorageMemoryManager storageMemoryManager,
             boolean isBroadcastOnly,
             BufferCompressor bufferCompressor,
             int bufferSize,
-            ProducerNettyService nettyService) {
+            TieredStorageNettyService2 nettyService) {
         this.tierIndex = tierIndex;
         this.numSubpartitions = numSubpartitions;
         this.isBroadcastOnly = isBroadcastOnly;
@@ -105,36 +105,18 @@ public class MemoryTierProducerAgent
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionMemoryDataManagers[subpartitionId] =
                     new SubpartitionMemoryDataManager(
-                            subpartitionId, bufferSize, bufferCompressor, this, nettyService);
+                            partitionId, subpartitionId, bufferSize, bufferCompressor, this, nettyService);
             subpartitionViewOperationsMap.add(new ConcurrentHashMap<>());
         }
     }
 
     @Override
-    public CreditBasedBufferQueueView registerNettyService(
+    public void registerNettyService(
             int subpartitionId, BufferAvailabilityListener availabilityListener) {
-        // if broadcastOptimize is enabled, map every subpartitionId to the special broadcast
-        // channel.
-        subpartitionId = isBroadcastOnly ? BROADCAST_CHANNEL : subpartitionId;
-
-        // NettyServiceViewImpl memoryReaderView = new NettyServiceViewImpl(availabilityListener);
-        CreditBasedShuffleViewId lastCreditBasedShuffleViewId = lastCreditBasedShuffleViewIds[subpartitionId];
-        checkMultipleConsumerIsAllowed(lastCreditBasedShuffleViewId);
-        // assign a unique id for each consumer, now it is guaranteed by the value that is one
-        // higher than the last consumerId's id field.
-        CreditBasedShuffleViewId creditBasedShuffleViewId = CreditBasedShuffleViewId.newId(
-                lastCreditBasedShuffleViewId);
-        lastCreditBasedShuffleViewIds[subpartitionId] = creditBasedShuffleViewId;
-        CreditBasedBufferQueueView creditBasedBufferQueueView =
-                subpartitionMemoryDataManagers[subpartitionId].registerNettyService(
-                        creditBasedShuffleViewId, availabilityListener);
-        CreditBasedBufferQueueView oldView =
-                subpartitionViewOperationsMap
-                        .get(subpartitionId)
-                        .put(creditBasedShuffleViewId, creditBasedBufferQueueView);
-        Preconditions.checkState(
-                oldView == null, "Each subpartition view should have unique consumerId.");
-        return creditBasedBufferQueueView;
+        if(isBroadcastOnly){
+            throw new RuntimeException("Illegal to register on broadcast only result partition.");
+        }
+        subpartitionMemoryDataManagers[subpartitionId].registerNettyService(availabilityListener);
     }
 
     @Override
@@ -221,45 +203,10 @@ public class MemoryTierProducerAgent
     @Override
     public void close() {}
 
-    public boolean isConsumerRegistered(int subpartitionId) {
-        int numConsumers = subpartitionViewOperationsMap.get(subpartitionId).size();
-        if (isBroadcastOnly) {
-            return numConsumers == numSubpartitions;
-        }
-        return numConsumers > 0;
-    }
-
     public boolean isConsumerRegistered(TieredStorageSubpartitionId subpartitionId) {
         int numConsumers =
                 subpartitionViewOperationsMap.get(subpartitionId.getSubpartitionId()).size();
-        if (isBroadcastOnly) {
-            return numConsumers == numSubpartitions;
-        }
         return numConsumers > 0;
-    }
-
-    // ------------------------------------
-    //      Callback for subpartition
-    // ------------------------------------
-
-    @Override
-    public void onDataAvailable(
-            int subpartitionId, Collection<CreditBasedShuffleViewId> creditBasedShuffleViewIds) {
-        Map<CreditBasedShuffleViewId, CreditBasedBufferQueueView> consumerViewMap =
-                subpartitionViewOperationsMap.get(subpartitionId);
-        creditBasedShuffleViewIds.forEach(
-                consumerId -> {
-                    CreditBasedBufferQueueView creditBasedBufferQueueView = consumerViewMap.get(consumerId);
-                    if (creditBasedBufferQueueView != null) {
-                        creditBasedBufferQueueView.notifyDataAvailable();
-                    }
-                });
-    }
-
-    @Override
-    public void onConsumerReleased(int subpartitionId, CreditBasedShuffleViewId creditBasedShuffleViewId) {
-        subpartitionViewOperationsMap.get(subpartitionId).remove(creditBasedShuffleViewId);
-        getSubpartitionMemoryDataManager(subpartitionId).releaseConsumer(creditBasedShuffleViewId);
     }
 
     // ------------------------------------

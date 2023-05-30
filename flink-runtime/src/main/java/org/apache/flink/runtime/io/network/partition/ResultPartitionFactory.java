@@ -31,8 +31,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ProducerNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.HashBufferAccumulator;
@@ -166,7 +165,7 @@ public class ResultPartitionFactory {
             int partitionIndex,
             ResultPartitionDeploymentDescriptor desc,
             TieredStorageResourceRegistry resourceRegistry,
-            TieredStorageNettyService tieredStorageNettyService) {
+            TieredStorageNettyService2 tieredStorageNettyService) {
         return create(
                 jobID,
                 taskNameWithSubtaskAndId,
@@ -178,7 +177,7 @@ public class ResultPartitionFactory {
                 desc.isBroadcast(),
                 createBufferPoolFactory(desc.getNumberOfSubpartitions(), desc.getPartitionType()),
                 resourceRegistry,
-                tieredStorageNettyService.createProducerNettyService());
+                tieredStorageNettyService);
     }
 
     @VisibleForTesting
@@ -193,7 +192,7 @@ public class ResultPartitionFactory {
             boolean isBroadcast,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
             TieredStorageResourceRegistry resourceRegistry,
-            ProducerNettyService nettyService) {
+            TieredStorageNettyService2 nettyService) {
         BufferCompressor bufferCompressor = null;
         if (type.supportCompression() && batchShuffleCompressionEnabled) {
             bufferCompressor = new BufferCompressor(networkBufferSize, compressionCodec);
@@ -318,7 +317,9 @@ public class ResultPartitionFactory {
                                 bufferCompressor,
                                 tieredStorageProducerClient,
                                 bufferPoolFactory,
-                                resourceRegistry);
+                                resourceRegistry,
+                                nettyService,
+                                isBroadcast);
             } else {
                 partition =
                         new HsResultPartition(
@@ -357,7 +358,7 @@ public class ResultPartitionFactory {
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storageMemoryManager,
-            ProducerNettyService nettyService) {
+            TieredStorageNettyService2 nettyService) {
         String dataFileBasePath = channelManager.createChannel().getPath();
         PartitionFileManager partitionFileManager =
                 new PartitionFileManagerImpl(

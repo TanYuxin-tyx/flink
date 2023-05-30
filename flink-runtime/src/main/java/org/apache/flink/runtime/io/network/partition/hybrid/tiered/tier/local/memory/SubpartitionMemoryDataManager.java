@@ -28,27 +28,24 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ProducerNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.LinkedBlockingDeque;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /** TODO. */
 public class SubpartitionMemoryDataManager {
@@ -65,27 +62,32 @@ public class SubpartitionMemoryDataManager {
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
 
-    @GuardedBy("subpartitionLock")
-    private final LinkedBlockingDeque<BufferContext> allBuffers = new LinkedBlockingDeque<>();
-
     private final Set<CreditBasedShuffleViewId> consumerSet;
 
     @Nullable private final BufferCompressor bufferCompressor;
 
-    private ProducerNettyService nettyService;
+    private final TieredStorageNettyService2 nettyService;
+
+    private final NettyServiceWriter nettyServiceWriter;
+
+    private ResultPartitionID partitionId;
 
     public SubpartitionMemoryDataManager(
+            ResultPartitionID partitionId,
             int subpartitionId,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
             MemoryTierProducerAgentOperation memoryTierProducerAgentOperation,
-            ProducerNettyService nettyService) {
+            TieredStorageNettyService2 nettyService) {
+        this.partitionId = partitionId;
         this.subpartitionId = subpartitionId;
         this.bufferSize = bufferSize;
         this.memoryTierProducerAgentOperation = memoryTierProducerAgentOperation;
         this.bufferCompressor = bufferCompressor;
         this.consumerSet = Collections.synchronizedSet(new HashSet<>());
         this.nettyService = nettyService;
+        this.nettyServiceWriter =
+                nettyService.registerProducer(partitionId, subpartitionId, () -> {});
     }
 
     // ------------------------------------------------------------------------
@@ -97,29 +99,11 @@ public class SubpartitionMemoryDataManager {
     }
 
     public void release() {
-        for (BufferContext bufferContext : allBuffers) {
-            if (!checkNotNull(bufferContext.getBuffer()).isRecycled()) {
-                bufferContext.getBuffer().recycleBuffer();
-            }
-        }
-        allBuffers.clear();
+        nettyServiceWriter.clear();
     }
 
-    public CreditBasedBufferQueueView registerNettyService(
-            CreditBasedShuffleViewId creditBasedShuffleViewId,
-            BufferAvailabilityListener availabilityListener) {
-        checkState(!consumerSet.contains(creditBasedShuffleViewId));
-        nettyService.register(
-                subpartitionId,
-                        allBuffers,
-                        () ->
-                                memoryTierProducerAgentOperation.onConsumerReleased(
-                                        subpartitionId, creditBasedShuffleViewId));
-        CreditBasedBufferQueueView creditBasedBufferQueueView = nettyService.createCreditBasedBufferQueueView(
-                subpartitionId,
-                availabilityListener);
-        consumerSet.add(creditBasedShuffleViewId);
-        return creditBasedBufferQueueView;
+    public void registerNettyService(BufferAvailabilityListener availabilityListener) {
+        // nothing to do.
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
@@ -142,7 +126,8 @@ public class SubpartitionMemoryDataManager {
         Buffer buffer =
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
-        BufferContext bufferContext = new BufferContext(buffer, finishedBufferIndex, subpartitionId);
+        BufferContext bufferContext =
+                new BufferContext(buffer, finishedBufferIndex, subpartitionId);
         addFinishedBuffer(bufferContext);
     }
 
@@ -192,14 +177,11 @@ public class SubpartitionMemoryDataManager {
     }
 
     private void addFinishedBuffer(BufferContext bufferContext) {
-        List<CreditBasedShuffleViewId> needNotify = new ArrayList<>(consumerSet.size());
         finishedBufferIndex++;
-        allBuffers.add(bufferContext);
-        for (CreditBasedShuffleViewId consumerEntry : consumerSet) {
-            if (allBuffers.size() <= 1) {
-                needNotify.add(consumerEntry);
-            }
+        nettyServiceWriter.writeBuffer(bufferContext);
+        if (nettyServiceWriter.size() <= 1) {
+            ((TieredStorageNettyServiceImpl2) nettyService)
+                    .notifyResultSubpartitionViewSendBuffer(partitionId, subpartitionId);
         }
-        memoryTierProducerAgentOperation.onDataAvailable(subpartitionId, needNotify);
     }
 }

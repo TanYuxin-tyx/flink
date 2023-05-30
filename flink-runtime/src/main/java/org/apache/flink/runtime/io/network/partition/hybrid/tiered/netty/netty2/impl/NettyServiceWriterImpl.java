@@ -11,8 +11,6 @@ public class NettyServiceWriterImpl implements NettyServiceWriter {
 
     private final Queue<BufferContext> bufferQueue;
 
-    private boolean isClosed;
-
     public NettyServiceWriterImpl(Queue<BufferContext> bufferQueue) {
         this.bufferQueue = bufferQueue;
     }
@@ -24,23 +22,16 @@ public class NettyServiceWriterImpl implements NettyServiceWriter {
 
     @Override
     public void writeBuffer(BufferContext bufferContext) {
-        if (isClosed) {
-            throw new RuntimeException("Netty service writer has been closed.");
-        }
         bufferQueue.add(bufferContext);
     }
 
     @Override
-    public void close() {
-        if (isClosed) {
-            return;
-        }
+    public void clear() {
         BufferContext bufferContext;
         while ((bufferContext = bufferQueue.poll()) != null) {
             if (bufferContext.getBuffer() != null) {
                 checkNotNull(bufferContext.getBuffer()).recycleBuffer();
             }
         }
-        isClosed = true;
     }
 }

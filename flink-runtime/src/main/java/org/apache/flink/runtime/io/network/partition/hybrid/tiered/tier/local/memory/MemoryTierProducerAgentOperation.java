@@ -18,31 +18,10 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.memory;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedShuffleViewId;
-
-import java.util.Collection;
-
 /**
  * This interface is used by {@link MemoryTierConsumer} to operate {@link
  * MemoryTierProducerAgentWriter}. Spilling decision may be made and handled inside these
  * operations.
  */
 public interface MemoryTierProducerAgentOperation {
-    /**
-     * This method is called when subpartition data become available.
-     *
-     * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param creditBasedShuffleViewIds the consumer's identifier which need notify data available.
-     */
-    void onDataAvailable(int subpartitionId, Collection<CreditBasedShuffleViewId> creditBasedShuffleViewIds);
-
-    /**
-     * This method is called when consumer is decided to released.
-     *
-     * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param creditBasedShuffleViewId the consumer's identifier which decided to be released.
-     */
-    void onConsumerReleased(int subpartitionId, CreditBasedShuffleViewId creditBasedShuffleViewId);
-
-    boolean isConsumerRegistered(int subpartitionId);
 }
