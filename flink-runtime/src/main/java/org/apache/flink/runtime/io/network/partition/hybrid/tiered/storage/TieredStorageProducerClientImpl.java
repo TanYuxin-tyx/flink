@@ -59,9 +59,6 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
     /** The current writing tier index for each subpartition. */
     private final TierProducerAgent[] currentSubpartitionTierAgent;
 
-    /** Indicate whether the segment for each subpartition is finished. */
-    private final boolean[] isCurrentSubpartitionSegmentFinished;
-
     private OutputMetrics outputMetrics;
 
     public TieredStorageProducerClientImpl(
@@ -77,10 +74,8 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         this.tierProducerAgents = tierProducerAgents;
         this.currentSubpartitionSegmentId = new int[numSubpartitions];
         this.currentSubpartitionTierAgent = new TierProducerAgent[numSubpartitions];
-        this.isCurrentSubpartitionSegmentFinished = new boolean[numSubpartitions];
 
         Arrays.fill(currentSubpartitionSegmentId, -1);
-        Arrays.fill(isCurrentSubpartitionSegmentFinished, true);
 
         bufferAccumulator.setup(this::writeAccumulatedBuffers);
     }
@@ -162,21 +157,21 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         Buffer compressedBuffer = compressBufferIfPossible(accumulatedBuffer);
 
         if (currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()] == null) {
-            internalChooseStorageTier(subpartitionId);
+            chooseStorageTierToStartSegment(subpartitionId);
         }
 
         boolean isSuccess =
                 currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].write(
                         subpartitionId.getSubpartitionId(), compressedBuffer);
         if (!isSuccess) {
-            internalChooseStorageTier(subpartitionId);
+            chooseStorageTierToStartSegment(subpartitionId);
             // We should make sure that the writing must be successful
             currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].write(
                     subpartitionId.getSubpartitionId(), compressedBuffer);
         }
     }
 
-    private void internalChooseStorageTier(TieredStorageSubpartitionId subpartitionId)
+    private void chooseStorageTierToStartSegment(TieredStorageSubpartitionId subpartitionId)
             throws IOException {
         int subpartitionIndex = subpartitionId.getSubpartitionId();
         int segmentIndex = currentSubpartitionSegmentId[subpartitionIndex];
