@@ -16,13 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 
 import javax.annotation.Nullable;
@@ -30,8 +31,10 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.Queue;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The {@link TieredStoreResultSubpartitionView} is the implementation. */
@@ -43,7 +46,11 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final List<SegmentSearcher> segmentSearchers;
 
-    private final List<CreditBasedBufferQueueView> creditBasedBufferQueueViews;
+    private final List<Queue<BufferContext>> bufferQueues;
+
+    private final List<Runnable> serviceReleaseNotifiers;
+
+    private final int[] currentBufferIndexes;
 
     private boolean isReleased = false;
 
@@ -51,7 +58,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private boolean stopSendingData = false;
 
-    private int viewIndexContainsCurrentSegment = -1;
+    private int queueIndexContainsCurrentSegment = -1;
 
     private int currentSequenceNumber = -1;
 
@@ -59,12 +66,15 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
             List<SegmentSearcher> segmentSearchers,
-            List<CreditBasedBufferQueueView> creditBasedBufferQueueViews) {
-        checkState(segmentSearchers.size() == creditBasedBufferQueueViews.size());
+            List<Queue<BufferContext>> bufferQueues,
+            List<Runnable> serviceReleaseNotifiers) {
+        checkState(segmentSearchers.size() == bufferQueues.size());
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
         this.segmentSearchers = segmentSearchers;
-        this.creditBasedBufferQueueViews = creditBasedBufferQueueViews;
+        this.bufferQueues = bufferQueues;
+        this.serviceReleaseNotifiers = serviceReleaseNotifiers;
+        this.currentBufferIndexes = new int[bufferQueues.size()];
     }
 
     @Nullable
@@ -73,16 +83,32 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         if (stopSendingData || !findTierReaderViewIndex()) {
             return null;
         }
-        CreditBasedBufferQueueView currentCreditBasedBufferQueueView =
-                creditBasedBufferQueueViews.get(viewIndexContainsCurrentSegment);
-        Optional<Buffer> nextBuffer = currentCreditBasedBufferQueueView.getNextBuffer();
+        Queue<BufferContext> currentQueue = bufferQueues.get(queueIndexContainsCurrentSegment);
+        Runnable releaseNotifier = serviceReleaseNotifiers.get(queueIndexContainsCurrentSegment);
+        BufferContext buffer = currentQueue.poll();
+        Optional<Buffer> nextBuffer;
+        if (buffer == null) {
+            nextBuffer = Optional.empty();
+        } else {
+            Throwable readError = buffer.getError();
+            if (readError != null) {
+                releaseQueue(currentQueue, releaseNotifier);
+                throw new IOException(readError);
+            } else {
+                checkState(
+                        buffer.getBufferIndex()
+                                == currentBufferIndexes[queueIndexContainsCurrentSegment]);
+                ++currentBufferIndexes[queueIndexContainsCurrentSegment];
+                nextBuffer = Optional.of(checkNotNull(buffer.getBuffer()));
+            }
+        }
         if (nextBuffer.isPresent()) {
             stopSendingData = nextBuffer.get().getDataType() == END_OF_SEGMENT;
             currentSequenceNumber++;
             return BufferAndBacklog.fromBufferAndLookahead(
                     nextBuffer.get(),
-                    currentCreditBasedBufferQueueView.getNextBufferDataType(),
-                    currentCreditBasedBufferQueueView.getBacklog(),
+                    getBufferQueueNextDataType(currentQueue),
+                    currentQueue.size(),
                     currentSequenceNumber);
         }
         return null;
@@ -91,16 +117,13 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     @Override
     public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
         if (findTierReaderViewIndex()) {
-            CreditBasedBufferQueueView currentCreditBasedBufferQueueView =
-                    creditBasedBufferQueueViews.get(viewIndexContainsCurrentSegment);
+            Queue<BufferContext> currentQueue = bufferQueues.get(queueIndexContainsCurrentSegment);
             boolean availability = numCreditsAvailable > 0;
             if (numCreditsAvailable <= 0
-                    && currentCreditBasedBufferQueueView.getNextBufferDataType()
-                            == Buffer.DataType.EVENT_BUFFER) {
+                    && getBufferQueueNextDataType(currentQueue) == Buffer.DataType.EVENT_BUFFER) {
                 availability = true;
             }
-            return new AvailabilityWithBacklog(
-                    availability, currentCreditBasedBufferQueueView.getBacklog());
+            return new AvailabilityWithBacklog(availability, currentQueue.size());
         }
         return new AvailabilityWithBacklog(false, 0);
     }
@@ -118,10 +141,10 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return;
         }
         isReleased = true;
-        for (CreditBasedBufferQueueView creditBasedBufferQueueView : creditBasedBufferQueueViews) {
-            creditBasedBufferQueueView.release();
+        for(int index = 0; index < bufferQueues.size(); ++index){
+            releaseQueue(bufferQueues.get(index), serviceReleaseNotifiers.get(index));
         }
-        creditBasedBufferQueueViews.clear();
+        bufferQueues.clear();
         segmentSearchers.clear();
     }
 
@@ -139,13 +162,13 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
         findTierReaderViewIndex();
-        return creditBasedBufferQueueViews.get(viewIndexContainsCurrentSegment).getBacklog();
+        return bufferQueues.get(queueIndexContainsCurrentSegment).size();
     }
 
     @Override
     public int getNumberOfQueuedBuffers() {
         findTierReaderViewIndex();
-        return creditBasedBufferQueueViews.get(viewIndexContainsCurrentSegment).getBacklog();
+        return bufferQueues.get(queueIndexContainsCurrentSegment).size();
     }
 
     @Override
@@ -174,12 +197,31 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     //       Internal Methods
     // -------------------------------
 
+    public Buffer.DataType getBufferQueueNextDataType(Queue<BufferContext> bufferQueue) {
+        BufferContext nextBuffer = bufferQueue.peek();
+        if (nextBuffer == null || nextBuffer.getBuffer() == null) {
+            return Buffer.DataType.NONE;
+        } else {
+            return nextBuffer.getBuffer().getDataType();
+        }
+    }
+
+    private void releaseQueue(Queue<BufferContext> bufferQueue, Runnable releaseNotifier) {
+        BufferContext bufferContext;
+        while ((bufferContext = bufferQueue.poll()) != null) {
+            if (bufferContext.getBuffer() != null) {
+                checkNotNull(bufferContext.getBuffer()).recycleBuffer();
+            }
+        }
+        releaseNotifier.run();
+    }
+
     private boolean findTierReaderViewIndex() {
         for (int viewIndex = 0; viewIndex < segmentSearchers.size(); viewIndex++) {
             SegmentSearcher segmentSearcher = segmentSearchers.get(viewIndex);
             if (segmentSearcher.hasCurrentSegment(
                     new TieredStorageSubpartitionId(subpartitionId), requiredSegmentId)) {
-                viewIndexContainsCurrentSegment = viewIndex;
+                queueIndexContainsCurrentSegment = viewIndex;
                 return true;
             }
         }

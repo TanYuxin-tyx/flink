@@ -6,8 +6,8 @@ import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
@@ -79,7 +79,7 @@ public class ProducerMergePartitionFileReader
     @GuardedBy("lock")
     private volatile boolean isReleased;
 
-    private final TieredStorageNettyService2 nettyService;
+    private final TieredStorageNettyService nettyService;
 
     private final ResultPartitionID resultPartitionID;
 
@@ -92,7 +92,7 @@ public class ProducerMergePartitionFileReader
             int maxRequestedBuffers,
             Duration bufferRequestTimeout,
             int maxBufferReadAhead,
-            TieredStorageNettyService2 nettyService) {
+            TieredStorageNettyService nettyService) {
         this.resultPartitionID = partitionId;
         this.dataIndex = checkNotNull(dataIndex);
         this.dataFilePath = checkNotNull(dataFilePath);

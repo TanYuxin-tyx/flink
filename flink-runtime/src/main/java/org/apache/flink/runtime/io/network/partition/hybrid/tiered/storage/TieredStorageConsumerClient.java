@@ -4,8 +4,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ConsumerNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierFactory;
@@ -26,7 +25,7 @@ public class TieredStorageConsumerClient {
 
     private final int[] subpartitionNextSegmentIds;
 
-    private final NettyServiceReader consumerNettyService;
+    private final NettyServiceReader nettyServiceReader;
 
     public TieredStorageConsumerClient(
             int numSubpartitions,
@@ -35,7 +34,7 @@ public class TieredStorageConsumerClient {
             List<ResultPartitionID> resultPartitionIDs,
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
-            NettyServiceReader consumerNettyService,
+            NettyServiceReader nettyServiceReader,
             boolean isUpstreamBroadcast) {
         this.tierFactories = createTierFactories(baseRemoteStoragePath);
         this.tierConsumerAgents =
@@ -46,10 +45,10 @@ public class TieredStorageConsumerClient {
                         resultPartitionIDs,
                         networkBufferPool,
                         baseRemoteStoragePath,
-                        consumerNettyService,
+                        nettyServiceReader,
                         isUpstreamBroadcast);
         this.subpartitionNextSegmentIds = new int[numSubpartitions];
-        this.consumerNettyService = consumerNettyService;
+        this.nettyServiceReader = nettyServiceReader;
     }
 
     public void start() {
@@ -75,7 +74,7 @@ public class TieredStorageConsumerClient {
         if (bufferData.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
             subpartitionNextSegmentIds[subpartitionId]++;
             bufferData.recycleBuffer();
-            consumerNettyService.notifyResultSubpartitionAvailable(subpartitionId, false);
+            nettyServiceReader.notifyResultSubpartitionAvailable(subpartitionId, false);
             return getNextBuffer(subpartitionId);
         }
         return Optional.of(bufferData);

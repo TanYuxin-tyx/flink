@@ -1,7 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 
 import java.io.IOException;

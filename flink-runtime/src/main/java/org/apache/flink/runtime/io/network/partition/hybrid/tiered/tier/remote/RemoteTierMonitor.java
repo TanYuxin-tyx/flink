@@ -20,8 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ConsumerNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
 
 import java.io.InputStream;
 import java.util.List;

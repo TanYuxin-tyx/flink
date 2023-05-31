@@ -16,19 +16,18 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.ConsumerNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
-/** The default implementation of {@link ConsumerNettyService}. */
+/** The default implementation of {@link NettyServiceReader}. */
 public class NettyServiceReaderImpl implements NettyServiceReader {
 
     private final InputChannel[] inputChannels;

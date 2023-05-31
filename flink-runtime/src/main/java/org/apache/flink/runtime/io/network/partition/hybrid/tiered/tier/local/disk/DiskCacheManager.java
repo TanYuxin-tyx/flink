@@ -20,8 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.d
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
@@ -32,9 +31,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
 public class DiskCacheManager implements DiskCacheManagerOperation {
@@ -44,8 +41,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
     private final int numSubpartitions;
 
     private final SubpartitionDiskCacheManager[] subpartitionDiskCacheManagers;
-
-    private final List<Map<NettyServiceWriterId, CreditBasedBufferQueueView>> tierReaderViewMap;
 
     private volatile CompletableFuture<Void> hasFlushCompleted =
             CompletableFuture.completedFuture(null);
@@ -62,11 +57,9 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
         this.tierIndex = tierIndex;
         this.numSubpartitions = numSubpartitions;
         this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
-        this.tierReaderViewMap = new ArrayList<>(numSubpartitions);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionDiskCacheManagers[subpartitionId] =
                     new SubpartitionDiskCacheManager(subpartitionId, bufferSize, bufferCompressor);
-            tierReaderViewMap.add(new ConcurrentHashMap<>());
         }
         this.partitionFileWriter =
                 partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
@@ -141,7 +134,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
 
     @Override
     public void onConsumerReleased(int subpartitionId, NettyServiceWriterId nettyServiceWriterId) {
-        tierReaderViewMap.get(subpartitionId).remove(nettyServiceWriterId);
+        //tierReaderViewMap.get(subpartitionId).remove(nettyServiceWriterId);
     }
 
     // ------------------------------------

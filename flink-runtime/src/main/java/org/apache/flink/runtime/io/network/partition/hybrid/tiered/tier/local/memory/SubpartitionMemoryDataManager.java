@@ -27,10 +27,10 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import javax.annotation.Nullable;
@@ -64,7 +64,7 @@ public class SubpartitionMemoryDataManager {
 
     @Nullable private final BufferCompressor bufferCompressor;
 
-    private final TieredStorageNettyService2 nettyService;
+    private final TieredStorageNettyService nettyService;
 
     private NettyServiceWriter nettyServiceWriter;
 
@@ -75,7 +75,7 @@ public class SubpartitionMemoryDataManager {
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
             MemoryTierProducerAgentOperation memoryTierProducerAgentOperation,
-            TieredStorageNettyService2 nettyService) {
+            TieredStorageNettyService nettyService) {
         this.subpartitionId = subpartitionId;
         this.bufferSize = bufferSize;
         this.memoryTierProducerAgentOperation = memoryTierProducerAgentOperation;
@@ -174,7 +174,7 @@ public class SubpartitionMemoryDataManager {
         finishedBufferIndex++;
         nettyServiceWriter.writeBuffer(bufferContext);
         if (nettyServiceWriter.size() <= 1) {
-            ((TieredStorageNettyServiceImpl2) nettyService)
+            ((TieredStorageNettyServiceImpl) nettyService)
                     .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
         }
     }

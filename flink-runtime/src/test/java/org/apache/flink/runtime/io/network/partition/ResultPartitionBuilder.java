@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.disk.NoOpFileChannelManager;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.util.function.SupplierWithException;
 
@@ -308,6 +308,6 @@ public class ResultPartitionBuilder {
                 isBroadcast,
                 factory,
                 new TieredStorageResourceRegistry(),
-                new TieredStorageNettyServiceImpl2());
+                new TieredStorageNettyServiceImpl());
     }
 }

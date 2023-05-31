@@ -25,8 +25,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
@@ -91,7 +91,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
             int networkBufferSize,
             BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
-            TieredStorageNettyService2 nettyService) {
+            TieredStorageNettyService nettyService) {
         this.tierIndex = tierIndex;
         this.resultPartitionID = resultPartitionID;
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);

@@ -16,11 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import java.util.Objects;
 
-
+/** {@link NettyServiceWriterId} indicates the unique id of {@link NettyServiceWriter}. */
 public class NettyServiceWriterId {
 
     private static int defaultId = 0;

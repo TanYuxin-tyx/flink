@@ -19,42 +19,35 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 
-import java.io.IOException;
 import java.util.Optional;
 
 /**
- * {@link CreditBasedBufferQueueView} is the view of the buffer queue related to the specific
- * subpartition id, which will send buffer to netty server with the credit-based protocol.
+ * {@link NettyServiceReader} is used to read buffers from {@link TieredStorageNettyServiceImpl}.
  */
-public interface CreditBasedBufferQueueView {
+public interface NettyServiceReader {
+    /**
+     * Read a buffer related to the specific subpartition.
+     *
+     * @param subpartitionId indicate the subpartition.
+     * @return a buffer.
+     */
+    Optional<Buffer> readBuffer(int subpartitionId);
 
     /**
-     * Get next required buffer.
+     * Notify that the data responding to a subpartition is available.
      *
-     * @return buffer.
-     * @throws IOException is thrown if there is a failure.
+     * @param subpartitionId indicate the subpartition.
+     * @param priority indicate that if the subpartition is priority.
      */
-    Optional<Buffer> getNextBuffer() throws IOException;
+    void notifyResultSubpartitionAvailable(int subpartitionId, boolean priority);
 
     /**
-     * Get the number of queued buffers.
+     * Notify that the specific segment is required according to the subpartitionId and segmentId.
      *
-     * @return the number of queued buffers.
+     * @param subpartitionId indicate the subpartition.
+     * @param segmentId indicate the id of segment.
      */
-    int getBacklog();
-
-    /**
-     * Get the data type of next buffer.
-     *
-     * @return data type
-     */
-    DataType getNextBufferDataType();
-
-    /** Notify that the view is available. */
-    void notifyDataAvailable();
-
-    /** Release the {@link CreditBasedBufferQueueView}. */
-    void release();
+    void notifyRequiredSegmentId(int subpartitionId, int segmentId);
 }

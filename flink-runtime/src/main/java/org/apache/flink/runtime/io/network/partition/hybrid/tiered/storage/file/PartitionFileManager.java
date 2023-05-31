@@ -1,6 +1,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 
 /**
  * The {@link PartitionFileManager} interface can create writers and readers for different types of
@@ -10,5 +10,5 @@ public interface PartitionFileManager {
 
     PartitionFileWriter createPartitionFileWriter(PartitionFileType partitionFileType);
 
-    PartitionFileReader createPartitionFileReader(PartitionFileType partitionFileTyp, TieredStorageNettyService2 nettyService);
+    PartitionFileReader createPartitionFileReader(PartitionFileType partitionFileTyp, TieredStorageNettyService nettyService);
 }

@@ -31,7 +31,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.HashBufferAccumulator;
@@ -165,7 +165,7 @@ public class ResultPartitionFactory {
             int partitionIndex,
             ResultPartitionDeploymentDescriptor desc,
             TieredStorageResourceRegistry resourceRegistry,
-            TieredStorageNettyService2 tieredStorageNettyService) {
+            TieredStorageNettyService tieredStorageNettyService) {
         return create(
                 jobID,
                 taskNameWithSubtaskAndId,
@@ -192,7 +192,7 @@ public class ResultPartitionFactory {
             boolean isBroadcast,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
             TieredStorageResourceRegistry resourceRegistry,
-            TieredStorageNettyService2 nettyService) {
+            TieredStorageNettyService nettyService) {
         BufferCompressor bufferCompressor = null;
         if (type.supportCompression() && batchShuffleCompressionEnabled) {
             bufferCompressor = new BufferCompressor(networkBufferSize, compressionCodec);
@@ -357,7 +357,7 @@ public class ResultPartitionFactory {
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storageMemoryManager,
-            TieredStorageNettyService2 nettyService) {
+            TieredStorageNettyService nettyService) {
         String dataFileBasePath = channelManager.createChannel().getPath();
         PartitionFileManager partitionFileManager =
                 new PartitionFileManagerImpl(

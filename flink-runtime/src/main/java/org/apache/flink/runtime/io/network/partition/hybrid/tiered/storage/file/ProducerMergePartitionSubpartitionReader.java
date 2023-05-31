@@ -24,10 +24,10 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 
@@ -64,7 +64,7 @@ public class ProducerMergePartitionSubpartitionReader
 
     private boolean isFailed;
 
-    private final TieredStorageNettyService2 nettyService;
+    private final TieredStorageNettyService nettyService;
 
     private final NettyServiceWriter nettyServiceWriter;
 
@@ -79,7 +79,7 @@ public class ProducerMergePartitionSubpartitionReader
             RegionBufferIndexTracker dataIndex,
             Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser,
             NettyServiceWriterId nettyServiceWriterId,
-            TieredStorageNettyService2 nettyService) {
+            TieredStorageNettyService nettyService) {
         this.id = id;
         this.subpartitionId = subpartitionId;
         this.nettyServiceWriterId = nettyServiceWriterId;
@@ -134,7 +134,7 @@ public class ProducerMergePartitionSubpartitionReader
             ++numLoaded;
         }
         if (nettyServiceWriter.size() <= numLoaded) {
-            ((TieredStorageNettyServiceImpl2)nettyService).notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
+            ((TieredStorageNettyServiceImpl)nettyService).notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
         }
     }
 
@@ -145,7 +145,7 @@ public class ProducerMergePartitionSubpartitionReader
         isFailed = true;
         nettyServiceWriter.clear();
         nettyServiceWriter.writeBuffer(new BufferContext(failureCause));
-        ((TieredStorageNettyServiceImpl2)nettyService).notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
+        ((TieredStorageNettyServiceImpl)nettyService).notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
     }
 
     @Override

@@ -18,25 +18,31 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
-/**
- * {@link TieredStorageNettyService} is used to create netty services in producer and consumer side.
- */
-public class TieredStorageNettyService {
-    /**
-     * Create the netty service in producer side.
-     *
-     * @return the producer netty service.
-     */
-    public ProducerNettyService createProducerNettyService() {
-        return new ProducerNettyServiceImpl();
-    }
+import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+
+import java.util.function.BiConsumer;
+
+/** {@link TieredStorageNettyService} is used to create writers and readers to netty. */
+public interface TieredStorageNettyService {
 
     /**
-     * Create the netty service in consumer side.
-     *
-     * @return the consumer netty service.
+     * Register to {@link TieredStorageNettyService} and create a {@link NettyServiceWriter).
+     * @param subpartitionId subpartition id indicates the id of subpartition.
+     * @param serviceReleaseNotifier is used to notify that the service is released.
+     * @return the writer.
      */
-    public ConsumerNettyService createConsumerNettyService() {
-        return new ConsumerNettyServiceImpl();
-    }
+    NettyServiceWriter registerProducer(
+            NettyServiceWriterId writerId, Runnable serviceReleaseNotifier);
+
+    /**
+     * Register to {@link TieredStorageNettyService} and create a {@link NettyServiceReader).
+     * @param inputChannels in consumer side.
+     * @param lastPrioritySequenceNumber is the array to record the priority sequence number.
+     * @param subpartitionAvailableNotifier is used to notify the subpartition is available.
+     * @return the reader.
+     */
+    NettyServiceReader registerConsumer(
+            InputChannel[] inputChannels,
+            BiConsumer<Integer, Boolean> subpartitionAvailableNotifier,
+            int[] lastPrioritySequenceNumber);
 }

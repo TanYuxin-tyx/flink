@@ -16,13 +16,13 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 /**
- * {@link NettyServiceWriter} is used to write buffers to {@link TieredStorageNettyServiceImpl2}.
+ * {@link NettyServiceWriter} is used to write buffers to {@link TieredStorageNettyServiceImpl}.
  */
 public interface NettyServiceWriter {
     /**
@@ -39,6 +39,6 @@ public interface NettyServiceWriter {
      */
     int size();
 
-    /** Clear and recycle all existed buffers. */
+    /** Clear and recycle all existed buffers in the writer. */
     void clear();
 }

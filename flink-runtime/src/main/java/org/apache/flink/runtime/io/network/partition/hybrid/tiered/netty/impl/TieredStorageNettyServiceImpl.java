@@ -16,18 +16,15 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl;
 
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.CreditBasedBufferQueueViewImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoreResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 
@@ -42,10 +39,10 @@ import java.util.function.BiConsumer;
 import static org.apache.flink.shaded.guava30.com.google.common.base.Preconditions.checkState;
 
 /**
- * {@link TieredStorageNettyServiceImpl2} is used to create netty services in producer and consumer
+ * {@link TieredStorageNettyServiceImpl} is used to create netty services in producer and consumer
  * side.
  */
-public class TieredStorageNettyServiceImpl2 implements TieredStorageNettyService2 {
+public class TieredStorageNettyServiceImpl implements TieredStorageNettyService {
 
     private final Map<NettyServiceWriterId, List<Queue<BufferContext>>> registeredBufferQueues =
             new ConcurrentHashMap<>();
@@ -92,19 +89,20 @@ public class TieredStorageNettyServiceImpl2 implements TieredStorageNettyService
             List<Runnable> releaseNotifiers = registeredReleaseNotifiers.get(writerId);
             checkState(bufferQueues.size() != 0 && bufferQueues.size() == releaseNotifiers.size());
             registeredAvailabilityListeners.put(writerId, availabilityListener);
-            List<CreditBasedBufferQueueView> creditBasedBufferQueueViews = new ArrayList<>();
-            for (int index = 0; index < bufferQueues.size(); ++index) {
-                creditBasedBufferQueueViews.add(
-                        new CreditBasedBufferQueueViewImpl(
-                                bufferQueues.get(index),
-                                availabilityListener,
-                                releaseNotifiers.get(index)));
-            }
+            //List<CreditBasedBufferQueueView> creditBasedBufferQueueViews = new ArrayList<>();
+            //for (int index = 0; index < bufferQueues.size(); ++index) {
+            //    creditBasedBufferQueueViews.add(
+            //            new CreditBasedBufferQueueViewImpl(
+            //                    bufferQueues.get(index),
+            //                    availabilityListener,
+            //                    releaseNotifiers.get(index)));
+            //}
             return new TieredStoreResultSubpartitionView(
                     subpartitionId,
                     availabilityListener,
                     segmentSearchers,
-                    creditBasedBufferQueueViews);
+                    bufferQueues,
+                    releaseNotifiers);
         }
     }
 

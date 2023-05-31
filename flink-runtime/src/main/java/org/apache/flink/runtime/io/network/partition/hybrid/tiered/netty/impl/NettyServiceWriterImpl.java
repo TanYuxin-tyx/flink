@@ -1,6 +1,6 @@
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import java.util.Queue;

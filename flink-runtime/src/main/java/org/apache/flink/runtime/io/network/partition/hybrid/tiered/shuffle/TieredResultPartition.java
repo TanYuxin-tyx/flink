@@ -37,10 +37,10 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Output
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoreResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.impl.TieredStorageNettyServiceImpl2;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStoreResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -87,7 +87,7 @@ public class TieredResultPartition extends ResultPartition {
 
     private final TieredStoragePartitionId storagePartitionId;
 
-    private final TieredStorageNettyService2 nettyService;
+    private final TieredStorageNettyService nettyService;
 
     public TieredResultPartition(
             String owningTaskName,
@@ -105,7 +105,7 @@ public class TieredResultPartition extends ResultPartition {
             TieredStorageProducerClient tieredStorageProducerClient,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
             TieredStorageResourceRegistry resourceRegistry,
-            TieredStorageNettyService2 nettyService) {
+            TieredStorageNettyService nettyService) {
         super(
                 owningTaskName,
                 partitionIndex,
@@ -205,7 +205,7 @@ public class TieredResultPartition extends ResultPartition {
         if (tierProducerAgents.size() == 1
                 && tierProducerAgents.get(0) instanceof RemoteTierProducerAgent) {
             return new TieredStoreResultSubpartitionView(
-                    subpartitionId, availabilityListener, new ArrayList<>(), new ArrayList<>());
+                    subpartitionId, availabilityListener, new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         }
         NettyServiceWriterId writerId = NettyServiceWriterId.newId();
         List<SegmentSearcher> segmentSearchers = new ArrayList<>();
@@ -215,7 +215,7 @@ public class TieredResultPartition extends ResultPartition {
                 segmentSearchers.add((SegmentSearcher) tierProducerAgent);
             }
         }
-        return ((TieredStorageNettyServiceImpl2) nettyService)
+        return ((TieredStorageNettyServiceImpl) nettyService)
                 .createResultSubpartitionView(
                         subpartitionId, writerId, availabilityListener, segmentSearchers);
     }
