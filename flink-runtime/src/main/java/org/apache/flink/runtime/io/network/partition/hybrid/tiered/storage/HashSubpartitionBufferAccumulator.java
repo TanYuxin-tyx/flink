@@ -76,6 +76,7 @@ public class HashSubpartitionBufferAccumulator {
     }
 
     public void close() {
+        recycleBuffers();
         checkState(unfinishedBuffers.isEmpty(), "There are unfinished buffers.");
     }
 
@@ -150,6 +151,11 @@ public class HashSubpartitionBufferAccumulator {
         currentWritingBuffer.close();
         bufferConsumer.close();
         flushFinishedBuffer(buffer);
+    }
+
+    private void recycleBuffers() {
+        unfinishedBuffers.forEach(
+                bufferBuilder -> bufferBuilder.createBufferConsumer().build().recycleBuffer());
     }
 
     private void flushFinishedBuffer(Buffer finishedBuffer) {
