@@ -116,15 +116,12 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
     }
 
     @Override
-    public void registerNettyService(
-            int subpartitionId,
-            NettyServiceWriterId nettyServiceWriterId)
+    public void registerNettyService(int subpartitionId, NettyServiceWriterId nettyServiceWriterId)
             throws IOException {
         if (!Files.isReadable(dataFilePath)) {
             throw new PartitionNotFoundException(resultPartitionID);
         }
-        partitionFileReader.registerNettyService(
-                subpartitionId, nettyServiceWriterId);
+        partitionFileReader.registerNettyService(subpartitionId, nettyServiceWriterId);
     }
 
     @Override
@@ -164,19 +161,16 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
 
     @Override
     public boolean write(int consumerId, Buffer finishedBuffer) throws IOException {
-        boolean isLastBufferInSegment = false;
-        numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
-        if (numSubpartitionEmitBytes[consumerId] >= numBytesInASegment) {
-            isLastBufferInSegment = true;
-            numSubpartitionEmitBytes[consumerId] = 0;
-        }
-        if (isLastBufferInSegment) {
-            emitBuffer(finishedBuffer, consumerId, false);
+        if (numSubpartitionEmitBytes[consumerId] != 0
+                && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
+                        > numBytesInASegment) {
             emitEndOfSegmentEvent(consumerId);
-        } else {
-            emitBuffer(finishedBuffer, consumerId, isLastBufferInSegment);
+            numSubpartitionEmitBytes[consumerId] = 0;
+            return false;
         }
-        return isLastBufferInSegment;
+        numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
+        emitBuffer(finishedBuffer, consumerId);
+        return true;
     }
 
     private void emitEndOfSegmentEvent(int targetChannel) {
@@ -190,10 +184,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
         }
     }
 
-    private void emitBuffer(
-            Buffer finishedBuffer, int targetSubpartition, boolean isLastBufferInSegment)
-            throws IOException {
-        diskCacheManager.append(finishedBuffer, targetSubpartition, isLastBufferInSegment);
+    private void emitBuffer(Buffer finishedBuffer, int targetSubpartition) throws IOException {
+        diskCacheManager.append(finishedBuffer, targetSubpartition);
     }
 
     @Override

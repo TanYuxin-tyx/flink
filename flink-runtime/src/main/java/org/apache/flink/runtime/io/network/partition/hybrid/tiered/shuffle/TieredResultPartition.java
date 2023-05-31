@@ -36,6 +36,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoreResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.netty2.TieredStorageNettyService2;
@@ -190,7 +191,8 @@ public class TieredResultPartition extends ResultPartition {
     private void emit(
             ByteBuffer record, int consumerId, Buffer.DataType dataType, boolean isBroadcast)
             throws IOException {
-        checkNotNull(tieredStorageProducerClient).emit(record, consumerId, dataType, isBroadcast);
+        checkNotNull(tieredStorageProducerClient)
+                .write(record, new TieredStorageSubpartitionId(consumerId), dataType, isBroadcast);
     }
 
     // private Set<Integer> registeredSubpartitionIds = new HashSet<>();

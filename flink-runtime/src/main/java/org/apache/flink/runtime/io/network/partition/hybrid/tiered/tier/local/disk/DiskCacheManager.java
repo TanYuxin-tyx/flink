@@ -94,18 +94,12 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
      *
      * @param buffer to be managed by this class.
      * @param targetChannel target subpartition of this record.
-     * @param isLastBufferInSegment whether this record is the last record in a segment.
      */
-    public void append(Buffer buffer, int targetChannel, boolean isLastBufferInSegment)
-            throws IOException {
+    public void append(Buffer buffer, int targetChannel) throws IOException {
         try {
             getSubpartitionCacheDataManager(targetChannel).append(buffer);
         } catch (InterruptedException e) {
             throw new IOException(e);
-        }
-        // force spill all buffers to disk.
-        if (isLastBufferInSegment) {
-            flushAndReleaseCacheBuffers();
         }
     }
 

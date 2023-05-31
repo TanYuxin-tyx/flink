@@ -89,22 +89,18 @@ public class MemoryTierProducerAgent
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionMemoryDataManagers[subpartitionId] =
                     new SubpartitionMemoryDataManager(
-                            subpartitionId,
-                            bufferSize,
-                            bufferCompressor,
-                            this,
-                            nettyService);
+                            subpartitionId, bufferSize, bufferCompressor, this, nettyService);
         }
     }
 
     @Override
     public void registerNettyService(
-            int subpartitionId,
-            NettyServiceWriterId nettyServiceWriterId) {
+            int subpartitionId, NettyServiceWriterId nettyServiceWriterId) {
         if (isBroadcastOnly) {
             throw new RuntimeException("Illegal to register on broadcast only result partition.");
         }
-        this.subpartitionMemoryDataManagers[subpartitionId].registerNettyService(nettyServiceWriterId);
+        this.subpartitionMemoryDataManagers[subpartitionId].registerNettyService(
+                nettyServiceWriterId);
         nettyServiceRegistered[subpartitionId] = true;
     }
 
@@ -152,21 +148,16 @@ public class MemoryTierProducerAgent
 
     @Override
     public boolean write(int consumerId, Buffer finishedBuffer) {
-        boolean isLastBufferInSegment = false;
-        numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
-        if (numSubpartitionEmitBytes[consumerId]
-                >= MemoryTierProducerAgent.MEMORY_TIER_SEGMENT_BYTES) {
-            isLastBufferInSegment = true;
-            numSubpartitionEmitBytes[consumerId] = 0;
-        }
-        if (isLastBufferInSegment) {
-            append(finishedBuffer, consumerId);
-            // Send the EndOfSegmentEvent
+        if (numSubpartitionEmitBytes[consumerId] != 0
+                && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
+                        > MemoryTierProducerAgent.MEMORY_TIER_SEGMENT_BYTES) {
             appendEndOfSegmentEvent(consumerId);
-        } else {
-            append(finishedBuffer, consumerId);
+            numSubpartitionEmitBytes[consumerId] = 0;
+            return false;
         }
-        return isLastBufferInSegment;
+        numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
+        append(finishedBuffer, consumerId);
+        return true;
     }
 
     private void appendEndOfSegmentEvent(int targetChannel) {

@@ -44,68 +44,83 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
 
     private final boolean isBroadcastOnly;
 
-    private final int numConsumers;
+    private final int numSubpartitions;
 
     private final BufferAccumulator bufferAccumulator;
 
     private final BufferCompressor bufferCompressor;
 
+    /** Note that the {@link TierProducerAgent}s are ordered by priority. */
     private final List<TierProducerAgent> tierProducerAgents;
+
+    /** The current writing segment index for each subpartition. */
+    private final int[] currentSubpartitionSegmentId;
+
+    /** The current writing tier index for each subpartition. */
+    private final TierProducerAgent[] currentSubpartitionTierAgent;
+
+    /** Indicate whether the segment for each subpartition is finished. */
+    private final boolean[] isCurrentSubpartitionSegmentFinished;
 
     private OutputMetrics outputMetrics;
 
-    /** Records the newest segment index belonged to each subpartition. */
-    private final int[] currentSubpartitionSegmentId;
-
-    /** Record the index of tier writer currently used by each subpartition. */
-    private final int[] currentSubpartitionTierIndex;
-
-    private final boolean[] isSubpartitionSegmentFinished;
-
     public TieredStorageProducerClientImpl(
-            int numConsumers,
+            int numSubpartitions,
             boolean isBroadcastOnly,
             BufferAccumulator bufferAccumulator,
             @Nullable BufferCompressor bufferCompressor,
             List<TierProducerAgent> tierProducerAgents) {
         this.isBroadcastOnly = isBroadcastOnly;
-        this.numConsumers = numConsumers;
+        this.numSubpartitions = numSubpartitions;
         this.bufferAccumulator = bufferAccumulator;
         this.bufferCompressor = bufferCompressor;
         this.tierProducerAgents = tierProducerAgents;
-        this.currentSubpartitionSegmentId = new int[numConsumers];
-        this.currentSubpartitionTierIndex = new int[numConsumers];
-        this.isSubpartitionSegmentFinished = new boolean[numConsumers];
+        this.currentSubpartitionSegmentId = new int[numSubpartitions];
+        this.currentSubpartitionTierAgent = new TierProducerAgent[numSubpartitions];
+        this.isCurrentSubpartitionSegmentFinished = new boolean[numSubpartitions];
 
         Arrays.fill(currentSubpartitionSegmentId, -1);
-        Arrays.fill(currentSubpartitionTierIndex, -1);
-        Arrays.fill(isSubpartitionSegmentFinished, true);
+        Arrays.fill(isCurrentSubpartitionSegmentFinished, true);
 
-        bufferAccumulator.setup(this::writeFinishedBuffers);
+        bufferAccumulator.setup(this::writeAccumulatedBuffers);
     }
 
+    /**
+     * Write records to the producer client. The {@link BufferAccumulator} will accumulate the
+     * records into buffers.
+     *
+     * <p>Note that isBroadcast indicates whether the record is broadcast, while isBroadcastOnly
+     * indicates whether the result partition is broadcast-only. When the result partition is not
+     * broadcast-only and the record is a broadcast record, the record will be written to all the
+     * subpartitions.
+     *
+     * @param record the written record data
+     * @param subpartitionId the subpartition identifier
+     * @param dataType the data type of the record
+     * @param isBroadcast whether the record is a broadcast record
+     */
     @Override
-    public void emit(
-            ByteBuffer record, int subpartitionId, Buffer.DataType dataType, boolean isBroadcast)
+    public void write(
+            ByteBuffer record,
+            TieredStorageSubpartitionId subpartitionId,
+            Buffer.DataType dataType,
+            boolean isBroadcast)
             throws IOException {
 
         if (isBroadcast && !isBroadcastOnly) {
-            for (int i = 0; i < numConsumers; ++i) {
+            for (int i = 0; i < numSubpartitions; ++i) {
                 bufferAccumulator.receive(
                         record.duplicate(), new TieredStorageSubpartitionId(i), dataType);
             }
         } else {
-            bufferAccumulator.receive(
-                    record, new TieredStorageSubpartitionId(subpartitionId), dataType);
+            bufferAccumulator.receive(record, subpartitionId, dataType);
         }
     }
 
-    @Override
     public void setMetricGroup(OutputMetrics outputMetrics) {
         this.outputMetrics = outputMetrics;
     }
 
-    @Override
     public void close() {
         bufferAccumulator.close();
         tierProducerAgents.forEach(TierProducerAgent::close);
@@ -116,44 +131,49 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         tierProducerAgents.forEach(TierProducerAgent::release);
     }
 
-    public void writeFinishedBuffers(
-            TieredStorageSubpartitionId subpartitionId, List<Buffer> finishedBuffers) {
+    /**
+     * Write the accumulated buffers of this subpartitionId to the appropriate tiers.
+     *
+     * @param subpartitionId the subpartition identifier
+     * @param accumulatedBuffers the accumulated buffers of this subpartition
+     */
+    private void writeAccumulatedBuffers(
+            TieredStorageSubpartitionId subpartitionId, List<Buffer> accumulatedBuffers) {
         try {
-            writeBuffers(subpartitionId, finishedBuffers);
+            for (Buffer finishedBuffer : accumulatedBuffers) {
+                writeAccumulatedBuffer(subpartitionId, finishedBuffer);
+            }
         } catch (IOException e) {
             ExceptionUtils.rethrow(e);
         }
     }
 
-    void writeBuffers(TieredStorageSubpartitionId subpartitionId, List<Buffer> finishedBuffers)
+    /**
+     * Write the accumulated buffer of this subpartitionId to an appropriate tier. After the tier is
+     * decided, the buffer will be written to the selected tier.
+     *
+     * @param subpartitionId the subpartition identifier
+     * @param accumulatedBuffer one accumulated buffer of this subpartition
+     */
+    private void writeAccumulatedBuffer(
+            TieredStorageSubpartitionId subpartitionId, Buffer accumulatedBuffer)
             throws IOException {
-        for (Buffer finishedBuffer : finishedBuffers) {
-            writeFinishedBuffer(subpartitionId, finishedBuffer);
-        }
-    }
+        updateStatistics(accumulatedBuffer);
+        Buffer compressedBuffer = compressBufferIfPossible(accumulatedBuffer);
 
-    private void writeFinishedBuffer(
-            TieredStorageSubpartitionId subpartitionId, Buffer finishedBuffer) throws IOException {
-        int subpartitionIndex = subpartitionId.getSubpartitionId();
-        int tierIndex = chooseStorageTierIfNeeded(subpartitionId);
-
-        Buffer compressedBuffer = compressBufferIfPossible(finishedBuffer);
-        updateStatistics(compressedBuffer);
-        boolean isLastBufferInSegment =
-                tierProducerAgents.get(tierIndex).write(subpartitionIndex, compressedBuffer);
-        if (isLastBufferInSegment) {
-            isSubpartitionSegmentFinished[subpartitionIndex] = true;
-        }
-    }
-
-    private int chooseStorageTierIfNeeded(TieredStorageSubpartitionId subpartitionId)
-            throws IOException {
-        int subpartitionIndex = subpartitionId.getSubpartitionId();
-        if (isSubpartitionSegmentFinished[subpartitionIndex]) {
+        if (currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()] == null) {
             internalChooseStorageTier(subpartitionId);
-            isSubpartitionSegmentFinished[subpartitionIndex] = false;
         }
-        return currentSubpartitionTierIndex[subpartitionIndex];
+
+        boolean isSuccess =
+                currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].write(
+                        subpartitionId.getSubpartitionId(), compressedBuffer);
+        if (!isSuccess) {
+            internalChooseStorageTier(subpartitionId);
+            // We should make sure that the writing must be successful
+            currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].write(
+                    subpartitionId.getSubpartitionId(), compressedBuffer);
+        }
     }
 
     private void internalChooseStorageTier(TieredStorageSubpartitionId subpartitionId)
@@ -199,13 +219,13 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
                 return;
             }
         }
-        throw new IOException("All gates are full, cannot select the writer of gate");
+        throw new IOException("Failed to choose a storage tier to start a new segment.");
     }
 
     private void updateTierIndexForNextSegment(
             int targetSubpartition, int nextSegmentIndex, int storageTierIndex) {
         currentSubpartitionSegmentId[targetSubpartition] = nextSegmentIndex;
-        currentSubpartitionTierIndex[targetSubpartition] = storageTierIndex;
+        currentSubpartitionTierAgent[targetSubpartition] = tierProducerAgents.get(storageTierIndex);
     }
 
     private Buffer compressBufferIfPossible(Buffer buffer) {

@@ -42,7 +42,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     private final RemoteCacheManager cacheDataManager;
 
     // TODO, Make this configurable.
-    private int numBytesInASegment = 4; // 4 M
+    private int numBytesInASegment = 32 * 1024 * 1; // 32 k, expect 4M
 
     private final int[] subpartitionLastestSegmentId;
 
@@ -93,18 +93,16 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     @Override
     public boolean write(int consumerId, Buffer finishedBuffer) throws IOException {
-        boolean isLastBufferInSegment = false;
-        numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
-        if (numSubpartitionEmitBytes[consumerId] >= numBytesInASegment) {
-            isLastBufferInSegment = true;
-            numSubpartitionEmitBytes[consumerId] = 0;
-        }
-        emitBuffer(finishedBuffer, consumerId);
-
-        if (isLastBufferInSegment) {
+        if (numSubpartitionEmitBytes[consumerId] != 0
+                && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
+                        > numBytesInASegment) {
             cacheDataManager.finishSegment(consumerId, subpartitionLastestSegmentId[consumerId]);
+            numSubpartitionEmitBytes[consumerId] = 0;
+            return false;
         }
-        return isLastBufferInSegment;
+        numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
+        emitBuffer(finishedBuffer, consumerId);
+        return true;
     }
 
     private void emitBuffer(Buffer finishedBuffer, int targetSubpartition) {
