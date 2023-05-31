@@ -56,18 +56,16 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     @Override
     public NettyServiceWriter registerProducer(
             NettyServiceWriterId writerId, Runnable serviceReleaseNotifier) {
-        synchronized (this) {
-            Queue<BufferContext> bufferQueue = new LinkedBlockingQueue<>();
-            List<Queue<BufferContext>> bufferQueues =
-                    registeredBufferQueues.getOrDefault(writerId, new ArrayList<>());
-            List<Runnable> notifiers =
-                    registeredReleaseNotifiers.getOrDefault(writerId, new ArrayList<>());
-            bufferQueues.add(bufferQueue);
-            notifiers.add(serviceReleaseNotifier);
-            registeredBufferQueues.put(writerId, bufferQueues);
-            registeredReleaseNotifiers.put(writerId, notifiers);
-            return new NettyServiceWriterImpl(bufferQueue);
-        }
+        Queue<BufferContext> bufferQueue = new LinkedBlockingQueue<>();
+        List<Queue<BufferContext>> bufferQueues =
+                registeredBufferQueues.getOrDefault(writerId, new ArrayList<>());
+        List<Runnable> notifiers =
+                registeredReleaseNotifiers.getOrDefault(writerId, new ArrayList<>());
+        bufferQueues.add(bufferQueue);
+        notifiers.add(serviceReleaseNotifier);
+        registeredBufferQueues.put(writerId, bufferQueues);
+        registeredReleaseNotifiers.put(writerId, notifiers);
+        return new NettyServiceWriterImpl(bufferQueue);
     }
 
     @Override
@@ -79,39 +77,41 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
                 inputChannels, subpartitionAvailableNotifier, lastPrioritySequenceNumber);
     }
 
+    /**
+     * Create a {@link ResultSubpartitionView} for the netty server.
+     *
+     * @param subpartitionId subpartition id indicates the id of subpartition.
+     * @param writerId writer id indicates the id of {@link NettyServiceWriter}.
+     * @param availabilityListener listener is used to listen the available status of data.
+     * @param segmentSearchers searcher is used to search the existence of segment in each tier.
+     * @return the {@link ResultSubpartitionView}.
+     */
     public ResultSubpartitionView createResultSubpartitionView(
             int subpartitionId,
             NettyServiceWriterId writerId,
             BufferAvailabilityListener availabilityListener,
             List<SegmentSearcher> segmentSearchers) {
-        synchronized (this) {
-            List<Queue<BufferContext>> bufferQueues = registeredBufferQueues.get(writerId);
-            List<Runnable> releaseNotifiers = registeredReleaseNotifiers.get(writerId);
-            checkState(bufferQueues.size() != 0 && bufferQueues.size() == releaseNotifiers.size());
-            registeredAvailabilityListeners.put(writerId, availabilityListener);
-            //List<CreditBasedBufferQueueView> creditBasedBufferQueueViews = new ArrayList<>();
-            //for (int index = 0; index < bufferQueues.size(); ++index) {
-            //    creditBasedBufferQueueViews.add(
-            //            new CreditBasedBufferQueueViewImpl(
-            //                    bufferQueues.get(index),
-            //                    availabilityListener,
-            //                    releaseNotifiers.get(index)));
-            //}
-            return new TieredStoreResultSubpartitionView(
-                    subpartitionId,
-                    availabilityListener,
-                    segmentSearchers,
-                    bufferQueues,
-                    releaseNotifiers);
-        }
+        List<Queue<BufferContext>> bufferQueues = registeredBufferQueues.get(writerId);
+        List<Runnable> releaseNotifiers = registeredReleaseNotifiers.get(writerId);
+        checkState(bufferQueues.size() != 0 && bufferQueues.size() == releaseNotifiers.size());
+        registeredAvailabilityListeners.put(writerId, availabilityListener);
+        return new TieredStoreResultSubpartitionView(
+                subpartitionId,
+                availabilityListener,
+                segmentSearchers,
+                bufferQueues,
+                releaseNotifiers);
     }
 
+    /**
+     * Notify the {@link ResultSubpartitionView} to send buffer.
+     *
+     * @param writerId writer id indicates the id of {@link NettyServiceWriter}.
+     */
     public void notifyResultSubpartitionViewSendBuffer(NettyServiceWriterId writerId) {
-        synchronized (this) {
-            BufferAvailabilityListener listener = registeredAvailabilityListeners.get(writerId);
-            if (listener != null) {
-                listener.notifyDataAvailable();
-            }
+        BufferAvailabilityListener listener = registeredAvailabilityListeners.get(writerId);
+        if (listener != null) {
+            listener.notifyDataAvailable();
         }
     }
 }

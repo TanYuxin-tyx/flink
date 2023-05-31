@@ -27,8 +27,8 @@ public interface TieredStorageNettyService {
 
     /**
      * Register to {@link TieredStorageNettyService} and create a {@link NettyServiceWriter).
-     * @param subpartitionId subpartition id indicates the id of subpartition.
-     * @param serviceReleaseNotifier is used to notify that the service is released.
+     * @param writerId writer id is used as the unique id of writer.
+     * @param serviceReleaseNotifier notifier is used to notify that the service is released.
      * @return the writer.
      */
     NettyServiceWriter registerProducer(
@@ -36,9 +36,9 @@ public interface TieredStorageNettyService {
 
     /**
      * Register to {@link TieredStorageNettyService} and create a {@link NettyServiceReader).
-     * @param inputChannels in consumer side.
-     * @param lastPrioritySequenceNumber is the array to record the priority sequence number.
-     * @param subpartitionAvailableNotifier is used to notify the subpartition is available.
+     * @param inputChannels channels in consumer side.
+     * @param lastPrioritySequenceNumber the array to record the priority sequence number.
+     * @param subpartitionAvailableNotifier notifier is to notify the subpartition is available.
      * @return the reader.
      */
     NettyServiceReader registerConsumer(

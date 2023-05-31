@@ -28,9 +28,9 @@ import java.util.Optional;
  */
 public interface NettyServiceReader {
     /**
-     * Read a buffer related to the specific subpartition.
+     * Read a buffer from the specific subpartition.
      *
-     * @param subpartitionId indicate the subpartition.
+     * @param subpartitionId subpartition id indicates the subpartition.
      * @return a buffer.
      */
     Optional<Buffer> readBuffer(int subpartitionId);
@@ -38,16 +38,16 @@ public interface NettyServiceReader {
     /**
      * Notify that the data responding to a subpartition is available.
      *
-     * @param subpartitionId indicate the subpartition.
-     * @param priority indicate that if the subpartition is priority.
+     * @param subpartitionId subpartition id indicates the subpartition.
+     * @param priority priority indicates if the subpartition is priority.
      */
     void notifyResultSubpartitionAvailable(int subpartitionId, boolean priority);
 
     /**
      * Notify that the specific segment is required according to the subpartitionId and segmentId.
      *
-     * @param subpartitionId indicate the subpartition.
-     * @param segmentId indicate the id of segment.
+     * @param subpartitionId subpartition id indicates the subpartition.
+     * @param segmentId segment id indicates the id of segment.
      */
     void notifyRequiredSegmentId(int subpartitionId, int segmentId);
 }
