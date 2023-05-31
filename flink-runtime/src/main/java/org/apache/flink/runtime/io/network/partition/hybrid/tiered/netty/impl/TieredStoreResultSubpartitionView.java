@@ -48,7 +48,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final List<Queue<BufferContext>> bufferQueues;
 
-    private final List<Runnable> serviceReleaseNotifiers;
+    private final List<Runnable> releaseNotifiers;
 
     private final int[] currentBufferIndexes;
 
@@ -67,13 +67,13 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             BufferAvailabilityListener availabilityListener,
             List<SegmentSearcher> segmentSearchers,
             List<Queue<BufferContext>> bufferQueues,
-            List<Runnable> serviceReleaseNotifiers) {
+            List<Runnable> releaseNotifiers) {
         checkState(segmentSearchers.size() == bufferQueues.size());
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
         this.segmentSearchers = segmentSearchers;
         this.bufferQueues = bufferQueues;
-        this.serviceReleaseNotifiers = serviceReleaseNotifiers;
+        this.releaseNotifiers = releaseNotifiers;
         this.currentBufferIndexes = new int[bufferQueues.size()];
     }
 
@@ -84,24 +84,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return null;
         }
         Queue<BufferContext> currentQueue = bufferQueues.get(queueIndexContainsCurrentSegment);
-        Runnable releaseNotifier = serviceReleaseNotifiers.get(queueIndexContainsCurrentSegment);
-        BufferContext buffer = currentQueue.poll();
-        Optional<Buffer> nextBuffer;
-        if (buffer == null) {
-            nextBuffer = Optional.empty();
-        } else {
-            Throwable readError = buffer.getError();
-            if (readError != null) {
-                releaseQueue(currentQueue, releaseNotifier);
-                throw new IOException(readError);
-            } else {
-                checkState(
-                        buffer.getBufferIndex()
-                                == currentBufferIndexes[queueIndexContainsCurrentSegment]);
-                ++currentBufferIndexes[queueIndexContainsCurrentSegment];
-                nextBuffer = Optional.of(checkNotNull(buffer.getBuffer()));
-            }
-        }
+        Runnable releaseNotifier = releaseNotifiers.get(queueIndexContainsCurrentSegment);
+        Optional<Buffer> nextBuffer = readBufferQueue(currentQueue, releaseNotifier);
         if (nextBuffer.isPresent()) {
             stopSendingData = nextBuffer.get().getDataType() == END_OF_SEGMENT;
             currentSequenceNumber++;
@@ -141,8 +125,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return;
         }
         isReleased = true;
-        for(int index = 0; index < bufferQueues.size(); ++index){
-            releaseQueue(bufferQueues.get(index), serviceReleaseNotifiers.get(index));
+        for (int index = 0; index < bufferQueues.size(); ++index) {
+            releaseQueue(bufferQueues.get(index), releaseNotifiers.get(index));
         }
         bufferQueues.clear();
         segmentSearchers.clear();
@@ -197,7 +181,27 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     //       Internal Methods
     // -------------------------------
 
-    public Buffer.DataType getBufferQueueNextDataType(Queue<BufferContext> bufferQueue) {
+    private Optional<Buffer> readBufferQueue(
+            Queue<BufferContext> bufferQueue, Runnable releaseNotifier) throws IOException {
+        BufferContext buffer = bufferQueue.poll();
+        if (buffer == null) {
+            return Optional.empty();
+        } else {
+            Throwable readError = buffer.getError();
+            if (readError != null) {
+                releaseQueue(bufferQueue, releaseNotifier);
+                throw new IOException(readError);
+            } else {
+                checkState(
+                        buffer.getBufferIndex()
+                                == currentBufferIndexes[queueIndexContainsCurrentSegment]);
+                ++currentBufferIndexes[queueIndexContainsCurrentSegment];
+                return Optional.of(checkNotNull(buffer.getBuffer()));
+            }
+        }
+    }
+
+    private Buffer.DataType getBufferQueueNextDataType(Queue<BufferContext> bufferQueue) {
         BufferContext nextBuffer = bufferQueue.peek();
         if (nextBuffer == null || nextBuffer.getBuffer() == null) {
             return Buffer.DataType.NONE;

@@ -26,7 +26,7 @@ public interface NettyServiceWriter {
     /**
      * Write a buffer.
      *
-     * @param bufferContext represents the buffer.
+     * @param bufferContext buffer context represents the buffer.
      */
     void writeBuffer(BufferContext bufferContext);
 

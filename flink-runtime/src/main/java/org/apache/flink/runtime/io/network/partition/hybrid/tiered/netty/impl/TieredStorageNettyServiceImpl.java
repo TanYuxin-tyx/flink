@@ -91,9 +91,11 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             NettyServiceWriterId writerId,
             BufferAvailabilityListener availabilityListener,
             List<SegmentSearcher> segmentSearchers) {
-        List<Queue<BufferContext>> bufferQueues = registeredBufferQueues.get(writerId);
-        List<Runnable> releaseNotifiers = registeredReleaseNotifiers.get(writerId);
-        checkState(bufferQueues.size() != 0 && bufferQueues.size() == releaseNotifiers.size());
+        List<Queue<BufferContext>> bufferQueues =
+                registeredBufferQueues.getOrDefault(writerId, new ArrayList<>());
+        List<Runnable> releaseNotifiers =
+                registeredReleaseNotifiers.getOrDefault(writerId, new ArrayList<>());
+        checkState(bufferQueues.size() == releaseNotifiers.size());
         registeredAvailabilityListeners.put(writerId, availabilityListener);
         return new TieredStoreResultSubpartitionView(
                 subpartitionId,

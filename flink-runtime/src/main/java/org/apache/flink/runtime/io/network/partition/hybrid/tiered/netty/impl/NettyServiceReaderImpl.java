@@ -49,7 +49,7 @@ public class NettyServiceReaderImpl implements NettyServiceReader {
         try {
             bufferAndAvailability = inputChannels[subpartitionId].getNextBuffer();
         } catch (IOException | InterruptedException e) {
-            ExceptionUtils.rethrow(e, "Failed to read buffer in Consumer Netty Service.");
+            ExceptionUtils.rethrow(e, "Failed to read buffer.");
         }
         if (bufferAndAvailability.isPresent()) {
             if (bufferAndAvailability.get().moreAvailable()) {
