@@ -19,11 +19,11 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.function.Consumer;
 
 /** The producer interface of Tiered Store, data can be written to different store tiers. */
 public interface TieredStorageProducerClient {
@@ -35,7 +35,8 @@ public interface TieredStorageProducerClient {
             boolean isBroadcast)
             throws IOException;
 
-    void setMetricGroup(OutputMetrics metrics);
+    void setMetricStatisticsUpdater(
+            Consumer<TieredStorageProducerMetricUpdate> metricStatisticsUpdater);
 
     void close();
 

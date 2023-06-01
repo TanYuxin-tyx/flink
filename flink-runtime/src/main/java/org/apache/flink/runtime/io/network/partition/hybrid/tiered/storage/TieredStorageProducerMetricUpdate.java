@@ -16,26 +16,25 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-import org.apache.flink.metrics.Counter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
+/** The metric statistics for the tiered storage producer. */
+public class TieredStorageProducerMetricUpdate {
 
-/** All metrics that {@link TieredResultPartition} needs to count, except numBytesProduced. */
-public class OutputMetrics {
-    private final Counter numBytesOut;
-    private final Counter numBuffersOut;
+    private final int numWriteBuffersDelta;
 
-    public OutputMetrics(Counter numBytesOut, Counter numBuffersOut) {
-        this.numBytesOut = numBytesOut;
-        this.numBuffersOut = numBuffersOut;
+    private final int numWriteBytesDelta;
+
+    TieredStorageProducerMetricUpdate(int numWriteBuffersDelta, int numWriteBytesDelta) {
+        this.numWriteBuffersDelta = numWriteBuffersDelta;
+        this.numWriteBytesDelta = numWriteBytesDelta;
     }
 
-    public Counter getNumBytesOut() {
-        return numBytesOut;
+    public int numWriteBuffersDelta() {
+        return numWriteBuffersDelta;
     }
 
-    public Counter getNumBuffersOut() {
-        return numBuffersOut;
+    public int numWriteBytesDelta() {
+        return numWriteBytesDelta;
     }
 }

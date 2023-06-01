@@ -33,7 +33,6 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
@@ -45,6 +44,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Segme
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemorySpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClient;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerMetricUpdate;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
@@ -155,7 +155,8 @@ public class TieredResultPartition extends ResultPartition {
     @Override
     public void setMetricGroup(TaskIOMetricGroup metrics) {
         super.setMetricGroup(metrics);
-        tieredStorageProducerClient.setMetricGroup(new OutputMetrics(numBytesOut, numBuffersOut));
+        tieredStorageProducerClient.setMetricStatisticsUpdater(
+                this::updateProducerMetricStatistics);
     }
 
     @Override
@@ -191,6 +192,12 @@ public class TieredResultPartition extends ResultPartition {
             throws IOException {
         checkNotNull(tieredStorageProducerClient)
                 .write(record, new TieredStorageSubpartitionId(consumerId), dataType, isBroadcast);
+    }
+
+    private void updateProducerMetricStatistics(
+            TieredStorageProducerMetricUpdate metricStatistics) {
+        numBuffersOut.inc(metricStatistics.numWriteBuffersDelta());
+        numBytesOut.inc(metricStatistics.numWriteBytesDelta());
     }
 
     // private Set<Integer> registeredSubpartitionIds = new HashSet<>();

@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskTierProducerAgent;
@@ -34,8 +33,10 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * This is a common entrypoint of the emitted records. These records will be emitted to the {@link
@@ -60,7 +61,11 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
     /** The current writing tier index for each subpartition. */
     private final TierProducerAgent[] currentSubpartitionTierAgent;
 
-    private OutputMetrics outputMetrics;
+    /**
+     * The metric statistics for producer client. Note that it is necessary to check whether the
+     * value is null before used.
+     */
+    @Nullable private Consumer<TieredStorageProducerMetricUpdate> metricStatisticsUpdater;
 
     public TieredStorageProducerClientImpl(
             int numSubpartitions,
@@ -113,8 +118,10 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         }
     }
 
-    public void setMetricGroup(OutputMetrics outputMetrics) {
-        this.outputMetrics = outputMetrics;
+    @Override
+    public void setMetricStatisticsUpdater(
+            Consumer<TieredStorageProducerMetricUpdate> metricStatisticsUpdater) {
+        this.metricStatisticsUpdater = metricStatisticsUpdater;
     }
 
     public void close() {
@@ -136,8 +143,13 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
     private void writeAccumulatedBuffers(
             TieredStorageSubpartitionId subpartitionId, List<Buffer> accumulatedBuffers) {
         Iterator<Buffer> bufferIterator = accumulatedBuffers.iterator();
+
+        int numWriteBytes = 0;
+        int numWriteBuffers = 0;
         while (bufferIterator.hasNext()) {
             Buffer buffer = bufferIterator.next();
+            numWriteBuffers++;
+            numWriteBytes += buffer.readableBytes();
             try {
                 writeAccumulatedBuffer(subpartitionId, buffer);
             } catch (IOException ioe) {
@@ -148,11 +160,15 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
                 ExceptionUtils.rethrow(ioe);
             }
         }
+        updateMetricStatistics(numWriteBuffers, numWriteBytes);
     }
 
     /**
      * Write the accumulated buffer of this subpartitionId to an appropriate tier. After the tier is
      * decided, the buffer will be written to the selected tier.
+     *
+     * <p>Note that the method only throws an exception when choosing a storage tier, so the caller
+     * should ensure that the buffer is recycled when throwing an exception.
      *
      * @param subpartitionId the subpartition identifier
      * @param accumulatedBuffer one accumulated buffer of this subpartition
@@ -160,7 +176,6 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
     private void writeAccumulatedBuffer(
             TieredStorageSubpartitionId subpartitionId, Buffer accumulatedBuffer)
             throws IOException {
-        updateStatistics(accumulatedBuffer);
         Buffer compressedBuffer = compressBufferIfPossible(accumulatedBuffer);
 
         if (currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()] == null) {
@@ -172,9 +187,10 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
                         subpartitionId.getSubpartitionId(), compressedBuffer);
         if (!isSuccess) {
             chooseStorageTierToStartSegment(subpartitionId);
-            // We should make sure that the writing must be successful
-            currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].write(
-                    subpartitionId.getSubpartitionId(), compressedBuffer);
+            isSuccess =
+                    currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].write(
+                            subpartitionId.getSubpartitionId(), compressedBuffer);
+            checkState(isSuccess, "Failed to write the first buffer to the new segment");
         }
     }
 
@@ -246,8 +262,10 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
         return bufferCompressor != null && buffer.isBuffer() && buffer.readableBytes() > 0;
     }
 
-    private void updateStatistics(Buffer buffer) {
-        checkNotNull(outputMetrics).getNumBuffersOut().inc();
-        checkNotNull(outputMetrics).getNumBytesOut().inc(buffer.readableBytes());
+    private void updateMetricStatistics(int numWriteBuffersDelta, int numWriteBytesDelta) {
+        checkNotNull(metricStatisticsUpdater)
+                .accept(
+                        new TieredStorageProducerMetricUpdate(
+                                numWriteBuffersDelta, numWriteBytesDelta));
     }
 }

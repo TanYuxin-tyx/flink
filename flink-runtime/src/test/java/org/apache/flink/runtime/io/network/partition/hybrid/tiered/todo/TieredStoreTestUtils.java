@@ -20,12 +20,10 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
-import org.apache.flink.metrics.util.TestCounter;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.OutputMetrics;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferIndexAndSubpartitionId;
 
 import java.nio.ByteBuffer;
@@ -73,10 +71,6 @@ public class TieredStoreTestUtils {
         return new BufferBuilder(
                 MemorySegmentFactory.allocateUnpooledSegment(bufferSize),
                 FreeingBufferRecycler.INSTANCE);
-    }
-
-    public static OutputMetrics createTestingOutputMetrics() {
-        return new OutputMetrics(new TestCounter(), new TestCounter());
     }
 
     public static ByteBuffer createRecord(int value) {
