@@ -31,10 +31,9 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -136,14 +135,18 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
      */
     private void writeAccumulatedBuffers(
             TieredStorageSubpartitionId subpartitionId, List<Buffer> accumulatedBuffers) {
-        Queue<Buffer> buffers = new ArrayDeque<>(accumulatedBuffers);
-        try {
-            while (!buffers.isEmpty()) {
-                writeAccumulatedBuffer(subpartitionId, buffers.poll());
+        Iterator<Buffer> bufferIterator = accumulatedBuffers.iterator();
+        while (bufferIterator.hasNext()) {
+            Buffer buffer = bufferIterator.next();
+            try {
+                writeAccumulatedBuffer(subpartitionId, buffer);
+            } catch (IOException ioe) {
+                buffer.recycleBuffer();
+                while (bufferIterator.hasNext()) {
+                    bufferIterator.next().recycleBuffer();
+                }
+                ExceptionUtils.rethrow(ioe);
             }
-        } catch (IOException e) {
-            buffers.forEach(Buffer::recycleBuffer);
-            ExceptionUtils.rethrow(e);
         }
     }
 

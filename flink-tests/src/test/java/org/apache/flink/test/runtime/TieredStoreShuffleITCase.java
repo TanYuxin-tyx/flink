@@ -50,8 +50,8 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
         tmp.delete();
     }
 
-    //@Test
-    //void testTieredStoreMemory() throws Exception {
+    // @Test
+    // void testTieredStoreMemory() throws Exception {
     //    final int numRecordsToSend = 1000;
     //    Configuration configuration = getConfiguration();
     //    configuration.set(
@@ -62,11 +62,11 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
     //    configuration.set(TIERED_STORE_TIERS, "MEMORY");
     //    JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration);
     //    executeJob(jobGraph, configuration, numRecordsToSend);
-    //}
+    // }
     //
-    //@Test
-    //@Disabled("Broadcast is not supported when only memory tier is exist")
-    //void testTieredStoreMemoryBroadcast() throws Exception {
+    // @Test
+    // @Disabled("Broadcast is not supported when only memory tier is exist")
+    // void testTieredStoreMemoryBroadcast() throws Exception {
     //    final int numRecordsToSend = 1000;
     //    Configuration configuration = getConfiguration();
     //    configuration.set(
@@ -77,10 +77,10 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
     //    configuration.set(TIERED_STORE_TIERS, "MEMORY");
     //    JobGraph jobGraph = createJobGraph(numRecordsToSend, false, configuration, true);
     //    executeJob(jobGraph, configuration, numRecordsToSend, true);
-    //}
+    // }
     //
-    //@Test
-    //void testTieredStoreMemoryRestart() throws Exception {
+    // @Test
+    // void testTieredStoreMemoryRestart() throws Exception {
     //    final int numRecordsToSend = 1000;
     //    Configuration configuration = getConfiguration();
     //    configuration.set(
@@ -91,7 +91,7 @@ class TieredStoreShuffleITCase extends TieredStoreBatchShuffleITCaseBase {
     //    configuration.set(TIERED_STORE_TIERS, "MEMORY");
     //    JobGraph jobGraph = createJobGraph(numRecordsToSend, true, configuration);
     //    executeJob(jobGraph, configuration, numRecordsToSend);
-    //}
+    // }
 
     // ------------------------------------
     //        For Disk Tier

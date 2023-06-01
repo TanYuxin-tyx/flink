@@ -78,7 +78,7 @@ public class SubpartitionDiskCacheManager {
         writeEvent(record, dataType);
     }
 
-    public void append(Buffer buffer) throws InterruptedException {
+    public void append(Buffer buffer) {
         BufferContext toAddBuffer = new BufferContext(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(toAddBuffer);
     }

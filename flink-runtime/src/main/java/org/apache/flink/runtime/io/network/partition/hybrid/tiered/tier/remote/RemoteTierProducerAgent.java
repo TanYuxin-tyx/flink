@@ -65,8 +65,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     }
 
     @Override
-    public void registerNettyService(
-            int subpartitionId, NettyServiceWriterId nettyServiceWriterId)
+    public void registerNettyService(int subpartitionId, NettyServiceWriterId nettyServiceWriterId)
             throws IOException {
         // nothing to do.
     }
@@ -92,7 +91,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     }
 
     @Override
-    public boolean write(int consumerId, Buffer finishedBuffer) throws IOException {
+    public boolean write(int consumerId, Buffer finishedBuffer) {
         if (numSubpartitionEmitBytes[consumerId] != 0
                 && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
                         > numBytesInASegment) {

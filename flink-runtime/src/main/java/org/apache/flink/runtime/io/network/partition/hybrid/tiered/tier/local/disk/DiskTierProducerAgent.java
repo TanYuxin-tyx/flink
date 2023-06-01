@@ -160,7 +160,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
     }
 
     @Override
-    public boolean write(int consumerId, Buffer finishedBuffer) throws IOException {
+    public boolean write(int consumerId, Buffer finishedBuffer) {
         if (numSubpartitionEmitBytes[consumerId] != 0
                 && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
                         > numBytesInASegment) {
@@ -184,7 +184,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
         }
     }
 
-    private void emitBuffer(Buffer finishedBuffer, int targetSubpartition) throws IOException {
+    private void emitBuffer(Buffer finishedBuffer, int targetSubpartition) {
         diskCacheManager.append(finishedBuffer, targetSubpartition);
     }
 

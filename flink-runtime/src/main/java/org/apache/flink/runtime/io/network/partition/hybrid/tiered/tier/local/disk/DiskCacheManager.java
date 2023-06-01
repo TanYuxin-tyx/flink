@@ -27,7 +27,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -88,12 +87,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
      * @param buffer to be managed by this class.
      * @param targetChannel target subpartition of this record.
      */
-    public void append(Buffer buffer, int targetChannel) throws IOException {
-        try {
-            getSubpartitionCacheDataManager(targetChannel).append(buffer);
-        } catch (InterruptedException e) {
-            throw new IOException(e);
-        }
+    public void append(Buffer buffer, int targetChannel) {
+        getSubpartitionCacheDataManager(targetChannel).append(buffer);
     }
 
     /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
@@ -134,7 +129,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
 
     @Override
     public void onConsumerReleased(int subpartitionId, NettyServiceWriterId nettyServiceWriterId) {
-        //tierReaderViewMap.get(subpartitionId).remove(nettyServiceWriterId);
+        // tierReaderViewMap.get(subpartitionId).remove(nettyServiceWriterId);
     }
 
     // ------------------------------------
