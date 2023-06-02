@@ -38,6 +38,7 @@ import javax.annotation.Nullable;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 public class RemoteTierFactory implements TierFactory {
 
@@ -75,7 +76,8 @@ public class RemoteTierFactory implements TierFactory {
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             NettyServiceReader consumerNettyService,
-            boolean isUpstreamBroadcastOnly) {
+            boolean isUpstreamBroadcastOnly,
+            BiConsumer<Integer, Boolean> queueChannelCallBack) {
 
         TieredStorageMemoryManager storageMemoryManager = null;
         try {
@@ -92,9 +94,9 @@ public class RemoteTierFactory implements TierFactory {
                         jobID,
                         resultPartitionIDs,
                         baseRemoteStoragePath,
-                        consumerNettyService,
+                        queueChannelCallBack,
                         isUpstreamBroadcastOnly);
         return new RemoteTierConsumerAgent(
-                numSubpartitions, storageMemoryManager, remoteTierMonitor, consumerNettyService);
+                numSubpartitions, storageMemoryManager, remoteTierMonitor, queueChannelCallBack);
     }
 }

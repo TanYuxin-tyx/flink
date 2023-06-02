@@ -35,6 +35,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProd
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 /** The memory tier factory. */
 public class MemoryTierFactory implements TierFactory {
@@ -81,7 +82,8 @@ public class MemoryTierFactory implements TierFactory {
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             NettyServiceReader consumerNettyService,
-            boolean isUpstreamBroadcastOnly) {
+            boolean isUpstreamBroadcastOnly,
+            BiConsumer<Integer, Boolean> queueChannelCallBack) {
         return new MemoryTierConsumerAgent(requiredSegmentIds, consumerNettyService);
     }
 }

@@ -36,14 +36,6 @@ public interface NettyServiceReader {
     Optional<Buffer> readBuffer(int subpartitionId);
 
     /**
-     * Notify that the data responding to a subpartition is available.
-     *
-     * @param subpartitionId subpartition id indicates the subpartition.
-     * @param priority priority indicates if the subpartition is priority.
-     */
-    void notifyResultSubpartitionAvailable(int subpartitionId, boolean priority);
-
-    /**
      * Notify that the specific segment is required according to the subpartitionId and segmentId.
      *
      * @param subpartitionId subpartition id indicates the subpartition.

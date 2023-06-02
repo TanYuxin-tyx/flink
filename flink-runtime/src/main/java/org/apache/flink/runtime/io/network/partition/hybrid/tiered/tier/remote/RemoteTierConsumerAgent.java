@@ -8,7 +8,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.util.ExceptionUtils;
@@ -19,6 +18,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.HEADER_LENGTH;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.parseBufferHeader;
@@ -32,7 +32,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
     private final TieredStorageMemoryManager storageMemoryManager;
 
-    private final NettyServiceReader consumerNettyService;
+    private final BiConsumer<Integer, Boolean> queueChannelCallBack;
 
     private final ByteBuffer headerBuffer;
 
@@ -40,10 +40,10 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             int numInputChannels,
             TieredStorageMemoryManager storageMemoryManager,
             RemoteTierMonitor remoteTierMonitor,
-            NettyServiceReader consumerNettyService) {
+            BiConsumer<Integer, Boolean> queueChannelCallBack) {
         this.remoteTierMonitor = remoteTierMonitor;
         this.storageMemoryManager = storageMemoryManager;
-        this.consumerNettyService = consumerNettyService;
+        this.queueChannelCallBack = queueChannelCallBack;
         this.requiredSegmentIds = new int[numInputChannels];
         Arrays.fill(requiredSegmentIds, -1);
         this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
@@ -76,7 +76,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                                 Buffer.DataType.END_OF_SEGMENT,
                                 0));
             } else {
-                consumerNettyService.notifyResultSubpartitionAvailable(subpartitionId, false);
+                queueChannelCallBack.accept(subpartitionId, false);
                 return Optional.of(readBuffer(currentInputStream));
             }
         } catch (IOException e) {

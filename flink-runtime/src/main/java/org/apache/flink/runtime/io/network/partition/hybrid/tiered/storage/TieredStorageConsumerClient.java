@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiConsumer;
 
 /** {@link TieredStorageConsumerClient} is used to read buffer from tiered store. */
 public class TieredStorageConsumerClient {
@@ -35,7 +36,8 @@ public class TieredStorageConsumerClient {
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             NettyServiceReader nettyServiceReader,
-            boolean isUpstreamBroadcast) {
+            boolean isUpstreamBroadcast,
+            BiConsumer<Integer, Boolean> queueChannelCallBack) {
         this.tierFactories = createTierFactories(baseRemoteStoragePath);
         this.tierConsumerAgents =
                 createTierConsumerAgents(
@@ -46,7 +48,8 @@ public class TieredStorageConsumerClient {
                         networkBufferPool,
                         baseRemoteStoragePath,
                         nettyServiceReader,
-                        isUpstreamBroadcast);
+                        isUpstreamBroadcast,
+                        queueChannelCallBack);
         this.subpartitionNextSegmentIds = new int[numSubpartitions];
         this.nettyServiceReader = nettyServiceReader;
     }
@@ -74,7 +77,6 @@ public class TieredStorageConsumerClient {
         if (bufferData.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
             subpartitionNextSegmentIds[subpartitionId]++;
             bufferData.recycleBuffer();
-            //nettyServiceReader.notifyResultSubpartitionAvailable(subpartitionId, false);
             return getNextBuffer(subpartitionId);
         }
         return Optional.of(bufferData);
@@ -104,7 +106,8 @@ public class TieredStorageConsumerClient {
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             NettyServiceReader consumerNettyService,
-            boolean isUpstreamBroadcastOnly) {
+            boolean isUpstreamBroadcastOnly,
+            BiConsumer<Integer, Boolean> queueChannelCallBack) {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
         int[] requiredSegmentIds = new int[numSubpartitions];
         for (TierFactory tierFactory : tierFactories) {
@@ -118,7 +121,8 @@ public class TieredStorageConsumerClient {
                             networkBufferPool,
                             baseRemoteStoragePath,
                             consumerNettyService,
-                            isUpstreamBroadcastOnly));
+                            isUpstreamBroadcastOnly,
+                            queueChannelCallBack));
         }
         return tierConsumerAgents;
     }

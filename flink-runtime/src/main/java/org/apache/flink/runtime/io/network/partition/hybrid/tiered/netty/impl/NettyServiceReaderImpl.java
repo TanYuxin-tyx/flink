@@ -31,15 +31,15 @@ import java.util.function.BiConsumer;
 public class NettyServiceReaderImpl implements NettyServiceReader {
 
     private final InputChannel[] inputChannels;
-    private final BiConsumer<Integer, Boolean> subpartitionAvailableNotifier;
+    private final BiConsumer<Integer, Boolean> queueChannelCallback;
     private final int[] lastPrioritySequenceNumber;
 
     public NettyServiceReaderImpl(
             InputChannel[] inputChannels,
-            BiConsumer<Integer, Boolean> subpartitionAvailableNotifier,
+            BiConsumer<Integer, Boolean> queueChannelCallback,
             int[] lastPrioritySequenceNumber) {
         this.inputChannels = inputChannels;
-        this.subpartitionAvailableNotifier = subpartitionAvailableNotifier;
+        this.queueChannelCallback = queueChannelCallback;
         this.lastPrioritySequenceNumber = lastPrioritySequenceNumber;
     }
 
@@ -53,7 +53,7 @@ public class NettyServiceReaderImpl implements NettyServiceReader {
         }
         if (bufferAndAvailability.isPresent()) {
             if (bufferAndAvailability.get().moreAvailable()) {
-                notifyResultSubpartitionAvailable(
+                queueChannelCallback.accept(
                         subpartitionId, bufferAndAvailability.get().hasPriority());
             }
             if (bufferAndAvailability.get().hasPriority()) {
@@ -62,11 +62,6 @@ public class NettyServiceReaderImpl implements NettyServiceReader {
             }
         }
         return bufferAndAvailability.map(InputChannel.BufferAndAvailability::buffer);
-    }
-
-    @Override
-    public void notifyResultSubpartitionAvailable(int subpartitionId, boolean priority) {
-        subpartitionAvailableNotifier.accept(subpartitionId, priority);
     }
 
     @Override

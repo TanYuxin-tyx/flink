@@ -22,7 +22,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
@@ -35,6 +34,7 @@ import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateNewSegmentPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateSegmentFinishPath;
@@ -57,7 +57,7 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
                             .setNameFormat("tiered store remote tier monitor")
                             .build());
 
-    private final NettyServiceReader consumerNettyService;
+    private final BiConsumer<Integer, Boolean> queueChannelCallBack;
 
     private final String baseRemoteStoragePath;
 
@@ -80,7 +80,7 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
             List<Integer> subpartitionIndexes,
             int numSubpartitions,
             boolean isUpstreamBroadcast,
-            NettyServiceReader consumerNettyService) {
+            BiConsumer<Integer, Boolean> queueChannelCallBack) {
         this.requiredSegmentIds = new int[subpartitionIndexes.size()];
         this.scanningSegmentIds = new int[subpartitionIndexes.size()];
         this.readingSegmentIds = new int[subpartitionIndexes.size()];
@@ -92,7 +92,7 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
         this.isUpstreamBroadcast = isUpstreamBroadcast;
         this.numSubpartitions = numSubpartitions;
-        this.consumerNettyService = consumerNettyService;
+        this.queueChannelCallBack = queueChannelCallBack;
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
@@ -121,7 +121,7 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
                     }
                 }
                 if (isEnqueue) {
-                    consumerNettyService.notifyResultSubpartitionAvailable(subpartitionId, false);
+                    queueChannelCallBack.accept(subpartitionId, false);
                 }
             }
         } catch (Exception e) {

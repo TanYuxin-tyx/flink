@@ -35,6 +35,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProd
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 
 public class DiskTierFactory implements TierFactory {
 
@@ -82,7 +83,8 @@ public class DiskTierFactory implements TierFactory {
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             NettyServiceReader consumerNettyService,
-            boolean isUpstreamBroadcastOnly) {
+            boolean isUpstreamBroadcastOnly,
+            BiConsumer<Integer, Boolean> queueChannelCallBack) {
         return new DiskTierConsumerAgent(requiredSegmentIds, consumerNettyService);
     }
 }

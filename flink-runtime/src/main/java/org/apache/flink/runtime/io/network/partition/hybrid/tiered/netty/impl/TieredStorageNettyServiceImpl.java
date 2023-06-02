@@ -72,10 +72,10 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     @Override
     public NettyServiceReader registerConsumer(
             InputChannel[] inputChannels,
-            BiConsumer<Integer, Boolean> subpartitionAvailableNotifier,
+            BiConsumer<Integer, Boolean> queueChannelCallback,
             int[] lastPrioritySequenceNumber) {
         return new NettyServiceReaderImpl(
-                inputChannels, subpartitionAvailableNotifier, lastPrioritySequenceNumber);
+                inputChannels, queueChannelCallback, lastPrioritySequenceNumber);
     }
 
     @Override

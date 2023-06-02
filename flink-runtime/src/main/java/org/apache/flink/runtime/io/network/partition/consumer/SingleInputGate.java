@@ -72,6 +72,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -274,11 +275,14 @@ public class SingleInputGate extends IndexedInputGate {
         this.unpooledSegment = MemorySegmentFactory.allocateUnpooledSegment(segmentSize);
         this.bufferDebloater = bufferDebloater;
         this.throughputCalculator = checkNotNull(throughputCalculator);
-        NettyServiceReader nettyServiceReader = nettyService.registerConsumer(
-                channels,
+        BiConsumer<Integer, Boolean> queueChannelCallBack =
                 (subpartitionId, priority) ->
-                        queueChannel(channels[subpartitionId], null, priority),
-                lastPrioritySequenceNumber);
+                        queueChannel(channels[subpartitionId], null, priority);
+        NettyServiceReader nettyServiceReader =
+                nettyService.registerConsumer(
+                        channels,
+                        queueChannelCallBack,
+                        lastPrioritySequenceNumber);
         this.tieredStorageConsumerClient =
                 enableTieredStoreMode
                         ? new TieredStorageConsumerClient(
@@ -287,8 +291,10 @@ public class SingleInputGate extends IndexedInputGate {
                                 jobID,
                                 resultPartitionIds,
                                 (NetworkBufferPool) memorySegmentProvider,
-                                baseRemoteStoragePath, nettyServiceReader,
-                                isUpstreamBroadcastOnly)
+                                baseRemoteStoragePath,
+                                nettyServiceReader,
+                                isUpstreamBroadcastOnly,
+                                queueChannelCallBack)
                         : null;
     }
 

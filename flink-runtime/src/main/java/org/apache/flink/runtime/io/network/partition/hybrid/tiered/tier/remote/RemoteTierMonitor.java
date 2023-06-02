@@ -20,10 +20,10 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
 
 import java.io.InputStream;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 /**
  * The {@link RemoteTierMonitor} is the monitor to scan the existing status of shuffle data stored
@@ -72,7 +72,7 @@ public interface RemoteTierMonitor extends Runnable {
                 JobID jobID,
                 List<ResultPartitionID> resultPartitionIDs,
                 String baseRemoteStoragePath,
-                NettyServiceReader consumerNettyService,
+                BiConsumer<Integer, Boolean> queueChannelCallBack,
                 boolean isUpstreamBroadcastOnly) {
             return new RemoteTierMonitorImpl(
                     jobID,
@@ -81,7 +81,7 @@ public interface RemoteTierMonitor extends Runnable {
                     subpartitionIds,
                     numSubpartitions,
                     isUpstreamBroadcastOnly,
-                    consumerNettyService);
+                    queueChannelCallBack);
         }
     }
 }
