@@ -22,6 +22,7 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReaderId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
@@ -75,6 +76,11 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             int[] lastPrioritySequenceNumber) {
         return new NettyServiceReaderImpl(
                 inputChannels, subpartitionAvailableNotifier, lastPrioritySequenceNumber);
+    }
+
+    @Override
+    public NettyServiceReader registerConsumer(NettyServiceReaderId readerId) {
+        return null;
     }
 
     /**

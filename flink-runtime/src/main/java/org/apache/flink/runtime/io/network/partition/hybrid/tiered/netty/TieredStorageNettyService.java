@@ -51,4 +51,7 @@ public interface TieredStorageNettyService {
             InputChannel[] inputChannels,
             BiConsumer<Integer, Boolean> subpartitionAvailableNotifier,
             int[] lastPrioritySequenceNumber);
+
+
+    NettyServiceReader registerConsumer(NettyServiceReaderId readerId);
 }

@@ -74,7 +74,7 @@ public class TieredStorageConsumerClient {
         if (bufferData.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
             subpartitionNextSegmentIds[subpartitionId]++;
             bufferData.recycleBuffer();
-            nettyServiceReader.notifyResultSubpartitionAvailable(subpartitionId, false);
+            //nettyServiceReader.notifyResultSubpartitionAvailable(subpartitionId, false);
             return getNextBuffer(subpartitionId);
         }
         return Optional.of(bufferData);
