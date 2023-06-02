@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReaderId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriter;
@@ -54,6 +55,9 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     private final Map<NettyServiceWriterId, BufferAvailabilityListener>
             registeredAvailabilityListeners = new ConcurrentHashMap<>();
 
+    private final Map<NettyServiceReaderId, NettyServiceReader> registeredNettyServiceReaders =
+            new ConcurrentHashMap<>();
+
     @Override
     public NettyServiceWriter registerProducer(
             NettyServiceWriterId writerId, Runnable serviceReleaseNotifier) {
@@ -70,17 +74,8 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     }
 
     @Override
-    public NettyServiceReader registerConsumer(
-            InputChannel[] inputChannels,
-            BiConsumer<Integer, Boolean> queueChannelCallback,
-            int[] lastPrioritySequenceNumber) {
-        return new NettyServiceReaderImpl(
-                inputChannels, queueChannelCallback, lastPrioritySequenceNumber);
-    }
-
-    @Override
     public NettyServiceReader registerConsumer(NettyServiceReaderId readerId) {
-        return null;
+        return registeredNettyServiceReaders.get(readerId);
     }
 
     /**
@@ -121,5 +116,24 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
         if (listener != null) {
             listener.notifyDataAvailable();
         }
+    }
+
+    /**
+     * Set up input channels in {@link SingleInputGate}.
+     *
+     * @param readerId reader id indicates the id of {@link NettyServiceReader}.
+     * @param inputChannels input channels is the channels in {@link SingleInputGate}.
+     * @param queueChannelCallback the call back to queue channel in {@link SingleInputGate}.
+     * @param lastPrioritySequenceNumber the array to record the priority sequence number.
+     */
+    public void setUpInputChannels(
+            NettyServiceReaderId readerId,
+            InputChannel[] inputChannels,
+            BiConsumer<Integer, Boolean> queueChannelCallback,
+            int[] lastPrioritySequenceNumber) {
+        registeredNettyServiceReaders.put(
+                readerId,
+                new NettyServiceReaderImpl(
+                        inputChannels, queueChannelCallback, lastPrioritySequenceNumber));
     }
 }

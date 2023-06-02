@@ -2,6 +2,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.d
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReaderId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 
 import java.io.IOException;
@@ -14,9 +16,9 @@ public class DiskTierConsumerAgent implements TierConsumerAgent {
 
     private final NettyServiceReader consumerNettyService;
 
-    public DiskTierConsumerAgent(int[] requiredSegmentIds, NettyServiceReader consumerNettyService) {
+    public DiskTierConsumerAgent(int[] requiredSegmentIds, NettyServiceReaderId readerId, TieredStorageNettyService nettyService) {
         this.requiredSegmentIds = requiredSegmentIds;
-        this.consumerNettyService = consumerNettyService;
+        this.consumerNettyService = nettyService.registerConsumer(readerId);
     }
 
     @Override

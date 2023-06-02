@@ -43,8 +43,9 @@ import org.apache.flink.runtime.io.network.partition.PrioritizedDeque;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReaderId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -278,11 +279,10 @@ public class SingleInputGate extends IndexedInputGate {
         BiConsumer<Integer, Boolean> queueChannelCallBack =
                 (subpartitionId, priority) ->
                         queueChannel(channels[subpartitionId], null, priority);
-        NettyServiceReader nettyServiceReader =
-                nettyService.registerConsumer(
-                        channels,
-                        queueChannelCallBack,
-                        lastPrioritySequenceNumber);
+        NettyServiceReaderId readerId = NettyServiceReaderId.newId();
+        ((TieredStorageNettyServiceImpl) nettyService)
+                .setUpInputChannels(
+                        readerId, channels, queueChannelCallBack, lastPrioritySequenceNumber);
         this.tieredStorageConsumerClient =
                 enableTieredStoreMode
                         ? new TieredStorageConsumerClient(
@@ -292,7 +292,8 @@ public class SingleInputGate extends IndexedInputGate {
                                 resultPartitionIds,
                                 (NetworkBufferPool) memorySegmentProvider,
                                 baseRemoteStoragePath,
-                                nettyServiceReader,
+                                nettyService,
+                                readerId,
                                 isUpstreamBroadcastOnly,
                                 queueChannelCallBack)
                         : null;

@@ -18,11 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
-import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
-
-import java.util.function.BiConsumer;
 
 /** {@link TieredStorageNettyService} is used to create writers and readers to netty. */
 public interface TieredStorageNettyService {
@@ -42,16 +39,8 @@ public interface TieredStorageNettyService {
      * {@link TierConsumerAgent} will register to {@link TieredStorageNettyService} and create a
      * {@link NettyServiceReader}.
      *
-     * @param inputChannels channels in consumer side.
-     * @param lastPrioritySequenceNumber the array to record the priority sequence number.
-     * @param subpartitionAvailableNotifier notifier is to notify the subpartition is available.
+     * @param readerId reader id is used as the unique id of reader.
      * @return the reader.
      */
-    NettyServiceReader registerConsumer(
-            InputChannel[] inputChannels,
-            BiConsumer<Integer, Boolean> subpartitionAvailableNotifier,
-            int[] lastPrioritySequenceNumber);
-
-
     NettyServiceReader registerConsumer(NettyServiceReaderId readerId);
 }
