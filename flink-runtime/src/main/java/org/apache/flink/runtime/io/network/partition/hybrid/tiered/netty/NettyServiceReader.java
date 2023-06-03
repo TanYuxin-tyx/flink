@@ -31,6 +31,7 @@ public interface NettyServiceReader {
      * Read a buffer from the specific subpartition.
      *
      * @param subpartitionId subpartition id indicates the subpartition.
+     * @param segmentId segment id indicates the id of segment.
      * @return a buffer.
      */
     Optional<Buffer> readBuffer(int subpartitionId, int segmentId);
