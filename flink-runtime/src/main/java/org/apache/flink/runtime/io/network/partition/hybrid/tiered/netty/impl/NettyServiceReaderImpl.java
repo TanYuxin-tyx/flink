@@ -33,6 +33,7 @@ public class NettyServiceReaderImpl implements NettyServiceReader {
     private final InputChannel[] inputChannels;
     private final BiConsumer<Integer, Boolean> queueChannelCallback;
     private final int[] lastPrioritySequenceNumber;
+    private final int[] requiredSegmentIds;
 
     public NettyServiceReaderImpl(
             InputChannel[] inputChannels,
@@ -41,10 +42,15 @@ public class NettyServiceReaderImpl implements NettyServiceReader {
         this.inputChannels = inputChannels;
         this.queueChannelCallback = queueChannelCallback;
         this.lastPrioritySequenceNumber = lastPrioritySequenceNumber;
+        this.requiredSegmentIds = new int[inputChannels.length];
     }
 
     @Override
-    public Optional<Buffer> readBuffer(int subpartitionId) {
+    public Optional<Buffer> readBuffer(int subpartitionId, int segmentId) {
+        if (segmentId > 0L && (segmentId != requiredSegmentIds[subpartitionId])) {
+            requiredSegmentIds[subpartitionId] = segmentId;
+            inputChannels[subpartitionId].notifyRequiredSegmentId(segmentId);
+        }
         Optional<InputChannel.BufferAndAvailability> bufferAndAvailability = Optional.empty();
         try {
             bufferAndAvailability = inputChannels[subpartitionId].getNextBuffer();
@@ -62,10 +68,5 @@ public class NettyServiceReaderImpl implements NettyServiceReader {
             }
         }
         return bufferAndAvailability.map(InputChannel.BufferAndAvailability::buffer);
-    }
-
-    @Override
-    public void notifyRequiredSegmentId(int subpartitionId, int segmentId) {
-        inputChannels[subpartitionId].notifyRequiredSegmentId(segmentId);
     }
 }

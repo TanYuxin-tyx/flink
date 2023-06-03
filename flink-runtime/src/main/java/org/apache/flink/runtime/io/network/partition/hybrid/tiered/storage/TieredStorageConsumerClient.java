@@ -110,12 +110,10 @@ public class TieredStorageConsumerClient {
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
-        int[] requiredSegmentIds = new int[numSubpartitions];
         for (TierFactory tierFactory : tierFactories) {
             tierConsumerAgents.add(
                     tierFactory.createConsumerAgent(
                             numSubpartitions,
-                            requiredSegmentIds,
                             subpartitionIds,
                             jobID,
                             resultPartitionIDs,

@@ -22,7 +22,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReaderId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -76,7 +75,6 @@ public class MemoryTierFactory implements TierFactory {
     @Override
     public TierConsumerAgent createConsumerAgent(
             int numSubpartitions,
-            int[] requiredSegmentIds,
             List<Integer> subpartitionIds,
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,
@@ -86,6 +84,6 @@ public class MemoryTierFactory implements TierFactory {
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
-        return new MemoryTierConsumerAgent(requiredSegmentIds, readerId, nettyService);
+        return new MemoryTierConsumerAgent(readerId, nettyService);
     }
 }

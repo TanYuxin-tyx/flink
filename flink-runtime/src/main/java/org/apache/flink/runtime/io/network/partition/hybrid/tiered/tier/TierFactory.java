@@ -54,7 +54,6 @@ public interface TierFactory {
 
     TierConsumerAgent createConsumerAgent(
             int numSubpartitions,
-            int[] requiredSegmentIds,
             List<Integer> subpartitionIds,
             JobID jobID,
             List<ResultPartitionID> resultPartitionIDs,

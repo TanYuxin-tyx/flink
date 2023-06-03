@@ -12,13 +12,10 @@ import java.util.Optional;
 /** The data client is used to fetch data from disk tier. */
 public class DiskTierConsumerAgent implements TierConsumerAgent {
 
-    private final int[] requiredSegmentIds;
+    private final NettyServiceReader nettyServiceReader;
 
-    private final NettyServiceReader consumerNettyService;
-
-    public DiskTierConsumerAgent(int[] requiredSegmentIds, NettyServiceReaderId readerId, TieredStorageNettyService nettyService) {
-        this.requiredSegmentIds = requiredSegmentIds;
-        this.consumerNettyService = nettyService.registerConsumer(readerId);
+    public DiskTierConsumerAgent(NettyServiceReaderId readerId, TieredStorageNettyService nettyService) {
+        this.nettyServiceReader = nettyService.registerConsumer(readerId);
     }
 
     @Override
@@ -28,11 +25,7 @@ public class DiskTierConsumerAgent implements TierConsumerAgent {
 
     @Override
     public Optional<Buffer> getNextBuffer(int subpartitionId, int segmentId) {
-        if (segmentId > 0L && (segmentId != requiredSegmentIds[subpartitionId])) {
-            requiredSegmentIds[subpartitionId] = segmentId;
-            consumerNettyService.notifyRequiredSegmentId(subpartitionId, segmentId);
-        }
-        return consumerNettyService.readBuffer(subpartitionId);
+        return nettyServiceReader.readBuffer(subpartitionId, segmentId);
     }
 
     @Override

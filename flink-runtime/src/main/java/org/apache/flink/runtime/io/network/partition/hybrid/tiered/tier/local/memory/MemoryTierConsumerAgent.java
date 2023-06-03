@@ -11,14 +11,9 @@ import java.util.Optional;
 
 /** The data client is used to fetch data from memory tier. */
 public class MemoryTierConsumerAgent implements TierConsumerAgent {
-
-    private final int[] requiredSegmentIds;
-
     private final NettyServiceReader nettyServiceReader;
 
-    public MemoryTierConsumerAgent(int[] requiredSegmentIds, NettyServiceReaderId readerId,
-                                   TieredStorageNettyService nettyService) {
-        this.requiredSegmentIds = requiredSegmentIds;
+    public MemoryTierConsumerAgent(NettyServiceReaderId readerId, TieredStorageNettyService nettyService) {
         this.nettyServiceReader = nettyService.registerConsumer(readerId);
     }
 
@@ -29,11 +24,7 @@ public class MemoryTierConsumerAgent implements TierConsumerAgent {
 
     @Override
     public Optional<Buffer> getNextBuffer(int subpartitionId, int segmentId) {
-        if (segmentId > 0L && (segmentId != requiredSegmentIds[subpartitionId])) {
-            requiredSegmentIds[subpartitionId] = segmentId;
-            nettyServiceReader.notifyRequiredSegmentId(subpartitionId, segmentId);
-        }
-        return nettyServiceReader.readBuffer(subpartitionId);
+        return nettyServiceReader.readBuffer(subpartitionId, segmentId);
     }
 
     @Override
