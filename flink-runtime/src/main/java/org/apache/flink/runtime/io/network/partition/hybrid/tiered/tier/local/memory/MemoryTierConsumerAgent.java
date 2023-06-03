@@ -14,12 +14,12 @@ public class MemoryTierConsumerAgent implements TierConsumerAgent {
 
     private final int[] requiredSegmentIds;
 
-    private final NettyServiceReader consumerNettyService;
+    private final NettyServiceReader nettyServiceReader;
 
     public MemoryTierConsumerAgent(int[] requiredSegmentIds, NettyServiceReaderId readerId,
                                    TieredStorageNettyService nettyService) {
         this.requiredSegmentIds = requiredSegmentIds;
-        this.consumerNettyService = nettyService.registerConsumer(readerId);
+        this.nettyServiceReader = nettyService.registerConsumer(readerId);
     }
 
     @Override
@@ -31,9 +31,9 @@ public class MemoryTierConsumerAgent implements TierConsumerAgent {
     public Optional<Buffer> getNextBuffer(int subpartitionId, int segmentId) {
         if (segmentId > 0L && (segmentId != requiredSegmentIds[subpartitionId])) {
             requiredSegmentIds[subpartitionId] = segmentId;
-            consumerNettyService.notifyRequiredSegmentId(subpartitionId, segmentId);
+            nettyServiceReader.notifyRequiredSegmentId(subpartitionId, segmentId);
         }
-        return consumerNettyService.readBuffer(subpartitionId);
+        return nettyServiceReader.readBuffer(subpartitionId);
     }
 
     @Override
