@@ -34,6 +34,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.di
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.function.Consumer;
@@ -70,6 +71,8 @@ public class ProducerMergePartitionSubpartitionReader
 
     private ResultPartitionID id;
 
+    private final Map<Integer, Integer> firstBufferContextInSegment;
+
     public ProducerMergePartitionSubpartitionReader(
             ResultPartitionID id,
             int subpartitionId,
@@ -79,7 +82,8 @@ public class ProducerMergePartitionSubpartitionReader
             RegionBufferIndexTracker dataIndex,
             Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser,
             TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId,
-            TieredStorageNettyService nettyService) {
+            TieredStorageNettyService nettyService,
+            Map<Integer, Integer> firstBufferContextInSegment) {
         this.id = id;
         this.subpartitionId = subpartitionId;
         this.nettyServiceWriterId = nettyServiceWriterId;
@@ -90,6 +94,7 @@ public class ProducerMergePartitionSubpartitionReader
         this.nettyService = nettyService;
         this.nettyConnectionWriter = nettyService.registerProducer(nettyServiceWriterId, () -> readerReleaser.accept(this));
         this.regionCache = new RegionCache();
+        this.firstBufferContextInSegment = firstBufferContextInSegment;
     }
 
     public void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
@@ -129,12 +134,20 @@ public class ProducerMergePartitionSubpartitionReader
                 buffers.add(segment);
                 throw throwable;
             }
-            nettyConnectionWriter.writeBuffer(new BufferContext(buffer, nextToLoad++, subpartitionId));
+            BufferContext bufferContext = new BufferContext(buffer, nextToLoad++, subpartitionId);
+            Integer segmentId = firstBufferContextInSegment.remove(bufferContext.getBufferIndex());
+            if(segmentId != null){
+                nettyConnectionWriter.writeBuffer(new BufferContext(segmentId));
+                ((TieredStorageNettyServiceImpl) nettyService)
+                        .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
+            }
+            nettyConnectionWriter.writeBuffer(bufferContext);
             regionCache.advance(buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
             ++numLoaded;
         }
         if (nettyConnectionWriter.size() <= numLoaded) {
-            ((TieredStorageNettyServiceImpl)nettyService).notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
+            ((TieredStorageNettyServiceImpl) nettyService)
+                    .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
         }
     }
 
@@ -145,7 +158,8 @@ public class ProducerMergePartitionSubpartitionReader
         isFailed = true;
         nettyConnectionWriter.clear();
         nettyConnectionWriter.writeBuffer(new BufferContext(failureCause));
-        ((TieredStorageNettyServiceImpl)nettyService).notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
+        ((TieredStorageNettyServiceImpl) nettyService)
+                .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
     }
 
     @Override
@@ -220,8 +234,7 @@ public class ProducerMergePartitionSubpartitionReader
             }
 
             Optional<RegionBufferIndexTracker.ReadableRegion> lookupResultOpt =
-                    dataIndex.getReadableRegion(
-                            subpartitionId, bufferIndex, nettyServiceWriterId);
+                    dataIndex.getReadableRegion(subpartitionId, bufferIndex, nettyServiceWriterId);
             if (!lookupResultOpt.isPresent()) {
                 currentBufferIndex = -1;
                 numReadable = 0;

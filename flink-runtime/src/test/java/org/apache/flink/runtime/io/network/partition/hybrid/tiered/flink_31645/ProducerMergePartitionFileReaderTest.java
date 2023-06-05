@@ -24,8 +24,6 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFileReader;
@@ -42,12 +40,10 @@ import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executors;
 
 /** Tests for {@link ProducerMergePartitionFileReader}. */
 class ProducerMergePartitionFileReaderTest {
@@ -155,18 +151,18 @@ class ProducerMergePartitionFileReaderTest {
         return FileChannel.open(path, StandardOpenOption.READ);
     }
 
-    private PartitionFileReader createProducerMergePartitionFileReader() {
-        return new ProducerMergePartitionFileReader(
-                new ResultPartitionID(),
-                bufferPool,
-                Executors.newScheduledThreadPool(1),
-                regionBufferIndexTracker,
-                dataFilePath,
-                bufferPool.getNumBuffersPerRequest(),
-                Duration.ofDays(1),
-                5,
-                new TieredStorageNettyServiceImpl());
-    }
+    //private PartitionFileReader createProducerMergePartitionFileReader() {
+    //    return new ProducerMergePartitionFileReader(
+    //            new ResultPartitionID(),
+    //            bufferPool,
+    //            Executors.newScheduledThreadPool(1),
+    //            regionBufferIndexTracker,
+    //            dataFilePath,
+    //            bufferPool.getNumBuffersPerRequest(),
+    //            Duration.ofDays(1),
+    //            5,
+    //            new TieredStorageNettyServiceImpl());
+    //}
 
     private void generateShuffleData(Path tempDir)
             throws IOException, ExecutionException, InterruptedException {

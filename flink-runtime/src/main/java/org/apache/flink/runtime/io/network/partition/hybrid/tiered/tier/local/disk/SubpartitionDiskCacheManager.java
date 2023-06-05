@@ -78,6 +78,10 @@ public class SubpartitionDiskCacheManager {
         writeEvent(record, dataType);
     }
 
+    public int getFinishedBufferIndex() {
+        return finishedBufferIndex;
+    }
+
     public void append(Buffer buffer) {
         BufferContext toAddBuffer = new BufferContext(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(toAddBuffer);

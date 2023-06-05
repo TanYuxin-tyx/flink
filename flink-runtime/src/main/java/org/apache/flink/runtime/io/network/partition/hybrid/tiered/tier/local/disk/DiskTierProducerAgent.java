@@ -42,6 +42,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
@@ -78,6 +82,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
     // TODO, Make this configurable.
     private int numBytesInASegment = 4 * 1024 * 1024; // 4 M
 
+    private List<Map<Integer, Integer>> firstBufferContextInSegment;
+
     private volatile boolean isClosed;
 
     public DiskTierProducerAgent(
@@ -97,10 +103,17 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.lastNettyServiceWriterIds = new TieredStoragePartitionIdAndSubpartitionId[numSubpartitions];
+        this.lastNettyServiceWriterIds =
+                new TieredStoragePartitionIdAndSubpartitionId[numSubpartitions];
+
+        this.firstBufferContextInSegment = new ArrayList<>();
+        for (int i = 0; i < numSubpartitions; ++i) {
+            firstBufferContextInSegment.add(new ConcurrentHashMap<>());
+        }
+
         this.partitionFileReader =
                 partitionFileManager.createPartitionFileReader(
-                        PartitionFileType.PRODUCER_MERGE, nettyService);
+                        PartitionFileType.PRODUCER_MERGE, nettyService, firstBufferContextInSegment);
 
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.segmentIndexTracker =
@@ -116,7 +129,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
     }
 
     @Override
-    public void registerNettyService(int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId)
+    public void registerNettyService(
+            int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId)
             throws IOException {
         if (!Files.isReadable(dataFilePath)) {
             throw new PartitionNotFoundException(resultPartitionID);
@@ -135,6 +149,12 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
                         > (long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction);
         if (canStartNewSegment || forceUseCurrentTier) {
             segmentIndexTracker.addSegmentIndex(subpartitionId, segmentId);
+            firstBufferContextInSegment
+                    .get(subpartitionId.getSubpartitionId())
+                    .put(
+                            diskCacheManager.getFinishedBufferIndex(
+                                    subpartitionId.getSubpartitionId()),
+                            segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;
     }

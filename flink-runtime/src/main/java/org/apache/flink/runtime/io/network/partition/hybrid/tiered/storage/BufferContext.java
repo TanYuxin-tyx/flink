@@ -36,6 +36,8 @@ public class BufferContext {
 
     private int subpartitionId;
 
+    private int segmentId = -1;
+
     // If the buffer is not null, the error must be null.
     public BufferContext(Buffer buffer, int bufferIndex, int subpartitionId) {
         this.buffer = buffer;
@@ -46,6 +48,11 @@ public class BufferContext {
     // If the error is not null, other elements must be null.
     public BufferContext(Throwable error) {
         this.error = error;
+    }
+
+    // If the segment id is not equal to -1, other elements must be null.
+    public BufferContext(int segmentId) {
+        this.segmentId = segmentId;
     }
 
     @Nullable
@@ -64,5 +71,9 @@ public class BufferContext {
 
     public int getSubpartitionId() {
         return subpartitionId;
+    }
+
+    public int getSegmentId() {
+        return segmentId;
     }
 }

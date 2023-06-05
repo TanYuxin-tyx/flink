@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
@@ -83,6 +84,9 @@ public class ProducerMergePartitionFileReader
 
     private final ResultPartitionID resultPartitionID;
 
+
+    private final List<Map<Integer, Integer>> firstBufferContextInSegment;
+
     public ProducerMergePartitionFileReader(
             ResultPartitionID partitionId,
             BatchShuffleReadBufferPool bufferPool,
@@ -92,7 +96,8 @@ public class ProducerMergePartitionFileReader
             int maxRequestedBuffers,
             Duration bufferRequestTimeout,
             int maxBufferReadAhead,
-            TieredStorageNettyService nettyService) {
+            TieredStorageNettyService nettyService,
+            List<Map<Integer, Integer>> firstBufferContextInSegment) {
         this.resultPartitionID = partitionId;
         this.dataIndex = checkNotNull(dataIndex);
         this.dataFilePath = checkNotNull(dataFilePath);
@@ -102,6 +107,7 @@ public class ProducerMergePartitionFileReader
         this.bufferRequestTimeout = checkNotNull(bufferRequestTimeout);
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.nettyService = nettyService;
+        this.firstBufferContextInSegment = firstBufferContextInSegment;
     }
 
     @Override
@@ -133,7 +139,8 @@ public class ProducerMergePartitionFileReader
                             dataIndex,
                             this::removeSubpartitionReader,
                             nettyServiceWriterId,
-                            nettyService);
+                            nettyService,
+                            firstBufferContextInSegment.get(subpartitionId));
             allSubpartitionReaders.add(subpartitionReader);
             triggerReaderRunning();
         }
@@ -147,6 +154,7 @@ public class ProducerMergePartitionFileReader
             }
             isReleased = true;
             allSubpartitionReaders.clear();
+            firstBufferContextInSegment.clear();
         }
         IOUtils.deleteFileQuietly(dataFilePath);
     }

@@ -8,6 +8,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 
 import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
 /** THe implementation of {@link PartitionFileManager}. */
@@ -74,7 +76,10 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
     }
 
     @Override
-    public PartitionFileReader createPartitionFileReader(PartitionFileType partitionFileType, TieredStorageNettyService nettyService) {
+    public PartitionFileReader createPartitionFileReader(
+            PartitionFileType partitionFileType,
+            TieredStorageNettyService nettyService,
+            List<Map<Integer, Integer>> firstBufferContextInSegment) {
         if (partitionFileType == PartitionFileType.PRODUCER_MERGE) {
             return new ProducerMergePartitionFileReader(
                     resultPartitionID,
@@ -85,7 +90,8 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
                     storeConfiguration.getMaxRequestedBuffers(),
                     storeConfiguration.getBufferRequestTimeout(),
                     storeConfiguration.getMaxBuffersReadAhead(),
-                    nettyService);
+                    nettyService,
+                    firstBufferContextInSegment);
         }
         throw new UnsupportedOperationException(
                 "PartitionFileManager doesn't support the type of partition file: "

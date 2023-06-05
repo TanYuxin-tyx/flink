@@ -187,15 +187,15 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         if (buffer == null) {
             return Optional.empty();
         } else {
+            if(buffer.getSegmentId() != -1){
+                System.out.println("###" + buffer.getSegmentId());
+                return readBufferQueue(bufferQueue, releaseNotifier);
+            }
             Throwable readError = buffer.getError();
             if (readError != null) {
                 releaseQueue(bufferQueue, releaseNotifier);
                 throw new IOException(readError);
             } else {
-                checkState(
-                        buffer.getBufferIndex()
-                                == currentBufferIndexes[queueIndexContainsCurrentSegment]);
-                ++currentBufferIndexes[queueIndexContainsCurrentSegment];
                 return Optional.of(checkNotNull(buffer.getBuffer()));
             }
         }

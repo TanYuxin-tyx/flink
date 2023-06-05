@@ -110,6 +110,10 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
     //        For Spilling Strategy
     // ------------------------------------
 
+    public int getFinishedBufferIndex(int subpartitionId){
+        return subpartitionDiskCacheManagers[subpartitionId].getFinishedBufferIndex();
+    }
+
     @Override
     public int getNumSubpartitions() {
         return numSubpartitions;

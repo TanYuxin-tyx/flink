@@ -119,6 +119,7 @@ public class MemoryTierProducerAgent
                                 > bufferNumberInSegment;
         if (canStartNewSegment || forceUseCurrentTier) {
             subpartitionSegmentIdTracker.addSegmentIndex(subpartitionId, segmentId);
+            getSubpartitionMemoryDataManager(subpartitionId.getSubpartitionId()).addSegmentBufferContext(segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;
     }

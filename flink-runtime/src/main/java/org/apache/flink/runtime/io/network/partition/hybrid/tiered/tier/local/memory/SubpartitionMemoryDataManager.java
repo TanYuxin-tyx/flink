@@ -170,6 +170,11 @@ public class SubpartitionMemoryDataManager {
         addFinishedBuffer(toAddBuffer);
     }
 
+    void addSegmentBufferContext(int segmentId) {
+        BufferContext segmentBufferContext = new BufferContext(segmentId);
+        addFinishedBuffer(segmentBufferContext);
+    }
+
     private void addFinishedBuffer(BufferContext bufferContext) {
         finishedBufferIndex++;
         nettyConnectionWriter.writeBuffer(bufferContext);
