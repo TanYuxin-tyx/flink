@@ -21,8 +21,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
-/** {@link NettyServiceWriter} is used to write buffers to {@link TieredStorageNettyServiceImpl}. */
-public interface NettyServiceWriter {
+/** {@link NettyConnectionWriter} is used to write buffers to {@link TieredStorageNettyServiceImpl}. */
+public interface NettyConnectionWriter {
     /**
      * Write a buffer.
      *

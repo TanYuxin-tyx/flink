@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
@@ -66,7 +66,7 @@ public class SubpartitionMemoryDataManager {
 
     private final TieredStorageNettyService nettyService;
 
-    private NettyServiceWriter nettyServiceWriter;
+    private NettyConnectionWriter nettyConnectionWriter;
 
     private NettyServiceWriterId nettyServiceWriterId;
 
@@ -90,7 +90,7 @@ public class SubpartitionMemoryDataManager {
 
     public void registerNettyService(NettyServiceWriterId nettyServiceWriterId) {
         this.nettyServiceWriterId = nettyServiceWriterId;
-        this.nettyServiceWriter = nettyService.registerProducer(nettyServiceWriterId, () -> {});
+        this.nettyConnectionWriter = nettyService.registerProducer(nettyServiceWriterId, () -> {});
     }
 
     public void appendSegmentEvent(ByteBuffer record, DataType dataType) {
@@ -98,8 +98,8 @@ public class SubpartitionMemoryDataManager {
     }
 
     public void release() {
-        if(nettyServiceWriter != null){
-            nettyServiceWriter.clear();
+        if(nettyConnectionWriter != null){
+            nettyConnectionWriter.clear();
         }
     }
 
@@ -172,8 +172,8 @@ public class SubpartitionMemoryDataManager {
 
     private void addFinishedBuffer(BufferContext bufferContext) {
         finishedBufferIndex++;
-        nettyServiceWriter.writeBuffer(bufferContext);
-        if (nettyServiceWriter.size() <= 1) {
+        nettyConnectionWriter.writeBuffer(bufferContext);
+        if (nettyConnectionWriter.size() <= 1) {
             ((TieredStorageNettyServiceImpl) nettyService)
                     .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
         }

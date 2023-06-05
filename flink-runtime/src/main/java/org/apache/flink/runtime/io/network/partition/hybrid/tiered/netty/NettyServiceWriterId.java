@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import java.util.Objects;
 
-/** {@link NettyServiceWriterId} indicates the unique id of {@link NettyServiceWriter}. */
+/** {@link NettyServiceWriterId} indicates the unique id of {@link NettyConnectionWriter}. */
 public class NettyServiceWriterId {
 
     private static int defaultId = 0;

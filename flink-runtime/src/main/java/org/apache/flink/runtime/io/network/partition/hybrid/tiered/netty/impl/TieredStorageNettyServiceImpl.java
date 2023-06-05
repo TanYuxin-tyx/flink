@@ -22,9 +22,9 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReaderId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
@@ -55,11 +55,11 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     private final Map<NettyServiceWriterId, BufferAvailabilityListener>
             registeredAvailabilityListeners = new ConcurrentHashMap<>();
 
-    private final Map<NettyServiceReaderId, NettyServiceReader> registeredNettyServiceReaders =
+    private final Map<NettyServiceReaderId, NettyConnectionReader> registeredNettyServiceReaders =
             new ConcurrentHashMap<>();
 
     @Override
-    public NettyServiceWriter registerProducer(
+    public NettyConnectionWriter registerProducer(
             NettyServiceWriterId writerId, Runnable serviceReleaseNotifier) {
         Queue<BufferContext> bufferQueue = new LinkedBlockingQueue<>();
         List<Queue<BufferContext>> bufferQueues =
@@ -70,11 +70,11 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
         notifiers.add(serviceReleaseNotifier);
         registeredBufferQueues.put(writerId, bufferQueues);
         registeredReleaseNotifiers.put(writerId, notifiers);
-        return new NettyServiceWriterImpl(bufferQueue);
+        return new NettyConnectionWriterImpl(bufferQueue);
     }
 
     @Override
-    public NettyServiceReader registerConsumer(NettyServiceReaderId readerId) {
+    public NettyConnectionReader registerConsumer(NettyServiceReaderId readerId) {
         return registeredNettyServiceReaders.get(readerId);
     }
 
@@ -82,7 +82,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
      * Create a {@link ResultSubpartitionView} for the netty server.
      *
      * @param subpartitionId subpartition id indicates the id of subpartition.
-     * @param writerId writer id indicates the id of {@link NettyServiceWriter}.
+     * @param writerId writer id indicates the id of {@link NettyConnectionWriter}.
      * @param availabilityListener listener is used to listen the available status of data.
      * @param segmentSearchers searcher is used to search the existence of segment in each tier.
      * @return the {@link ResultSubpartitionView}.
@@ -109,7 +109,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     /**
      * Notify the {@link ResultSubpartitionView} to send buffer.
      *
-     * @param writerId writer id indicates the id of {@link NettyServiceWriter}.
+     * @param writerId writer id indicates the id of {@link NettyConnectionWriter}.
      */
     public void notifyResultSubpartitionViewSendBuffer(NettyServiceWriterId writerId) {
         BufferAvailabilityListener listener = registeredAvailabilityListeners.get(writerId);
@@ -121,7 +121,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     /**
      * Set up input channels in {@link SingleInputGate}.
      *
-     * @param readerId reader id indicates the id of {@link NettyServiceReader}.
+     * @param readerId reader id indicates the id of {@link NettyConnectionReader}.
      * @param inputChannels input channels is the channels in {@link SingleInputGate}.
      * @param queueChannelCallback the call back to queue channel in {@link SingleInputGate}.
      * @param lastPrioritySequenceNumber the array to record the priority sequence number.
@@ -133,7 +133,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             int[] lastPrioritySequenceNumber) {
         registeredNettyServiceReaders.put(
                 readerId,
-                new NettyServiceReaderImpl(
+                new NettyConnectionReaderImpl(
                         inputChannels, queueChannelCallback, lastPrioritySequenceNumber));
     }
 }

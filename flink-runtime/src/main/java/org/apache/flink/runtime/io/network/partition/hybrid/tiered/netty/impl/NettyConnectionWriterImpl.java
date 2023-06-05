@@ -18,19 +18,19 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-/** The default implementation of {@link NettyServiceWriter}. */
-public class NettyServiceWriterImpl implements NettyServiceWriter {
+/** The default implementation of {@link NettyConnectionWriter}. */
+public class NettyConnectionWriterImpl implements NettyConnectionWriter {
 
     private final Queue<BufferContext> bufferQueue;
 
-    public NettyServiceWriterImpl(Queue<BufferContext> bufferQueue) {
+    public NettyConnectionWriterImpl(Queue<BufferContext> bufferQueue) {
         this.bufferQueue = bufferQueue;
     }
 

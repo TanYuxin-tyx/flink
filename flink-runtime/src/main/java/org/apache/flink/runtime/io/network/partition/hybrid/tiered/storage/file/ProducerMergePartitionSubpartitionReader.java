@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
@@ -66,7 +66,7 @@ public class ProducerMergePartitionSubpartitionReader
 
     private final TieredStorageNettyService nettyService;
 
-    private final NettyServiceWriter nettyServiceWriter;
+    private final NettyConnectionWriter nettyConnectionWriter;
 
     private ResultPartitionID id;
 
@@ -88,7 +88,7 @@ public class ProducerMergePartitionSubpartitionReader
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.dataIndex = dataIndex;
         this.nettyService = nettyService;
-        this.nettyServiceWriter = nettyService.registerProducer(nettyServiceWriterId, () -> readerReleaser.accept(this));
+        this.nettyConnectionWriter = nettyService.registerProducer(nettyServiceWriterId, () -> readerReleaser.accept(this));
         this.regionCache = new RegionCache();
     }
 
@@ -101,7 +101,7 @@ public class ProducerMergePartitionSubpartitionReader
                             + " has already been failed.");
         }
         // If the number of loaded buffers achieves the limited value, skip this time.
-        if (nettyServiceWriter.size() >= maxBufferReadAhead) {
+        if (nettyConnectionWriter.size() >= maxBufferReadAhead) {
             return;
         }
         int numRemainingBuffer =
@@ -113,7 +113,7 @@ public class ProducerMergePartitionSubpartitionReader
         moveFileOffsetToBuffer();
         int numLoaded = 0;
         while (!buffers.isEmpty()
-                && nettyServiceWriter.size() < maxBufferReadAhead
+                && nettyConnectionWriter.size() < maxBufferReadAhead
                 && numRemainingBuffer-- > 0) {
             MemorySegment segment = buffers.poll();
             Buffer buffer;
@@ -129,11 +129,11 @@ public class ProducerMergePartitionSubpartitionReader
                 buffers.add(segment);
                 throw throwable;
             }
-            nettyServiceWriter.writeBuffer(new BufferContext(buffer, nextToLoad++, subpartitionId));
+            nettyConnectionWriter.writeBuffer(new BufferContext(buffer, nextToLoad++, subpartitionId));
             regionCache.advance(buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
             ++numLoaded;
         }
-        if (nettyServiceWriter.size() <= numLoaded) {
+        if (nettyConnectionWriter.size() <= numLoaded) {
             ((TieredStorageNettyServiceImpl)nettyService).notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
         }
     }
@@ -143,8 +143,8 @@ public class ProducerMergePartitionSubpartitionReader
             return;
         }
         isFailed = true;
-        nettyServiceWriter.clear();
-        nettyServiceWriter.writeBuffer(new BufferContext(failureCause));
+        nettyConnectionWriter.clear();
+        nettyConnectionWriter.writeBuffer(new BufferContext(failureCause));
         ((TieredStorageNettyServiceImpl)nettyService).notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
     }
 

@@ -24,9 +24,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.Ti
 import java.util.Optional;
 
 /**
- * {@link NettyServiceReader} is used to read buffers from {@link TieredStorageNettyServiceImpl}.
+ * {@link NettyConnectionReader} is used to read buffers from {@link TieredStorageNettyServiceImpl}.
  */
-public interface NettyServiceReader {
+public interface NettyConnectionReader {
     /**
      * Read a buffer from the specific subpartition.
      *

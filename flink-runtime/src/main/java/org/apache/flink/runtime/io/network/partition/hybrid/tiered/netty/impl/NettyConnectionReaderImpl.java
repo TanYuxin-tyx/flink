@@ -20,22 +20,22 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
-/** The default implementation of {@link NettyServiceReader}. */
-public class NettyServiceReaderImpl implements NettyServiceReader {
+/** The default implementation of {@link NettyConnectionReader}. */
+public class NettyConnectionReaderImpl implements NettyConnectionReader {
 
     private final InputChannel[] inputChannels;
     private final BiConsumer<Integer, Boolean> queueChannelCallback;
     private final int[] lastPrioritySequenceNumber;
     private final int[] requiredSegmentIds;
 
-    public NettyServiceReaderImpl(
+    public NettyConnectionReaderImpl(
             InputChannel[] inputChannels,
             BiConsumer<Integer, Boolean> queueChannelCallback,
             int[] lastPrioritySequenceNumber) {

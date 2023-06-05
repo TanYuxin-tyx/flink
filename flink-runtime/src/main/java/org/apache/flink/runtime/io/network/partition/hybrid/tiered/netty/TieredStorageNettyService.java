@@ -26,21 +26,21 @@ public interface TieredStorageNettyService {
 
     /**
      * {@link TierProducerAgent} will register to {@link TieredStorageNettyService} and create a
-     * {@link NettyServiceWriter}.
+     * {@link NettyConnectionWriter}.
      *
      * @param writerId writer id is used as the unique id of writer.
      * @param serviceReleaseNotifier notifier is used to notify that the service is released.
      * @return the writer.
      */
-    NettyServiceWriter registerProducer(
+    NettyConnectionWriter registerProducer(
             NettyServiceWriterId writerId, Runnable serviceReleaseNotifier);
 
     /**
      * {@link TierConsumerAgent} will register to {@link TieredStorageNettyService} and create a
-     * {@link NettyServiceReader}.
+     * {@link NettyConnectionReader}.
      *
      * @param readerId reader id is used as the unique id of reader.
      * @return the reader.
      */
-    NettyServiceReader registerConsumer(NettyServiceReaderId readerId);
+    NettyConnectionReader registerConsumer(NettyServiceReaderId readerId);
 }

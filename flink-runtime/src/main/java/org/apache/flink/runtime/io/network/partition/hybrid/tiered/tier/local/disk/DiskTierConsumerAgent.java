@@ -1,7 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReaderId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
@@ -12,10 +12,10 @@ import java.util.Optional;
 /** The data client is used to fetch data from disk tier. */
 public class DiskTierConsumerAgent implements TierConsumerAgent {
 
-    private final NettyServiceReader nettyServiceReader;
+    private final NettyConnectionReader nettyConnectionReader;
 
     public DiskTierConsumerAgent(NettyServiceReaderId readerId, TieredStorageNettyService nettyService) {
-        this.nettyServiceReader = nettyService.registerConsumer(readerId);
+        this.nettyConnectionReader = nettyService.registerConsumer(readerId);
     }
 
     @Override
@@ -25,7 +25,7 @@ public class DiskTierConsumerAgent implements TierConsumerAgent {
 
     @Override
     public Optional<Buffer> getNextBuffer(int subpartitionId, int segmentId) {
-        return nettyServiceReader.readBuffer(subpartitionId, segmentId);
+        return nettyConnectionReader.readBuffer(subpartitionId, segmentId);
     }
 
     @Override
