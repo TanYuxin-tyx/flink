@@ -4,6 +4,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
@@ -110,6 +111,10 @@ public class TieredStorageConsumerClient {
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
+        NettyConnectionReader[] nettyConnectionReaders = new NettyConnectionReader[numSubpartitions];
+        for (int index = 0; index < numSubpartitions; ++index) {
+            nettyConnectionReaders[index] = nettyService.registerConsumer(ids[index]);
+        }
         for (TierFactory tierFactory : tierFactories) {
             tierConsumerAgents.add(
                     tierFactory.createConsumerAgent(
@@ -122,7 +127,8 @@ public class TieredStorageConsumerClient {
                             ids,
                             nettyService,
                             isUpstreamBroadcastOnly,
-                            queueChannelCallBack));
+                            queueChannelCallBack,
+                            nettyConnectionReaders));
         }
         return tierConsumerAgents;
     }
