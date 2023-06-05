@@ -18,8 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
 
 import java.util.List;
 
@@ -45,5 +45,5 @@ public interface DiskCacheManagerOperation {
      * @param nettyServiceWriterId the consumer's identifier which decided to be released.
      */
     void onConsumerReleased(
-            int subpartitionId, NettyServiceWriterId nettyServiceWriterId);
+            int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId);
 }

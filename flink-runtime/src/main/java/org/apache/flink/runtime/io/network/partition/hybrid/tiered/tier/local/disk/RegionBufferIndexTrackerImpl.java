@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 
 import javax.annotation.concurrent.GuardedBy;
 
@@ -38,7 +38,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
     @GuardedBy("lock")
     private final List<List<InternalRegion>> subpartitionFirstBufferIndexInternalRegions;
 
-    private final List<Map<NettyServiceWriterId, Integer>> lastestIndexOfReader;
+    private final List<Map<TieredStoragePartitionIdAndSubpartitionId, Integer>> lastestIndexOfReader;
 
     private final Object lock = new Object();
 
@@ -57,7 +57,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
     public Optional<ReadableRegion> getReadableRegion(
             int subpartitionId,
             int bufferIndex,
-            NettyServiceWriterId nettyServiceWriterId) {
+            TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId) {
         synchronized (lock) {
             return getInternalRegion(subpartitionId, bufferIndex, nettyServiceWriterId)
                     .map(
@@ -94,7 +94,7 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
     private Optional<InternalRegion> getInternalRegion(
             int subpartitionId,
             int bufferIndex,
-            NettyServiceWriterId nettyServiceWriterId) {
+            TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId) {
         if (isReleased) {
             return Optional.empty();
         }

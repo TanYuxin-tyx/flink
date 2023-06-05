@@ -25,8 +25,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
@@ -63,7 +63,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
     private final boolean isBroadcastOnly;
 
     /** Record the last assigned consumerId for each subpartition. */
-    private final NettyServiceWriterId[] lastNettyServiceWriterIds;
+    private final TieredStoragePartitionIdAndSubpartitionId[] lastNettyServiceWriterIds;
 
     private final PartitionFileReader partitionFileReader;
 
@@ -97,7 +97,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.isBroadcastOnly = isBroadcastOnly;
-        this.lastNettyServiceWriterIds = new NettyServiceWriterId[numSubpartitions];
+        this.lastNettyServiceWriterIds = new TieredStoragePartitionIdAndSubpartitionId[numSubpartitions];
         this.partitionFileReader =
                 partitionFileManager.createPartitionFileReader(
                         PartitionFileType.PRODUCER_MERGE, nettyService);
@@ -116,7 +116,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
     }
 
     @Override
-    public void registerNettyService(int subpartitionId, NettyServiceWriterId nettyServiceWriterId)
+    public void registerNettyService(int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId)
             throws IOException {
         if (!Files.isReadable(dataFilePath)) {
             throw new PartitionNotFoundException(resultPartitionID);

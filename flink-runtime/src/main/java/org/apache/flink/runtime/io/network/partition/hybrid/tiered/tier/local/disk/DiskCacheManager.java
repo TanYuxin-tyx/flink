@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.d
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
@@ -128,7 +128,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
     // ------------------------------------
 
     @Override
-    public void onConsumerReleased(int subpartitionId, NettyServiceWriterId nettyServiceWriterId) {
+    public void onConsumerReleased(int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId) {
         // tierReaderViewMap.get(subpartitionId).remove(nettyServiceWriterId);
     }
 

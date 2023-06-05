@@ -28,8 +28,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
@@ -60,7 +60,7 @@ public class SubpartitionMemoryDataManager {
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
 
-    private final Set<NettyServiceWriterId> consumerSet;
+    private final Set<TieredStoragePartitionIdAndSubpartitionId> consumerSet;
 
     @Nullable private final BufferCompressor bufferCompressor;
 
@@ -68,7 +68,7 @@ public class SubpartitionMemoryDataManager {
 
     private NettyConnectionWriter nettyConnectionWriter;
 
-    private NettyServiceWriterId nettyServiceWriterId;
+    private TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId;
 
     public SubpartitionMemoryDataManager(
             int subpartitionId,
@@ -88,7 +88,7 @@ public class SubpartitionMemoryDataManager {
     //  Called by MemoryDataManager
     // ------------------------------------------------------------------------
 
-    public void registerNettyService(NettyServiceWriterId nettyServiceWriterId) {
+    public void registerNettyService(TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId) {
         this.nettyServiceWriterId = nettyServiceWriterId;
         this.nettyConnectionWriter = nettyService.registerProducer(nettyServiceWriterId, () -> {});
     }

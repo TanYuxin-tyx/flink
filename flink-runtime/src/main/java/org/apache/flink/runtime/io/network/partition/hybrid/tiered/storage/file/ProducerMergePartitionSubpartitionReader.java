@@ -25,8 +25,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
@@ -46,7 +46,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 public class ProducerMergePartitionSubpartitionReader
         implements Comparable<ProducerMergePartitionSubpartitionReader> {
 
-    private final NettyServiceWriterId nettyServiceWriterId;
+    private final TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId;
 
     private final ByteBuffer reusedHeaderBuffer;
 
@@ -78,7 +78,7 @@ public class ProducerMergePartitionSubpartitionReader
             FileChannel dataFileChannel,
             RegionBufferIndexTracker dataIndex,
             Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser,
-            NettyServiceWriterId nettyServiceWriterId,
+            TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId,
             TieredStorageNettyService nettyService) {
         this.id = id;
         this.subpartitionId = subpartitionId;
@@ -183,7 +183,7 @@ public class ProducerMergePartitionSubpartitionReader
         private long offset;
 
         private int getRemainingBuffersInRegion(
-                int bufferIndex, NettyServiceWriterId nettyServiceWriterId) {
+                int bufferIndex, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId) {
             updateCachedRegionIfNeeded(bufferIndex, nettyServiceWriterId);
             return numReadable;
         }
@@ -210,7 +210,7 @@ public class ProducerMergePartitionSubpartitionReader
         // ------------------------------------------------------------------------
 
         private void updateCachedRegionIfNeeded(
-                int bufferIndex, NettyServiceWriterId nettyServiceWriterId) {
+                int bufferIndex, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId) {
             if (isInCachedRegion(bufferIndex)) {
                 int numAdvance = bufferIndex - currentBufferIndex;
                 numSkip += numAdvance;

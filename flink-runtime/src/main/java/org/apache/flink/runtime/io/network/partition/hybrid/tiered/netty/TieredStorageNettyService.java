@@ -29,11 +29,12 @@ public interface TieredStorageNettyService {
      * {@link NettyConnectionWriter}.
      *
      * @param writerId writer id is used as the unique id of writer.
-     * @param serviceReleaseNotifier notifier is used to notify that the service is released.
+     * @param notifyConnectionDisconnected notifier is used to notify that the service is released.
      * @return the writer.
      */
     NettyConnectionWriter registerProducer(
-            NettyServiceWriterId writerId, Runnable serviceReleaseNotifier);
+            TieredStoragePartitionIdAndSubpartitionId id,
+            Runnable notifyConnectionDisconnected);
 
     /**
      * {@link TierConsumerAgent} will register to {@link TieredStorageNettyService} and create a

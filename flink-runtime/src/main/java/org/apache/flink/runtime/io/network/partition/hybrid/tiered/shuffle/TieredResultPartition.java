@@ -36,8 +36,8 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceWriterId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
@@ -207,7 +207,8 @@ public class TieredResultPartition extends ResultPartition {
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         checkState(!isReleased(), "ResultPartition already released.");
-        NettyServiceWriterId writerId = NettyServiceWriterId.newId();
+        TieredStoragePartitionIdAndSubpartitionId writerId = TieredStoragePartitionIdAndSubpartitionId.create(
+                TieredStorageIdMappingUtils.convertId(partitionId), new TieredStorageSubpartitionId(subpartitionId));
         List<SegmentSearcher> segmentSearchers = new ArrayList<>();
         for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
             tierProducerAgent.registerNettyService(subpartitionId, writerId);
