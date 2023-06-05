@@ -28,11 +28,11 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.BiConsumer;
 
@@ -70,9 +70,8 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             TieredStoragePartitionIdAndSubpartitionId id, Runnable serviceReleaseNotifier) {
         Queue<BufferContext> bufferQueue = new LinkedBlockingQueue<>();
         List<Queue<BufferContext>> bufferQueues =
-                registeredBufferQueues.getOrDefault(id, new CopyOnWriteArrayList<>());
-        List<Runnable> notifiers =
-                registeredReleaseNotifiers.getOrDefault(id, new CopyOnWriteArrayList<>());
+                registeredBufferQueues.getOrDefault(id, new ArrayList<>());
+        List<Runnable> notifiers = registeredReleaseNotifiers.getOrDefault(id, new ArrayList<>());
         bufferQueues.add(bufferQueue);
         notifiers.add(serviceReleaseNotifier);
         registeredBufferQueues.put(id, bufferQueues);
@@ -92,36 +91,33 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     /**
      * Create a {@link ResultSubpartitionView} for the netty server.
      *
-     * @param subpartitionId subpartition id indicates the id of subpartition.
-     * @param id writer id indicates the id of {@link NettyConnectionWriter}.
+     * @param id id indicates the id of result partition and subpartition.
      * @param availabilityListener listener is used to listen the available status of data.
-     * @param segmentSearchers searcher is used to search the existence of segment in each tier.
-     * @return the {@link ResultSubpartitionView}.
+     * @return the {@link TieredStoreResultSubpartitionView}.
      */
     public ResultSubpartitionView createResultSubpartitionView(
-            int subpartitionId,
             TieredStoragePartitionIdAndSubpartitionId id,
             BufferAvailabilityListener availabilityListener) {
         List<Queue<BufferContext>> bufferQueues =
-                registeredBufferQueues.getOrDefault(id, new CopyOnWriteArrayList<>());
+                registeredBufferQueues.getOrDefault(id, new ArrayList<>());
         List<Runnable> releaseNotifiers =
-                registeredReleaseNotifiers.getOrDefault(id, new CopyOnWriteArrayList<>());
+                registeredReleaseNotifiers.getOrDefault(id, new ArrayList<>());
         checkState(bufferQueues.size() == releaseNotifiers.size());
         registeredBufferQueues.remove(id);
         registeredReleaseNotifiers.remove(id);
         registeredAvailabilityListeners.put(id, availabilityListener);
         return new TieredStoreResultSubpartitionView(
-                subpartitionId, availabilityListener, bufferQueues, releaseNotifiers);
+                availabilityListener, bufferQueues, releaseNotifiers);
     }
 
     /**
      * Notify the {@link ResultSubpartitionView} to send buffer.
      *
-     * @param writerId writer id indicates the id of {@link NettyConnectionWriter}.
+     * @param id id indicates the id of result partition and subpartition.
      */
     public void notifyResultSubpartitionViewSendBuffer(
-            TieredStoragePartitionIdAndSubpartitionId writerId) {
-        BufferAvailabilityListener listener = registeredAvailabilityListeners.get(writerId);
+            TieredStoragePartitionIdAndSubpartitionId id) {
+        BufferAvailabilityListener listener = registeredAvailabilityListeners.get(id);
         if (listener != null) {
             listener.notifyDataAvailable();
         }

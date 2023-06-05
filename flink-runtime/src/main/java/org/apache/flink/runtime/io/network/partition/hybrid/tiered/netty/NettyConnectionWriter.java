@@ -18,10 +18,10 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
-/** {@link NettyConnectionWriter} is used to write buffers to {@link TieredStorageNettyServiceImpl}. */
+/** {@link NettyConnectionWriter} is used by {@link TierProducerAgent} to write buffer to netty. */
 public interface NettyConnectionWriter {
     /**
      * Write a buffer.
@@ -37,6 +37,6 @@ public interface NettyConnectionWriter {
      */
     int size();
 
-    /** Clear and recycle all existed buffers in the writer. */
-    void clear();
+    /** Close the writer and recycle all buffers. */
+    void close();
 }

@@ -45,7 +45,7 @@ public class NettyConnectionWriterImpl implements NettyConnectionWriter {
     }
 
     @Override
-    public void clear() {
+    public void close() {
         BufferContext bufferContext;
         while ((bufferContext = bufferQueue.poll()) != null) {
             if (bufferContext.getBuffer() != null) {

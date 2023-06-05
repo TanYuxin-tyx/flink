@@ -3,6 +3,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
+/** The combination of {@link TieredStoragePartitionId} and {@link TieredStorageSubpartitionId}. */
 public class TieredStoragePartitionIdAndSubpartitionId {
 
     private final TieredStoragePartitionId partitionId;
@@ -13,14 +14,6 @@ public class TieredStoragePartitionIdAndSubpartitionId {
             TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
         this.partitionId = partitionId;
         this.subpartitionId = subpartitionId;
-    }
-
-    public TieredStoragePartitionId getPartitionId() {
-        return partitionId;
-    }
-
-    public TieredStorageSubpartitionId getSubpartitionId() {
-        return subpartitionId;
     }
 
     public static TieredStoragePartitionIdAndSubpartitionId create(

@@ -206,14 +206,15 @@ public class TieredResultPartition extends ResultPartition {
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         checkState(!isReleased(), "ResultPartition already released.");
-        TieredStoragePartitionIdAndSubpartitionId writerId = TieredStoragePartitionIdAndSubpartitionId.create(
-                TieredStorageIdMappingUtils.convertId(partitionId), new TieredStorageSubpartitionId(subpartitionId));
+        TieredStoragePartitionIdAndSubpartitionId id =
+                TieredStoragePartitionIdAndSubpartitionId.create(
+                        TieredStorageIdMappingUtils.convertId(partitionId),
+                        new TieredStorageSubpartitionId(subpartitionId));
         for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
-            tierProducerAgent.registerNettyService(subpartitionId, writerId);
+            tierProducerAgent.registerNettyService(subpartitionId, id);
         }
         return ((TieredStorageNettyServiceImpl) nettyService)
-                .createResultSubpartitionView(
-                        subpartitionId, writerId, availabilityListener);
+                .createResultSubpartitionView(id, availabilityListener);
     }
 
     @Override

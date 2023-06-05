@@ -99,7 +99,7 @@ public class SubpartitionMemoryDataManager {
 
     public void release() {
         if(nettyConnectionWriter != null){
-            nettyConnectionWriter.clear();
+            nettyConnectionWriter.close();
         }
     }
 
