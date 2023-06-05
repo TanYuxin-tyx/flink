@@ -131,7 +131,6 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         for (int index = 0; index < bufferQueues.size(); ++index) {
             releaseQueue(bufferQueues.get(index), releaseNotifiers.get(index));
         }
-        bufferQueues.clear();
     }
 
     @Override
