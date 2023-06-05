@@ -99,7 +99,12 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     @Override
     public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
         if (findTierReaderViewIndex()) {
-            Queue<BufferContext> currentQueue = bufferQueues.get(queueIndexContainsCurrentSegment);
+            Queue<BufferContext> currentQueue = null;
+            try {
+                currentQueue = bufferQueues.get(queueIndexContainsCurrentSegment);
+            } catch (Exception e) {
+                throw new RuntimeException("BufferQueue number " + bufferQueues.size() + "Queue Index " + queueIndexContainsCurrentSegment, e);
+            }
             boolean availability = numCreditsAvailable > 0;
             if (numCreditsAvailable <= 0
                     && getBufferQueueNextDataType(currentQueue) == Buffer.DataType.EVENT_BUFFER) {
