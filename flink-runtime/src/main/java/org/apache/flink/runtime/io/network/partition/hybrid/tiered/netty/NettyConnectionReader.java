@@ -34,5 +34,5 @@ public interface NettyConnectionReader {
      * @param segmentId segment id indicates the id of segment.
      * @return a buffer.
      */
-    Optional<Buffer> readBuffer(int subpartitionId, int segmentId);
+    Optional<Buffer> readBuffer(int segmentId);
 }

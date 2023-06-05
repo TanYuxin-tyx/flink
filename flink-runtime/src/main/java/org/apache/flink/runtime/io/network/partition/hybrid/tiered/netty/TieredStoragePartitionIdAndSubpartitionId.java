@@ -15,6 +15,14 @@ public class TieredStoragePartitionIdAndSubpartitionId {
         this.subpartitionId = subpartitionId;
     }
 
+    public TieredStoragePartitionId getPartitionId() {
+        return partitionId;
+    }
+
+    public TieredStorageSubpartitionId getSubpartitionId() {
+        return subpartitionId;
+    }
+
     public static TieredStoragePartitionIdAndSubpartitionId create(
             TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
         return new TieredStoragePartitionIdAndSubpartitionId(partitionId, subpartitionId);

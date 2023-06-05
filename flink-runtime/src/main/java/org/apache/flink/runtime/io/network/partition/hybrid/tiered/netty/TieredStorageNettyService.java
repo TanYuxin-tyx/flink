@@ -43,5 +43,5 @@ public interface TieredStorageNettyService {
      * @param readerId reader id is used as the unique id of reader.
      * @return the reader.
      */
-    NettyConnectionReader registerConsumer(NettyServiceReaderId readerId);
+    NettyConnectionReader registerConsumer(TieredStoragePartitionIdAndSubpartitionId readerId);
 }

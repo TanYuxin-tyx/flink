@@ -43,8 +43,10 @@ import org.apache.flink.runtime.io.network.partition.PrioritizedDeque;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReaderId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
@@ -279,10 +281,15 @@ public class SingleInputGate extends IndexedInputGate {
         BiConsumer<Integer, Boolean> queueChannelCallBack =
                 (subpartitionId, priority) ->
                         queueChannel(channels[subpartitionId], null, priority);
-        NettyServiceReaderId readerId = NettyServiceReaderId.newId();
+
+        TieredStoragePartitionIdAndSubpartitionId[] tieredStoragePartitionIdAndSubpartitionIds =
+                getTieredStoragePartitionIdAndSubpartitionIds(resultPartitionIds, subpartitionIds);
         ((TieredStorageNettyServiceImpl) nettyService)
                 .setUpInputChannels(
-                        readerId, channels, queueChannelCallBack, lastPrioritySequenceNumber);
+                        tieredStoragePartitionIdAndSubpartitionIds,
+                        channels,
+                        queueChannelCallBack,
+                        lastPrioritySequenceNumber);
         this.tieredStorageConsumerClient =
                 enableTieredStoreMode
                         ? new TieredStorageConsumerClient(
@@ -293,10 +300,24 @@ public class SingleInputGate extends IndexedInputGate {
                                 (NetworkBufferPool) memorySegmentProvider,
                                 baseRemoteStoragePath,
                                 nettyService,
-                                readerId,
+                                tieredStoragePartitionIdAndSubpartitionIds,
                                 isUpstreamBroadcastOnly,
                                 queueChannelCallBack)
                         : null;
+    }
+
+    private TieredStoragePartitionIdAndSubpartitionId[]
+            getTieredStoragePartitionIdAndSubpartitionIds(
+                    List<ResultPartitionID> resultPartitionIds, List<Integer> subpartitionIds) {
+        TieredStoragePartitionIdAndSubpartitionId[] ids =
+                new TieredStoragePartitionIdAndSubpartitionId[resultPartitionIds.size()];
+        for (int index = 0; index < ids.length; ++index) {
+            ids[index] =
+                    TieredStoragePartitionIdAndSubpartitionId.create(
+                            TieredStorageIdMappingUtils.convertId(resultPartitionIds.get(index)),
+                            new TieredStorageSubpartitionId(subpartitionIds.get(index)));
+        }
+        return ids;
     }
 
     protected PrioritizedDeque<InputChannel> getInputChannelsWithData() {

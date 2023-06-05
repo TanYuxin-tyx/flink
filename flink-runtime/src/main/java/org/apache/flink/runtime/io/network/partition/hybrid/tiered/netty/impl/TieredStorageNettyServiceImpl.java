@@ -24,7 +24,6 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceReaderId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
@@ -46,25 +45,34 @@ import static org.apache.flink.shaded.guava30.com.google.common.base.Preconditio
  */
 public class TieredStorageNettyServiceImpl implements TieredStorageNettyService {
 
-    private final Map<TieredStoragePartitionIdAndSubpartitionId, List<Queue<BufferContext>>> registeredBufferQueues =
-            new ConcurrentHashMap<>();
+    private final Map<TieredStoragePartitionIdAndSubpartitionId, List<Queue<BufferContext>>>
+            registeredBufferQueues = new ConcurrentHashMap<>();
 
-    private final Map<TieredStoragePartitionIdAndSubpartitionId, List<Runnable>> registeredReleaseNotifiers =
-            new ConcurrentHashMap<>();
+    private final Map<TieredStoragePartitionIdAndSubpartitionId, List<Runnable>>
+            registeredReleaseNotifiers = new ConcurrentHashMap<>();
 
     private final Map<TieredStoragePartitionIdAndSubpartitionId, BufferAvailabilityListener>
             registeredAvailabilityListeners = new ConcurrentHashMap<>();
 
-    private final Map<NettyServiceReaderId, NettyConnectionReader> registeredNettyServiceReaders =
+    private final Map<TieredStoragePartitionIdAndSubpartitionId, Integer>
+            registeredChannelIndexes = new ConcurrentHashMap<>();
+
+    private final Map<TieredStoragePartitionIdAndSubpartitionId, InputChannel[]>
+            registeredInputChannels = new ConcurrentHashMap<>();
+
+    private final Map<TieredStoragePartitionIdAndSubpartitionId, BiConsumer<Integer, Boolean>>
+            registeredQueueChannelCallbacks = new ConcurrentHashMap<>();
+
+    private final Map<TieredStoragePartitionIdAndSubpartitionId, int[]> registeredPriorityArrays =
             new ConcurrentHashMap<>();
 
     @Override
-    public NettyConnectionWriter registerProducer(TieredStoragePartitionIdAndSubpartitionId id, Runnable serviceReleaseNotifier) {
+    public NettyConnectionWriter registerProducer(
+            TieredStoragePartitionIdAndSubpartitionId id, Runnable serviceReleaseNotifier) {
         Queue<BufferContext> bufferQueue = new LinkedBlockingQueue<>();
         List<Queue<BufferContext>> bufferQueues =
                 registeredBufferQueues.getOrDefault(id, new ArrayList<>());
-        List<Runnable> notifiers =
-                registeredReleaseNotifiers.getOrDefault(id, new ArrayList<>());
+        List<Runnable> notifiers = registeredReleaseNotifiers.getOrDefault(id, new ArrayList<>());
         bufferQueues.add(bufferQueue);
         notifiers.add(serviceReleaseNotifier);
         registeredBufferQueues.put(id, bufferQueues);
@@ -73,30 +81,36 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     }
 
     @Override
-    public NettyConnectionReader registerConsumer(NettyServiceReaderId readerId) {
-        return registeredNettyServiceReaders.get(readerId);
+    public NettyConnectionReader registerConsumer(TieredStoragePartitionIdAndSubpartitionId id) {
+        return new NettyConnectionReaderImpl(
+                registeredChannelIndexes.get(id),
+                registeredInputChannels.get(id),
+                registeredQueueChannelCallbacks.get(id),
+                registeredPriorityArrays.get(id));
     }
 
     /**
      * Create a {@link ResultSubpartitionView} for the netty server.
      *
      * @param subpartitionId subpartition id indicates the id of subpartition.
-     * @param writerId writer id indicates the id of {@link NettyConnectionWriter}.
+     * @param id writer id indicates the id of {@link NettyConnectionWriter}.
      * @param availabilityListener listener is used to listen the available status of data.
      * @param segmentSearchers searcher is used to search the existence of segment in each tier.
      * @return the {@link ResultSubpartitionView}.
      */
     public ResultSubpartitionView createResultSubpartitionView(
             int subpartitionId,
-            TieredStoragePartitionIdAndSubpartitionId writerId,
+            TieredStoragePartitionIdAndSubpartitionId id,
             BufferAvailabilityListener availabilityListener,
             List<SegmentSearcher> segmentSearchers) {
         List<Queue<BufferContext>> bufferQueues =
-                registeredBufferQueues.getOrDefault(writerId, new ArrayList<>());
+                registeredBufferQueues.getOrDefault(id, new ArrayList<>());
         List<Runnable> releaseNotifiers =
-                registeredReleaseNotifiers.getOrDefault(writerId, new ArrayList<>());
+                registeredReleaseNotifiers.getOrDefault(id, new ArrayList<>());
         checkState(bufferQueues.size() == releaseNotifiers.size());
-        registeredAvailabilityListeners.put(writerId, availabilityListener);
+        registeredBufferQueues.remove(id);
+        registeredReleaseNotifiers.remove(id);
+        registeredAvailabilityListeners.put(id, availabilityListener);
         return new TieredStoreResultSubpartitionView(
                 subpartitionId,
                 availabilityListener,
@@ -110,7 +124,8 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
      *
      * @param writerId writer id indicates the id of {@link NettyConnectionWriter}.
      */
-    public void notifyResultSubpartitionViewSendBuffer(TieredStoragePartitionIdAndSubpartitionId writerId) {
+    public void notifyResultSubpartitionViewSendBuffer(
+            TieredStoragePartitionIdAndSubpartitionId writerId) {
         BufferAvailabilityListener listener = registeredAvailabilityListeners.get(writerId);
         if (listener != null) {
             listener.notifyDataAvailable();
@@ -120,19 +135,21 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     /**
      * Set up input channels in {@link SingleInputGate}.
      *
-     * @param readerId reader id indicates the id of {@link NettyConnectionReader}.
      * @param inputChannels input channels is the channels in {@link SingleInputGate}.
      * @param queueChannelCallback the call back to queue channel in {@link SingleInputGate}.
      * @param lastPrioritySequenceNumber the array to record the priority sequence number.
      */
     public void setUpInputChannels(
-            NettyServiceReaderId readerId,
+            TieredStoragePartitionIdAndSubpartitionId[] ids,
             InputChannel[] inputChannels,
             BiConsumer<Integer, Boolean> queueChannelCallback,
             int[] lastPrioritySequenceNumber) {
-        registeredNettyServiceReaders.put(
-                readerId,
-                new NettyConnectionReaderImpl(
-                        inputChannels, queueChannelCallback, lastPrioritySequenceNumber));
+        for (int index = 0; index < ids.length; ++index) {
+            TieredStoragePartitionIdAndSubpartitionId id = ids[index];
+            registeredChannelIndexes.put(id, index);
+            registeredInputChannels.put(id, inputChannels);
+            registeredQueueChannelCallbacks.put(id, queueChannelCallback);
+            registeredPriorityArrays.put(id, lastPrioritySequenceNumber);
+        }
     }
 }

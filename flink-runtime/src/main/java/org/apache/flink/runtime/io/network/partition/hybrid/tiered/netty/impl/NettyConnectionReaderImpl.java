@@ -30,25 +30,27 @@ import java.util.function.BiConsumer;
 /** The default implementation of {@link NettyConnectionReader}. */
 public class NettyConnectionReaderImpl implements NettyConnectionReader {
 
+    private final int subpartitionId;
     private final InputChannel[] inputChannels;
     private final BiConsumer<Integer, Boolean> queueChannelCallback;
     private final int[] lastPrioritySequenceNumber;
-    private final int[] requiredSegmentIds;
+    private int lastRequiredSegmentId = 0;
 
     public NettyConnectionReaderImpl(
+            int subpartitionId,
             InputChannel[] inputChannels,
             BiConsumer<Integer, Boolean> queueChannelCallback,
             int[] lastPrioritySequenceNumber) {
+        this.subpartitionId = subpartitionId;
         this.inputChannels = inputChannels;
         this.queueChannelCallback = queueChannelCallback;
         this.lastPrioritySequenceNumber = lastPrioritySequenceNumber;
-        this.requiredSegmentIds = new int[inputChannels.length];
     }
 
     @Override
-    public Optional<Buffer> readBuffer(int subpartitionId, int segmentId) {
-        if (segmentId > 0L && (segmentId != requiredSegmentIds[subpartitionId])) {
-            requiredSegmentIds[subpartitionId] = segmentId;
+    public Optional<Buffer> readBuffer(int segmentId) {
+        if (segmentId > 0L && (segmentId != lastRequiredSegmentId)) {
+            lastRequiredSegmentId = segmentId;
             inputChannels[subpartitionId].notifyRequiredSegmentId(segmentId);
         }
         Optional<InputChannel.BufferAndAvailability> bufferAndAvailability = Optional.empty();
@@ -60,10 +62,10 @@ public class NettyConnectionReaderImpl implements NettyConnectionReader {
         if (bufferAndAvailability.isPresent()) {
             if (bufferAndAvailability.get().moreAvailable()) {
                 queueChannelCallback.accept(
-                        subpartitionId, bufferAndAvailability.get().hasPriority());
+                        inputChannels[subpartitionId].getChannelIndex(), bufferAndAvailability.get().hasPriority());
             }
             if (bufferAndAvailability.get().hasPriority()) {
-                lastPrioritySequenceNumber[subpartitionId] =
+                lastPrioritySequenceNumber[inputChannels[subpartitionId].getChannelIndex()] =
                         bufferAndAvailability.get().getSequenceNumber();
             }
         }
