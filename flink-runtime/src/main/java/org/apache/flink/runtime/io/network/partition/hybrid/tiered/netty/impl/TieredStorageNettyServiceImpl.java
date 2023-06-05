@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.BiConsumer;
 
@@ -102,9 +103,9 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             TieredStoragePartitionIdAndSubpartitionId id,
             BufferAvailabilityListener availabilityListener) {
         List<Queue<BufferContext>> bufferQueues =
-                registeredBufferQueues.getOrDefault(id, new ArrayList<>());
+                registeredBufferQueues.getOrDefault(id, new CopyOnWriteArrayList<>());
         List<Runnable> releaseNotifiers =
-                registeredReleaseNotifiers.getOrDefault(id, new ArrayList<>());
+                registeredReleaseNotifiers.getOrDefault(id, new CopyOnWriteArrayList<>());
         checkState(bufferQueues.size() == releaseNotifiers.size());
         registeredBufferQueues.remove(id);
         registeredReleaseNotifiers.remove(id);
