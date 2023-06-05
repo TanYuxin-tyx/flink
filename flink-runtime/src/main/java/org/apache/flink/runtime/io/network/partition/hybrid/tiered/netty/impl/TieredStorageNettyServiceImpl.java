@@ -83,10 +83,10 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     @Override
     public NettyConnectionReader registerConsumer(TieredStoragePartitionIdAndSubpartitionId id) {
         return new NettyConnectionReaderImpl(
-                registeredChannelIndexes.get(id),
-                registeredInputChannels.get(id),
-                registeredQueueChannelCallbacks.get(id),
-                registeredPriorityArrays.get(id));
+                registeredChannelIndexes.remove(id),
+                registeredInputChannels.remove(id),
+                registeredQueueChannelCallbacks.remove(id),
+                registeredPriorityArrays.remove(id));
     }
 
     /**
