@@ -33,6 +33,7 @@ import java.util.Queue;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** The {@link TieredStoreResultSubpartitionView} is the implementation. */
 public class TieredStoreResultSubpartitionView implements ResultSubpartitionView {
@@ -62,6 +63,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             BufferAvailabilityListener availabilityListener,
             List<Queue<BufferContext>> bufferQueues,
             List<Runnable> releaseNotifiers) {
+        checkState(bufferQueues.size() != 0);
+        checkState(releaseNotifiers.size() != 0);
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
         this.bufferQueues = bufferQueues;

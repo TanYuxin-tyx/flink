@@ -28,7 +28,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -54,8 +53,8 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     private final Map<TieredStoragePartitionIdAndSubpartitionId, BufferAvailabilityListener>
             registeredAvailabilityListeners = new ConcurrentHashMap<>();
 
-    private final Map<TieredStoragePartitionIdAndSubpartitionId, Integer>
-            registeredChannelIndexes = new ConcurrentHashMap<>();
+    private final Map<TieredStoragePartitionIdAndSubpartitionId, Integer> registeredChannelIndexes =
+            new ConcurrentHashMap<>();
 
     private final Map<TieredStoragePartitionIdAndSubpartitionId, InputChannel[]>
             registeredInputChannels = new ConcurrentHashMap<>();
@@ -71,8 +70,9 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             TieredStoragePartitionIdAndSubpartitionId id, Runnable serviceReleaseNotifier) {
         Queue<BufferContext> bufferQueue = new LinkedBlockingQueue<>();
         List<Queue<BufferContext>> bufferQueues =
-                registeredBufferQueues.getOrDefault(id, new ArrayList<>());
-        List<Runnable> notifiers = registeredReleaseNotifiers.getOrDefault(id, new ArrayList<>());
+                registeredBufferQueues.getOrDefault(id, new CopyOnWriteArrayList<>());
+        List<Runnable> notifiers =
+                registeredReleaseNotifiers.getOrDefault(id, new CopyOnWriteArrayList<>());
         bufferQueues.add(bufferQueue);
         notifiers.add(serviceReleaseNotifier);
         registeredBufferQueues.put(id, bufferQueues);
@@ -111,10 +111,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
         registeredReleaseNotifiers.remove(id);
         registeredAvailabilityListeners.put(id, availabilityListener);
         return new TieredStoreResultSubpartitionView(
-                subpartitionId,
-                availabilityListener,
-                bufferQueues,
-                releaseNotifiers);
+                subpartitionId, availabilityListener, bufferQueues, releaseNotifiers);
     }
 
     /**
