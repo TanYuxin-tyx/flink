@@ -22,9 +22,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 
 import javax.annotation.Nullable;
 
@@ -35,7 +33,6 @@ import java.util.Queue;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.util.Preconditions.checkNotNull;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /** The {@link TieredStoreResultSubpartitionView} is the implementation. */
 public class TieredStoreResultSubpartitionView implements ResultSubpartitionView {
@@ -43,8 +40,6 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     private final BufferAvailabilityListener availabilityListener;
 
     private final int subpartitionId;
-
-    private final List<SegmentSearcher> segmentSearchers;
 
     private final List<Queue<BufferContext>> bufferQueues;
 
@@ -65,13 +60,10 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     public TieredStoreResultSubpartitionView(
             int subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            List<SegmentSearcher> segmentSearchers,
             List<Queue<BufferContext>> bufferQueues,
             List<Runnable> releaseNotifiers) {
-        checkState(segmentSearchers.size() == bufferQueues.size());
         this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
-        this.segmentSearchers = segmentSearchers;
         this.bufferQueues = bufferQueues;
         this.releaseNotifiers = releaseNotifiers;
         this.currentBufferIndexes = new int[bufferQueues.size()];
@@ -129,7 +121,6 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             releaseQueue(bufferQueues.get(index), releaseNotifiers.get(index));
         }
         bufferQueues.clear();
-        segmentSearchers.clear();
     }
 
     @Override
@@ -188,7 +179,6 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return Optional.empty();
         } else {
             if(buffer.getSegmentId() != -1){
-                System.out.println("###" + buffer.getSegmentId());
                 return readBufferQueue(bufferQueue, releaseNotifier);
             }
             Throwable readError = buffer.getError();
@@ -221,13 +211,20 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     }
 
     private boolean findTierReaderViewIndex() {
-        for (int viewIndex = 0; viewIndex < segmentSearchers.size(); viewIndex++) {
-            SegmentSearcher segmentSearcher = segmentSearchers.get(viewIndex);
-            if (segmentSearcher.hasCurrentSegment(
-                    new TieredStorageSubpartitionId(subpartitionId), requiredSegmentId)) {
-                queueIndexContainsCurrentSegment = viewIndex;
-                return true;
+        if(queueIndexContainsCurrentSegment != -1 && !stopSendingData){
+            return true;
+        }
+        for (int queueIndex = 0; queueIndex < bufferQueues.size(); queueIndex++) {
+            BufferContext firstBufferContext = bufferQueues.get(queueIndex).peek();
+            if (firstBufferContext == null
+                    || firstBufferContext.getSegmentId() != requiredSegmentId) {
+                continue;
             }
+            if(requiredSegmentId == 1){
+                System.out.println("###" + stopSendingData + " " + queueIndex + " " + requiredSegmentId);
+            }
+            queueIndexContainsCurrentSegment = queueIndex;
+            return true;
         }
         return false;
     }

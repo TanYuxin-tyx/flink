@@ -80,7 +80,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
     private final DiskCacheManager diskCacheManager;
 
     // TODO, Make this configurable.
-    private int numBytesInASegment = 4 * 1024 * 1024; // 4 M
+    private int numBytesInASegment = 4; // 4 M
 
     private List<Map<Integer, Integer>> firstBufferContextInSegment;
 

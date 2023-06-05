@@ -135,11 +135,12 @@ public class ProducerMergePartitionSubpartitionReader
                 throw throwable;
             }
             BufferContext bufferContext = new BufferContext(buffer, nextToLoad++, subpartitionId);
-            Integer segmentId = firstBufferContextInSegment.remove(bufferContext.getBufferIndex());
+            Integer segmentId = firstBufferContextInSegment.get(bufferContext.getBufferIndex());
             if(segmentId != null){
                 nettyConnectionWriter.writeBuffer(new BufferContext(segmentId));
                 ((TieredStorageNettyServiceImpl) nettyService)
                         .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
+                ++numLoaded;
             }
             nettyConnectionWriter.writeBuffer(bufferContext);
             regionCache.advance(buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);

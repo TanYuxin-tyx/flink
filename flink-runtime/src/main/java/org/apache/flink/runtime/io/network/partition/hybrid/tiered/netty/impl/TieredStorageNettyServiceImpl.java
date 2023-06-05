@@ -27,7 +27,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -101,8 +100,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     public ResultSubpartitionView createResultSubpartitionView(
             int subpartitionId,
             TieredStoragePartitionIdAndSubpartitionId id,
-            BufferAvailabilityListener availabilityListener,
-            List<SegmentSearcher> segmentSearchers) {
+            BufferAvailabilityListener availabilityListener) {
         List<Queue<BufferContext>> bufferQueues =
                 registeredBufferQueues.getOrDefault(id, new ArrayList<>());
         List<Runnable> releaseNotifiers =
@@ -114,7 +112,6 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
         return new TieredStoreResultSubpartitionView(
                 subpartitionId,
                 availabilityListener,
-                segmentSearchers,
                 bufferQueues,
                 releaseNotifiers);
     }
