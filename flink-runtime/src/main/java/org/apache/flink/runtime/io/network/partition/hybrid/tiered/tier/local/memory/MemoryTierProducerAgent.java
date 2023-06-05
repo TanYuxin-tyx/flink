@@ -147,7 +147,7 @@ public class MemoryTierProducerAgent
     }
 
     @Override
-    public boolean write(int consumerId, Buffer finishedBuffer) {
+    public boolean tryWrite(int consumerId, Buffer finishedBuffer) {
         if (numSubpartitionEmitBytes[consumerId] != 0
                 && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
                         > MemoryTierProducerAgent.MEMORY_TIER_SEGMENT_BYTES) {

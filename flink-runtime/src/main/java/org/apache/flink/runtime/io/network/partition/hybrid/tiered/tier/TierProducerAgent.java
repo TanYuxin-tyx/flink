@@ -36,7 +36,7 @@ public interface TierProducerAgent {
     boolean tryStartNewSegment(
             TieredStorageSubpartitionId subpartitionId, int segmentId, boolean forceUseCurrentTier);
 
-    boolean write(int consumerId, Buffer finishedBuffer);
+    boolean tryWrite(int consumerId, Buffer finishedBuffer);
 
     void registerNettyService(int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId)
             throws IOException;

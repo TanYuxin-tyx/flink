@@ -182,15 +182,13 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             chooseStorageTierToStartSegment(subpartitionId);
         }
 
-        boolean isSuccess =
-                currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].write(
-                        subpartitionId.getSubpartitionId(), compressedBuffer);
-        if (!isSuccess) {
+        if (!currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].tryWrite(
+                subpartitionId.getSubpartitionId(), compressedBuffer)) {
             chooseStorageTierToStartSegment(subpartitionId);
-            isSuccess =
-                    currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].write(
-                            subpartitionId.getSubpartitionId(), compressedBuffer);
-            checkState(isSuccess, "Failed to write the first buffer to the new segment");
+            checkState(
+                    currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].tryWrite(
+                            subpartitionId.getSubpartitionId(), compressedBuffer),
+                    "Failed to write the first buffer to the new segment");
         }
     }
 
