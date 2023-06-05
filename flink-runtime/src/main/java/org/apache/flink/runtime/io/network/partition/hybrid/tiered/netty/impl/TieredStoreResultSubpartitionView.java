@@ -80,6 +80,9 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         Optional<Buffer> nextBuffer = readBufferQueue(currentQueue, releaseNotifier);
         if (nextBuffer.isPresent()) {
             stopSendingData = nextBuffer.get().getDataType() == END_OF_SEGMENT;
+            if(stopSendingData){
+                queueIndexContainsCurrentSegment = -1;
+            }
             currentSequenceNumber++;
             return BufferAndBacklog.fromBufferAndLookahead(
                     nextBuffer.get(),
@@ -220,9 +223,9 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
                     || firstBufferContext.getSegmentId() != requiredSegmentId) {
                 continue;
             }
-            if(requiredSegmentId == 1){
-                System.out.println("###" + stopSendingData + " " + queueIndex + " " + requiredSegmentId);
-            }
+            //if(requiredSegmentId == 1){
+            //    System.out.println("###" + stopSendingData + " " + queueIndex + " " + requiredSegmentId);
+            //}
             queueIndexContainsCurrentSegment = queueIndex;
             return true;
         }
