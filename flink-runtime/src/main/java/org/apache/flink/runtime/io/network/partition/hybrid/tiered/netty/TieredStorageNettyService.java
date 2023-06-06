@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
@@ -27,21 +28,23 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProd
 public interface TieredStorageNettyService {
 
     /**
-     * {@link TierProducerAgent} will register to {@link TieredStorageNettyService} and create a
-     * {@link NettyConnectionWriter}.
+     * {@link TierProducerAgent} will provide a callback named {@link NettyProducerService} to
+     * register to {@link TieredStorageNettyService}
      *
-     * @param id id is used as the unique id of writer.
-     * @return the writer.
+     * @param partitionId partition id indicates the unique id of {@link TieredResultPartition}.
+     * @param producerService producer service is a callback from {@link TierProducerAgent} and used
+     *     to register a {@link NettyConnectionWriter} and disconnect the netty connection.
      */
     void registerProducer(
             TieredStoragePartitionId partitionId, NettyProducerService producerService);
 
     /**
-     * {@link TierConsumerAgent} will register to {@link TieredStorageNettyService} and create a
-     * {@link NettyConnectionReader}.
+     * {@link TierConsumerAgent} will register to {@link TieredStorageNettyService} and get a {@link
+     * NettyConnectionReader}.
      *
-     * @param id id is used as the unique id of reader.
-     * @return the reader.
+     * @param partitionId partition id indicates the unique id of {@link TieredResultPartition}.
+     * @param subpartitionId subpartition id indicates the unique id of subpartition.
+     * @return the netty connection reader.
      */
     NettyConnectionReader registerConsumer(
             TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId);

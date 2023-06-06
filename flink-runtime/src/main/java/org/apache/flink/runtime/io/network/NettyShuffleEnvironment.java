@@ -246,7 +246,7 @@ public class NettyShuffleEnvironment
                                 partitionIndex,
                                 resultPartitionDeploymentDescriptors.get(partitionIndex),
                                 resourceRegistry,
-                                nettyService2);
+                                (TieredStorageNettyServiceImpl) nettyService2);
             }
 
             registerOutputMetrics(

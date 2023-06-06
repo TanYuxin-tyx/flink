@@ -138,7 +138,7 @@ public class MemoryTierSubpartitionProducerAgent {
     private void addFinishedBuffer(NettyPayload nettyPayload) {
         finishedBufferIndex++;
         nettyConnectionWriter.writeBuffer(nettyPayload);
-        if (nettyConnectionWriter.size() <= 1) {
+        if (nettyConnectionWriter.numQueuedBuffers() <= 1) {
             ((TieredStorageNettyServiceImpl) nettyService)
                     .notifyResultSubpartitionViewSendBuffer(
                             nettyConnectionWriter.getNettyConnectionId());

@@ -26,10 +26,11 @@ import java.util.Optional;
 /** {@link NettyConnectionReader} is used by {@link TierConsumerAgent} to read buffer from netty. */
 public interface NettyConnectionReader {
     /**
-     * Read a buffer.
+     * Read a buffer from netty connection.
      *
      * @param segmentId segment id indicates the id of segment.
-     * @return a buffer.
+     * @return Optional.empty() will be returned if there is no buffer sent from netty connection
+     *     otherwise a buffer will be returned.
      */
     Optional<Buffer> readBuffer(int segmentId);
 }

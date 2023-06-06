@@ -36,7 +36,6 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -83,7 +82,7 @@ public class TieredResultPartition extends ResultPartition {
 
     private final TieredStoragePartitionId storagePartitionId;
 
-    private final TieredStorageNettyService nettyService;
+    private final TieredStorageNettyServiceImpl nettyService;
 
     public TieredResultPartition(
             String owningTaskName,
@@ -101,7 +100,7 @@ public class TieredResultPartition extends ResultPartition {
             TieredStorageProducerClient tieredStorageProducerClient,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
             TieredStorageResourceRegistry resourceRegistry,
-            TieredStorageNettyService nettyService) {
+            TieredStorageNettyServiceImpl nettyService) {
         super(
                 owningTaskName,
                 partitionIndex,
@@ -205,11 +204,10 @@ public class TieredResultPartition extends ResultPartition {
             int subpartitionId, BufferAvailabilityListener availabilityListener)
             throws IOException {
         checkState(!isReleased(), "ResultPartition already released.");
-        return ((TieredStorageNettyServiceImpl) nettyService)
-                .createResultSubpartitionView(
-                        storagePartitionId,
-                        new TieredStorageSubpartitionId(subpartitionId),
-                        availabilityListener);
+        return nettyService.createResultSubpartitionView(
+                storagePartitionId,
+                new TieredStorageSubpartitionId(subpartitionId),
+                availabilityListener);
     }
 
     @Override

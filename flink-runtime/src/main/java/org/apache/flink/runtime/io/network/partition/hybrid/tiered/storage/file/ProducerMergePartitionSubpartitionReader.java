@@ -104,7 +104,7 @@ public class ProducerMergePartitionSubpartitionReader
                             + " has already been failed.");
         }
         // If the number of loaded buffers achieves the limited value, skip this time.
-        if (nettyConnectionWriter.size() >= maxBufferReadAhead) {
+        if (nettyConnectionWriter.numQueuedBuffers() >= maxBufferReadAhead) {
             return;
         }
         int numRemainingBuffer =
@@ -116,7 +116,7 @@ public class ProducerMergePartitionSubpartitionReader
         moveFileOffsetToBuffer();
         int numLoaded = 0;
         while (!buffers.isEmpty()
-                && nettyConnectionWriter.size() < maxBufferReadAhead
+                && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead
                 && numRemainingBuffer-- > 0) {
             MemorySegment segment = buffers.poll();
             Buffer buffer;
@@ -144,7 +144,7 @@ public class ProducerMergePartitionSubpartitionReader
             regionCache.advance(buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
             ++numLoaded;
         }
-        if (nettyConnectionWriter.size() <= numLoaded) {
+        if (nettyConnectionWriter.numQueuedBuffers() <= numLoaded) {
             ((TieredStorageNettyServiceImpl) nettyService)
                     .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
         }

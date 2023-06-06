@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 
 import java.util.ArrayList;
@@ -36,10 +37,7 @@ import java.util.function.BiConsumer;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
-/**
- * {@link TieredStorageNettyServiceImpl} is used to create netty services in producer and consumer
- * side.
- */
+/** The default implementation of {@link TieredStorageNettyService}. */
 public class TieredStorageNettyServiceImpl implements TieredStorageNettyService {
 
     private final Map<TieredStoragePartitionId, List<NettyProducerService>>
@@ -99,8 +97,8 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     /**
      * Create a {@link ResultSubpartitionView} for the netty server.
      *
-     * @param partitionId partitionId indicates the partitionId of result partition and
-     *     subpartition.
+     * @param partitionId partition id indicates the unique id of {@link TieredResultPartition}.
+     * @param subpartitionId subpartition id indicates the unique id of subpartition.
      * @param availabilityListener listener is used to listen the available status of data.
      * @return the {@link TieredStoreResultSubpartitionView}.
      */
@@ -108,14 +106,10 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             BufferAvailabilityListener availabilityListener) {
-        List<NettyProducerService> producerServices =
-                registeredProducerServices.get(partitionId);
+        List<NettyProducerService> producerServices = registeredProducerServices.get(partitionId);
         if (producerServices == null) {
             return new TieredStoreResultSubpartitionView(
-                    availabilityListener,
-                    new ArrayList<>(),
-                    new ArrayList<>(),
-                    new ArrayList<>());
+                    availabilityListener, new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         }
         List<Queue<NettyPayload>> queues = new ArrayList<>();
         List<NettyConnectionId> nettyConnectionIds = new ArrayList<>();
@@ -138,7 +132,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     /**
      * Notify the {@link ResultSubpartitionView} to send buffer.
      *
-     * @param id id indicates the id of result partition and subpartition.
+     * @param connectionId connection id indicates the id of connection.
      */
     public void notifyResultSubpartitionViewSendBuffer(NettyConnectionId connectionId) {
         BufferAvailabilityListener listener = registeredAvailabilityListeners.get(connectionId);
@@ -150,6 +144,8 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     /**
      * Set up input channels in {@link SingleInputGate}.
      *
+     * @param partitionIds partition ids indicates the ids of {@link TieredResultPartition}.
+     * @param subpartitionIds subpartition ids indicates the ids of subpartition.
      * @param inputChannels input channels is the channels in {@link SingleInputGate}.
      * @param queueChannelCallback the call back to queue channel in {@link SingleInputGate}.
      * @param lastPrioritySequenceNumber the array to record the priority sequence number.

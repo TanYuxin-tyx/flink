@@ -21,26 +21,34 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
-/** {@link NettyConnectionWriter} is used by {@link TierProducerAgent} to write buffer to netty. */
+/**
+ * {@link NettyConnectionWriter} is used by {@link TierProducerAgent} to write buffers to netty
+ * connection.
+ */
 public interface NettyConnectionWriter {
     /**
-     * Write a buffer.
+     * Write a buffer to netty connection.
      *
      * @param nettyPayload buffer context represents the buffer.
      */
     void writeBuffer(NettyPayload nettyPayload);
 
-
+    /**
+     * Get the id of connection in the writer.
+     *
+     * @return the id of connection.
+     */
     NettyConnectionId getNettyConnectionId();
 
-
     /**
-     * Get the number of existed buffers in the writer.
+     * Get the number of existed buffers in the writer. The {@link NettyConnectionWriter} may be
+     * implemented based on a queue structure, this method is used to get the residual buffers in
+     * the writer.
      *
      * @return the buffer number.
      */
-    int size();
+    int numQueuedBuffers();
 
-    /** Close the writer and recycle all buffers. */
+    /** Close the connection and release all resources. */
     void close();
 }

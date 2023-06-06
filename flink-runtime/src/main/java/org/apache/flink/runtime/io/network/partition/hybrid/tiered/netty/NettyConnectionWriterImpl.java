@@ -42,7 +42,7 @@ public class NettyConnectionWriterImpl implements NettyConnectionWriter {
     }
 
     @Override
-    public int size() {
+    public int numQueuedBuffers() {
         return bufferQueue.size();
     }
 

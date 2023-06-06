@@ -23,6 +23,7 @@ import java.util.Objects;
 /** {@link NettyConnectionId} indicates the unique id of netty connection. */
 public class NettyConnectionId {
 
+    // The default id of netty connection.
     private static int defaultId = 0;
 
     private final int id;

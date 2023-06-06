@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
@@ -29,10 +30,30 @@ import java.util.function.BiConsumer;
 /** The default implementation of {@link NettyConnectionReader}. */
 public class NettyConnectionReaderImpl implements NettyConnectionReader {
 
+    /** subpartitionId is used to indicate the id of subpartition. */
     private final int subpartitionId;
+
+    /**
+     * inputChannels is initialized in {@link SingleInputGate} and used to read buffer from netty
+     * connection.
+     */
     private final InputChannel[] inputChannels;
+
+    /**
+     * queueChannelCallback is used to queue a channel to {@link SingleInputGate} to trigger next
+     * round of reading from this channel. The Integer in the return type is the index of input
+     * channel and the Boolean in the return type is whether to queue the channel with priority.
+     */
     private final BiConsumer<Integer, Boolean> queueChannelCallback;
+
+    /**
+     * The array is used to record the latest sequence number of buffer with priority data type,
+     * which can decide outdated status of sequence number and whether to enqueue the related input
+     * channel to {@link SingleInputGate}.
+     */
     private final int[] lastPrioritySequenceNumber;
+
+    /** The last required segment id. */
     private int lastRequiredSegmentId = 0;
 
     public NettyConnectionReaderImpl(
@@ -61,7 +82,8 @@ public class NettyConnectionReaderImpl implements NettyConnectionReader {
         if (bufferAndAvailability.isPresent()) {
             if (bufferAndAvailability.get().moreAvailable()) {
                 queueChannelCallback.accept(
-                        inputChannels[subpartitionId].getChannelIndex(), bufferAndAvailability.get().hasPriority());
+                        inputChannels[subpartitionId].getChannelIndex(),
+                        bufferAndAvailability.get().hasPriority());
             }
             if (bufferAndAvailability.get().hasPriority()) {
                 lastPrioritySequenceNumber[inputChannels[subpartitionId].getChannelIndex()] =

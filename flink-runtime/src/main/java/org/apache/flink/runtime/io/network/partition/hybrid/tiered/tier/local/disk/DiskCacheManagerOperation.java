@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 
 import java.util.List;
@@ -37,13 +36,4 @@ public interface DiskCacheManagerOperation {
 
     /** Get all buffers from the subpartition. */
     List<NettyPayload> getBuffersInOrder(int subpartitionId);
-
-    /**
-     * This method is called when consumer is decided to released.
-     *
-     * @param subpartitionId the subpartition's identifier that this consumer belongs to.
-     * @param nettyServiceWriterId the consumer's identifier which decided to be released.
-     */
-    void onConsumerReleased(
-            int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId);
 }
