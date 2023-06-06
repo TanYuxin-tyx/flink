@@ -27,9 +27,6 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SegmentSearcher;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
@@ -52,11 +49,7 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */
-public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher {
-
-    public static final int BROADCAST_CHANNEL = 0;
-
-    private final int tierIndex;
+public class DiskTierProducerAgent implements TierProducerAgent {
 
     private final ResultPartitionID resultPartitionID;
 
@@ -64,23 +57,16 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
 
     private final float minReservedDiskSpaceFraction;
 
-    private final boolean isBroadcastOnly;
-
-    /** Record the last assigned consumerId for each subpartition. */
-    private final TieredStoragePartitionIdAndSubpartitionId[] lastNettyServiceWriterIds;
-
     private final PartitionFileReader partitionFileReader;
 
     private volatile boolean isReleased;
 
     private final int[] numSubpartitionEmitBytes;
 
-    private final SubpartitionSegmentIdTracker segmentIndexTracker;
-
     private final DiskCacheManager diskCacheManager;
 
     // TODO, Make this configurable.
-    private int numBytesInASegment = 4; // 4 M
+    private int numBytesInASegment = 4 * 1024 * 1024; // 4 M
 
     private List<Map<Integer, Integer>> firstBufferContextInSegment;
 
@@ -98,14 +84,9 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
             BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService) {
-        this.tierIndex = tierIndex;
         this.resultPartitionID = resultPartitionID;
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
-        this.isBroadcastOnly = isBroadcastOnly;
-        this.lastNettyServiceWriterIds =
-                new TieredStoragePartitionIdAndSubpartitionId[numSubpartitions];
-
         this.firstBufferContextInSegment = new ArrayList<>();
         for (int i = 0; i < numSubpartitions; ++i) {
             firstBufferContextInSegment.add(new ConcurrentHashMap<>());
@@ -116,8 +97,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
                         PartitionFileType.PRODUCER_MERGE, nettyService, firstBufferContextInSegment);
 
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
-        this.segmentIndexTracker =
-                new SubpartitionSegmentIdTrackerImpl(numSubpartitions, isBroadcastOnly);
         this.diskCacheManager =
                 new DiskCacheManager(
                         tierIndex,
@@ -148,7 +127,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
                 filePath.getUsableSpace()
                         > (long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction);
         if (canStartNewSegment || forceUseCurrentTier) {
-            segmentIndexTracker.addSegmentIndex(subpartitionId, segmentId);
             firstBufferContextInSegment
                     .get(subpartitionId.getSubpartitionId())
                     .put(
@@ -157,11 +135,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
                             segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;
-    }
-
-    @Override
-    public boolean hasCurrentSegment(TieredStorageSubpartitionId subpartitionId, int segmentIndex) {
-        return getSegmentIndexTracker().hasCurrentSegment(subpartitionId, segmentIndex);
     }
 
     @Override
@@ -174,7 +147,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
         if (!isReleased) {
             partitionFileReader.release();
             getDiskCacheManager().release();
-            getSegmentIndexTracker().release();
             isReleased = true;
         }
     }
@@ -219,9 +191,5 @@ public class DiskTierProducerAgent implements TierProducerAgent, SegmentSearcher
 
     public DiskCacheManager getDiskCacheManager() {
         return diskCacheManager;
-    }
-
-    public SubpartitionSegmentIdTracker getSegmentIndexTracker() {
-        return segmentIndexTracker;
     }
 }
