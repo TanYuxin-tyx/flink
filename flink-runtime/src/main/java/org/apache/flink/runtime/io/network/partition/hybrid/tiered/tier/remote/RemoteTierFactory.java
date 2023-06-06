@@ -42,6 +42,12 @@ import java.util.function.BiConsumer;
 
 public class RemoteTierFactory implements TierFactory {
 
+    private final int numBytesPerSegment;
+
+    public RemoteTierFactory(int numBytesPerSegment) {
+        this.numBytesPerSegment = numBytesPerSegment;
+    }
+
     @Override
     public TierMasterAgent createMasterAgent(
             TieredStorageResourceRegistry resourceRegistry,
@@ -62,7 +68,11 @@ public class RemoteTierFactory implements TierFactory {
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService) {
         return new RemoteTierProducerAgent(
-                numSubpartitions, isBroadcastOnly, storageMemoryManager, partitionFileManager);
+                numSubpartitions,
+                numBytesPerSegment,
+                isBroadcastOnly,
+                storageMemoryManager,
+                partitionFileManager);
     }
 
     @Override

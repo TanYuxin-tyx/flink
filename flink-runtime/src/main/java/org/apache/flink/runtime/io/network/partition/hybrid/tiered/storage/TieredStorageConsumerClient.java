@@ -91,10 +91,10 @@ public class TieredStorageConsumerClient {
 
     private List<TierFactory> createTierFactories(String baseRemoteStoragePath) {
         List<TierFactory> tierFactories = new ArrayList<>();
-        tierFactories.add(new MemoryTierFactory());
-        tierFactories.add(new DiskTierFactory());
+        tierFactories.add(new MemoryTierFactory(0));
+        tierFactories.add(new DiskTierFactory(0));
         if (baseRemoteStoragePath != null) {
-            tierFactories.add(new RemoteTierFactory());
+            tierFactories.add(new RemoteTierFactory(0));
         }
         return tierFactories;
     }
@@ -111,7 +111,8 @@ public class TieredStorageConsumerClient {
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
-        NettyConnectionReader[] nettyConnectionReaders = new NettyConnectionReader[numSubpartitions];
+        NettyConnectionReader[] nettyConnectionReaders =
+                new NettyConnectionReader[numSubpartitions];
         for (int index = 0; index < numSubpartitions; ++index) {
             nettyConnectionReaders[index] = nettyService.registerConsumer(ids[index]);
         }

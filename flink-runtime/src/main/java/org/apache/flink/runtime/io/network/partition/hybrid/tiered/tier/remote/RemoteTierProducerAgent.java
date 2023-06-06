@@ -34,6 +34,8 @@ import java.util.Arrays;
 /** The DataManager of DFS. */
 public class RemoteTierProducerAgent implements TierProducerAgent {
 
+    private final int numBytesPerSegment;
+
     // Record the byte number currently written to each sub partition.
     private final int[] numSubpartitionEmitBytes;
 
@@ -41,16 +43,15 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     private final RemoteCacheManager cacheDataManager;
 
-    // TODO, Make this configurable.
-    private int numBytesInASegment = 32 * 1024 * 1; // 32 k, expect 4M
-
     private final int[] subpartitionLastestSegmentId;
 
     public RemoteTierProducerAgent(
             int numSubpartitions,
+            int numBytesPerSegment,
             boolean isBroadcastOnly,
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileManager partitionFileManager) {
+        this.numBytesPerSegment = numBytesPerSegment;
         this.segmentIndexTracker =
                 new SubpartitionSegmentIdTrackerImpl(numSubpartitions, isBroadcastOnly);
         this.cacheDataManager =
@@ -65,7 +66,8 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     }
 
     @Override
-    public void registerNettyService(int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId)
+    public void registerNettyService(
+            int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId)
             throws IOException {
         // nothing to do.
     }
@@ -94,7 +96,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     public boolean tryWrite(int consumerId, Buffer finishedBuffer) {
         if (numSubpartitionEmitBytes[consumerId] != 0
                 && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
-                        > numBytesInASegment) {
+                        > numBytesPerSegment) {
             cacheDataManager.finishSegment(consumerId, subpartitionLastestSegmentId[consumerId]);
             numSubpartitionEmitBytes[consumerId] = 0;
             return false;

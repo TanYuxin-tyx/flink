@@ -50,6 +50,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /** The DataManager of LOCAL file. */
 public class DiskTierProducerAgent implements TierProducerAgent {
 
+    private final int numBytesPerSegment;
+
     private final ResultPartitionID resultPartitionID;
 
     private final Path dataFilePath;
@@ -64,16 +66,14 @@ public class DiskTierProducerAgent implements TierProducerAgent {
 
     private final DiskCacheManager diskCacheManager;
 
-    // TODO, Make this configurable.
-    private int numBytesInASegment = 4 * 1024 * 1024; // 4 M
-
-    private List<Map<Integer, Integer>> firstBufferContextInSegment;
+    private final List<Map<Integer, Integer>> firstBufferContextInSegment;
 
     private volatile boolean isClosed;
 
     public DiskTierProducerAgent(
             int tierIndex,
             int numSubpartitions,
+            int numBytesPerSegment,
             ResultPartitionID resultPartitionID,
             String dataFileBasePath,
             float minReservedDiskSpaceFraction,
@@ -82,6 +82,7 @@ public class DiskTierProducerAgent implements TierProducerAgent {
             int networkBufferSize,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService) {
+        this.numBytesPerSegment = numBytesPerSegment;
         this.resultPartitionID = resultPartitionID;
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
@@ -154,7 +155,7 @@ public class DiskTierProducerAgent implements TierProducerAgent {
     public boolean tryWrite(int consumerId, Buffer finishedBuffer) {
         if (numSubpartitionEmitBytes[consumerId] != 0
                 && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
-                        > numBytesInASegment) {
+                        > numBytesPerSegment) {
             emitEndOfSegmentEvent(consumerId);
             numSubpartitionEmitBytes[consumerId] = 0;
             return false;

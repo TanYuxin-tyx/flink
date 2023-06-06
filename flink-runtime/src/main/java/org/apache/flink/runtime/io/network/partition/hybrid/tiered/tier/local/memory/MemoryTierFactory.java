@@ -40,6 +40,12 @@ import java.util.function.BiConsumer;
 /** The memory tier factory. */
 public class MemoryTierFactory implements TierFactory {
 
+    private final int numBytesPerSegment;
+
+    public MemoryTierFactory(int numBytesPerSegment) {
+        this.numBytesPerSegment = numBytesPerSegment;
+    }
+
     @Override
     public TierMasterAgent createMasterAgent(
             TieredStorageResourceRegistry resourceRegistry,
@@ -62,6 +68,7 @@ public class MemoryTierFactory implements TierFactory {
             TieredStorageNettyService nettyService) {
         return new MemoryTierProducerAgent(
                 numSubpartitions,
+                numBytesPerSegment,
                 storageMemoryManager,
                 isBroadcastOnly,
                 networkBufferSize,

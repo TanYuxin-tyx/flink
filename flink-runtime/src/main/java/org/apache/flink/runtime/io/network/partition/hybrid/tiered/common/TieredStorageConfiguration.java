@@ -51,6 +51,13 @@ public class TieredStorageConfiguration {
         HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TierType.IN_REMOTE, 1);
     }
 
+    private static final int DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT = 10 * 32 * 1024; // 320 K
+
+    private static final int DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT = 8 * 1024 * 1024; // 8 M
+
+    private static final int DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT =
+            32 * 1024 * 1; // 32 k is only for test, expect 8M
+
     private static final int DEFAULT_MAX_BUFFERS_READ_AHEAD = 5;
 
     private static final Duration DEFAULT_BUFFER_REQUEST_TIMEOUT = Duration.ofMinutes(5);
@@ -66,11 +73,16 @@ public class TieredStorageConfiguration {
     private static final long DEFAULT_BUFFER_POLL_SIZE_CHECK_INTERVAL_MS = 1000;
 
     private static final TierFactory[] DEFAULT_MEMORY_DISK_TIER_FACTORIES =
-            new TierFactory[] {new MemoryTierFactory(), new DiskTierFactory()};
+            new TierFactory[] {
+                new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT),
+                new DiskTierFactory(DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT)
+            };
 
     private static final TierFactory[] DEFAULT_MEMORY_DISK_REMOTE_TIER_FACTORIES =
             new TierFactory[] {
-                new MemoryTierFactory(), new DiskTierFactory(), new RemoteTierFactory()
+                new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT),
+                new DiskTierFactory(DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT),
+                new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT)
             };
 
     private static final int[] DEFAULT_MEMORY_DISK_EXCLUSIVE_BUFFERS = new int[] {100, 1, 1};
@@ -396,11 +408,11 @@ public class TieredStorageConfiguration {
     private static TierFactory createTierFactory(TierType tierType) {
         switch (tierType) {
             case IN_MEM:
-                return new MemoryTierFactory();
+                return new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT);
             case IN_DISK:
-                return new DiskTierFactory();
+                return new DiskTierFactory(DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT);
             case IN_REMOTE:
-                return new RemoteTierFactory();
+                return new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT);
             default:
                 throw new IllegalArgumentException("Illegal tier type " + tierType);
         }

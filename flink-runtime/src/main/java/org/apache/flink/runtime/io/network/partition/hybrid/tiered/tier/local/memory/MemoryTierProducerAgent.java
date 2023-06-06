@@ -38,13 +38,13 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
 
     private final int numSubpartitions;
 
+    private final int numBytesPerSegment;
+
+    private final int numBuffersPerSegment;
+
     private final TieredStorageMemoryManager storageMemoryManager;
 
     private final boolean isBroadcastOnly;
-
-    public static final int MEMORY_TIER_SEGMENT_BYTES = 10 * 32 * 1024;
-
-    private final int bufferNumberInSegment = MEMORY_TIER_SEGMENT_BYTES / 32 / 1024;
 
     private volatile boolean isReleased;
 
@@ -61,11 +61,14 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
 
     public MemoryTierProducerAgent(
             int numSubpartitions,
+            int numBytesPerSegment,
             TieredStorageMemoryManager storageMemoryManager,
             boolean isBroadcastOnly,
             int bufferSize,
             TieredStorageNettyService nettyService) {
         this.numSubpartitions = numSubpartitions;
+        this.numBytesPerSegment = numBytesPerSegment;
+        this.numBuffersPerSegment = numBytesPerSegment / 32 / 1024;
         this.isBroadcastOnly = isBroadcastOnly;
         this.storageMemoryManager = storageMemoryManager;
 
@@ -102,7 +105,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
                 isConsumerRegistered(subpartitionId)
                         && (storageMemoryManager.getMaxNonReclaimableBuffers(this)
                                         - storageMemoryManager.numOwnerRequestedBuffer(this))
-                                > bufferNumberInSegment;
+                                > numBuffersPerSegment;
         if (canStartNewSegment || forceUseCurrentTier) {
             getSubpartitionMemoryDataManager(subpartitionId.getSubpartitionId())
                     .addSegmentBufferContext(segmentId);
@@ -116,12 +119,6 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
             getSubpartitionMemoryDataManagers()[i].release();
         }
 
-        // release is called when release by scheduler, later than close.
-        // mainly work :
-        // 1. release read scheduler.
-        // 2. delete shuffle file.
-        // 3. release all data in memory.
-
         if (!isReleased) {
             isReleased = true;
         }
@@ -131,7 +128,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
     public boolean tryWrite(int consumerId, Buffer finishedBuffer) {
         if (numSubpartitionEmitBytes[consumerId] != 0
                 && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
-                        > MemoryTierProducerAgent.MEMORY_TIER_SEGMENT_BYTES) {
+                        > numBytesPerSegment) {
             appendEndOfSegmentEvent(consumerId);
             numSubpartitionEmitBytes[consumerId] = 0;
             return false;

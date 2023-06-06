@@ -39,6 +39,12 @@ import java.util.function.BiConsumer;
 
 public class DiskTierFactory implements TierFactory {
 
+    private final int numBytesPerSegment;
+
+    public DiskTierFactory(int numBytesPerSegment) {
+        this.numBytesPerSegment = numBytesPerSegment;
+    }
+
     @Override
     public TierMasterAgent createMasterAgent(
             TieredStorageResourceRegistry resourceRegistry,
@@ -61,6 +67,7 @@ public class DiskTierFactory implements TierFactory {
         return new DiskTierProducerAgent(
                 tierIndex,
                 numSubpartitions,
+                numBytesPerSegment,
                 resultPartitionID,
                 dataFileBasePath,
                 minReservedDiskSpaceFraction,
