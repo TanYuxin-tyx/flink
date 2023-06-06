@@ -30,8 +30,16 @@ public class NettyConnectionWriterImpl implements NettyConnectionWriter {
 
     private final Queue<BufferContext> bufferQueue;
 
+    private final NettyConnectionId connectionId;
+
     public NettyConnectionWriterImpl(Queue<BufferContext> bufferQueue) {
         this.bufferQueue = bufferQueue;
+        this.connectionId = NettyConnectionId.newId();
+    }
+
+    @Override
+    public NettyConnectionId getNettyConnectionId() {
+        return connectionId;
     }
 
     @Override

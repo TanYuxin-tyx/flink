@@ -6,8 +6,9 @@ import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
@@ -32,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -84,8 +86,10 @@ public class ProducerMergePartitionFileReader
 
     private final ResultPartitionID resultPartitionID;
 
-
     private final List<Map<Integer, Integer>> firstBufferContextInSegment;
+
+    private final Map<NettyConnectionId, ProducerMergePartitionSubpartitionReader>
+            readersWithNettyConnectionId = new ConcurrentHashMap<>();
 
     public ProducerMergePartitionFileReader(
             ResultPartitionID partitionId,
@@ -123,9 +127,7 @@ public class ProducerMergePartitionFileReader
 
     @Override
     public void registerNettyService(
-            int subpartitionId,
-            TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId)
-            throws IOException {
+            int subpartitionId, NettyConnectionWriter nettyConnectionWriter) throws IOException {
         synchronized (lock) {
             checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
             lazyInitialize();
@@ -137,13 +139,18 @@ public class ProducerMergePartitionFileReader
                             headerBuf,
                             dataFileChannel,
                             dataIndex,
-                            this::removeSubpartitionReader,
-                            nettyServiceWriterId,
+                            nettyConnectionWriter,
                             nettyService,
                             firstBufferContextInSegment.get(subpartitionId));
             allSubpartitionReaders.add(subpartitionReader);
+            readersWithNettyConnectionId.put(nettyConnectionWriter.getNettyConnectionId(), subpartitionReader);
             triggerReaderRunning();
         }
+    }
+
+    @Override
+    public void releaseReader(NettyConnectionId id) {
+        removeSubpartitionReader(readersWithNettyConnectionId.get(id));
     }
 
     @Override

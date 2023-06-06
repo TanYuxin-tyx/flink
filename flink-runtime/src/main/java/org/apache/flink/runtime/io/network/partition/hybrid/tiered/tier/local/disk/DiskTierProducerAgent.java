@@ -23,9 +23,10 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
@@ -105,16 +106,25 @@ public class DiskTierProducerAgent implements TierProducerAgent {
                         networkBufferSize,
                         storageMemoryManager,
                         partitionFileManager);
+
+        nettyService.registerProducer(
+                TieredStorageIdMappingUtils.convertId(resultPartitionID),
+                this::register,
+                partitionFileReader::releaseReader);
     }
 
-    @Override
-    public void registerNettyService(
-            int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId)
-            throws IOException {
+    private void register(
+            TieredStorageSubpartitionId subpartitionId,
+            NettyConnectionWriter nettyConnectionWriter) {
         if (!Files.isReadable(dataFilePath)) {
-            throw new PartitionNotFoundException(resultPartitionID);
+            throw new RuntimeException(new PartitionNotFoundException(resultPartitionID));
         }
-        partitionFileReader.registerNettyService(subpartitionId, nettyServiceWriterId);
+        try {
+            partitionFileReader.registerNettyService(
+                    subpartitionId.getSubpartitionId(), nettyConnectionWriter);
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to create PartitionFileReader");
+        }
     }
 
     @Override

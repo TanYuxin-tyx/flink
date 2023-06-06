@@ -1,6 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.NettyConnectionId;
 
 import java.io.IOException;
 
@@ -21,8 +22,11 @@ public interface PartitionFileReader {
      */
     void registerNettyService(
             int subpartitionId,
-            TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId)
+            NettyConnectionWriter nettyConnectionWriter)
             throws IOException;
+
+
+    void releaseReader(NettyConnectionId id);
 
     /** Release the reader. */
     void release();

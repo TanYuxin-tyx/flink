@@ -22,6 +22,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
@@ -31,6 +32,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -45,7 +47,11 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final List<Queue<BufferContext>> bufferQueues;
 
-    private final List<Runnable> releaseNotifiers;
+    private final List<Consumer<NettyConnectionId>> listeners;
+
+    private final TieredStorageSubpartitionId subpartitionId;
+
+    private final List<NettyConnectionId> nettyConnectionIds;
 
     private boolean isReleased = false;
 
@@ -58,12 +64,16 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     private int currentSequenceNumber = -1;
 
     public TieredStoreResultSubpartitionView(
+            TieredStorageSubpartitionId subpartitionId,
             BufferAvailabilityListener availabilityListener,
             List<Queue<BufferContext>> bufferQueues,
-            List<Runnable> releaseNotifiers) {
+            List<NettyConnectionId> nettyConnectionIds,
+            List<Consumer<NettyConnectionId>> listeners) {
+        this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
         this.bufferQueues = bufferQueues;
-        this.releaseNotifiers = releaseNotifiers;
+        this.nettyConnectionIds = nettyConnectionIds;
+        this.listeners = listeners;
     }
 
     @Nullable
@@ -73,8 +83,11 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return null;
         }
         Queue<BufferContext> currentQueue = bufferQueues.get(queueIndexContainsCurrentSegment);
-        Runnable releaseNotifier = releaseNotifiers.get(queueIndexContainsCurrentSegment);
-        Optional<Buffer> nextBuffer = readBufferQueue(currentQueue, releaseNotifier);
+        Optional<Buffer> nextBuffer =
+                readBufferQueue(
+                        currentQueue,
+                        listeners.get(queueIndexContainsCurrentSegment),
+                        nettyConnectionIds.get(queueIndexContainsCurrentSegment));
         if (nextBuffer.isPresent()) {
             stopSendingData = nextBuffer.get().getDataType() == END_OF_SEGMENT;
             if (stopSendingData) {
@@ -118,7 +131,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         }
         isReleased = true;
         for (int index = 0; index < bufferQueues.size(); ++index) {
-            releaseQueue(bufferQueues.get(index), releaseNotifiers.get(index));
+            releaseQueue(
+                    bufferQueues.get(index), listeners.get(index), nettyConnectionIds.get(index));
         }
     }
 
@@ -172,17 +186,20 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     // -------------------------------
 
     private Optional<Buffer> readBufferQueue(
-            Queue<BufferContext> bufferQueue, Runnable releaseNotifier) throws IOException {
+            Queue<BufferContext> bufferQueue,
+            Consumer<NettyConnectionId> listener,
+            NettyConnectionId id)
+            throws IOException {
         BufferContext buffer = bufferQueue.poll();
         if (buffer == null) {
             return Optional.empty();
         } else {
             if (buffer.getSegmentId() != -1) {
-                return readBufferQueue(bufferQueue, releaseNotifier);
+                return readBufferQueue(bufferQueue, listener, id);
             }
             Throwable readError = buffer.getError();
             if (readError != null) {
-                releaseQueue(bufferQueue, releaseNotifier);
+                releaseQueue(bufferQueue, listener, id);
                 throw new IOException(readError);
             } else {
                 return Optional.of(checkNotNull(buffer.getBuffer()));
@@ -199,14 +216,17 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         }
     }
 
-    private void releaseQueue(Queue<BufferContext> bufferQueue, Runnable releaseNotifier) {
+    private void releaseQueue(
+            Queue<BufferContext> bufferQueue,
+            Consumer<NettyConnectionId> listener,
+            NettyConnectionId id) {
         BufferContext bufferContext;
         while ((bufferContext = bufferQueue.poll()) != null) {
             if (bufferContext.getBuffer() != null) {
                 checkNotNull(bufferContext.getBuffer()).recycleBuffer();
             }
         }
-        releaseNotifier.run();
+        listener.accept(id);
     }
 
     private boolean findCurrentBufferQueue() {

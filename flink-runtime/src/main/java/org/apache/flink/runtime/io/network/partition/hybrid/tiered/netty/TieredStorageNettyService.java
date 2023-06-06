@@ -18,8 +18,14 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /** {@link TieredStorageNettyService} is used to create writers and readers to netty. */
 public interface TieredStorageNettyService {
@@ -32,8 +38,10 @@ public interface TieredStorageNettyService {
      * @param notifyConnectionDisconnected notifier is used to notify the service is disconnected.
      * @return the writer.
      */
-    NettyConnectionWriter registerProducer(
-            TieredStoragePartitionIdAndSubpartitionId id, Runnable notifyConnectionDisconnected);
+    void registerProducer(
+            TieredStoragePartitionId id,
+            BiConsumer<TieredStorageSubpartitionId, NettyConnectionWriter> writerRegisterCallback,
+            Consumer<NettyConnectionId> connectionDisconnectedListener);
 
     /**
      * {@link TierConsumerAgent} will register to {@link TieredStorageNettyService} and create a

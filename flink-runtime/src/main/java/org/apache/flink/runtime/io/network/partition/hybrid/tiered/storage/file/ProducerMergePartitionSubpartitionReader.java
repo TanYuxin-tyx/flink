@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
@@ -47,7 +48,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 public class ProducerMergePartitionSubpartitionReader
         implements Comparable<ProducerMergePartitionSubpartitionReader> {
 
-    private final TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId;
+    private final NettyConnectionId nettyServiceWriterId;
 
     private final ByteBuffer reusedHeaderBuffer;
 
@@ -80,19 +81,18 @@ public class ProducerMergePartitionSubpartitionReader
             ByteBuffer reusedHeaderBuffer,
             FileChannel dataFileChannel,
             RegionBufferIndexTracker dataIndex,
-            Consumer<ProducerMergePartitionSubpartitionReader> readerReleaser,
-            TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId,
+            NettyConnectionWriter nettyConnectionWriter,
             TieredStorageNettyService nettyService,
             Map<Integer, Integer> firstBufferContextInSegment) {
         this.id = id;
         this.subpartitionId = subpartitionId;
-        this.nettyServiceWriterId = nettyServiceWriterId;
+        this.nettyServiceWriterId = nettyConnectionWriter.getNettyConnectionId();
         this.dataFileChannel = dataFileChannel;
         this.reusedHeaderBuffer = reusedHeaderBuffer;
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.dataIndex = dataIndex;
         this.nettyService = nettyService;
-        this.nettyConnectionWriter = nettyService.registerProducer(nettyServiceWriterId, () -> readerReleaser.accept(this));
+        this.nettyConnectionWriter = nettyConnectionWriter;
         this.regionCache = new RegionCache();
         this.firstBufferContextInSegment = firstBufferContextInSegment;
     }
@@ -198,7 +198,7 @@ public class ProducerMergePartitionSubpartitionReader
         private long offset;
 
         private int getRemainingBuffersInRegion(
-                int bufferIndex, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId) {
+                int bufferIndex, NettyConnectionId nettyServiceWriterId) {
             updateCachedRegionIfNeeded(bufferIndex, nettyServiceWriterId);
             return numReadable;
         }
@@ -225,7 +225,7 @@ public class ProducerMergePartitionSubpartitionReader
         // ------------------------------------------------------------------------
 
         private void updateCachedRegionIfNeeded(
-                int bufferIndex, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId) {
+                int bufferIndex, NettyConnectionId nettyServiceWriterId) {
             if (isInCachedRegion(bufferIndex)) {
                 int numAdvance = bufferIndex - currentBufferIndex;
                 numSkip += numAdvance;

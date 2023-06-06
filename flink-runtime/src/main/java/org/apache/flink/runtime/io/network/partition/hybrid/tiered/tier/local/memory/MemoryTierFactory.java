@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.m
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
@@ -67,6 +68,7 @@ public class MemoryTierFactory implements TierFactory {
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService) {
         return new MemoryTierProducerAgent(
+                TieredStorageIdMappingUtils.convertId(resultPartitionID),
                 numSubpartitions,
                 numBytesPerSegment,
                 storageMemoryManager,

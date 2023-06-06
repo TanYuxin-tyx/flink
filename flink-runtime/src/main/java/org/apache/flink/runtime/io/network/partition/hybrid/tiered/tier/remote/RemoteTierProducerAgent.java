@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -28,7 +27,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
-import java.io.IOException;
 import java.util.Arrays;
 
 /** The DataManager of DFS. */
@@ -63,13 +61,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.subpartitionLastestSegmentId = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
-    }
-
-    @Override
-    public void registerNettyService(
-            int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId)
-            throws IOException {
-        // nothing to do.
     }
 
     @Override

@@ -22,6 +22,8 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
@@ -35,8 +37,7 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.BiConsumer;
-
-import static org.apache.flink.shaded.guava30.com.google.common.base.Preconditions.checkState;
+import java.util.function.Consumer;
 
 /**
  * {@link TieredStorageNettyServiceImpl} is used to create netty services in producer and consumer
@@ -50,7 +51,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     private final Map<TieredStoragePartitionIdAndSubpartitionId, List<Runnable>>
             registeredReleaseNotifiers = new ConcurrentHashMap<>();
 
-    private final Map<TieredStoragePartitionIdAndSubpartitionId, BufferAvailabilityListener>
+    private final Map<NettyConnectionId, BufferAvailabilityListener>
             registeredAvailabilityListeners = new ConcurrentHashMap<>();
 
     private final Map<TieredStoragePartitionIdAndSubpartitionId, Integer> registeredChannelIndexes =
@@ -64,19 +65,27 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
 
     private final Map<TieredStoragePartitionIdAndSubpartitionId, int[]> registeredPriorityArrays =
             new ConcurrentHashMap<>();
+    private final Map<
+                    TieredStoragePartitionId,
+                    List<BiConsumer<TieredStorageSubpartitionId, NettyConnectionWriter>>>
+            registeredWriterCallBacks = new ConcurrentHashMap<>();
+    private final Map<TieredStoragePartitionId, List<Consumer<NettyConnectionId>>>
+            registeredConnectionDisconnectedListener = new ConcurrentHashMap<>();
 
     @Override
-    public NettyConnectionWriter registerProducer(
-            TieredStoragePartitionIdAndSubpartitionId id, Runnable serviceReleaseNotifier) {
-        Queue<BufferContext> bufferQueue = new LinkedBlockingQueue<>();
-        List<Queue<BufferContext>> bufferQueues =
-                registeredBufferQueues.getOrDefault(id, new ArrayList<>());
-        List<Runnable> notifiers = registeredReleaseNotifiers.getOrDefault(id, new ArrayList<>());
-        bufferQueues.add(bufferQueue);
-        notifiers.add(serviceReleaseNotifier);
-        registeredBufferQueues.put(id, bufferQueues);
-        registeredReleaseNotifiers.put(id, notifiers);
-        return new NettyConnectionWriterImpl(bufferQueue);
+    public void registerProducer(
+            TieredStoragePartitionId partitionId,
+            BiConsumer<TieredStorageSubpartitionId, NettyConnectionWriter> writerRegisterCallback,
+            Consumer<NettyConnectionId> connectionDisconnectedListener) {
+        List<BiConsumer<TieredStorageSubpartitionId, NettyConnectionWriter>> callBacks =
+                registeredWriterCallBacks.getOrDefault(partitionId, new ArrayList<>());
+        callBacks.add(writerRegisterCallback);
+        registeredWriterCallBacks.put(partitionId, callBacks);
+        List<Consumer<NettyConnectionId>> listeners =
+                registeredConnectionDisconnectedListener.getOrDefault(
+                        partitionId, new ArrayList<>());
+        listeners.add(connectionDisconnectedListener);
+        registeredConnectionDisconnectedListener.put(partitionId, listeners);
     }
 
     @Override
@@ -91,23 +100,42 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     /**
      * Create a {@link ResultSubpartitionView} for the netty server.
      *
-     * @param id id indicates the id of result partition and subpartition.
+     * @param partitionId partitionId indicates the partitionId of result partition and
+     *     subpartition.
      * @param availabilityListener listener is used to listen the available status of data.
      * @return the {@link TieredStoreResultSubpartitionView}.
      */
     public ResultSubpartitionView createResultSubpartitionView(
-            TieredStoragePartitionIdAndSubpartitionId id,
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
             BufferAvailabilityListener availabilityListener) {
-        List<Queue<BufferContext>> bufferQueues =
-                registeredBufferQueues.getOrDefault(id, new ArrayList<>());
-        List<Runnable> releaseNotifiers =
-                registeredReleaseNotifiers.getOrDefault(id, new ArrayList<>());
-        checkState(bufferQueues.size() == releaseNotifiers.size());
-        registeredBufferQueues.remove(id);
-        registeredReleaseNotifiers.remove(id);
-        registeredAvailabilityListeners.put(id, availabilityListener);
+        List<BiConsumer<TieredStorageSubpartitionId, NettyConnectionWriter>> callBacks =
+                registeredWriterCallBacks.get(partitionId);
+        if (callBacks == null) {
+            return new TieredStoreResultSubpartitionView(
+                    subpartitionId,
+                    availabilityListener,
+                    new ArrayList<>(),
+                    new ArrayList<>(),
+                    new ArrayList<>());
+        }
+        List<Queue<BufferContext>> queues = new ArrayList<>();
+        List<NettyConnectionId> nettyConnectionIds = new ArrayList<>();
+        for (BiConsumer<TieredStorageSubpartitionId, NettyConnectionWriter> callBack : callBacks) {
+            LinkedBlockingQueue<BufferContext> queue = new LinkedBlockingQueue<>();
+            NettyConnectionWriterImpl writer = new NettyConnectionWriterImpl(queue);
+            callBack.accept(subpartitionId, writer);
+            nettyConnectionIds.add(writer.getNettyConnectionId());
+            queues.add(queue);
+            registeredAvailabilityListeners.put(
+                    writer.getNettyConnectionId(), availabilityListener);
+        }
         return new TieredStoreResultSubpartitionView(
-                availabilityListener, bufferQueues, releaseNotifiers);
+                subpartitionId,
+                availabilityListener,
+                queues,
+                nettyConnectionIds,
+                registeredConnectionDisconnectedListener.get(partitionId));
     }
 
     /**
@@ -115,9 +143,8 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
      *
      * @param id id indicates the id of result partition and subpartition.
      */
-    public void notifyResultSubpartitionViewSendBuffer(
-            TieredStoragePartitionIdAndSubpartitionId id) {
-        BufferAvailabilityListener listener = registeredAvailabilityListeners.get(id);
+    public void notifyResultSubpartitionViewSendBuffer(NettyConnectionId connectionId) {
+        BufferAvailabilityListener listener = registeredAvailabilityListeners.get(connectionId);
         if (listener != null) {
             listener.notifyDataAvailable();
         }
