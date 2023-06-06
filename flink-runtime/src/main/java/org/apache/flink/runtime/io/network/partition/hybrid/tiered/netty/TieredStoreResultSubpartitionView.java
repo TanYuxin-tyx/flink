@@ -22,9 +22,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 
 import javax.annotation.Nullable;
 
@@ -32,7 +31,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
-import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -45,11 +43,9 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final BufferAvailabilityListener availabilityListener;
 
-    private final List<Queue<BufferContext>> bufferQueues;
+    private final List<Queue<NettyPayload>> bufferQueues;
 
-    private final List<Consumer<NettyConnectionId>> listeners;
-
-    private final TieredStorageSubpartitionId subpartitionId;
+    private final List<NettyProducerService> producerServices;
 
     private final List<NettyConnectionId> nettyConnectionIds;
 
@@ -64,16 +60,14 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     private int currentSequenceNumber = -1;
 
     public TieredStoreResultSubpartitionView(
-            TieredStorageSubpartitionId subpartitionId,
             BufferAvailabilityListener availabilityListener,
-            List<Queue<BufferContext>> bufferQueues,
+            List<Queue<NettyPayload>> bufferQueues,
             List<NettyConnectionId> nettyConnectionIds,
-            List<Consumer<NettyConnectionId>> listeners) {
-        this.subpartitionId = subpartitionId;
+            List<NettyProducerService> producerServices) {
         this.availabilityListener = availabilityListener;
         this.bufferQueues = bufferQueues;
         this.nettyConnectionIds = nettyConnectionIds;
-        this.listeners = listeners;
+        this.producerServices = producerServices;
     }
 
     @Nullable
@@ -82,11 +76,11 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         if (stopSendingData || !findCurrentBufferQueue()) {
             return null;
         }
-        Queue<BufferContext> currentQueue = bufferQueues.get(queueIndexContainsCurrentSegment);
+        Queue<NettyPayload> currentQueue = bufferQueues.get(queueIndexContainsCurrentSegment);
         Optional<Buffer> nextBuffer =
                 readBufferQueue(
                         currentQueue,
-                        listeners.get(queueIndexContainsCurrentSegment),
+                        producerServices.get(queueIndexContainsCurrentSegment),
                         nettyConnectionIds.get(queueIndexContainsCurrentSegment));
         if (nextBuffer.isPresent()) {
             stopSendingData = nextBuffer.get().getDataType() == END_OF_SEGMENT;
@@ -106,7 +100,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     @Override
     public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
         if (findCurrentBufferQueue()) {
-            Queue<BufferContext> currentQueue = bufferQueues.get(queueIndexContainsCurrentSegment);
+            Queue<NettyPayload> currentQueue = bufferQueues.get(queueIndexContainsCurrentSegment);
             boolean availability = numCreditsAvailable > 0;
             if (numCreditsAvailable <= 0
                     && getBufferQueueNextDataType(currentQueue) == Buffer.DataType.EVENT_BUFFER) {
@@ -132,7 +126,9 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         isReleased = true;
         for (int index = 0; index < bufferQueues.size(); ++index) {
             releaseQueue(
-                    bufferQueues.get(index), listeners.get(index), nettyConnectionIds.get(index));
+                    bufferQueues.get(index),
+                    producerServices.get(index),
+                    nettyConnectionIds.get(index));
         }
     }
 
@@ -186,20 +182,20 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     // -------------------------------
 
     private Optional<Buffer> readBufferQueue(
-            Queue<BufferContext> bufferQueue,
-            Consumer<NettyConnectionId> listener,
+            Queue<NettyPayload> bufferQueue,
+            NettyProducerService producerService,
             NettyConnectionId id)
             throws IOException {
-        BufferContext buffer = bufferQueue.poll();
+        NettyPayload buffer = bufferQueue.poll();
         if (buffer == null) {
             return Optional.empty();
         } else {
             if (buffer.getSegmentId() != -1) {
-                return readBufferQueue(bufferQueue, listener, id);
+                return readBufferQueue(bufferQueue, producerService, id);
             }
             Throwable readError = buffer.getError();
             if (readError != null) {
-                releaseQueue(bufferQueue, listener, id);
+                releaseQueue(bufferQueue, producerService, id);
                 throw new IOException(readError);
             } else {
                 return Optional.of(checkNotNull(buffer.getBuffer()));
@@ -207,8 +203,8 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         }
     }
 
-    private Buffer.DataType getBufferQueueNextDataType(Queue<BufferContext> bufferQueue) {
-        BufferContext nextBuffer = bufferQueue.peek();
+    private Buffer.DataType getBufferQueueNextDataType(Queue<NettyPayload> bufferQueue) {
+        NettyPayload nextBuffer = bufferQueue.peek();
         if (nextBuffer == null || nextBuffer.getBuffer() == null) {
             return Buffer.DataType.NONE;
         } else {
@@ -217,16 +213,16 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     }
 
     private void releaseQueue(
-            Queue<BufferContext> bufferQueue,
-            Consumer<NettyConnectionId> listener,
+            Queue<NettyPayload> bufferQueue,
+            NettyProducerService producerService,
             NettyConnectionId id) {
-        BufferContext bufferContext;
-        while ((bufferContext = bufferQueue.poll()) != null) {
-            if (bufferContext.getBuffer() != null) {
-                checkNotNull(bufferContext.getBuffer()).recycleBuffer();
+        NettyPayload nettyPayload;
+        while ((nettyPayload = bufferQueue.poll()) != null) {
+            if (nettyPayload.getBuffer() != null) {
+                checkNotNull(nettyPayload.getBuffer()).recycleBuffer();
             }
         }
-        listener.accept(id);
+        producerService.disconnectNettyConnection(id);
     }
 
     private boolean findCurrentBufferQueue() {
@@ -234,9 +230,9 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return true;
         }
         for (int queueIndex = 0; queueIndex < bufferQueues.size(); queueIndex++) {
-            BufferContext firstBufferContext = bufferQueues.get(queueIndex).peek();
-            if (firstBufferContext == null
-                    || firstBufferContext.getSegmentId() != requiredSegmentId) {
+            NettyPayload firstNettyPayload = bufferQueues.get(queueIndex).peek();
+            if (firstNettyPayload == null
+                    || firstNettyPayload.getSegmentId() != requiredSegmentId) {
                 continue;
             }
             queueIndexContainsCurrentSegment = queueIndex;

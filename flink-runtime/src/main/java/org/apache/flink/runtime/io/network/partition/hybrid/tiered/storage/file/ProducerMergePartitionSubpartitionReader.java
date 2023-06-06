@@ -28,7 +28,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 
 import java.io.IOException;
@@ -132,15 +132,15 @@ public class ProducerMergePartitionSubpartitionReader
                 buffers.add(segment);
                 throw throwable;
             }
-            BufferContext bufferContext = new BufferContext(buffer, nextToLoad++, subpartitionId);
-            Integer segmentId = firstBufferContextInSegment.get(bufferContext.getBufferIndex());
+            NettyPayload nettyPayload = new NettyPayload(buffer, nextToLoad++, subpartitionId);
+            Integer segmentId = firstBufferContextInSegment.get(nettyPayload.getBufferIndex());
             if(segmentId != null){
-                nettyConnectionWriter.writeBuffer(new BufferContext(segmentId));
+                nettyConnectionWriter.writeBuffer(new NettyPayload(segmentId));
                 ((TieredStorageNettyServiceImpl) nettyService)
                         .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
                 ++numLoaded;
             }
-            nettyConnectionWriter.writeBuffer(bufferContext);
+            nettyConnectionWriter.writeBuffer(nettyPayload);
             regionCache.advance(buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
             ++numLoaded;
         }
@@ -156,7 +156,7 @@ public class ProducerMergePartitionSubpartitionReader
         }
         isFailed = true;
         nettyConnectionWriter.close();
-        nettyConnectionWriter.writeBuffer(new BufferContext(failureCause));
+        nettyConnectionWriter.writeBuffer(new NettyPayload(failureCause));
         ((TieredStorageNettyServiceImpl) nettyService)
                 .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
     }

@@ -25,7 +25,9 @@ import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyProducerService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
@@ -109,8 +111,19 @@ public class DiskTierProducerAgent implements TierProducerAgent {
 
         nettyService.registerProducer(
                 TieredStorageIdMappingUtils.convertId(resultPartitionID),
-                this::register,
-                partitionFileReader::releaseReader);
+                new NettyProducerService() {
+                    @Override
+                    public void registerNettyConnectionWriter(
+                            TieredStorageSubpartitionId subpartitionId,
+                            NettyConnectionWriter nettyConnectionWriter) {
+                        DiskTierProducerAgent.this.register(subpartitionId, nettyConnectionWriter);
+                    }
+
+                    @Override
+                    public void disconnectNettyConnection(NettyConnectionId connectionId) {
+                        partitionFileReader.releaseReader(connectionId);
+                    }
+                });
     }
 
     private void register(

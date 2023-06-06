@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskCacheManagerOperation;
 import org.apache.flink.util.function.SupplierWithException;
 
@@ -56,7 +56,7 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
     }
 
     @Override
-    public List<BufferContext> getBuffersInOrder(int subpartitionId) {
+    public List<NettyPayload> getBuffersInOrder(int subpartitionId) {
         return null;
     }
 

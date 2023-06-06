@@ -29,7 +29,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
@@ -96,9 +96,9 @@ public class MemoryTierSubpartitionProducerAgent {
         Buffer buffer =
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
-        BufferContext bufferContext =
-                new BufferContext(buffer, finishedBufferIndex, subpartitionId);
-        addFinishedBuffer(bufferContext);
+        NettyPayload nettyPayload =
+                new NettyPayload(buffer, finishedBufferIndex, subpartitionId);
+        addFinishedBuffer(nettyPayload);
     }
 
     private void finishCurrentWritingBufferIfNotEmpty() {
@@ -120,24 +120,24 @@ public class MemoryTierSubpartitionProducerAgent {
         Buffer buffer = bufferConsumer.build();
         currentWritingBuffer.close();
         bufferConsumer.close();
-        BufferContext bufferContext =
-                new BufferContext(buffer, finishedBufferIndex, subpartitionId);
-        addFinishedBuffer(bufferContext);
+        NettyPayload nettyPayload =
+                new NettyPayload(buffer, finishedBufferIndex, subpartitionId);
+        addFinishedBuffer(nettyPayload);
     }
 
     void addFinishedBuffer(Buffer buffer) {
-        BufferContext toAddBuffer = new BufferContext(buffer, finishedBufferIndex, subpartitionId);
+        NettyPayload toAddBuffer = new NettyPayload(buffer, finishedBufferIndex, subpartitionId);
         addFinishedBuffer(toAddBuffer);
     }
 
     void addSegmentBufferContext(int segmentId) {
-        BufferContext segmentBufferContext = new BufferContext(segmentId);
-        addFinishedBuffer(segmentBufferContext);
+        NettyPayload segmentNettyPayload = new NettyPayload(segmentId);
+        addFinishedBuffer(segmentNettyPayload);
     }
 
-    private void addFinishedBuffer(BufferContext bufferContext) {
+    private void addFinishedBuffer(NettyPayload nettyPayload) {
         finishedBufferIndex++;
-        nettyConnectionWriter.writeBuffer(bufferContext);
+        nettyConnectionWriter.writeBuffer(nettyPayload);
         if (nettyConnectionWriter.size() <= 1) {
             ((TieredStorageNettyServiceImpl) nettyService)
                     .notifyResultSubpartitionViewSendBuffer(

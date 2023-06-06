@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
@@ -92,17 +92,17 @@ class PartitionFileWriterTest {
     void testProducerMergePartitionFileWriterSpillSuccessfully(boolean isCompressed)
             throws Exception {
         partitionFileWriter = createProducerMergePartitionFileWriter();
-        List<BufferContext> bufferContextList = new ArrayList<>();
-        bufferContextList.addAll(
+        List<NettyPayload> nettyPayloadList = new ArrayList<>();
+        nettyPayloadList.addAll(
                 createBufferContextList(
                         isCompressed,
                         Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
-        bufferContextList.addAll(
+        nettyPayloadList.addAll(
                 createBufferContextList(
                         isCompressed,
                         Arrays.asList(Tuple2.of(4, 0), Tuple2.of(5, 1), Tuple2.of(6, 2))));
         CompletableFuture<Void> spillFinishedFuture =
-                partitionFileWriter.spillAsync(bufferContextList);
+                partitionFileWriter.spillAsync(nettyPayloadList);
         spillFinishedFuture.get();
         checkData(
                 isCompressed,
@@ -118,17 +118,17 @@ class PartitionFileWriterTest {
     @Test
     void testProducerMergePartitionFileWriterRelease() throws Exception {
         partitionFileWriter = createProducerMergePartitionFileWriter();
-        List<BufferContext> bufferContextList =
+        List<NettyPayload> nettyPayloadList =
                 new ArrayList<>(
                         createBufferContextList(
                                 false,
                                 Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
         CompletableFuture<Void> spillFinishedFuture =
-                partitionFileWriter.spillAsync(bufferContextList);
+                partitionFileWriter.spillAsync(nettyPayloadList);
         spillFinishedFuture.get();
         partitionFileWriter.release();
         checkData(false, Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2)));
-        assertThatThrownBy(() -> partitionFileWriter.spillAsync(bufferContextList))
+        assertThatThrownBy(() -> partitionFileWriter.spillAsync(nettyPayloadList))
                 .isInstanceOf(RejectedExecutionException.class);
     }
 
@@ -137,9 +137,9 @@ class PartitionFileWriterTest {
      *
      * @param dataAndIndexes is the list contains pair of (bufferData, bufferIndex).
      */
-    private static List<BufferContext> createBufferContextList(
+    private static List<NettyPayload> createBufferContextList(
             boolean isCompressed, List<Tuple2<Integer, Integer>> dataAndIndexes) {
-        List<BufferContext> bufferContexts = new ArrayList<>();
+        List<NettyPayload> nettyPayloads = new ArrayList<>();
         for (Tuple2<Integer, Integer> dataAndIndex : dataAndIndexes) {
             Buffer.DataType dataType =
                     dataAndIndex.f1 % 2 == 0
@@ -154,9 +154,9 @@ class PartitionFileWriterTest {
             if (isCompressed) {
                 buffer.setCompressed(true);
             }
-            bufferContexts.add(new BufferContext(buffer, dataAndIndex.f1, 0));
+            nettyPayloads.add(new NettyPayload(buffer, dataAndIndex.f1, 0));
         }
-        return Collections.unmodifiableList(bufferContexts);
+        return Collections.unmodifiableList(nettyPayloads);
     }
 
     private void checkData(boolean isCompressed, List<Tuple2<Integer, Integer>> dataAndIndexes)

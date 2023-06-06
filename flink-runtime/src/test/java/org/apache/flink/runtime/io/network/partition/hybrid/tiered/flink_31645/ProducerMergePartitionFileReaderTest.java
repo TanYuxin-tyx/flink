@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskCacheBufferSpiller;
@@ -173,12 +173,12 @@ class ProducerMergePartitionFileReaderTest {
         spiller.spillAsync(generateBufferContexts()).get();
     }
 
-    private List<BufferContext> generateBufferContexts() {
-        List<BufferContext> bufferContexts = new ArrayList<>();
+    private List<NettyPayload> generateBufferContexts() {
+        List<NettyPayload> nettyPayloads = new ArrayList<>();
         for (int subpartitionId = 0; subpartitionId < NUM_SUBPARTITIONS; ++subpartitionId) {
             for (int bufferIndex = 0; bufferIndex <= BUFFER_NUM_PER_SUBPARTITION; ++bufferIndex) {
-                bufferContexts.add(
-                        new BufferContext(
+                nettyPayloads.add(
+                        new NettyPayload(
                                 new NetworkBuffer(
                                         MemorySegmentFactory.wrap(new byte[BUFFER_SIZE]),
                                         FreeingBufferRecycler.INSTANCE),
@@ -186,6 +186,6 @@ class ProducerMergePartitionFileReaderTest {
                                 subpartitionId));
             }
         }
-        return bufferContexts;
+        return nettyPayloads;
     }
 }

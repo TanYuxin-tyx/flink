@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -52,7 +52,7 @@ public class SubpartitionDiskCacheManager {
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
 
-    private final Deque<BufferContext> allBuffers = new LinkedList<>();
+    private final Deque<NettyPayload> allBuffers = new LinkedList<>();
 
     private final Set<Integer> lastBufferIndexOfSegments;
 
@@ -75,15 +75,15 @@ public class SubpartitionDiskCacheManager {
     }
 
     public void append(Buffer buffer) {
-        BufferContext toAddBuffer = new BufferContext(buffer, finishedBufferIndex, targetChannel);
+        NettyPayload toAddBuffer = new NettyPayload(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(toAddBuffer);
     }
 
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    public List<BufferContext> getBuffersSatisfyStatus() {
+    public List<NettyPayload> getBuffersSatisfyStatus() {
         synchronized (allBuffers) {
-            List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
+            List<NettyPayload> targetBuffers = new ArrayList<>(allBuffers);
             allBuffers.clear();
             return targetBuffers;
         }
@@ -112,8 +112,8 @@ public class SubpartitionDiskCacheManager {
         Buffer buffer =
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
-        BufferContext bufferContext = new BufferContext(buffer, finishedBufferIndex, targetChannel);
-        addFinishedBuffer(bufferContext);
+        NettyPayload nettyPayload = new NettyPayload(buffer, finishedBufferIndex, targetChannel);
+        addFinishedBuffer(nettyPayload);
     }
 
     private void finishCurrentWritingBufferIfNotEmpty() {
@@ -135,17 +135,17 @@ public class SubpartitionDiskCacheManager {
         Buffer buffer = bufferConsumer.build();
         currentWritingBuffer.close();
         bufferConsumer.close();
-        BufferContext bufferContext = new BufferContext(buffer, finishedBufferIndex, targetChannel);
-        addFinishedBuffer(bufferContext);
+        NettyPayload nettyPayload = new NettyPayload(buffer, finishedBufferIndex, targetChannel);
+        addFinishedBuffer(nettyPayload);
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    private void addFinishedBuffer(BufferContext bufferContext) {
+    private void addFinishedBuffer(NettyPayload nettyPayload) {
         synchronized (allBuffers) {
             finishedBufferIndex++;
-            allBuffers.add(bufferContext);
+            allBuffers.add(nettyPayload);
         }
     }
 }

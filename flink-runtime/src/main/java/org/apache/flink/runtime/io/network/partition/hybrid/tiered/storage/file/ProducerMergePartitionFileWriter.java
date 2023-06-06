@@ -2,7 +2,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
@@ -64,7 +64,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
 
     @Override
     public CompletableFuture<Void> spillAsync(
-            int subpartitionId, int segmentId, List<BufferContext> bufferToSpill) {
+            int subpartitionId, int segmentId, List<NettyPayload> bufferToSpill) {
         // nothing to do.
         return null;
     }
@@ -76,21 +76,21 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     }
 
     @Override
-    public CompletableFuture<Void> spillAsync(List<BufferContext> bufferToSpill) {
+    public CompletableFuture<Void> spillAsync(List<NettyPayload> bufferToSpill) {
         CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
         ioExecutor.execute(() -> spill(bufferToSpill, spillSuccessNotifier));
         return spillSuccessNotifier;
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
-    private void spill(List<BufferContext> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
+    private void spill(List<NettyPayload> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
         try {
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers = new ArrayList<>();
             long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
             writeBuffers(toWrite, expectedBytes);
             regionBufferIndexTracker.addBuffers(spilledBuffers);
-            for (BufferContext bufferContext : toWrite) {
-                bufferContext.getBuffer().recycleBuffer();
+            for (NettyPayload nettyPayload : toWrite) {
+                nettyPayload.getBuffer().recycleBuffer();
             }
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
@@ -107,16 +107,16 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
      * @return total bytes(header size + buffer size) of all buffers to write.
      */
     private long createSpilledBuffersAndGetTotalBytes(
-            List<BufferContext> toWrite,
+            List<NettyPayload> toWrite,
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
-        for (BufferContext bufferContext : toWrite) {
-            Buffer buffer = bufferContext.getBuffer();
+        for (NettyPayload nettyPayload : toWrite) {
+            Buffer buffer = nettyPayload.getBuffer();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
                     new RegionBufferIndexTracker.SpilledBuffer(
-                            bufferContext.getSubpartitionId(),
-                            bufferContext.getBufferIndex(),
+                            nettyPayload.getSubpartitionId(),
+                            nettyPayload.getBufferIndex(),
                             totalBytesWritten + expectedBytes));
             expectedBytes += numBytes;
         }
@@ -124,13 +124,13 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     }
 
     /** Write all buffers to disk. */
-    private void writeBuffers(List<BufferContext> bufferContexts, long expectedBytes)
+    private void writeBuffers(List<NettyPayload> nettyPayloads, long expectedBytes)
             throws IOException {
-        if (bufferContexts.isEmpty()) {
+        if (nettyPayloads.isEmpty()) {
             return;
         }
 
-        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferContexts);
+        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(nettyPayloads);
 
         BufferReaderWriterUtil.writeBuffers(dataFileChannel, expectedBytes, bufferWithHeaders);
         totalBytesWritten += expectedBytes;

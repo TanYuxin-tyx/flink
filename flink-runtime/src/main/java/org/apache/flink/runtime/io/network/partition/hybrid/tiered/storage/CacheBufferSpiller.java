@@ -26,7 +26,7 @@ public interface CacheBufferSpiller {
 
     void startSegment(int segmentIndex);
 
-    CompletableFuture<Void> spillAsync(List<BufferContext> bufferToSpill);
+    CompletableFuture<Void> spillAsync(List<NettyPayload> bufferToSpill);
 
     void finishSegment(int segmentIndex);
 

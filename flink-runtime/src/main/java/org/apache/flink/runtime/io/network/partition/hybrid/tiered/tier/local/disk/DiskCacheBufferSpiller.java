@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.d
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferSpiller;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
@@ -88,7 +88,7 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     public void startSegment(int segmentIndex) {}
 
     @Override
-    public CompletableFuture<Void> spillAsync(List<BufferContext> bufferToSpill) {
+    public CompletableFuture<Void> spillAsync(List<NettyPayload> bufferToSpill) {
         CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
         ioExecutor.execute(() -> spill(bufferToSpill, spillSuccessNotifier));
         return spillSuccessNotifier;
@@ -98,7 +98,7 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     public void finishSegment(int segmentIndex) {}
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
-    private void spill(List<BufferContext> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
+    private void spill(List<NettyPayload> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
         try {
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers = new ArrayList<>();
             long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
@@ -108,8 +108,8 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
             // note that the ownership of these buffers is transferred to the MemoryDataManager,
             // which controls data's life cycle.
             regionBufferIndexTracker.addBuffers(spilledBuffers);
-            for (BufferContext bufferContext : toWrite) {
-                bufferContext.getBuffer().recycleBuffer();
+            for (NettyPayload nettyPayload : toWrite) {
+                nettyPayload.getBuffer().recycleBuffer();
             }
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
@@ -127,10 +127,10 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
      * @return total bytes(header size + buffer size) of all buffers to write.
      */
     private long createSpilledBuffersAndGetTotalBytes(
-            List<BufferContext> toWrite,
+            List<NettyPayload> toWrite,
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
-        for (BufferContext bufferWithIdentity : toWrite) {
+        for (NettyPayload bufferWithIdentity : toWrite) {
             Buffer buffer = bufferWithIdentity.getBuffer();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
@@ -144,13 +144,13 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
     }
 
     /** Write all buffers to disk. */
-    private void writeBuffers(List<BufferContext> bufferContexts, long expectedBytes)
+    private void writeBuffers(List<NettyPayload> nettyPayloads, long expectedBytes)
             throws IOException {
-        if (bufferContexts.isEmpty()) {
+        if (nettyPayloads.isEmpty()) {
             return;
         }
 
-        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferContexts);
+        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(nettyPayloads);
 
         BufferReaderWriterUtil.writeBuffers(dataFileChannel, expectedBytes, bufferWithHeaders);
         totalBytesWritten += expectedBytes;

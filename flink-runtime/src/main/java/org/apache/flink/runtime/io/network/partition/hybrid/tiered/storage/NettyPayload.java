@@ -23,10 +23,10 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import javax.annotation.Nullable;
 
 /**
- * The {@link BufferContext} represents a combination of buffer, buffer index, and its subpartition
+ * The {@link NettyPayload} represents a combination of buffer, buffer index, and its subpartition
  * id, and it could also indicate an error or a segment id.
  */
-public class BufferContext {
+public class NettyPayload {
 
     private Buffer buffer;
 
@@ -39,19 +39,19 @@ public class BufferContext {
     private int segmentId = -1;
 
     // If the buffer is not null, the error must be null.
-    public BufferContext(Buffer buffer, int bufferIndex, int subpartitionId) {
+    public NettyPayload(Buffer buffer, int bufferIndex, int subpartitionId) {
         this.buffer = buffer;
         this.bufferIndex = bufferIndex;
         this.subpartitionId = subpartitionId;
     }
 
     // If the error is not null, other elements must be null.
-    public BufferContext(Throwable error) {
+    public NettyPayload(Throwable error) {
         this.error = error;
     }
 
     // If the segment id is not equal to -1, other elements must be null.
-    public BufferContext(int segmentId) {
+    public NettyPayload(int segmentId) {
         this.segmentId = segmentId;
     }
 

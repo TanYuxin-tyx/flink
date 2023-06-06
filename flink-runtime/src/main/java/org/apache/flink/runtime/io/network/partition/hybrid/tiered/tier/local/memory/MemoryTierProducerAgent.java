@@ -23,7 +23,9 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyProducerService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
@@ -80,7 +82,22 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
         Arrays.fill(numSubpartitionEmitBytes, 0);
         this.nettyServiceRegistered = new boolean[numSubpartitions];
         this.subpartitionProducerAgents = new MemoryTierSubpartitionProducerAgent[numSubpartitions];
-        nettyService.registerProducer(partitionId, this::register, ignored -> {});
+        nettyService.registerProducer(
+                partitionId,
+                new NettyProducerService() {
+                    @Override
+                    public void registerNettyConnectionWriter(
+                            TieredStorageSubpartitionId subpartitionId,
+                            NettyConnectionWriter nettyConnectionWriter) {
+                        MemoryTierProducerAgent.this.register(
+                                subpartitionId, nettyConnectionWriter);
+                    }
+
+                    @Override
+                    public void disconnectNettyConnection(NettyConnectionId connectionId) {
+                        // nothing to do;
+                    }
+                });
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionProducerAgents[subpartitionId] =
                     new MemoryTierSubpartitionProducerAgent(

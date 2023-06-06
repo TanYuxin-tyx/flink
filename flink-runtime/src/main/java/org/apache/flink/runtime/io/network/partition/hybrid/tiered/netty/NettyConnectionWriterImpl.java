@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 
 import java.util.Queue;
 
@@ -27,11 +27,11 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /** The default implementation of {@link NettyConnectionWriter}. */
 public class NettyConnectionWriterImpl implements NettyConnectionWriter {
 
-    private final Queue<BufferContext> bufferQueue;
+    private final Queue<NettyPayload> bufferQueue;
 
     private final NettyConnectionId connectionId;
 
-    public NettyConnectionWriterImpl(Queue<BufferContext> bufferQueue) {
+    public NettyConnectionWriterImpl(Queue<NettyPayload> bufferQueue) {
         this.bufferQueue = bufferQueue;
         this.connectionId = NettyConnectionId.newId();
     }
@@ -47,16 +47,16 @@ public class NettyConnectionWriterImpl implements NettyConnectionWriter {
     }
 
     @Override
-    public void writeBuffer(BufferContext bufferContext) {
-        bufferQueue.add(bufferContext);
+    public void writeBuffer(NettyPayload nettyPayload) {
+        bufferQueue.add(nettyPayload);
     }
 
     @Override
     public void close() {
-        BufferContext bufferContext;
-        while ((bufferContext = bufferQueue.poll()) != null) {
-            if (bufferContext.getBuffer() != null) {
-                checkNotNull(bufferContext.getBuffer()).recycleBuffer();
+        NettyPayload nettyPayload;
+        while ((nettyPayload = bufferQueue.poll()) != null) {
+            if (nettyPayload.getBuffer() != null) {
+                checkNotNull(nettyPayload.getBuffer()).recycleBuffer();
             }
         }
     }

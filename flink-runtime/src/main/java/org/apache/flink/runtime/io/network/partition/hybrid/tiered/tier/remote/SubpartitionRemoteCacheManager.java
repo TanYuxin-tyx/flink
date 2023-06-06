@@ -22,7 +22,7 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
 import org.apache.flink.util.ExceptionUtils;
@@ -53,7 +53,7 @@ public class SubpartitionRemoteCacheManager {
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
 
-    private final Deque<BufferContext> allBuffers = new LinkedList<>();
+    private final Deque<NettyPayload> allBuffers = new LinkedList<>();
 
     private final PartitionFileWriter partitionFileWriter;
 
@@ -101,8 +101,8 @@ public class SubpartitionRemoteCacheManager {
             ExceptionUtils.rethrow(e);
         }
         if (!isReleased) {
-            for (BufferContext bufferContext : allBuffers) {
-                Buffer buffer = bufferContext.getBuffer();
+            for (NettyPayload nettyPayload : allBuffers) {
+                Buffer buffer = nettyPayload.getBuffer();
                 if (!buffer.isRecycled()) {
                     buffer.recycleBuffer();
                 }
@@ -117,35 +117,35 @@ public class SubpartitionRemoteCacheManager {
     // ------------------------------------------------------------------------
 
     void addFinishedBuffer(Buffer buffer) {
-        BufferContext toAddBuffer = new BufferContext(buffer, finishedBufferIndex, targetChannel);
+        NettyPayload toAddBuffer = new NettyPayload(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(toAddBuffer);
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")
     // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
     // subpartitionLock.
-    private void addFinishedBuffer(BufferContext bufferContext) {
+    private void addFinishedBuffer(NettyPayload nettyPayload) {
         synchronized (allBuffers) {
             finishedBufferIndex++;
-            allBuffers.add(bufferContext);
+            allBuffers.add(nettyPayload);
         }
     }
 
     private int flushCachedBuffers() {
-        List<BufferContext> bufferContexts = generateToSpillBuffersWithId();
-        if (bufferContexts.size() > 0) {
+        List<NettyPayload> nettyPayloads = generateToSpillBuffersWithId();
+        if (nettyPayloads.size() > 0) {
             synchronized (currentSegmentId) {
                 lastSpillFuture =
                         partitionFileWriter.spillAsync(
-                                targetChannel, currentSegmentId.get(), bufferContexts);
+                                targetChannel, currentSegmentId.get(), nettyPayloads);
             }
         }
-        return bufferContexts.size();
+        return nettyPayloads.size();
     }
 
-    private List<BufferContext> generateToSpillBuffersWithId() {
+    private List<NettyPayload> generateToSpillBuffersWithId() {
         synchronized (allBuffers) {
-            List<BufferContext> targetBuffers = new ArrayList<>(allBuffers);
+            List<NettyPayload> targetBuffers = new ArrayList<>(allBuffers);
             allBuffers.clear();
             return targetBuffers;
         }

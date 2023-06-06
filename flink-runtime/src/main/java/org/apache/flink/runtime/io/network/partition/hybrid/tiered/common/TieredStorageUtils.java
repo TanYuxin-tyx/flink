@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
@@ -59,11 +59,11 @@ public class TieredStorageUtils {
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
     };
 
-    public static ByteBuffer[] generateBufferWithHeaders(List<BufferContext> bufferContexts) {
-        ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * bufferContexts.size()];
+    public static ByteBuffer[] generateBufferWithHeaders(List<NettyPayload> nettyPayloads) {
+        ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * nettyPayloads.size()];
 
-        for (int i = 0; i < bufferContexts.size(); i++) {
-            Buffer buffer = bufferContexts.get(i).getBuffer();
+        for (int i = 0; i < nettyPayloads.size(); i++) {
+            Buffer buffer = nettyPayloads.get(i).getBuffer();
             setBufferWithHeader(buffer, bufferWithHeaders, 2 * i);
         }
         return bufferWithHeaders;

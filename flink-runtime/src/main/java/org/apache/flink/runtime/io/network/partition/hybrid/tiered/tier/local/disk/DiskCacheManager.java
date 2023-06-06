@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.d
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
@@ -119,7 +119,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
 
     // Write lock should be acquired before invoke this method.
     @Override
-    public List<BufferContext> getBuffersInOrder(int subpartitionId) {
+    public List<NettyPayload> getBuffersInOrder(int subpartitionId) {
         SubpartitionDiskCacheManager targetSubpartitionDataManager =
                 getSubpartitionCacheDataManager(subpartitionId);
         return targetSubpartitionDataManager.getBuffersSatisfyStatus();
@@ -151,13 +151,13 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
         if (changeFlushState && !hasFlushCompleted.isDone()) {
             return;
         }
-        List<BufferContext> bufferContexts = new ArrayList<>();
+        List<NettyPayload> nettyPayloads = new ArrayList<>();
         for (int subpartitionId = 0; subpartitionId < getNumSubpartitions(); subpartitionId++) {
-            bufferContexts.addAll(getBuffersInOrder(subpartitionId));
+            nettyPayloads.addAll(getBuffersInOrder(subpartitionId));
         }
-        if (!bufferContexts.isEmpty()) {
+        if (!nettyPayloads.isEmpty()) {
             CompletableFuture<Void> spillSuccessNotifier =
-                    partitionFileWriter.spillAsync(bufferContexts);
+                    partitionFileWriter.spillAsync(nettyPayloads);
             if (changeFlushState) {
                 hasFlushCompleted = spillSuccessNotifier;
             }

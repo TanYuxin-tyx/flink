@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
 /** {@link NettyConnectionWriter} is used by {@link TierProducerAgent} to write buffer to netty. */
@@ -26,9 +26,9 @@ public interface NettyConnectionWriter {
     /**
      * Write a buffer.
      *
-     * @param bufferContext buffer context represents the buffer.
+     * @param nettyPayload buffer context represents the buffer.
      */
-    void writeBuffer(BufferContext bufferContext);
+    void writeBuffer(NettyPayload nettyPayload);
 
 
     NettyConnectionId getNettyConnectionId();

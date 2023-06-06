@@ -1,6 +1,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -11,10 +11,10 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface PartitionFileWriter {
 
-    CompletableFuture<Void> spillAsync(List<BufferContext> bufferToSpill);
+    CompletableFuture<Void> spillAsync(List<NettyPayload> bufferToSpill);
 
     CompletableFuture<Void> spillAsync(
-            int subpartitionId, int segmentId, List<BufferContext> bufferToSpill);
+            int subpartitionId, int segmentId, List<NettyPayload> bufferToSpill);
 
     CompletableFuture<Void> finishSegment(int subpartitionId, int segmentId);
 

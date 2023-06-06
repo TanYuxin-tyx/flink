@@ -18,31 +18,29 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
-/** {@link TieredStorageNettyService} is used to create writers and readers to netty. */
-public interface TieredStorageNettyService {
+/**
+ * {@link NettyProducerService} is used as the callback to register {@link NettyConnectionWriter}
+ * and disconnect netty connection in {@link TierProducerAgent}.
+ */
+public interface NettyProducerService {
 
     /**
-     * {@link TierProducerAgent} will register to {@link TieredStorageNettyService} and create a
-     * {@link NettyConnectionWriter}.
+     * Register a {@link NettyConnectionWriter} for a subpartition.
      *
-     * @param id id is used as the unique id of writer.
-     * @return the writer.
+     * @param subpartitionId subpartition id indicates the id of subpartition.
+     * @param nettyConnectionWriter writer is used to write buffers to netty connection.
      */
-    void registerProducer(
-            TieredStoragePartitionId partitionId, NettyProducerService producerService);
+    void registerNettyConnectionWriter(
+            TieredStorageSubpartitionId subpartitionId,
+            NettyConnectionWriter nettyConnectionWriter);
 
     /**
-     * {@link TierConsumerAgent} will register to {@link TieredStorageNettyService} and create a
-     * {@link NettyConnectionReader}.
+     * Disconnect the netty connection related to the {@link NettyConnectionId}.
      *
-     * @param id id is used as the unique id of reader.
-     * @return the reader.
+     * @param connectionId connection id is the id of connection.
      */
-    NettyConnectionReader registerConsumer(
-            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId);
+    void disconnectNettyConnection(NettyConnectionId connectionId);
 }
