@@ -36,8 +36,7 @@ import java.util.Arrays;
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 
 /** The DataManager of LOCAL file. */
-public class MemoryTierProducerAgent
-        implements TierProducerAgent, MemoryTierProducerAgentOperation {
+public class MemoryTierProducerAgent implements TierProducerAgent {
 
     private final int numSubpartitions;
 
@@ -82,7 +81,7 @@ public class MemoryTierProducerAgent
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionMemoryDataManagers[subpartitionId] =
                     new SubpartitionMemoryDataManager(
-                            subpartitionId, bufferSize, bufferCompressor, this, nettyService);
+                            subpartitionId, bufferSize, bufferCompressor, nettyService);
         }
     }
 
@@ -111,7 +110,8 @@ public class MemoryTierProducerAgent
                                         - storageMemoryManager.numOwnerRequestedBuffer(this))
                                 > bufferNumberInSegment;
         if (canStartNewSegment || forceUseCurrentTier) {
-            getSubpartitionMemoryDataManager(subpartitionId.getSubpartitionId()).addSegmentBufferContext(segmentId);
+            getSubpartitionMemoryDataManager(subpartitionId.getSubpartitionId())
+                    .addSegmentBufferContext(segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;
     }

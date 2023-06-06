@@ -36,11 +36,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Buffe
 import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Queue;
-import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -52,15 +49,11 @@ public class SubpartitionMemoryDataManager {
 
     private final int bufferSize;
 
-    private final MemoryTierProducerAgentOperation memoryTierProducerAgentOperation;
-
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
-
-    private final Set<TieredStoragePartitionIdAndSubpartitionId> consumerSet;
 
     @Nullable private final BufferCompressor bufferCompressor;
 
@@ -74,13 +67,10 @@ public class SubpartitionMemoryDataManager {
             int subpartitionId,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,
-            MemoryTierProducerAgentOperation memoryTierProducerAgentOperation,
             TieredStorageNettyService nettyService) {
         this.subpartitionId = subpartitionId;
         this.bufferSize = bufferSize;
-        this.memoryTierProducerAgentOperation = memoryTierProducerAgentOperation;
         this.bufferCompressor = bufferCompressor;
-        this.consumerSet = Collections.synchronizedSet(new HashSet<>());
         this.nettyService = nettyService;
     }
 
@@ -88,7 +78,8 @@ public class SubpartitionMemoryDataManager {
     //  Called by MemoryDataManager
     // ------------------------------------------------------------------------
 
-    public void registerNettyService(TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId) {
+    public void registerNettyService(
+            TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId) {
         this.nettyServiceWriterId = nettyServiceWriterId;
         this.nettyConnectionWriter = nettyService.registerProducer(nettyServiceWriterId, () -> {});
     }
@@ -98,7 +89,7 @@ public class SubpartitionMemoryDataManager {
     }
 
     public void release() {
-        if(nettyConnectionWriter != null){
+        if (nettyConnectionWriter != null) {
             nettyConnectionWriter.close();
         }
     }
