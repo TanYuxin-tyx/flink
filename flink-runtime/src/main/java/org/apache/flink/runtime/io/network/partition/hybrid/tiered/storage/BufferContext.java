@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
 
 /**
  * The {@link BufferContext} represents a combination of buffer, buffer index, and its subpartition
- * id, and it could also indicate a error.
+ * id, and it could also indicate an error or a segment id.
  */
 public class BufferContext {
 
