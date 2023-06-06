@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
@@ -35,11 +34,10 @@ public interface TieredStorageNettyService {
      * {@link NettyConnectionWriter}.
      *
      * @param id id is used as the unique id of writer.
-     * @param notifyConnectionDisconnected notifier is used to notify the service is disconnected.
      * @return the writer.
      */
     void registerProducer(
-            TieredStoragePartitionId id,
+            TieredStoragePartitionId partitionId,
             BiConsumer<TieredStorageSubpartitionId, NettyConnectionWriter> writerRegisterCallback,
             Consumer<NettyConnectionId> connectionDisconnectedListener);
 
@@ -50,5 +48,6 @@ public interface TieredStorageNettyService {
      * @param id id is used as the unique id of reader.
      * @return the reader.
      */
-    NettyConnectionReader registerConsumer(TieredStoragePartitionIdAndSubpartitionId id);
+    NettyConnectionReader registerConsumer(
+            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId);
 }

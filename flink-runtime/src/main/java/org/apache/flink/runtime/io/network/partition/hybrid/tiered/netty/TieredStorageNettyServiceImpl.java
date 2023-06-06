@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
@@ -24,10 +24,6 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
 import java.util.ArrayList;
@@ -39,38 +35,37 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import static org.apache.flink.util.Preconditions.checkState;
+
 /**
  * {@link TieredStorageNettyServiceImpl} is used to create netty services in producer and consumer
  * side.
  */
 public class TieredStorageNettyServiceImpl implements TieredStorageNettyService {
 
-    private final Map<TieredStoragePartitionIdAndSubpartitionId, List<Queue<BufferContext>>>
-            registeredBufferQueues = new ConcurrentHashMap<>();
-
-    private final Map<TieredStoragePartitionIdAndSubpartitionId, List<Runnable>>
-            registeredReleaseNotifiers = new ConcurrentHashMap<>();
-
     private final Map<NettyConnectionId, BufferAvailabilityListener>
             registeredAvailabilityListeners = new ConcurrentHashMap<>();
 
-    private final Map<TieredStoragePartitionIdAndSubpartitionId, Integer> registeredChannelIndexes =
-            new ConcurrentHashMap<>();
-
-    private final Map<TieredStoragePartitionIdAndSubpartitionId, InputChannel[]>
-            registeredInputChannels = new ConcurrentHashMap<>();
-
-    private final Map<TieredStoragePartitionIdAndSubpartitionId, BiConsumer<Integer, Boolean>>
-            registeredQueueChannelCallbacks = new ConcurrentHashMap<>();
-
-    private final Map<TieredStoragePartitionIdAndSubpartitionId, int[]> registeredPriorityArrays =
-            new ConcurrentHashMap<>();
     private final Map<
                     TieredStoragePartitionId,
                     List<BiConsumer<TieredStorageSubpartitionId, NettyConnectionWriter>>>
             registeredWriterCallBacks = new ConcurrentHashMap<>();
     private final Map<TieredStoragePartitionId, List<Consumer<NettyConnectionId>>>
             registeredConnectionDisconnectedListener = new ConcurrentHashMap<>();
+
+    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
+            registeredChannelIndexes = new ConcurrentHashMap<>();
+
+    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, InputChannel[]>>
+            registeredInputChannels = new ConcurrentHashMap<>();
+
+    private final Map<
+                    TieredStoragePartitionId,
+                    Map<TieredStorageSubpartitionId, BiConsumer<Integer, Boolean>>>
+            registeredQueueChannelCallbacks = new ConcurrentHashMap<>();
+
+    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, int[]>>
+            registeredPriorityArrays = new ConcurrentHashMap<>();
 
     @Override
     public void registerProducer(
@@ -89,12 +84,28 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     }
 
     @Override
-    public NettyConnectionReader registerConsumer(TieredStoragePartitionIdAndSubpartitionId id) {
+    public NettyConnectionReader registerConsumer(
+            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
+        Integer channelIndex = registeredChannelIndexes.get(partitionId).remove(subpartitionId);
+        if (registeredChannelIndexes.get(partitionId).isEmpty()) {
+            registeredChannelIndexes.remove(partitionId);
+        }
+        InputChannel[] inputChannels =
+                registeredInputChannels.get(partitionId).remove(subpartitionId);
+        if (registeredInputChannels.get(partitionId).isEmpty()) {
+            registeredInputChannels.remove(partitionId);
+        }
+        BiConsumer<Integer, Boolean> queueChannelCallback =
+                registeredQueueChannelCallbacks.get(partitionId).remove(subpartitionId);
+        if (registeredQueueChannelCallbacks.get(partitionId).isEmpty()) {
+            registeredQueueChannelCallbacks.remove(partitionId);
+        }
+        int[] priorityArray = registeredPriorityArrays.get(partitionId).remove(subpartitionId);
+        if (registeredPriorityArrays.get(partitionId).isEmpty()) {
+            registeredPriorityArrays.remove(partitionId);
+        }
         return new NettyConnectionReaderImpl(
-                registeredChannelIndexes.remove(id),
-                registeredInputChannels.remove(id),
-                registeredQueueChannelCallbacks.remove(id),
-                registeredPriorityArrays.remove(id));
+                channelIndex, inputChannels, queueChannelCallback, priorityArray);
     }
 
     /**
@@ -158,16 +169,32 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
      * @param lastPrioritySequenceNumber the array to record the priority sequence number.
      */
     public void setUpInputChannels(
-            TieredStoragePartitionIdAndSubpartitionId[] ids,
+            TieredStoragePartitionId[] partitionIds,
+            TieredStorageSubpartitionId[] subpartitionIds,
             InputChannel[] inputChannels,
             BiConsumer<Integer, Boolean> queueChannelCallback,
             int[] lastPrioritySequenceNumber) {
-        for (int index = 0; index < ids.length; ++index) {
-            TieredStoragePartitionIdAndSubpartitionId id = ids[index];
-            registeredChannelIndexes.put(id, index);
-            registeredInputChannels.put(id, inputChannels);
-            registeredQueueChannelCallbacks.put(id, queueChannelCallback);
-            registeredPriorityArrays.put(id, lastPrioritySequenceNumber);
+        checkState(partitionIds.length == subpartitionIds.length);
+        for (int index = 0; index < partitionIds.length; ++index) {
+            TieredStoragePartitionId partitionId = partitionIds[index];
+            TieredStorageSubpartitionId subpartitionId = subpartitionIds[index];
+            Map<TieredStorageSubpartitionId, Integer> channelIndexes =
+                    registeredChannelIndexes.getOrDefault(partitionId, new ConcurrentHashMap<>());
+            channelIndexes.put(subpartitionId, index);
+            registeredChannelIndexes.put(partitionId, channelIndexes);
+            Map<TieredStorageSubpartitionId, InputChannel[]> allInputChannels =
+                    registeredInputChannels.getOrDefault(partitionId, new ConcurrentHashMap<>());
+            allInputChannels.put(subpartitionId, inputChannels);
+            registeredInputChannels.put(partitionId, allInputChannels);
+            Map<TieredStorageSubpartitionId, BiConsumer<Integer, Boolean>> callBacks =
+                    registeredQueueChannelCallbacks.getOrDefault(
+                            partitionId, new ConcurrentHashMap<>());
+            callBacks.put(subpartitionId, queueChannelCallback);
+            registeredQueueChannelCallbacks.put(partitionId, callBacks);
+            Map<TieredStorageSubpartitionId, int[]> priorityArrays =
+                    registeredPriorityArrays.getOrDefault(partitionId, new ConcurrentHashMap<>());
+            priorityArrays.put(subpartitionId, lastPrioritySequenceNumber);
+            registeredPriorityArrays.put(partitionId, priorityArrays);
         }
     }
 }

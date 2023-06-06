@@ -1,7 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.NettyConnectionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 
 import java.io.IOException;
 

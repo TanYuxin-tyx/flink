@@ -44,10 +44,10 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -281,12 +281,14 @@ public class SingleInputGate extends IndexedInputGate {
         BiConsumer<Integer, Boolean> queueChannelCallBack =
                 (subpartitionId, priority) ->
                         queueChannel(channels[subpartitionId], null, priority);
-
-        TieredStoragePartitionIdAndSubpartitionId[] tieredStoragePartitionIdAndSubpartitionIds =
-                getTieredStoragePartitionIdAndSubpartitionIds(resultPartitionIds, subpartitionIds);
+        TieredStoragePartitionId[] tieredResultPartitionIds =
+                getTieredResultPartitionIds(resultPartitionIds);
+        TieredStorageSubpartitionId[] tieredSubPartitionIds =
+                getTieredSubPartitionIds(subpartitionIds);
         ((TieredStorageNettyServiceImpl) nettyService)
                 .setUpInputChannels(
-                        tieredStoragePartitionIdAndSubpartitionIds,
+                        tieredResultPartitionIds,
+                        tieredSubPartitionIds,
                         channels,
                         queueChannelCallBack,
                         lastPrioritySequenceNumber);
@@ -300,22 +302,26 @@ public class SingleInputGate extends IndexedInputGate {
                                 (NetworkBufferPool) memorySegmentProvider,
                                 baseRemoteStoragePath,
                                 nettyService,
-                                tieredStoragePartitionIdAndSubpartitionIds,
+                                tieredResultPartitionIds,
+                                tieredSubPartitionIds,
                                 isUpstreamBroadcastOnly,
                                 queueChannelCallBack)
                         : null;
     }
 
-    private TieredStoragePartitionIdAndSubpartitionId[]
-            getTieredStoragePartitionIdAndSubpartitionIds(
-                    List<ResultPartitionID> resultPartitionIds, List<Integer> subpartitionIds) {
-        TieredStoragePartitionIdAndSubpartitionId[] ids =
-                new TieredStoragePartitionIdAndSubpartitionId[resultPartitionIds.size()];
+    private TieredStoragePartitionId[] getTieredResultPartitionIds(
+            List<ResultPartitionID> resultPartitionIds) {
+        TieredStoragePartitionId[] ids = new TieredStoragePartitionId[resultPartitionIds.size()];
         for (int index = 0; index < ids.length; ++index) {
-            ids[index] =
-                    TieredStoragePartitionIdAndSubpartitionId.create(
-                            TieredStorageIdMappingUtils.convertId(resultPartitionIds.get(index)),
-                            new TieredStorageSubpartitionId(subpartitionIds.get(index)));
+            ids[index] = TieredStorageIdMappingUtils.convertId(resultPartitionIds.get(index));
+        }
+        return ids;
+    }
+
+    private TieredStorageSubpartitionId[] getTieredSubPartitionIds(List<Integer> subpartitionIds) {
+        TieredStorageSubpartitionId[] ids = new TieredStorageSubpartitionId[subpartitionIds.size()];
+        for (int index = 0; index < ids.length; ++index) {
+            ids[index] = new TieredStorageSubpartitionId(subpartitionIds.get(index));
         }
         return ids;
     }

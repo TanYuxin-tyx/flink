@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import java.util.Objects;
 

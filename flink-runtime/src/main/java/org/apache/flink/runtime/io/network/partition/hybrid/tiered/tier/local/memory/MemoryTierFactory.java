@@ -85,7 +85,6 @@ public class MemoryTierFactory implements TierFactory {
             List<ResultPartitionID> resultPartitionIDs,
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
-            TieredStoragePartitionIdAndSubpartitionId[] ids,
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack,
