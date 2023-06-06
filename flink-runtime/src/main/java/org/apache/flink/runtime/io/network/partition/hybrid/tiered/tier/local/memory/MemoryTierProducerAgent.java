@@ -102,7 +102,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
             return false;
         }
         boolean canStartNewSegment =
-                isConsumerRegistered(subpartitionId)
+                isSubpartitionRegistered(subpartitionId)
                         && (storageMemoryManager.getMaxNonReclaimableBuffers(this)
                                         - storageMemoryManager.numOwnerRequestedBuffer(this))
                                 > numBuffersPerSegment;
@@ -156,13 +156,13 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
     @Override
     public void close() {}
 
-    public boolean isConsumerRegistered(TieredStorageSubpartitionId subpartitionId) {
-        return nettyServiceRegistered[subpartitionId.getSubpartitionId()];
-    }
-
     // ------------------------------------
     //           Internal Method
     // ------------------------------------
+
+    private boolean isSubpartitionRegistered(TieredStorageSubpartitionId subpartitionId) {
+        return nettyServiceRegistered[subpartitionId.getSubpartitionId()];
+    }
 
     private MemoryTierSubpartitionProducerAgent getSubpartitionMemoryDataManager(
             int targetChannel) {
