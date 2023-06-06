@@ -23,34 +23,42 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import javax.annotation.Nullable;
 
 /**
- * The {@link NettyPayload} represents a combination of buffer, buffer index, and its subpartition
- * id, and it could also indicate an error or a segment id.
+ * The {@link NettyPayload} represents the payload that will be transferred to netty connection. It
+ * could indicate a combination of buffer, buffer index, and its subpartition id, and it could also
+ * indicate an error or a segment id.
  */
 public class NettyPayload {
 
+    // If the buffer is not null, bufferIndex and subpartitionId will be non-negative, error will be
+    // null, segmentId will be -1;
     private Buffer buffer;
 
+    // If the error is not null, buffer will be null, segmentId and bufferIndex and subpartitionId
+    // will be -1.
     private Throwable error;
 
-    private int bufferIndex;
+    // If the bufferIndex is non-negative, buffer won't be null, error will be null, subpartitionId
+    // will be non-negative, segmentId will be -1.
+    private int bufferIndex = -1;
 
-    private int subpartitionId;
+    // If the subpartitionId is non-negative, buffer won't be null, error will be null, bufferIndex
+    // will be non-negative, segmentId will be -1.
+    private int subpartitionId = -1;
 
+    // If the segmentId is non-negative, buffer and error be null, bufferIndex and subpartitionId
+    // will be -1.
     private int segmentId = -1;
 
-    // If the buffer is not null, the error must be null.
     public NettyPayload(Buffer buffer, int bufferIndex, int subpartitionId) {
         this.buffer = buffer;
         this.bufferIndex = bufferIndex;
         this.subpartitionId = subpartitionId;
     }
 
-    // If the error is not null, other elements must be null.
     public NettyPayload(Throwable error) {
         this.error = error;
     }
 
-    // If the segment id is not equal to -1, other elements must be null.
     public NettyPayload(int segmentId) {
         this.segmentId = segmentId;
     }
