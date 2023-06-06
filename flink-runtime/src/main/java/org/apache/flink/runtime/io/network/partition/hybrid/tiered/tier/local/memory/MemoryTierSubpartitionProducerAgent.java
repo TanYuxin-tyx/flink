@@ -43,7 +43,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** TODO. */
-public class SubpartitionMemoryDataManager {
+public class MemoryTierSubpartitionProducerAgent {
 
     private final int subpartitionId;
 
@@ -63,7 +63,7 @@ public class SubpartitionMemoryDataManager {
 
     private TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId;
 
-    public SubpartitionMemoryDataManager(
+    public MemoryTierSubpartitionProducerAgent(
             int subpartitionId,
             int bufferSize,
             @Nullable BufferCompressor bufferCompressor,

@@ -59,7 +59,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
      */
     private final boolean[] nettyServiceRegistered;
 
-    private final SubpartitionMemoryDataManager[] subpartitionMemoryDataManagers;
+    private final MemoryTierSubpartitionProducerAgent[] subpartitionProducerAgents;
 
     public MemoryTierProducerAgent(
             ResultPartitionID partitionId,
@@ -77,10 +77,10 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
         this.nettyServiceRegistered = new boolean[numSubpartitions];
-        this.subpartitionMemoryDataManagers = new SubpartitionMemoryDataManager[numSubpartitions];
+        this.subpartitionProducerAgents = new MemoryTierSubpartitionProducerAgent[numSubpartitions];
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
-            subpartitionMemoryDataManagers[subpartitionId] =
-                    new SubpartitionMemoryDataManager(
+            subpartitionProducerAgents[subpartitionId] =
+                    new MemoryTierSubpartitionProducerAgent(
                             subpartitionId, bufferSize, bufferCompressor, nettyService);
         }
     }
@@ -91,8 +91,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
         if (isBroadcastOnly) {
             throw new RuntimeException("Illegal to register on broadcast only result partition.");
         }
-        this.subpartitionMemoryDataManagers[subpartitionId].registerNettyService(
-                nettyServiceWriterId);
+        this.subpartitionProducerAgents[subpartitionId].registerNettyService(nettyServiceWriterId);
         nettyServiceRegistered[subpartitionId] = true;
     }
 
@@ -173,11 +172,12 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
     //           Internal Method
     // ------------------------------------
 
-    private SubpartitionMemoryDataManager getSubpartitionMemoryDataManager(int targetChannel) {
-        return subpartitionMemoryDataManagers[targetChannel];
+    private MemoryTierSubpartitionProducerAgent getSubpartitionMemoryDataManager(
+            int targetChannel) {
+        return subpartitionProducerAgents[targetChannel];
     }
 
-    public SubpartitionMemoryDataManager[] getSubpartitionMemoryDataManagers() {
-        return subpartitionMemoryDataManagers;
+    public MemoryTierSubpartitionProducerAgent[] getSubpartitionMemoryDataManagers() {
+        return subpartitionProducerAgents;
     }
 }
