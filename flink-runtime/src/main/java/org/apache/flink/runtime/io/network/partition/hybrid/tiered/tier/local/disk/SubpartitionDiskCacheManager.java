@@ -23,13 +23,10 @@ import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
-
-import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -41,7 +38,6 @@ import java.util.Queue;
 import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** This class is responsible for managing the data in a single subpartition. */
 public class SubpartitionDiskCacheManager {
@@ -60,13 +56,9 @@ public class SubpartitionDiskCacheManager {
 
     private final Set<Integer> lastBufferIndexOfSegments;
 
-    @Nullable private final BufferCompressor bufferCompressor;
-
-    public SubpartitionDiskCacheManager(
-            int targetChannel, int bufferSize, @Nullable BufferCompressor bufferCompressor) {
+    public SubpartitionDiskCacheManager(int targetChannel, int bufferSize) {
         this.targetChannel = targetChannel;
         this.bufferSize = bufferSize;
-        this.bufferCompressor = bufferCompressor;
         this.lastBufferIndexOfSegments = new HashSet<>();
     }
 
@@ -143,25 +135,8 @@ public class SubpartitionDiskCacheManager {
         Buffer buffer = bufferConsumer.build();
         currentWritingBuffer.close();
         bufferConsumer.close();
-        BufferContext bufferContext =
-                new BufferContext(
-                        compressBuffersIfPossible(buffer), finishedBufferIndex, targetChannel);
+        BufferContext bufferContext = new BufferContext(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(bufferContext);
-    }
-
-    private Buffer compressBuffersIfPossible(Buffer buffer) {
-        if (!canBeCompressed(buffer)) {
-            return buffer;
-        }
-        return checkNotNull(bufferCompressor).compressToOriginalBuffer(buffer);
-    }
-
-    /**
-     * Whether the buffer can be compressed or not. Note that event is not compressed because it is
-     * usually small and the size can become even larger after compression.
-     */
-    private boolean canBeCompressed(Buffer buffer) {
-        return bufferCompressor != null && buffer.isBuffer() && buffer.readableBytes() > 0;
     }
 
     @SuppressWarnings("FieldAccessNotGuarded")

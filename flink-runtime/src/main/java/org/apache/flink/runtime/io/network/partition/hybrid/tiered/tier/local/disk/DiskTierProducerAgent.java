@@ -21,7 +21,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.d
 import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
@@ -81,7 +80,6 @@ public class DiskTierProducerAgent implements TierProducerAgent {
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
             int networkBufferSize,
-            BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService) {
         this.resultPartitionID = resultPartitionID;
@@ -94,7 +92,9 @@ public class DiskTierProducerAgent implements TierProducerAgent {
 
         this.partitionFileReader =
                 partitionFileManager.createPartitionFileReader(
-                        PartitionFileType.PRODUCER_MERGE, nettyService, firstBufferContextInSegment);
+                        PartitionFileType.PRODUCER_MERGE,
+                        nettyService,
+                        firstBufferContextInSegment);
 
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.diskCacheManager =
@@ -103,7 +103,6 @@ public class DiskTierProducerAgent implements TierProducerAgent {
                         isBroadcastOnly ? 1 : numSubpartitions,
                         networkBufferSize,
                         storageMemoryManager,
-                        bufferCompressor,
                         partitionFileManager);
     }
 

@@ -22,7 +22,6 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
@@ -92,7 +91,6 @@ public class TieredStorageUtils {
     public static List<TierProducerAgent> createTierProducerAgents(
             ResultPartitionID id,
             boolean isBroadcast,
-            BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storageMemoryManager,
@@ -115,7 +113,6 @@ public class TieredStorageUtils {
                             partitionFileManager,
                             networkBufferSize,
                             storageMemoryManager,
-                            bufferCompressor,
                             nettyService));
         }
         return tierProducerAgents;

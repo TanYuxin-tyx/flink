@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -51,14 +50,13 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
             int numSubpartitions,
             int bufferSize,
             TieredStorageMemoryManager storageMemoryManager,
-            BufferCompressor bufferCompressor,
             PartitionFileManager partitionFileManager) {
         this.tierIndex = tierIndex;
         this.numSubpartitions = numSubpartitions;
         this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionDiskCacheManagers[subpartitionId] =
-                    new SubpartitionDiskCacheManager(subpartitionId, bufferSize, bufferCompressor);
+                    new SubpartitionDiskCacheManager(subpartitionId, bufferSize);
         }
         this.partitionFileWriter =
                 partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
@@ -110,7 +108,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
     //        For Spilling Strategy
     // ------------------------------------
 
-    public int getFinishedBufferIndex(int subpartitionId){
+    public int getFinishedBufferIndex(int subpartitionId) {
         return subpartitionDiskCacheManagers[subpartitionId].getFinishedBufferIndex();
     }
 
@@ -132,7 +130,8 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
     // ------------------------------------
 
     @Override
-    public void onConsumerReleased(int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId) {
+    public void onConsumerReleased(
+            int subpartitionId, TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId) {
         // tierReaderViewMap.get(subpartitionId).remove(nettyServiceWriterId);
     }
 

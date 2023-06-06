@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
@@ -58,7 +57,6 @@ public class DiskTierFactory implements TierFactory {
             PartitionFileManager partitionFileManager,
             int networkBufferSize,
             TieredStorageMemoryManager storageMemoryManager,
-            BufferCompressor bufferCompressor,
             TieredStorageNettyService nettyService) {
         return new DiskTierProducerAgent(
                 tierIndex,
@@ -69,7 +67,6 @@ public class DiskTierFactory implements TierFactory {
                 isBroadcastOnly,
                 partitionFileManager,
                 networkBufferSize,
-                bufferCompressor,
                 storageMemoryManager,
                 nettyService);
     }

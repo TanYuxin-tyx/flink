@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
@@ -50,7 +49,6 @@ public interface TierFactory {
             PartitionFileManager partitionFileManager,
             int networkBufferSize,
             TieredStorageMemoryManager storageMemoryManager,
-            BufferCompressor bufferCompressor,
             TieredStorageNettyService nettyService);
 
     TierConsumerAgent createConsumerAgent(

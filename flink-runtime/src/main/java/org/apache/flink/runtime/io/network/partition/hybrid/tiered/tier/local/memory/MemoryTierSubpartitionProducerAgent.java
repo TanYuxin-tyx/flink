@@ -23,7 +23,6 @@ import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
@@ -33,14 +32,11 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.impl.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferContext;
 
-import javax.annotation.Nullable;
-
 import java.nio.ByteBuffer;
 import java.util.LinkedList;
 import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** TODO. */
 public class MemoryTierSubpartitionProducerAgent {
@@ -55,8 +51,6 @@ public class MemoryTierSubpartitionProducerAgent {
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
 
-    @Nullable private final BufferCompressor bufferCompressor;
-
     private final TieredStorageNettyService nettyService;
 
     private NettyConnectionWriter nettyConnectionWriter;
@@ -64,18 +58,14 @@ public class MemoryTierSubpartitionProducerAgent {
     private TieredStoragePartitionIdAndSubpartitionId nettyServiceWriterId;
 
     public MemoryTierSubpartitionProducerAgent(
-            int subpartitionId,
-            int bufferSize,
-            @Nullable BufferCompressor bufferCompressor,
-            TieredStorageNettyService nettyService) {
+            int subpartitionId, int bufferSize, TieredStorageNettyService nettyService) {
         this.subpartitionId = subpartitionId;
         this.bufferSize = bufferSize;
-        this.bufferCompressor = bufferCompressor;
         this.nettyService = nettyService;
     }
 
     // ------------------------------------------------------------------------
-    //  Called by MemoryDataManager
+    //  Called by MemoryTierProducerAgent
     // ------------------------------------------------------------------------
 
     public void registerNettyService(
@@ -93,8 +83,6 @@ public class MemoryTierSubpartitionProducerAgent {
             nettyConnectionWriter.close();
         }
     }
-
-    @SuppressWarnings("FieldAccessNotGuarded")
 
     // ------------------------------------------------------------------------
     //  Internal Methods
@@ -136,24 +124,8 @@ public class MemoryTierSubpartitionProducerAgent {
         currentWritingBuffer.close();
         bufferConsumer.close();
         BufferContext bufferContext =
-                new BufferContext(
-                        compressBuffersIfPossible(buffer), finishedBufferIndex, subpartitionId);
+                new BufferContext(buffer, finishedBufferIndex, subpartitionId);
         addFinishedBuffer(bufferContext);
-    }
-
-    private Buffer compressBuffersIfPossible(Buffer buffer) {
-        if (!canBeCompressed(buffer)) {
-            return buffer;
-        }
-        return checkNotNull(bufferCompressor).compressToOriginalBuffer(buffer);
-    }
-
-    /**
-     * Whether the buffer can be compressed or not. Note that event is not compressed because it is
-     * usually small and the size can become even larger after compression.
-     */
-    private boolean canBeCompressed(Buffer buffer) {
-        return bufferCompressor != null && buffer.isBuffer() && buffer.readableBytes() > 0;
     }
 
     void addFinishedBuffer(Buffer buffer) {

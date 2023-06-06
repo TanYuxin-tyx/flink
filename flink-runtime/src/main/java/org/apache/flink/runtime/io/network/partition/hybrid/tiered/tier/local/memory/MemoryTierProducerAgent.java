@@ -21,8 +21,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.m
 import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStoragePartitionIdAndSubpartitionId;
@@ -62,12 +60,9 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
     private final MemoryTierSubpartitionProducerAgent[] subpartitionProducerAgents;
 
     public MemoryTierProducerAgent(
-            ResultPartitionID partitionId,
-            int tierIndex,
             int numSubpartitions,
             TieredStorageMemoryManager storageMemoryManager,
             boolean isBroadcastOnly,
-            BufferCompressor bufferCompressor,
             int bufferSize,
             TieredStorageNettyService nettyService) {
         this.numSubpartitions = numSubpartitions;
@@ -81,7 +76,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionProducerAgents[subpartitionId] =
                     new MemoryTierSubpartitionProducerAgent(
-                            subpartitionId, bufferSize, bufferCompressor, nettyService);
+                            subpartitionId, bufferSize, nettyService);
         }
     }
 

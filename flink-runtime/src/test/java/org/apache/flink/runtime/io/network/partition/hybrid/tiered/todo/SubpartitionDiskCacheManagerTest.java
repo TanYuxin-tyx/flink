@@ -18,11 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 
-import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskCacheManagerOperation;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.SubpartitionDiskCacheManager;
-
-import javax.annotation.Nullable;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -38,14 +35,8 @@ class SubpartitionDiskCacheManagerTest {
 
     private SubpartitionDiskCacheManager createSubpartitionMemoryDataManager(
             DiskCacheManagerOperation diskCacheManagerOperation) {
-        return createSubpartitionMemoryDataManager(diskCacheManagerOperation, null);
-    }
-
-    private SubpartitionDiskCacheManager createSubpartitionMemoryDataManager(
-            DiskCacheManagerOperation diskCacheManagerOperation,
-            @Nullable BufferCompressor bufferCompressor) {
         SubpartitionDiskCacheManager subpartitionDiskCacheManager =
-                new SubpartitionDiskCacheManager(SUBPARTITION_ID, bufferSize, bufferCompressor);
+                new SubpartitionDiskCacheManager(SUBPARTITION_ID, bufferSize);
         return subpartitionDiskCacheManager;
     }
 

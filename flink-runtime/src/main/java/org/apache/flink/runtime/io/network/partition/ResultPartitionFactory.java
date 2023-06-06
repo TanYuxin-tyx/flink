@@ -285,7 +285,6 @@ public class ResultPartitionFactory {
                                 jobID,
                                 id,
                                 isBroadcast,
-                                bufferCompressor,
                                 subpartitions,
                                 storageConfiguration,
                                 storageMemoryManager,
@@ -353,7 +352,6 @@ public class ResultPartitionFactory {
             JobID jobID,
             ResultPartitionID id,
             boolean isBroadcast,
-            BufferCompressor bufferCompressor,
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storageMemoryManager,
@@ -374,7 +372,6 @@ public class ResultPartitionFactory {
         return TieredStorageUtils.createTierProducerAgents(
                 id,
                 isBroadcast,
-                bufferCompressor,
                 subpartitions,
                 storeConfiguration,
                 storageMemoryManager,
