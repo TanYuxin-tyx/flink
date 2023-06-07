@@ -45,7 +45,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     // ------------------------------------
 
     private final Map<TieredStoragePartitionId, List<NettyServiceProducer>>
-            registeredProducerServices = new ConcurrentHashMap<>();
+            registeredServiceProducers = new ConcurrentHashMap<>();
 
     private final Map<NettyConnectionId, BufferAvailabilityListener>
             registeredAvailabilityListeners = new ConcurrentHashMap<>();
@@ -58,25 +58,25 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     // ------------------------------------
 
     private final Map<
-                    TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, Function<Integer, InputChannel>>>
+            TieredStoragePartitionId,
+            Map<TieredStorageSubpartitionId, Function<Integer, InputChannel>>>
             registeredInputChannelProviders = new ConcurrentHashMap<>();
 
     private final Map<
-                    TieredStoragePartitionId,
-                    Map<
-                            TieredStorageSubpartitionId,
-                            NettyConnectionReaderAvailabilityAndPriorityHelper>>
+            TieredStoragePartitionId,
+            Map<
+                    TieredStorageSubpartitionId,
+                    NettyConnectionReaderAvailabilityAndPriorityHelper>>
             registeredNettyConnectionReaderAvailabilityAndPriorityHelpers =
-                    new ConcurrentHashMap<>();
+            new ConcurrentHashMap<>();
 
     @Override
     public void registerProducer(
-            TieredStoragePartitionId partitionId, NettyServiceProducer producerService) {
-        List<NettyServiceProducer> producerServices =
-                registeredProducerServices.getOrDefault(partitionId, new ArrayList<>());
-        producerServices.add(producerService);
-        registeredProducerServices.put(partitionId, producerServices);
+            TieredStoragePartitionId partitionId, NettyServiceProducer serviceProducer) {
+        List<NettyServiceProducer> serviceProducers =
+                registeredServiceProducers.getOrDefault(partitionId, new ArrayList<>());
+        serviceProducers.add(serviceProducer);
+        registeredServiceProducers.put(partitionId, serviceProducers);
     }
 
     @Override
@@ -117,17 +117,17 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             BufferAvailabilityListener availabilityListener) {
-        List<NettyServiceProducer> producerServices = registeredProducerServices.get(partitionId);
-        if (producerServices == null) {
+        List<NettyServiceProducer> serviceProducers = registeredServiceProducers.get(partitionId);
+        if (serviceProducers == null) {
             return new TieredStoreResultSubpartitionView(
                     availabilityListener, new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         }
         List<Queue<NettyPayload>> queues = new ArrayList<>();
         List<NettyConnectionId> nettyConnectionIds = new ArrayList<>();
-        for (NettyServiceProducer producerService : producerServices) {
+        for (NettyServiceProducer serviceProducer : serviceProducers) {
             LinkedBlockingQueue<NettyPayload> queue = new LinkedBlockingQueue<>();
             NettyConnectionWriterImpl writer = new NettyConnectionWriterImpl(queue);
-            producerService.connectionEstablished(subpartitionId, writer);
+            serviceProducer.connectionEstablished(subpartitionId, writer);
             nettyConnectionIds.add(writer.getNettyConnectionId());
             queues.add(queue);
             registeredAvailabilityListeners.put(
@@ -137,7 +137,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
                 availabilityListener,
                 queues,
                 nettyConnectionIds,
-                registeredProducerServices.get(partitionId));
+                registeredServiceProducers.get(partitionId));
     }
 
     /**
@@ -175,15 +175,15 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
 
             Map<TieredStorageSubpartitionId, Function<Integer, InputChannel>>
                     inputChannelProviders =
-                            registeredInputChannelProviders.getOrDefault(
-                                    partitionId, new ConcurrentHashMap<>());
+                    registeredInputChannelProviders.getOrDefault(
+                            partitionId, new ConcurrentHashMap<>());
             inputChannelProviders.put(subpartitionId, inputChannelProvider);
             registeredInputChannelProviders.put(partitionId, inputChannelProviders);
 
             Map<TieredStorageSubpartitionId, NettyConnectionReaderAvailabilityAndPriorityHelper>
                     helpers =
-                            registeredNettyConnectionReaderAvailabilityAndPriorityHelpers
-                                    .getOrDefault(partitionId, new ConcurrentHashMap<>());
+                    registeredNettyConnectionReaderAvailabilityAndPriorityHelpers
+                            .getOrDefault(partitionId, new ConcurrentHashMap<>());
             helpers.put(subpartitionId, helper);
             registeredNettyConnectionReaderAvailabilityAndPriorityHelpers.put(partitionId, helpers);
         }

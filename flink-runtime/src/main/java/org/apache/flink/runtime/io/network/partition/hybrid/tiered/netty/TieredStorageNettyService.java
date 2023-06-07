@@ -32,11 +32,10 @@ public interface TieredStorageNettyService {
      * register to {@link TieredStorageNettyService}.
      *
      * @param partitionId partition id indicates the unique id of {@link TieredResultPartition}.
-     * @param producerService producer service is a callback from {@link TierProducerAgent} and used
-     *     to register a {@link NettyConnectionWriter} and disconnect the netty connection.
+     * @param serviceProducer serviceProducer is a callback from {@link TierProducerAgent} and used to register a
+     *     {@link NettyConnectionWriter} and disconnect the netty connection.
      */
-    void registerProducer(
-            TieredStoragePartitionId partitionId, NettyServiceProducer producerService);
+    void registerProducer(TieredStoragePartitionId partitionId, NettyServiceProducer serviceProducer);
 
     /**
      * {@link TierConsumerAgent} will register to {@link TieredStorageNettyService} and get a {@link

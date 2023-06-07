@@ -38,7 +38,7 @@ public interface NettyServiceProducer {
             NettyConnectionWriter nettyConnectionWriter);
 
     /**
-     * Broken the netty connection related to the {@link NettyConnectionId}.
+     * Break the netty connection related to the {@link NettyConnectionId}.
      *
      * @param connectionId connection id is the id of connection.
      */
