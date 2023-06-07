@@ -93,6 +93,7 @@ public class TieredStorageUtils {
             ResultPartitionID id,
             boolean isBroadcast,
             ResultSubpartition[] subpartitions,
+            int networkBufferSize,
             TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storageMemoryManager,
             String dataFileBasePath,
@@ -107,6 +108,7 @@ public class TieredStorageUtils {
                     tierFactory.createProducerAgent(
                             i++,
                             subpartitions.length,
+                            networkBufferSize,
                             id,
                             dataFileBasePath,
                             minReservedDiskSpaceFraction,

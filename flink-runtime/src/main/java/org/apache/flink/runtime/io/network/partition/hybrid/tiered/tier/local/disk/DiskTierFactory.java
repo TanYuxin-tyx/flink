@@ -55,6 +55,7 @@ public class DiskTierFactory implements TierFactory {
     public TierProducerAgent createProducerAgent(
             int tierIndex,
             int numSubpartitions,
+            int bufferSize,
             ResultPartitionID resultPartitionID,
             String dataFileBasePath,
             float minReservedDiskSpaceFraction,

@@ -58,6 +58,7 @@ public class MemoryTierFactory implements TierFactory {
     public TierProducerAgent createProducerAgent(
             int tierIndex,
             int numSubpartitions,
+            int bufferSize,
             ResultPartitionID resultPartitionID,
             String dataFileBasePath,
             float minReservedDiskSpaceFraction,
@@ -69,6 +70,7 @@ public class MemoryTierFactory implements TierFactory {
         return new MemoryTierProducerAgent(
                 TieredStorageIdMappingUtils.convertId(resultPartitionID),
                 numSubpartitions,
+                bufferSize,
                 numBytesPerSegment,
                 storageMemoryManager,
                 isBroadcastOnly,

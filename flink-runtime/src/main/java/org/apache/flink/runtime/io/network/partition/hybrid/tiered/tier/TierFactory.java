@@ -41,6 +41,7 @@ public interface TierFactory {
     TierProducerAgent createProducerAgent(
             int tierIndex,
             int numSubpartitions,
+            int bufferSize,
             ResultPartitionID resultPartitionID,
             String dataFileBasePath,
             float minReservedDiskSpaceFraction,

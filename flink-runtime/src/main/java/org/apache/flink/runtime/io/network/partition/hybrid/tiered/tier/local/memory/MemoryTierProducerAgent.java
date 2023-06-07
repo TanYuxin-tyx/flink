@@ -35,7 +35,7 @@ import org.apache.flink.util.ExceptionUtils;
 import java.io.IOException;
 import java.util.Arrays;
 
-import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
+import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** The DataManager of LOCAL file. */
 public class MemoryTierProducerAgent implements TierProducerAgent {
@@ -62,35 +62,25 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
     public MemoryTierProducerAgent(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
+            int bufferSize,
             int numBytesPerSegment,
             TieredStorageMemoryManager storageMemoryManager,
             boolean isBroadcastOnly,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
+        checkArgument(
+                numBytesPerSegment >= bufferSize, "One segment contains at least one buffer.");
+
         this.numBytesPerSegment = numBytesPerSegment;
-        this.numBuffersPerSegment = numBytesPerSegment / 32 / 1024;
+        this.numBuffersPerSegment = numBytesPerSegment / bufferSize;
         this.isBroadcastOnly = isBroadcastOnly;
         this.storageMemoryManager = storageMemoryManager;
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
-        Arrays.fill(numSubpartitionEmitBytes, 0);
         this.nettyServiceRegistered = new boolean[numSubpartitions];
         this.subpartitionProducerAgents = new MemoryTierSubpartitionProducerAgent[numSubpartitions];
-        nettyService.registerProducer(
-                partitionId,
-                new NettyServiceProducer() {
-                    @Override
-                    public void connectionEstablished(
-                            TieredStorageSubpartitionId subpartitionId,
-                            NettyConnectionWriter nettyConnectionWriter) {
-                        MemoryTierProducerAgent.this.register(
-                                subpartitionId, nettyConnectionWriter);
-                    }
 
-                    @Override
-                    public void connectionBroken(NettyConnectionId connectionId) {
-                        // nothing to do;
-                    }
-                });
+        Arrays.fill(numSubpartitionEmitBytes, 0);
+        nettyService.registerProducer(partitionId, createNettyServiceProducer());
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionProducerAgents[subpartitionId] =
                     new MemoryTierSubpartitionProducerAgent(subpartitionId, nettyService);
@@ -150,8 +140,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
         try {
             getSubpartitionMemoryDataManager(targetChannel)
                     .appendSegmentEvent(
-                            EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE),
-                            END_OF_SEGMENT);
+                            EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE));
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to append end of segment event,");
         }
@@ -167,6 +156,22 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
     // ------------------------------------
     //           Internal Method
     // ------------------------------------
+
+    private NettyServiceProducer createNettyServiceProducer() {
+        return new NettyServiceProducer() {
+            @Override
+            public void connectionEstablished(
+                    TieredStorageSubpartitionId subpartitionId,
+                    NettyConnectionWriter nettyConnectionWriter) {
+                MemoryTierProducerAgent.this.register(subpartitionId, nettyConnectionWriter);
+            }
+
+            @Override
+            public void connectionBroken(NettyConnectionId connectionId) {
+                // nothing to do;
+            }
+        };
+    }
 
     private void releaseResources() {
         Arrays.stream(subpartitionProducerAgents)

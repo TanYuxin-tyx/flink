@@ -383,6 +383,7 @@ public class ResultPartitionFactory {
                 id,
                 isBroadcast,
                 subpartitions,
+                networkBufferSize,
                 storeConfiguration,
                 storageMemoryManager,
                 dataFileBasePath,
