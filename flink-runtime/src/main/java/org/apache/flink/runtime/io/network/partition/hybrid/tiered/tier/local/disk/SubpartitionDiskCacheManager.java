@@ -75,7 +75,7 @@ public class SubpartitionDiskCacheManager {
     }
 
     public void append(Buffer buffer) {
-        NettyPayload toAddBuffer = new NettyPayload(buffer, finishedBufferIndex, targetChannel);
+        NettyPayload toAddBuffer = NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(toAddBuffer);
     }
 
@@ -112,7 +112,7 @@ public class SubpartitionDiskCacheManager {
         Buffer buffer =
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
-        NettyPayload nettyPayload = new NettyPayload(buffer, finishedBufferIndex, targetChannel);
+        NettyPayload nettyPayload = NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(nettyPayload);
     }
 
@@ -135,7 +135,7 @@ public class SubpartitionDiskCacheManager {
         Buffer buffer = bufferConsumer.build();
         currentWritingBuffer.close();
         bufferConsumer.close();
-        NettyPayload nettyPayload = new NettyPayload(buffer, finishedBufferIndex, targetChannel);
+        NettyPayload nettyPayload = NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(nettyPayload);
     }
 

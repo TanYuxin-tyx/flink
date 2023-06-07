@@ -132,10 +132,10 @@ public class ProducerMergePartitionSubpartitionReader
                 buffers.add(segment);
                 throw throwable;
             }
-            NettyPayload nettyPayload = new NettyPayload(buffer, nextToLoad++, subpartitionId);
+            NettyPayload nettyPayload = NettyPayload.newBuffer(buffer, nextToLoad++, subpartitionId);
             Integer segmentId = firstBufferContextInSegment.get(nettyPayload.getBufferIndex());
             if(segmentId != null){
-                nettyConnectionWriter.writeBuffer(new NettyPayload(segmentId));
+                nettyConnectionWriter.writeBuffer(NettyPayload.newSegment(segmentId));
                 ((TieredStorageNettyServiceImpl) nettyService)
                         .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
                 ++numLoaded;
@@ -156,7 +156,7 @@ public class ProducerMergePartitionSubpartitionReader
         }
         isFailed = true;
         nettyConnectionWriter.close();
-        nettyConnectionWriter.writeBuffer(new NettyPayload(failureCause));
+        nettyConnectionWriter.writeBuffer(NettyPayload.newError(failureCause));
         ((TieredStorageNettyServiceImpl) nettyService)
                 .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
     }

@@ -22,6 +22,10 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 
 import javax.annotation.Nullable;
 
+import java.util.Optional;
+
+import static org.apache.flink.util.Preconditions.checkState;
+
 /**
  * The {@link NettyPayload} represents the payload that will be transferred to netty connection. It
  * could indicate a combination of buffer, buffer index, and its subpartition id, and it could also
@@ -29,43 +33,62 @@ import javax.annotation.Nullable;
  */
 public class NettyPayload {
 
-    // If the buffer is not null, bufferIndex and subpartitionId will be non-negative, error will be
-    // null, segmentId will be -1;
-    private Buffer buffer;
+    /**
+     * If the buffer is not null, bufferIndex and subpartitionId will be non-negative, error will be
+     * null, segmentId will be -1;
+     */
+    @Nullable private final Buffer buffer;
 
-    // If the error is not null, buffer will be null, segmentId and bufferIndex and subpartitionId
-    // will be -1.
-    private Throwable error;
+    /**
+     * If the error is not null, buffer will be null, segmentId and bufferIndex and subpartitionId
+     * will be -1.
+     */
+    @Nullable private final Throwable error;
 
-    // If the bufferIndex is non-negative, buffer won't be null, error will be null, subpartitionId
-    // will be non-negative, segmentId will be -1.
-    private int bufferIndex = -1;
+    /**
+     * If the bufferIndex is non-negative, buffer won't be null, error will be null, subpartitionId
+     * will be non-negative, segmentId will be -1.
+     */
+    private final int bufferIndex;
 
-    // If the subpartitionId is non-negative, buffer won't be null, error will be null, bufferIndex
-    // will be non-negative, segmentId will be -1.
-    private int subpartitionId = -1;
+    /**
+     * If the subpartitionId is non-negative, buffer won't be null, error will be null, bufferIndex
+     * will be non-negative, segmentId will be -1.
+     */
+    private final int subpartitionId;
 
-    // If the segmentId is non-negative, buffer and error be null, bufferIndex and subpartitionId
-    // will be -1.
-    private int segmentId = -1;
+    /**
+     * If the segmentId is non-negative, buffer and error be null, bufferIndex and subpartitionId
+     * will be -1.
+     */
+    private final int segmentId;
 
-    public NettyPayload(Buffer buffer, int bufferIndex, int subpartitionId) {
+    private NettyPayload(
+            Buffer buffer, int bufferIndex, int subpartitionId, Throwable error, int segmentId) {
         this.buffer = buffer;
         this.bufferIndex = bufferIndex;
         this.subpartitionId = subpartitionId;
-    }
-
-    public NettyPayload(Throwable error) {
         this.error = error;
-    }
-
-    public NettyPayload(int segmentId) {
         this.segmentId = segmentId;
     }
 
-    @Nullable
-    public Buffer getBuffer() {
-        return buffer;
+    public static NettyPayload newBuffer(Buffer buffer, int bufferIndex, int subpartitionId) {
+        checkState(buffer != null && bufferIndex != -1 && subpartitionId != -1);
+        return new NettyPayload(buffer, bufferIndex, subpartitionId, null, -1);
+    }
+
+    public static NettyPayload newError(Throwable error) {
+        checkState(error != null);
+        return new NettyPayload(null, -1, -1, error, -1);
+    }
+
+    public static NettyPayload newSegment(int segmentId) {
+        checkState(segmentId != -1);
+        return new NettyPayload(null, -1, -1, null, segmentId);
+    }
+
+    public Optional<Buffer> getBuffer() {
+        return buffer != null ? Optional.of(buffer) : Optional.empty();
     }
 
     @Nullable

@@ -63,7 +63,7 @@ public class TieredStorageUtils {
         ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * nettyPayloads.size()];
 
         for (int i = 0; i < nettyPayloads.size(); i++) {
-            Buffer buffer = nettyPayloads.get(i).getBuffer();
+            Buffer buffer = nettyPayloads.get(i).getBuffer().get();
             setBufferWithHeader(buffer, bufferWithHeaders, 2 * i);
         }
         return bufferWithHeaders;

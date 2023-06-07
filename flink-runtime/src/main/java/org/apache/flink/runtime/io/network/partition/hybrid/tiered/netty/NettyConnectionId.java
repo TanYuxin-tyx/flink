@@ -24,6 +24,8 @@ import java.util.Random;
 /** {@link NettyConnectionId} indicates the unique id of netty connection. */
 public class NettyConnectionId {
 
+    private static final Random RANDOM_SEED = new Random();
+
     private final long lowerPart;
 
     private final long upperPart;
@@ -34,8 +36,7 @@ public class NettyConnectionId {
     }
 
     public static NettyConnectionId newId() {
-        Random random = new Random();
-        return new NettyConnectionId(random.nextLong(), random.nextLong());
+        return new NettyConnectionId(RANDOM_SEED.nextLong(), RANDOM_SEED.nextLong());
     }
 
     @Override

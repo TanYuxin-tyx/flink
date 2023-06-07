@@ -154,7 +154,7 @@ class PartitionFileWriterTest {
             if (isCompressed) {
                 buffer.setCompressed(true);
             }
-            nettyPayloads.add(new NettyPayload(buffer, dataAndIndex.f1, 0));
+            nettyPayloads.add(NettyPayload.newBuffer(buffer, dataAndIndex.f1, 0));
         }
         return Collections.unmodifiableList(nettyPayloads);
     }

@@ -109,7 +109,7 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
             // which controls data's life cycle.
             regionBufferIndexTracker.addBuffers(spilledBuffers);
             for (NettyPayload nettyPayload : toWrite) {
-                nettyPayload.getBuffer().recycleBuffer();
+                nettyPayload.getBuffer().get().recycleBuffer();
             }
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
@@ -131,7 +131,7 @@ public class DiskCacheBufferSpiller implements CacheBufferSpiller {
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
         for (NettyPayload bufferWithIdentity : toWrite) {
-            Buffer buffer = bufferWithIdentity.getBuffer();
+            Buffer buffer = bufferWithIdentity.getBuffer().get();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
                     new RegionBufferIndexTracker.SpilledBuffer(

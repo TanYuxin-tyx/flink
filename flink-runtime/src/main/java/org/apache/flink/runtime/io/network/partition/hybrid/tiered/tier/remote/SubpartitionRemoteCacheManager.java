@@ -102,7 +102,7 @@ public class SubpartitionRemoteCacheManager {
         }
         if (!isReleased) {
             for (NettyPayload nettyPayload : allBuffers) {
-                Buffer buffer = nettyPayload.getBuffer();
+                Buffer buffer = nettyPayload.getBuffer().get();
                 if (!buffer.isRecycled()) {
                     buffer.recycleBuffer();
                 }
@@ -117,7 +117,7 @@ public class SubpartitionRemoteCacheManager {
     // ------------------------------------------------------------------------
 
     void addFinishedBuffer(Buffer buffer) {
-        NettyPayload toAddBuffer = new NettyPayload(buffer, finishedBufferIndex, targetChannel);
+        NettyPayload toAddBuffer = NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(toAddBuffer);
     }
 

@@ -97,7 +97,7 @@ public class MemoryTierSubpartitionProducerAgent {
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
         NettyPayload nettyPayload =
-                new NettyPayload(buffer, finishedBufferIndex, subpartitionId);
+                NettyPayload.newBuffer(buffer, finishedBufferIndex, subpartitionId);
         addFinishedBuffer(nettyPayload);
     }
 
@@ -121,17 +121,17 @@ public class MemoryTierSubpartitionProducerAgent {
         currentWritingBuffer.close();
         bufferConsumer.close();
         NettyPayload nettyPayload =
-                new NettyPayload(buffer, finishedBufferIndex, subpartitionId);
+                NettyPayload.newBuffer(buffer, finishedBufferIndex, subpartitionId);
         addFinishedBuffer(nettyPayload);
     }
 
     void addFinishedBuffer(Buffer buffer) {
-        NettyPayload toAddBuffer = new NettyPayload(buffer, finishedBufferIndex, subpartitionId);
+        NettyPayload toAddBuffer = NettyPayload.newBuffer(buffer, finishedBufferIndex, subpartitionId);
         addFinishedBuffer(toAddBuffer);
     }
 
     void addSegmentBufferContext(int segmentId) {
-        NettyPayload segmentNettyPayload = new NettyPayload(segmentId);
+        NettyPayload segmentNettyPayload = NettyPayload.newSegment(segmentId);
         addFinishedBuffer(segmentNettyPayload);
     }
 

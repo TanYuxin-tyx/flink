@@ -116,7 +116,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
                     segmentId,
                     toWrite,
                     createSpilledBuffersAndGetTotalBytes(toWrite));
-            toWrite.forEach(buffer -> buffer.getBuffer().recycleBuffer());
+            toWrite.forEach(buffer -> buffer.getBuffer().get().recycleBuffer());
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
@@ -127,7 +127,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
             List<NettyPayload> toWriteSubpartitionBuffers) {
         long expectedBytes = 0;
         for (NettyPayload nettyPayload : toWriteSubpartitionBuffers) {
-            Buffer buffer = nettyPayload.getBuffer();
+            Buffer buffer = nettyPayload.getBuffer().get();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             expectedBytes += numBytes;
         }

@@ -18,11 +18,10 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 
 import java.util.Queue;
-
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The default implementation of {@link NettyConnectionWriter}. */
 public class NettyConnectionWriterImpl implements NettyConnectionWriter {
@@ -55,9 +54,7 @@ public class NettyConnectionWriterImpl implements NettyConnectionWriter {
     public void close() {
         NettyPayload nettyPayload;
         while ((nettyPayload = bufferQueue.poll()) != null) {
-            if (nettyPayload.getBuffer() != null) {
-                checkNotNull(nettyPayload.getBuffer()).recycleBuffer();
-            }
+            nettyPayload.getBuffer().ifPresent(Buffer::recycleBuffer);
         }
     }
 }

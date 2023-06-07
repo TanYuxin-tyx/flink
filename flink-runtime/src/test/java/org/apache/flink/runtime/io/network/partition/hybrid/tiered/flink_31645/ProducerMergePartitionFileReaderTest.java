@@ -178,7 +178,7 @@ class ProducerMergePartitionFileReaderTest {
         for (int subpartitionId = 0; subpartitionId < NUM_SUBPARTITIONS; ++subpartitionId) {
             for (int bufferIndex = 0; bufferIndex <= BUFFER_NUM_PER_SUBPARTITION; ++bufferIndex) {
                 nettyPayloads.add(
-                        new NettyPayload(
+                        NettyPayload.newBuffer(
                                 new NetworkBuffer(
                                         MemorySegmentFactory.wrap(new byte[BUFFER_SIZE]),
                                         FreeingBufferRecycler.INSTANCE),

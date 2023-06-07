@@ -90,7 +90,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
             writeBuffers(toWrite, expectedBytes);
             regionBufferIndexTracker.addBuffers(spilledBuffers);
             for (NettyPayload nettyPayload : toWrite) {
-                nettyPayload.getBuffer().recycleBuffer();
+                nettyPayload.getBuffer().get().recycleBuffer();
             }
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
@@ -111,7 +111,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
         for (NettyPayload nettyPayload : toWrite) {
-            Buffer buffer = nettyPayload.getBuffer();
+            Buffer buffer = nettyPayload.getBuffer().get();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
                     new RegionBufferIndexTracker.SpilledBuffer(

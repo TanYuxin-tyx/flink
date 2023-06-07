@@ -161,7 +161,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
             long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
             // write all buffers to file
             writeBuffers(toWrite, expectedBytes);
-            toWrite.forEach(buffer -> buffer.getBuffer().recycleBuffer());
+            toWrite.forEach(buffer -> buffer.getBuffer().get().recycleBuffer());
             toWrite.clear();
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
@@ -182,7 +182,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
             List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
         for (NettyPayload nettyPayload : toWrite) {
-            Buffer buffer = nettyPayload.getBuffer();
+            Buffer buffer = nettyPayload.getBuffer().get();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
                     new RegionBufferIndexTracker.SpilledBuffer(
