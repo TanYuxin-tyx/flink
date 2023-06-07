@@ -30,7 +30,7 @@ public interface NettyConnectionWriter {
     /**
      * Write a buffer to netty connection.
      *
-     * @param nettyPayload buffer context represents the buffer.
+     * @param nettyPayload netty payload represents the buffer.
      */
     void writeBuffer(NettyPayload nettyPayload);
 

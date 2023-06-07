@@ -46,25 +46,29 @@ public class NettyPayload {
     @Nullable private final Throwable error;
 
     /**
-     * The index of buffer. If the bufferIndex is non-negative, buffer won't be null, error will be
+     * The index of buffer. If the buffer index is non-negative, buffer won't be null, error will be
      * null, subpartitionId will be non-negative, segmentId will be -1.
      */
     private final int bufferIndex;
 
     /**
-     * The id of subpartition. If the subpartitionId is non-negative, buffer won't be null, error
+     * The id of subpartition. If the subpartition id is non-negative, buffer won't be null, error
      * will be null, bufferIndex will be non-negative, segmentId will be -1.
      */
     private final int subpartitionId;
 
     /**
-     * The id of segment. If the segmentId is non-negative, buffer and error be null, bufferIndex
+     * The id of segment. If the segment id is non-negative, buffer and error be null, bufferIndex
      * and subpartitionId will be -1.
      */
     private final int segmentId;
 
     private NettyPayload(
-            Buffer buffer, int bufferIndex, int subpartitionId, Throwable error, int segmentId) {
+            @Nullable Buffer buffer,
+            int bufferIndex,
+            int subpartitionId,
+            @Nullable Throwable error,
+            int segmentId) {
         this.buffer = buffer;
         this.bufferIndex = bufferIndex;
         this.subpartitionId = subpartitionId;
