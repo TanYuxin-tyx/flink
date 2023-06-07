@@ -63,7 +63,6 @@ public class MemoryTierFactory implements TierFactory {
             float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
-            int networkBufferSize,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService) {
         return new MemoryTierProducerAgent(
@@ -72,7 +71,6 @@ public class MemoryTierFactory implements TierFactory {
                 numBytesPerSegment,
                 storageMemoryManager,
                 isBroadcastOnly,
-                networkBufferSize,
                 nettyService);
     }
 

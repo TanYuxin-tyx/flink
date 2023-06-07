@@ -62,17 +62,13 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
 
     private final MemoryTierSubpartitionProducerAgent[] subpartitionProducerAgents;
 
-    private final TieredStoragePartitionId partitionId;
-
     public MemoryTierProducerAgent(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
             int numBytesPerSegment,
             TieredStorageMemoryManager storageMemoryManager,
             boolean isBroadcastOnly,
-            int bufferSize,
             TieredStorageNettyService nettyService) {
-        this.partitionId = partitionId;
         this.numSubpartitions = numSubpartitions;
         this.numBytesPerSegment = numBytesPerSegment;
         this.numBuffersPerSegment = numBytesPerSegment / 32 / 1024;
@@ -100,8 +96,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
                 });
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionProducerAgents[subpartitionId] =
-                    new MemoryTierSubpartitionProducerAgent(
-                            subpartitionId, bufferSize, nettyService);
+                    new MemoryTierSubpartitionProducerAgent(subpartitionId, nettyService);
         }
     }
 

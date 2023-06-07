@@ -377,7 +377,6 @@ public class ResultPartitionFactory {
                 storeConfiguration,
                 storageMemoryManager,
                 dataFileBasePath,
-                networkBufferSize,
                 minReservedDiskSpaceFraction,
                 partitionFileManager,
                 nettyService);

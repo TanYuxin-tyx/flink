@@ -47,7 +47,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
     public DiskCacheManager(
             int tierIndex,
             int numSubpartitions,
-            int bufferSize,
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileManager partitionFileManager) {
         this.tierIndex = tierIndex;
@@ -55,7 +54,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
         this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionDiskCacheManagers[subpartitionId] =
-                    new SubpartitionDiskCacheManager(subpartitionId, bufferSize);
+                    new SubpartitionDiskCacheManager(subpartitionId);
         }
         this.partitionFileWriter =
                 partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);

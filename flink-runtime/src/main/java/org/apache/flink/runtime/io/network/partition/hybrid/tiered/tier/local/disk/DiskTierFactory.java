@@ -60,7 +60,6 @@ public class DiskTierFactory implements TierFactory {
             float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
-            int networkBufferSize,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService) {
         return new DiskTierProducerAgent(
@@ -72,7 +71,6 @@ public class DiskTierFactory implements TierFactory {
                 minReservedDiskSpaceFraction,
                 isBroadcastOnly,
                 partitionFileManager,
-                networkBufferSize,
                 storageMemoryManager,
                 nettyService);
     }
