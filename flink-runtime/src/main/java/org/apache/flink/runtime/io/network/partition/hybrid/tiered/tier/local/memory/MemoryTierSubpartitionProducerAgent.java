@@ -22,8 +22,6 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
-import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
@@ -32,8 +30,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 
 import java.nio.ByteBuffer;
-import java.util.LinkedList;
-import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -42,12 +38,6 @@ public class MemoryTierSubpartitionProducerAgent {
 
     private final int subpartitionId;
 
-    private final int bufferSize;
-
-    // Not guarded by lock because it is expected only accessed from task's main thread.
-    private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
-
-    // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
 
     private final TieredStorageNettyService nettyService;
@@ -55,11 +45,8 @@ public class MemoryTierSubpartitionProducerAgent {
     private NettyConnectionWriter nettyConnectionWriter;
 
     public MemoryTierSubpartitionProducerAgent(
-            int subpartitionId,
-            int bufferSize,
-            TieredStorageNettyService nettyService) {
+            int subpartitionId, TieredStorageNettyService nettyService) {
         this.subpartitionId = subpartitionId;
-        this.bufferSize = bufferSize;
         this.nettyService = nettyService;
     }
 
@@ -88,10 +75,6 @@ public class MemoryTierSubpartitionProducerAgent {
     private void writeEvent(ByteBuffer event, DataType dataType) {
         checkArgument(dataType.isEvent());
 
-        // each Event must take an exclusive buffer
-        finishCurrentWritingBufferIfNotEmpty();
-
-        // store Events in adhoc heap segments, for network memory efficiency
         MemorySegment data = MemorySegmentFactory.wrap(event.array());
         Buffer buffer =
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
@@ -101,32 +84,9 @@ public class MemoryTierSubpartitionProducerAgent {
         addFinishedBuffer(nettyPayload);
     }
 
-    private void finishCurrentWritingBufferIfNotEmpty() {
-        BufferBuilder currentWritingBuffer = unfinishedBuffers.peek();
-        if (currentWritingBuffer == null || currentWritingBuffer.getWritableBytes() == bufferSize) {
-            return;
-        }
-
-        finishCurrentWritingBuffer();
-    }
-
-    private void finishCurrentWritingBuffer() {
-        BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
-        if (currentWritingBuffer == null) {
-            return;
-        }
-        currentWritingBuffer.finish();
-        BufferConsumer bufferConsumer = currentWritingBuffer.createBufferConsumerFromBeginning();
-        Buffer buffer = bufferConsumer.build();
-        currentWritingBuffer.close();
-        bufferConsumer.close();
-        NettyPayload nettyPayload =
-                NettyPayload.newBuffer(buffer, finishedBufferIndex, subpartitionId);
-        addFinishedBuffer(nettyPayload);
-    }
-
     void addFinishedBuffer(Buffer buffer) {
-        NettyPayload toAddBuffer = NettyPayload.newBuffer(buffer, finishedBufferIndex, subpartitionId);
+        NettyPayload toAddBuffer =
+                NettyPayload.newBuffer(buffer, finishedBufferIndex, subpartitionId);
         addFinishedBuffer(toAddBuffer);
     }
 

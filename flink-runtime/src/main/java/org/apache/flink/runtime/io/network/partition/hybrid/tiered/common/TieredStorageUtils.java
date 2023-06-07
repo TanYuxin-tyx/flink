@@ -95,7 +95,6 @@ public class TieredStorageUtils {
             TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storageMemoryManager,
             String dataFileBasePath,
-            int networkBufferSize,
             float minReservedDiskSpaceFraction,
             PartitionFileManager partitionFileManager,
             TieredStorageNettyService nettyService) {
@@ -111,7 +110,6 @@ public class TieredStorageUtils {
                             minReservedDiskSpaceFraction,
                             isBroadcast,
                             partitionFileManager,
-                            networkBufferSize,
                             storageMemoryManager,
                             nettyService));
         }

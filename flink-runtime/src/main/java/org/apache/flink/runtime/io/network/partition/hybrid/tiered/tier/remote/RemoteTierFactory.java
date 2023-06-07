@@ -63,7 +63,6 @@ public class RemoteTierFactory implements TierFactory {
             float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
-            int networkBufferSize,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService) {
         return new RemoteTierProducerAgent(

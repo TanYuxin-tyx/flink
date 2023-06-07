@@ -82,7 +82,6 @@ public class DiskTierProducerAgent implements TierProducerAgent {
             float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
-            int networkBufferSize,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService) {
         this.numBytesPerSegment = numBytesPerSegment;
@@ -105,7 +104,6 @@ public class DiskTierProducerAgent implements TierProducerAgent {
                 new DiskCacheManager(
                         tierIndex,
                         isBroadcastOnly ? 1 : numSubpartitions,
-                        networkBufferSize,
                         storageMemoryManager,
                         partitionFileManager);
 

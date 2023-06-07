@@ -22,8 +22,6 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
-import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
-import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
@@ -31,11 +29,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Netty
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
-import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -44,26 +39,17 @@ public class SubpartitionDiskCacheManager {
 
     private final int targetChannel;
 
-    private final int bufferSize;
-
-    // Not guarded by lock because it is expected only accessed from task's main thread.
-    private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
-
     // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
 
     private final Deque<NettyPayload> allBuffers = new LinkedList<>();
 
-    private final Set<Integer> lastBufferIndexOfSegments;
-
-    public SubpartitionDiskCacheManager(int targetChannel, int bufferSize) {
+    public SubpartitionDiskCacheManager(int targetChannel) {
         this.targetChannel = targetChannel;
-        this.bufferSize = bufferSize;
-        this.lastBufferIndexOfSegments = new HashSet<>();
     }
 
     // ------------------------------------------------------------------------
-    //  Called by MemoryDataManager
+    //  Called by DiskCacheManager
     // ------------------------------------------------------------------------
 
     public void appendSegmentEvent(ByteBuffer record, DataType dataType) {
@@ -75,7 +61,8 @@ public class SubpartitionDiskCacheManager {
     }
 
     public void append(Buffer buffer) {
-        NettyPayload toAddBuffer = NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
+        NettyPayload toAddBuffer =
+                NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(toAddBuffer);
     }
 
@@ -89,13 +76,7 @@ public class SubpartitionDiskCacheManager {
         }
     }
 
-    Set<Integer> getLastBufferIndexOfSegments() {
-        return lastBufferIndexOfSegments;
-    }
-
-    public void release() {
-        lastBufferIndexOfSegments.clear();
-    }
+    public void release() {}
 
     // ------------------------------------------------------------------------
     //  Internal Methods
@@ -104,38 +85,12 @@ public class SubpartitionDiskCacheManager {
     private void writeEvent(ByteBuffer event, DataType dataType) {
         checkArgument(dataType.isEvent());
 
-        // each Event must take an exclusive buffer
-        finishCurrentWritingBufferIfNotEmpty();
-
-        // store Events in adhoc heap segments, for network memory efficiency
         MemorySegment data = MemorySegmentFactory.wrap(event.array());
         Buffer buffer =
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
-        NettyPayload nettyPayload = NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
-        addFinishedBuffer(nettyPayload);
-    }
-
-    private void finishCurrentWritingBufferIfNotEmpty() {
-        BufferBuilder currentWritingBuffer = unfinishedBuffers.peek();
-        if (currentWritingBuffer == null || currentWritingBuffer.getWritableBytes() == bufferSize) {
-            return;
-        }
-
-        finishCurrentWritingBuffer();
-    }
-
-    private void finishCurrentWritingBuffer() {
-        BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
-        if (currentWritingBuffer == null) {
-            return;
-        }
-        currentWritingBuffer.finish();
-        BufferConsumer bufferConsumer = currentWritingBuffer.createBufferConsumerFromBeginning();
-        Buffer buffer = bufferConsumer.build();
-        currentWritingBuffer.close();
-        bufferConsumer.close();
-        NettyPayload nettyPayload = NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
+        NettyPayload nettyPayload =
+                NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(nettyPayload);
     }
 

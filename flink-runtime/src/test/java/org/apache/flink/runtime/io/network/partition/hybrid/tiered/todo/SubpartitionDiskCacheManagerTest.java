@@ -36,7 +36,7 @@ class SubpartitionDiskCacheManagerTest {
     private SubpartitionDiskCacheManager createSubpartitionMemoryDataManager(
             DiskCacheManagerOperation diskCacheManagerOperation) {
         SubpartitionDiskCacheManager subpartitionDiskCacheManager =
-                new SubpartitionDiskCacheManager(SUBPARTITION_ID, bufferSize);
+                new SubpartitionDiskCacheManager(SUBPARTITION_ID);
         return subpartitionDiskCacheManager;
     }
 
