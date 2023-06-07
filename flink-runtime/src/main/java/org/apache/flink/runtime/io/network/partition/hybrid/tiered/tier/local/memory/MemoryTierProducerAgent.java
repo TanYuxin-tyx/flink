@@ -49,8 +49,6 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
 
     private final boolean isBroadcastOnly;
 
-    private volatile boolean isReleased;
-
     // Record the byte number currently written to each sub partition.
     private final int[] numSubpartitionEmitBytes;
 
@@ -135,10 +133,6 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
     public void release() {
         for (int i = 0; i < numSubpartitions; i++) {
             getSubpartitionMemoryDataManagers()[i].release();
-        }
-
-        if (!isReleased) {
-            isReleased = true;
         }
     }
 

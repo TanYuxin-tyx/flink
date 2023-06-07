@@ -30,6 +30,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
@@ -291,9 +293,14 @@ public class ResultPartitionFactory {
                                 storageMemoryManager,
                                 nettyService);
 
+                TieredStoragePartitionId partitionId = TieredStorageIdMappingUtils.convertId(id);
                 BufferAccumulator bufferAccumulator =
                         new HashBufferAccumulator(
-                                subpartitions.length, networkBufferSize, storageMemoryManager);
+                                partitionId,
+                                resourceRegistry,
+                                subpartitions.length,
+                                networkBufferSize,
+                                storageMemoryManager);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(
                                 subpartitions.length,

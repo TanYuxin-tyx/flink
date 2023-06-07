@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 import javax.annotation.Nullable;
@@ -49,6 +50,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class HashBufferAccumulator
         implements BufferAccumulator, HashSubpartitionBufferAccumulatorContext {
 
+    private final TieredStoragePartitionId partitionId;
+
     private final TieredStorageMemoryManager memoryManager;
 
     private final HashSubpartitionBufferAccumulator[] hashSubpartitionBufferAccumulators;
@@ -62,7 +65,12 @@ public class HashBufferAccumulator
     private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher;
 
     public HashBufferAccumulator(
-            int numSubpartitions, int bufferSize, TieredStorageMemoryManager memoryManager) {
+            TieredStoragePartitionId partitionId,
+            TieredStorageResourceRegistry resourceRegistry,
+            int numSubpartitions,
+            int bufferSize,
+            TieredStorageMemoryManager memoryManager) {
+        this.partitionId = partitionId;
         this.memoryManager = memoryManager;
         this.hashSubpartitionBufferAccumulators =
                 new HashSubpartitionBufferAccumulator[numSubpartitions];
@@ -71,6 +79,7 @@ public class HashBufferAccumulator
                     new HashSubpartitionBufferAccumulator(
                             new TieredStorageSubpartitionId(i), bufferSize, this);
         }
+        resourceRegistry.registerResource(partitionId, this::releaseResources);
     }
 
     @Override
@@ -101,6 +110,11 @@ public class HashBufferAccumulator
     public void flushAccumulatedBuffers(
             TieredStorageSubpartitionId subpartitionId, List<Buffer> accumulatedBuffers) {
         checkNotNull(accumulatedBufferFlusher).accept(subpartitionId, accumulatedBuffers);
+    }
+
+    private void releaseResources() {
+        Arrays.stream(hashSubpartitionBufferAccumulators)
+                .forEach(HashSubpartitionBufferAccumulator::release);
     }
 
     private HashSubpartitionBufferAccumulator getSubpartitionAccumulator(
