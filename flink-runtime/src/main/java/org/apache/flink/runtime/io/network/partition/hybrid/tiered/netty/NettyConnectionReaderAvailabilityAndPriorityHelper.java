@@ -34,7 +34,8 @@ public interface NettyConnectionReaderAvailabilityAndPriorityHelper {
     void notifyReaderAvailableAndPriority(int channelIndex, boolean isPriority);
 
     /**
-     * Update the priority sequence number.
+     * Update the latest sequence number of priority buffer read by the {@link
+     * NettyConnectionReader}, which helps determine if the reader should have priority.
      *
      * @param channelIndex the index of input channel related to the connection.
      * @param sequenceNumber the sequence number of priority buffer.
