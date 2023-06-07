@@ -29,7 +29,7 @@ public interface TieredStorageNettyService {
 
     /**
      * {@link TierProducerAgent} will provide a callback named {@link NettyServiceProducer} to
-     * register to {@link TieredStorageNettyService}
+     * register to {@link TieredStorageNettyService}.
      *
      * @param partitionId partition id indicates the unique id of {@link TieredResultPartition}.
      * @param producerService producer service is a callback from {@link TierProducerAgent} and used

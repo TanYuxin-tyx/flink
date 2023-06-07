@@ -32,7 +32,7 @@ public class NettyConnectionReaderImpl implements NettyConnectionReader {
     /** The index of input channel related to the reader. */
     private final int inputChannelIndex;
 
-    /** The provider to provide the input channel. */
+    /** The provider to provide the input channel by channel index. */
     private final Function<Integer, InputChannel> inputChannelProvider;
 
     /** The helper is used to notify the available and priority status of reader. */

@@ -34,32 +34,32 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class NettyPayload {
 
     /**
-     * If the buffer is not null, bufferIndex and subpartitionId will be non-negative, error will be
-     * null, segmentId will be -1;
+     * The data buffer. If the buffer is not null, bufferIndex and subpartitionId will be
+     * non-negative, error will be null, segmentId will be -1;
      */
     @Nullable private final Buffer buffer;
 
     /**
-     * If the error is not null, buffer will be null, segmentId and bufferIndex and subpartitionId
-     * will be -1.
+     * The error information. If the error is not null, buffer will be null, segmentId and
+     * bufferIndex and subpartitionId will be -1.
      */
     @Nullable private final Throwable error;
 
     /**
-     * If the bufferIndex is non-negative, buffer won't be null, error will be null, subpartitionId
-     * will be non-negative, segmentId will be -1.
+     * The index of buffer. If the bufferIndex is non-negative, buffer won't be null, error will be
+     * null, subpartitionId will be non-negative, segmentId will be -1.
      */
     private final int bufferIndex;
 
     /**
-     * If the subpartitionId is non-negative, buffer won't be null, error will be null, bufferIndex
-     * will be non-negative, segmentId will be -1.
+     * The id of subpartition. If the subpartitionId is non-negative, buffer won't be null, error
+     * will be null, bufferIndex will be non-negative, segmentId will be -1.
      */
     private final int subpartitionId;
 
     /**
-     * If the segmentId is non-negative, buffer and error be null, bufferIndex and subpartitionId
-     * will be -1.
+     * The id of segment. If the segmentId is non-negative, buffer and error be null, bufferIndex
+     * and subpartitionId will be -1.
      */
     private final int segmentId;
 
