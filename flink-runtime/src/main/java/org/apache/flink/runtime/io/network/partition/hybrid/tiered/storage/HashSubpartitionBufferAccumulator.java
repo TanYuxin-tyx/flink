@@ -80,6 +80,11 @@ public class HashSubpartitionBufferAccumulator {
         checkState(unfinishedBuffers.isEmpty(), "There are unfinished buffers.");
     }
 
+    public void release() {
+        recycleBuffers();
+        checkState(unfinishedBuffers.isEmpty(), "There are unfinished buffers.");
+    }
+
     // ------------------------------------------------------------------------
     //  Internal Methods
     // ------------------------------------------------------------------------

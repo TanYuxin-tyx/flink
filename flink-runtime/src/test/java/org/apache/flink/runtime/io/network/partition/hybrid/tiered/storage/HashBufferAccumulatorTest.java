@@ -23,6 +23,8 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 import org.junit.jupiter.api.AfterEach;
@@ -69,7 +71,12 @@ class HashBufferAccumulatorTest {
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
         try (HashBufferAccumulator bufferAccumulator =
-                new HashBufferAccumulator(1, NETWORK_BUFFER_SIZE, tieredStorageMemoryManager)) {
+                new HashBufferAccumulator(
+                        TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
+                        new TieredStorageResourceRegistry(),
+                        1,
+                        NETWORK_BUFFER_SIZE,
+                        tieredStorageMemoryManager)) {
             AtomicInteger numReceivedFinishedBuffer = new AtomicInteger(0);
             bufferAccumulator.setup(
                     ((subpartition, buffers) ->
@@ -114,7 +121,12 @@ class HashBufferAccumulatorTest {
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
         try (HashBufferAccumulator bufferAccumulator =
-                new HashBufferAccumulator(1, NETWORK_BUFFER_SIZE, tieredStorageMemoryManager)) {
+                new HashBufferAccumulator(
+                        TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
+                        new TieredStorageResourceRegistry(),
+                        1,
+                        NETWORK_BUFFER_SIZE,
+                        tieredStorageMemoryManager)) {
             bufferAccumulator.setup(
                     ((subpartition, buffers) -> buffers.forEach(Buffer::recycleBuffer)));
 
@@ -137,7 +149,12 @@ class HashBufferAccumulatorTest {
                         () -> {
                             try (HashBufferAccumulator bufferAccumulator =
                                     new HashBufferAccumulator(
-                                            1, NETWORK_BUFFER_SIZE, tieredStorageMemoryManager)) {
+                                            TieredStorageIdMappingUtils.convertId(
+                                                    new ResultPartitionID()),
+                                            new TieredStorageResourceRegistry(),
+                                            1,
+                                            NETWORK_BUFFER_SIZE,
+                                            tieredStorageMemoryManager)) {
                                 bufferAccumulator.setup(
                                         ((subpartition, buffers) ->
                                                 buffers.forEach(Buffer::recycleBuffer)));

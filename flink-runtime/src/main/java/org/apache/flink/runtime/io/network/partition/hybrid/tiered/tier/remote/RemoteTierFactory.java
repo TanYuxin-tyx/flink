@@ -64,7 +64,8 @@ public class RemoteTierFactory implements TierFactory {
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
             TieredStorageMemoryManager storageMemoryManager,
-            TieredStorageNettyService nettyService) {
+            TieredStorageNettyService nettyService,
+            TieredStorageResourceRegistry resourceRegistry) {
         return new RemoteTierProducerAgent(
                 numSubpartitions,
                 numBytesPerSegment,

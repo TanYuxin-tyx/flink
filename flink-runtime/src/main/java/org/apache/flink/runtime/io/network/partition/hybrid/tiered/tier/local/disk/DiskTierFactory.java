@@ -61,7 +61,8 @@ public class DiskTierFactory implements TierFactory {
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
             TieredStorageMemoryManager storageMemoryManager,
-            TieredStorageNettyService nettyService) {
+            TieredStorageNettyService nettyService,
+            TieredStorageResourceRegistry resourceRegistry) {
         return new DiskTierProducerAgent(
                 tierIndex,
                 numSubpartitions,

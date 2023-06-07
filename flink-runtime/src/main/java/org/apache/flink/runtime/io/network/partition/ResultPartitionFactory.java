@@ -30,6 +30,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
@@ -289,11 +291,17 @@ public class ResultPartitionFactory {
                                 subpartitions,
                                 storageConfiguration,
                                 storageMemoryManager,
-                                nettyService);
+                                nettyService,
+                                resourceRegistry);
 
+                TieredStoragePartitionId partitionId = TieredStorageIdMappingUtils.convertId(id);
                 BufferAccumulator bufferAccumulator =
                         new HashBufferAccumulator(
-                                subpartitions.length, networkBufferSize, storageMemoryManager);
+                                partitionId,
+                                resourceRegistry,
+                                subpartitions.length,
+                                networkBufferSize,
+                                storageMemoryManager);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(
                                 subpartitions.length,
@@ -356,7 +364,8 @@ public class ResultPartitionFactory {
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storageMemoryManager,
-            TieredStorageNettyService nettyService) {
+            TieredStorageNettyService nettyService,
+            TieredStorageResourceRegistry resourceRegistry) {
         String dataFileBasePath = channelManager.createChannel().getPath();
         PartitionFileManager partitionFileManager =
                 new PartitionFileManagerImpl(
@@ -379,7 +388,8 @@ public class ResultPartitionFactory {
                 dataFileBasePath,
                 minReservedDiskSpaceFraction,
                 partitionFileManager,
-                nettyService);
+                nettyService,
+                resourceRegistry);
     }
 
     private HybridShuffleConfiguration getHybridShuffleConfiguration(

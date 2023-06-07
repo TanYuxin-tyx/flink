@@ -64,14 +64,16 @@ public class MemoryTierFactory implements TierFactory {
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
             TieredStorageMemoryManager storageMemoryManager,
-            TieredStorageNettyService nettyService) {
+            TieredStorageNettyService nettyService,
+            TieredStorageResourceRegistry resourceRegistry) {
         return new MemoryTierProducerAgent(
                 TieredStorageIdMappingUtils.convertId(resultPartitionID),
                 numSubpartitions,
                 numBytesPerSegment,
                 storageMemoryManager,
                 isBroadcastOnly,
-                nettyService);
+                nettyService,
+                resourceRegistry);
     }
 
     @Override

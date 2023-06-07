@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
@@ -97,7 +98,8 @@ public class TieredStorageUtils {
             String dataFileBasePath,
             float minReservedDiskSpaceFraction,
             PartitionFileManager partitionFileManager,
-            TieredStorageNettyService nettyService) {
+            TieredStorageNettyService nettyService,
+            TieredStorageResourceRegistry resourceRegistry) {
         List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
         int i = 0;
         for (TierFactory tierFactory : storeConfiguration.getTierFactories()) {
@@ -111,7 +113,8 @@ public class TieredStorageUtils {
                             isBroadcast,
                             partitionFileManager,
                             storageMemoryManager,
-                            nettyService));
+                            nettyService,
+                            resourceRegistry));
         }
         return tierProducerAgents;
     }

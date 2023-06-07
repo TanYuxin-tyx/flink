@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceProducer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -39,8 +40,6 @@ import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_
 /** The DataManager of LOCAL file. */
 public class MemoryTierProducerAgent implements TierProducerAgent {
 
-    private final int numSubpartitions;
-
     private final int numBytesPerSegment;
 
     private final int numBuffersPerSegment;
@@ -48,8 +47,6 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
     private final TieredStorageMemoryManager storageMemoryManager;
 
     private final boolean isBroadcastOnly;
-
-    private volatile boolean isReleased;
 
     // Record the byte number currently written to each sub partition.
     private final int[] numSubpartitionEmitBytes;
@@ -68,8 +65,8 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
             int numBytesPerSegment,
             TieredStorageMemoryManager storageMemoryManager,
             boolean isBroadcastOnly,
-            TieredStorageNettyService nettyService) {
-        this.numSubpartitions = numSubpartitions;
+            TieredStorageNettyService nettyService,
+            TieredStorageResourceRegistry resourceRegistry) {
         this.numBytesPerSegment = numBytesPerSegment;
         this.numBuffersPerSegment = numBytesPerSegment / 32 / 1024;
         this.isBroadcastOnly = isBroadcastOnly;
@@ -98,6 +95,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
             subpartitionProducerAgents[subpartitionId] =
                     new MemoryTierSubpartitionProducerAgent(subpartitionId, nettyService);
         }
+        resourceRegistry.registerResource(partitionId, this::releaseResources);
     }
 
     private void register(
@@ -132,15 +130,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
     }
 
     @Override
-    public void release() {
-        for (int i = 0; i < numSubpartitions; i++) {
-            getSubpartitionMemoryDataManagers()[i].release();
-        }
-
-        if (!isReleased) {
-            isReleased = true;
-        }
-    }
+    public void release() {}
 
     @Override
     public boolean tryWrite(int consumerId, Buffer finishedBuffer) {
@@ -178,6 +168,11 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
     //           Internal Method
     // ------------------------------------
 
+    private void releaseResources() {
+        Arrays.stream(subpartitionProducerAgents)
+                .forEach(MemoryTierSubpartitionProducerAgent::release);
+    }
+
     private boolean isSubpartitionRegistered(TieredStorageSubpartitionId subpartitionId) {
         return nettyServiceRegistered[subpartitionId.getSubpartitionId()];
     }
@@ -185,9 +180,5 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
     private MemoryTierSubpartitionProducerAgent getSubpartitionMemoryDataManager(
             int targetChannel) {
         return subpartitionProducerAgents[targetChannel];
-    }
-
-    public MemoryTierSubpartitionProducerAgent[] getSubpartitionMemoryDataManagers() {
-        return subpartitionProducerAgents;
     }
 }

@@ -6,9 +6,9 @@ import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
@@ -143,7 +143,8 @@ public class ProducerMergePartitionFileReader
                             nettyService,
                             firstBufferContextInSegment.get(subpartitionId));
             allSubpartitionReaders.add(subpartitionReader);
-            readersWithNettyConnectionId.put(nettyConnectionWriter.getNettyConnectionId(), subpartitionReader);
+            readersWithNettyConnectionId.put(
+                    nettyConnectionWriter.getNettyConnectionId(), subpartitionReader);
             triggerReaderRunning();
         }
     }
@@ -218,7 +219,11 @@ public class ProducerMergePartitionFileReader
             if (!buffers.isEmpty()) {
                 return new ArrayDeque<>(buffers);
             }
-            checkState(!isReleased, "Result partition has been already released.");
+            synchronized (lock) {
+                if (isReleased) {
+                    return new ArrayDeque<>();
+                }
+            }
         } while (System.currentTimeMillis() < timeoutTime
                 || System.currentTimeMillis() < (timeoutTime = getBufferRequestTimeoutTime()));
         throw new TimeoutException(

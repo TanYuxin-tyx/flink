@@ -47,7 +47,8 @@ public interface TierFactory {
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
             TieredStorageMemoryManager storageMemoryManager,
-            TieredStorageNettyService nettyService);
+            TieredStorageNettyService nettyService,
+            TieredStorageResourceRegistry resourceRegistry);
 
     TierConsumerAgent createConsumerAgent(
             int numSubpartitions,
