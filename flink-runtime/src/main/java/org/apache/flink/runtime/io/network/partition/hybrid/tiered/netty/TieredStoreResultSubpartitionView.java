@@ -45,7 +45,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final List<Queue<NettyPayload>> bufferQueues;
 
-    private final List<NettyProducerService> producerServices;
+    private final List<NettyServiceProducer> producerServices;
 
     private final List<NettyConnectionId> nettyConnectionIds;
 
@@ -63,7 +63,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             BufferAvailabilityListener availabilityListener,
             List<Queue<NettyPayload>> bufferQueues,
             List<NettyConnectionId> nettyConnectionIds,
-            List<NettyProducerService> producerServices) {
+            List<NettyServiceProducer> producerServices) {
         this.availabilityListener = availabilityListener;
         this.bufferQueues = bufferQueues;
         this.nettyConnectionIds = nettyConnectionIds;
@@ -183,7 +183,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private Optional<Buffer> readBufferQueue(
             Queue<NettyPayload> bufferQueue,
-            NettyProducerService producerService,
+            NettyServiceProducer producerService,
             NettyConnectionId id)
             throws IOException {
         NettyPayload buffer = bufferQueue.poll();
@@ -214,7 +214,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private void releaseQueue(
             Queue<NettyPayload> bufferQueue,
-            NettyProducerService producerService,
+            NettyServiceProducer producerService,
             NettyConnectionId id) {
         NettyPayload nettyPayload;
         while ((nettyPayload = bufferQueue.poll()) != null) {
@@ -222,7 +222,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
                 checkNotNull(nettyPayload.getBuffer()).recycleBuffer();
             }
         }
-        producerService.disconnectNettyConnection(id);
+        producerService.connectionBroken(id);
     }
 
     private boolean findCurrentBufferQueue() {

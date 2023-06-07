@@ -22,25 +22,25 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
 /**
- * {@link NettyProducerService} is used as the callback to register {@link NettyConnectionWriter}
+ * {@link NettyServiceProducer} is used as the callback to register {@link NettyConnectionWriter}
  * and disconnect netty connection in {@link TierProducerAgent}.
  */
-public interface NettyProducerService {
+public interface NettyServiceProducer {
 
     /**
-     * Register a {@link NettyConnectionWriter} for a subpartition.
+     * Establish a netty connection for a subpartition.
      *
      * @param subpartitionId subpartition id indicates the id of subpartition.
      * @param nettyConnectionWriter writer is used to write buffers to netty connection.
      */
-    void registerNettyConnectionWriter(
+    void connectionEstablished(
             TieredStorageSubpartitionId subpartitionId,
             NettyConnectionWriter nettyConnectionWriter);
 
     /**
-     * Disconnect the netty connection related to the {@link NettyConnectionId}.
+     * Broken the netty connection related to the {@link NettyConnectionId}.
      *
      * @param connectionId connection id is the id of connection.
      */
-    void disconnectNettyConnection(NettyConnectionId connectionId);
+    void connectionBroken(NettyConnectionId connectionId);
 }

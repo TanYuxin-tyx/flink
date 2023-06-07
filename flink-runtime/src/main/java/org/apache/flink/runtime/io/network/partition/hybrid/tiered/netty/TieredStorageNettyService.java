@@ -28,7 +28,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProd
 public interface TieredStorageNettyService {
 
     /**
-     * {@link TierProducerAgent} will provide a callback named {@link NettyProducerService} to
+     * {@link TierProducerAgent} will provide a callback named {@link NettyServiceProducer} to
      * register to {@link TieredStorageNettyService}
      *
      * @param partitionId partition id indicates the unique id of {@link TieredResultPartition}.
@@ -36,7 +36,7 @@ public interface TieredStorageNettyService {
      *     to register a {@link NettyConnectionWriter} and disconnect the netty connection.
      */
     void registerProducer(
-            TieredStoragePartitionId partitionId, NettyProducerService producerService);
+            TieredStoragePartitionId partitionId, NettyServiceProducer producerService);
 
     /**
      * {@link TierConsumerAgent} will register to {@link TieredStorageNettyService} and get a {@link

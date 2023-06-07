@@ -46,6 +46,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.Buffe
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReaderAvailabilityAndPriorityHelper;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
@@ -289,9 +290,20 @@ public class SingleInputGate extends IndexedInputGate {
                 .setUpInputChannels(
                         tieredResultPartitionIds,
                         tieredSubPartitionIds,
-                        channels,
-                        queueChannelCallBack,
-                        lastPrioritySequenceNumber);
+                        index -> channels[index],
+                        new NettyConnectionReaderAvailabilityAndPriorityHelper() {
+                            @Override
+                            public void notifyReaderAvailableAndPriority(
+                                    int channelIndex, boolean isPriority) {
+                                queueChannelCallBack.accept(channelIndex, isPriority);
+                            }
+
+                            @Override
+                            public void updatePrioritySequenceNumber(
+                                    int channelIndex, int sequenceNumber) {
+                                lastPrioritySequenceNumber[channelIndex] = sequenceNumber;
+                            }
+                        });
         this.tieredStorageConsumerClient =
                 enableTieredStoreMode
                         ? new TieredStorageConsumerClient(

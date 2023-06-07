@@ -19,23 +19,23 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import java.util.Objects;
+import java.util.Random;
 
 /** {@link NettyConnectionId} indicates the unique id of netty connection. */
 public class NettyConnectionId {
 
-    // The default id of netty connection.
-    private static int defaultId = 0;
+    private final long lowerPart;
 
-    private final int id;
+    private final long upperPart;
 
-    private NettyConnectionId(int id) {
-        this.id = id;
+    private NettyConnectionId(long lowerPart, long upperPart) {
+        this.lowerPart = lowerPart;
+        this.upperPart = upperPart;
     }
 
     public static NettyConnectionId newId() {
-        synchronized (NettyConnectionId.class) {
-            return new NettyConnectionId(defaultId++);
-        }
+        Random random = new Random();
+        return new NettyConnectionId(random.nextLong(), random.nextLong());
     }
 
     @Override
@@ -47,11 +47,11 @@ public class NettyConnectionId {
             return false;
         }
         NettyConnectionId that = (NettyConnectionId) o;
-        return id == that.id;
+        return lowerPart == that.lowerPart && upperPart == that.upperPart;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id);
+        return Objects.hash(lowerPart, upperPart);
     }
 }

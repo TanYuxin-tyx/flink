@@ -23,7 +23,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProd
 
 /**
  * {@link NettyConnectionWriter} is used by {@link TierProducerAgent} to write buffers to netty
- * connection.
+ * connection. Buffers in the writer will be written to a queue structure and netty server will send
+ * buffers from it.
  */
 public interface NettyConnectionWriter {
     /**
@@ -41,9 +42,7 @@ public interface NettyConnectionWriter {
     NettyConnectionId getNettyConnectionId();
 
     /**
-     * Get the number of existed buffers in the writer. The {@link NettyConnectionWriter} may be
-     * implemented based on a queue structure, this method is used to get the residual buffers in
-     * the writer.
+     * Get the number of written but unsent buffers.
      *
      * @return the buffer number.
      */

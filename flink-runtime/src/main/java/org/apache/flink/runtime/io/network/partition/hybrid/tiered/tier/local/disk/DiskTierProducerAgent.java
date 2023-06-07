@@ -27,7 +27,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyProducerService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceProducer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
@@ -111,16 +111,16 @@ public class DiskTierProducerAgent implements TierProducerAgent {
 
         nettyService.registerProducer(
                 TieredStorageIdMappingUtils.convertId(resultPartitionID),
-                new NettyProducerService() {
+                new NettyServiceProducer() {
                     @Override
-                    public void registerNettyConnectionWriter(
+                    public void connectionEstablished(
                             TieredStorageSubpartitionId subpartitionId,
                             NettyConnectionWriter nettyConnectionWriter) {
                         DiskTierProducerAgent.this.register(subpartitionId, nettyConnectionWriter);
                     }
 
                     @Override
-                    public void disconnectNettyConnection(NettyConnectionId connectionId) {
+                    public void connectionBroken(NettyConnectionId connectionId) {
                         partitionFileReader.releaseReader(connectionId);
                     }
                 });
