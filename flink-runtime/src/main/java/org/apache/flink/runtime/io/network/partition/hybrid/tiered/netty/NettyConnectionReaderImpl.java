@@ -24,7 +24,7 @@ import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.function.Supplier;
 
 /** The default implementation of {@link NettyConnectionReader}. */
 public class NettyConnectionReaderImpl implements NettyConnectionReader {
@@ -32,8 +32,8 @@ public class NettyConnectionReaderImpl implements NettyConnectionReader {
     /** The index of input channel related to the reader. */
     private final int inputChannelIndex;
 
-    /** The provider to provide the input channel by channel index. */
-    private final Function<Integer, InputChannel> inputChannelProvider;
+    /** The provider to provide the input channel. */
+    private final Supplier<InputChannel> inputChannelProvider;
 
     /** The helper is used to notify the available and priority status of reader. */
     private final NettyConnectionReaderAvailabilityAndPriorityHelper helper;
@@ -43,7 +43,7 @@ public class NettyConnectionReaderImpl implements NettyConnectionReader {
 
     public NettyConnectionReaderImpl(
             int inputChannelIndex,
-            Function<Integer, InputChannel> inputChannelProvider,
+            Supplier<InputChannel> inputChannelProvider,
             NettyConnectionReaderAvailabilityAndPriorityHelper helper) {
         this.inputChannelIndex = inputChannelIndex;
         this.inputChannelProvider = inputChannelProvider;
@@ -54,11 +54,11 @@ public class NettyConnectionReaderImpl implements NettyConnectionReader {
     public Optional<Buffer> readBuffer(int segmentId) {
         if (segmentId > 0L && (segmentId != lastRequiredSegmentId)) {
             lastRequiredSegmentId = segmentId;
-            inputChannelProvider.apply(inputChannelIndex).notifyRequiredSegmentId(segmentId);
+            inputChannelProvider.get().notifyRequiredSegmentId(segmentId);
         }
         Optional<InputChannel.BufferAndAvailability> bufferAndAvailability = Optional.empty();
         try {
-            bufferAndAvailability = inputChannelProvider.apply(inputChannelIndex).getNextBuffer();
+            bufferAndAvailability = inputChannelProvider.get().getNextBuffer();
         } catch (IOException | InterruptedException e) {
             ExceptionUtils.rethrow(e, "Failed to read buffer.");
         }

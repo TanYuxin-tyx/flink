@@ -95,9 +95,8 @@ public class NettyPayload {
         return buffer != null ? Optional.of(buffer) : Optional.empty();
     }
 
-    @Nullable
-    public Throwable getError() {
-        return error;
+    public Optional<Throwable> getError() {
+        return error != null ? Optional.of(error) : Optional.empty();
     }
 
     public int getBufferIndex() {

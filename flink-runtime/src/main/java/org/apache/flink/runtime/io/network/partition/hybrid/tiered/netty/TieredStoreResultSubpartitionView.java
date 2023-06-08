@@ -193,10 +193,10 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             if (nettyPayload.getSegmentId() != -1) {
                 return readNettyPayload(nettyPayloadQueue, serviceProducer, id);
             }
-            Throwable readError = nettyPayload.getError();
-            if (readError != null) {
+            Optional<Throwable> error = nettyPayload.getError();
+            if (error.isPresent()) {
                 releaseQueue(nettyPayloadQueue, serviceProducer, id);
-                throw new IOException(readError);
+                throw new IOException(error.get());
             } else {
                 return nettyPayload.getBuffer();
             }

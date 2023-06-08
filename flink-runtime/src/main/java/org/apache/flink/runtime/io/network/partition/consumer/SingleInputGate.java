@@ -77,6 +77,7 @@ import java.util.Optional;
 import java.util.Timer;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -290,7 +291,7 @@ public class SingleInputGate extends IndexedInputGate {
                 .setUpInputChannels(
                         tieredResultPartitionIds,
                         tieredSubPartitionIds,
-                        index -> channels[index],
+                        createInputChannelSuppliers(),
                         new NettyConnectionReaderAvailabilityAndPriorityHelper() {
                             @Override
                             public void notifyReaderAvailableAndPriority(
@@ -319,6 +320,15 @@ public class SingleInputGate extends IndexedInputGate {
                                 isUpstreamBroadcastOnly,
                                 queueChannelCallBack)
                         : null;
+    }
+
+    private List<Supplier<InputChannel>> createInputChannelSuppliers() {
+        List<Supplier<InputChannel>> allSuppliers = new ArrayList<>();
+        for (int i = 0; i < channels.length; ++i) {
+            int j = i;
+            allSuppliers.add(() -> channels[j]);
+        }
+        return allSuppliers;
     }
 
     private TieredStoragePartitionId[] getTieredResultPartitionIds(
