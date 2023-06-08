@@ -409,7 +409,9 @@ public class ResultPartitionFactory {
             int numberOfSubpartitions, ResultPartitionType type) {
 
         return TieredStorageConfiguration.builder(
-                        numberOfSubpartitions, batchShuffleReadBufferPool.getNumBuffersPerRequest())
+                        numberOfSubpartitions,
+                        networkBufferSize,
+                        batchShuffleReadBufferPool.getNumBuffersPerRequest())
                 .setTierTypes(tieredStoreTiers, type)
                 // TODO, Replace these previous two lines with the setTierSpecs
                 //                .setTierSpecs(tierConfSpecs)

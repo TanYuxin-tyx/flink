@@ -42,8 +42,11 @@ public class MemoryTierFactory implements TierFactory {
 
     private final int numBytesPerSegment;
 
-    public MemoryTierFactory(int numBytesPerSegment) {
+    private final int bufferSize;
+
+    public MemoryTierFactory(int numBytesPerSegment, int bufferSize) {
         this.numBytesPerSegment = numBytesPerSegment;
+        this.bufferSize = bufferSize;
     }
 
     @Override
@@ -57,7 +60,6 @@ public class MemoryTierFactory implements TierFactory {
     @Override
     public TierProducerAgent createProducerAgent(
             int numSubpartitions,
-            int bufferSize,
             TieredStoragePartitionId partitionID,
             String dataFileBasePath,
             boolean isBroadcastOnly,

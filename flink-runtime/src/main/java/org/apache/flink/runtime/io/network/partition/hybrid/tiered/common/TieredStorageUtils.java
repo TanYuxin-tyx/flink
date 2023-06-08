@@ -105,7 +105,6 @@ public class TieredStorageUtils {
             tierProducerAgents.add(
                     tierFactory.createProducerAgent(
                             subpartitions.length,
-                            networkBufferSize,
                             id,
                             dataFileBasePath,
                             isBroadcast,

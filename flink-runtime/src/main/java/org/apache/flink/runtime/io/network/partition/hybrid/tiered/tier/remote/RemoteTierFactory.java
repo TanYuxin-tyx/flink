@@ -58,7 +58,6 @@ public class RemoteTierFactory implements TierFactory {
     @Override
     public TierProducerAgent createProducerAgent(
             int numSubpartitions,
-            int bufferSize,
             TieredStoragePartitionId partitionID,
             String dataFileBasePath,
             boolean isBroadcastOnly,

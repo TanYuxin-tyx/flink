@@ -74,22 +74,6 @@ public class TieredStorageConfiguration {
 
     private static final long DEFAULT_BUFFER_POLL_SIZE_CHECK_INTERVAL_MS = 1000;
 
-    private static final TierFactory[] DEFAULT_MEMORY_DISK_TIER_FACTORIES =
-            new TierFactory[] {
-                new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT),
-                new DiskTierFactory(
-                        DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT, DEFAULT_MIN_RESERVE_SPACE_FRACTION)
-            };
-
-    private static final TierFactory[] DEFAULT_MEMORY_DISK_REMOTE_TIER_FACTORIES =
-            new TierFactory[] {
-                new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT),
-                new DiskTierFactory(
-                        DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
-                        DEFAULT_MIN_RESERVE_SPACE_FRACTION),
-                new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT)
-            };
-
     private static final int[] DEFAULT_MEMORY_DISK_EXCLUSIVE_BUFFERS = new int[] {100, 1, 1};
 
     private static final int[] DEFAULT_MEMORY_DISK_REMOTE_EXCLUSIVE_BUFFERS =
@@ -100,6 +84,8 @@ public class TieredStorageConfiguration {
     private final Duration bufferRequestTimeout;
 
     private final int maxRequestedBuffers;
+
+    private final int bufferSize;
 
     // For Memory Tier
     private final int configuredNetworkBuffersPerChannel;
@@ -124,6 +110,7 @@ public class TieredStorageConfiguration {
             int maxBuffersReadAhead,
             Duration bufferRequestTimeout,
             int maxRequestedBuffers,
+            int bufferSize,
             float tieredStoreBufferInMemoryRatio,
             float tieredStoreFlushBufferRatio,
             float tieredStoreTriggerFlushRatio,
@@ -136,6 +123,7 @@ public class TieredStorageConfiguration {
         this.maxBuffersReadAhead = maxBuffersReadAhead;
         this.bufferRequestTimeout = bufferRequestTimeout;
         this.maxRequestedBuffers = maxRequestedBuffers;
+        this.bufferSize = bufferSize;
         this.tieredStoreBufferInMemoryRatio = tieredStoreBufferInMemoryRatio;
         this.tieredStoreFlushBufferRatio = tieredStoreFlushBufferRatio;
         this.tieredStoreTriggerFlushRatio = tieredStoreTriggerFlushRatio;
@@ -152,8 +140,9 @@ public class TieredStorageConfiguration {
     }
 
     public static TieredStorageConfiguration.Builder builder(
-            int numSubpartitions, int numBuffersPerRequest) {
-        return new TieredStorageConfiguration.Builder(numSubpartitions, numBuffersPerRequest);
+            int numSubpartitions, int bufferSize, int numBuffersPerRequest) {
+        return new TieredStorageConfiguration.Builder(
+                numSubpartitions, bufferSize, numBuffersPerRequest);
     }
 
     public int getMaxRequestedBuffers() {
@@ -239,12 +228,15 @@ public class TieredStorageConfiguration {
 
         private int numSubpartitions;
 
+        private int bufferSize;
+
         private int numBuffersPerRequest;
 
         private Builder() {}
 
-        private Builder(int numSubpartitions, int numBuffersPerRequest) {
+        private Builder(int numSubpartitions, int bufferSize, int numBuffersPerRequest) {
             this.numSubpartitions = numSubpartitions;
+            this.bufferSize = bufferSize;
             this.numBuffersPerRequest = numBuffersPerRequest;
         }
 
@@ -304,7 +296,7 @@ public class TieredStorageConfiguration {
         public TieredStorageConfiguration.Builder setTierTypes(
                 String configuredStoreTiers, ResultPartitionType partitionType) {
             TierType[] tierTypes = getConfiguredTierTypes(configuredStoreTiers, partitionType);
-            tierFactories = getTierFactories(tierTypes);
+            tierFactories = getTierFactories(tierTypes, bufferSize);
             tierExclusiveBuffers = new int[tierTypes.length];
 
             for (int i = 0; i < tierTypes.length; i++) {
@@ -316,7 +308,7 @@ public class TieredStorageConfiguration {
         /** Only for test. This method will be removed in the production code. */
         public TieredStorageConfiguration.Builder setTierTypes(String configuredStoreTiers) {
             TierType[] tierTypes = getConfiguredTierTypes(configuredStoreTiers);
-            tierFactories = getTierFactories(tierTypes);
+            tierFactories = getTierFactories(tierTypes, bufferSize);
             return this;
         }
 
@@ -379,7 +371,7 @@ public class TieredStorageConfiguration {
 
         public TieredStorageConfiguration build() {
             if (tierFactories == null) {
-                this.tierFactories = getDefaultTierFactories(baseDfsHomePath);
+                this.tierFactories = getDefaultTierFactories(baseDfsHomePath, bufferSize);
             }
             if (tierExclusiveBuffers == null) {
                 this.tierExclusiveBuffers = getDefaultExclusiveBuffers(baseDfsHomePath);
@@ -389,6 +381,7 @@ public class TieredStorageConfiguration {
                     maxBuffersReadAhead,
                     bufferRequestTimeout,
                     Math.max(2 * numBuffersPerRequest, numSubpartitions),
+                    bufferSize,
                     tieredStoreBufferInMemoryRatio,
                     tieredStoreFlushBufferRatio,
                     tieredStoreTriggerFlushRatio,
@@ -402,18 +395,18 @@ public class TieredStorageConfiguration {
     }
 
     // Only for tests
-    private static TierFactory[] getTierFactories(TierType[] tierTypes) {
+    private static TierFactory[] getTierFactories(TierType[] tierTypes, int bufferSize) {
         TierFactory[] tierFactories = new TierFactory[tierTypes.length];
         for (int i = 0; i < tierTypes.length; i++) {
-            tierFactories[i] = createTierFactory(tierTypes[i]);
+            tierFactories[i] = createTierFactory(tierTypes[i], bufferSize);
         }
         return tierFactories;
     }
 
-    private static TierFactory createTierFactory(TierType tierType) {
+    private static TierFactory createTierFactory(TierType tierType, int bufferSize) {
         switch (tierType) {
             case IN_MEM:
-                return new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT);
+                return new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT, bufferSize);
             case IN_DISK:
                 return new DiskTierFactory(
                         DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
@@ -425,10 +418,21 @@ public class TieredStorageConfiguration {
         }
     }
 
-    private static TierFactory[] getDefaultTierFactories(String baseDfsHomePath) {
+    private static TierFactory[] getDefaultTierFactories(String baseDfsHomePath, int bufferSize) {
         return baseDfsHomePath == null
-                ? DEFAULT_MEMORY_DISK_TIER_FACTORIES
-                : DEFAULT_MEMORY_DISK_REMOTE_TIER_FACTORIES;
+                ? new TierFactory[] {
+                    new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT, bufferSize),
+                    new DiskTierFactory(
+                            DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
+                            DEFAULT_MIN_RESERVE_SPACE_FRACTION)
+                }
+                : new TierFactory[] {
+                    new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT, bufferSize),
+                    new DiskTierFactory(
+                            DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
+                            DEFAULT_MIN_RESERVE_SPACE_FRACTION),
+                    new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT)
+                };
     }
 
     private static int[] getDefaultExclusiveBuffers(String baseDfsHomePath) {

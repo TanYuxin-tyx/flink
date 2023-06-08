@@ -94,7 +94,7 @@ public class TieredStorageConsumerClient {
 
     private List<TierFactory> createTierFactories(String baseRemoteStoragePath) {
         List<TierFactory> tierFactories = new ArrayList<>();
-        tierFactories.add(new MemoryTierFactory(0));
+        tierFactories.add(new MemoryTierFactory(0, 0));
         tierFactories.add(new DiskTierFactory(0, 0));
         if (baseRemoteStoragePath != null) {
             tierFactories.add(new RemoteTierFactory(0));
