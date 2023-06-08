@@ -18,8 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskCacheManagerOperation;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.SubpartitionDiskCacheManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskCacheManagerOperation;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.SubpartitionDiskCacheManager;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

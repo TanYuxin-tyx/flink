@@ -27,9 +27,9 @@ import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListen
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskCacheBufferSpiller;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskCacheBufferSpiller;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTrackerImpl;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,7 +73,8 @@ class ProducerMergePartitionFileReaderTest {
     private final BufferAvailabilityListener defaultAvailabilityListener =
             new NoOpBufferAvailablityListener();
 
-    //private final NettyServiceWriterId defaultNettyServiceWriterId = NettyServiceWriterId.DEFAULT;
+    // private final NettyServiceWriterId defaultNettyServiceWriterId =
+    // NettyServiceWriterId.DEFAULT;
 
     @BeforeEach
     void before(@TempDir Path tempDir)
@@ -94,8 +95,8 @@ class ProducerMergePartitionFileReaderTest {
         }
     }
 
-    //@Test
-    //void testRegisterNettyService() throws Exception {
+    // @Test
+    // void testRegisterNettyService() throws Exception {
     //    producerMergePartitionFileReader = createProducerMergePartitionFileReader();
     //    CreditBasedBufferQueueView creditBasedBufferQueueView =
     //            producerMergePartitionFileReader.registerNettyService(
@@ -108,10 +109,10 @@ class ProducerMergePartitionFileReaderTest {
     //    } while (backlog != BUFFER_NUM_PER_SUBPARTITION);
     //    assertThat(creditBasedBufferQueueView.getBacklog())
     //            .isEqualTo(BUFFER_NUM_PER_SUBPARTITION);
-    //}
+    // }
     //
-    //@Test
-    //void testBuffersAreCorrectlyReleased() throws Throwable {
+    // @Test
+    // void testBuffersAreCorrectlyReleased() throws Throwable {
     //    producerMergePartitionFileReader = createProducerMergePartitionFileReader();
     //    CreditBasedBufferQueueView creditBasedBufferQueueView =
     //            producerMergePartitionFileReader.registerNettyService(
@@ -129,13 +130,13 @@ class ProducerMergePartitionFileReaderTest {
     //        nextBuffer.get().recycleBuffer();
     //    }
     //    assertThat(bufferPool.getAvailableBuffers()).isEqualTo(BUFFER_POOL_SIZE);
-    //}
+    // }
 
     @Test
     void testRegisterSubpartitionReaderAfterReleased() {
-        //producerMergePartitionFileReader = createProducerMergePartitionFileReader();
-        //producerMergePartitionFileReader.release();
-        //assertThatThrownBy(
+        // producerMergePartitionFileReader = createProducerMergePartitionFileReader();
+        // producerMergePartitionFileReader.release();
+        // assertThatThrownBy(
         //                () -> {
         //                    producerMergePartitionFileReader.registerNettyService(
         //
@@ -151,7 +152,7 @@ class ProducerMergePartitionFileReaderTest {
         return FileChannel.open(path, StandardOpenOption.READ);
     }
 
-    //private PartitionFileReader createProducerMergePartitionFileReader() {
+    // private PartitionFileReader createProducerMergePartitionFileReader() {
     //    return new ProducerMergePartitionFileReader(
     //            new ResultPartitionID(),
     //            bufferPool,
@@ -162,7 +163,7 @@ class ProducerMergePartitionFileReaderTest {
     //            Duration.ofDays(1),
     //            5,
     //            new TieredStorageNettyServiceImpl());
-    //}
+    // }
 
     private void generateShuffleData(Path tempDir)
             throws IOException, ExecutionException, InterruptedException {

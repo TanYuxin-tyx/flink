@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 
@@ -46,9 +46,7 @@ public interface RegionBufferIndexTracker {
      *     index, if exist; otherwise, {@link Optional#empty()}.
      */
     Optional<ReadableRegion> getReadableRegion(
-            int subpartitionId,
-            int bufferIndex,
-            NettyConnectionId nettyServiceWriterId);
+            int subpartitionId, int bufferIndex, NettyConnectionId nettyServiceWriterId);
 
     /**
      * Add buffers to the index.

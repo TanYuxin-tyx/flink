@@ -20,7 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.DiskCacheManagerOperation;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskCacheManagerOperation;
 import org.apache.flink.util.function.SupplierWithException;
 
 import java.util.List;
@@ -34,7 +34,6 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
     private final BiConsumer<Integer, Integer> markBufferReadableConsumer;
 
     private final Runnable onDataAvailableRunnable;
-
 
     private TestingDiskCacheManagerOperation(
             SupplierWithException<BufferBuilder, InterruptedException>
@@ -86,6 +85,7 @@ public class TestingDiskCacheManagerOperation implements DiskCacheManagerOperati
             this.onDataAvailableRunnable = onDataAvailableRunnable;
             return this;
         }
+
         private Builder() {}
 
         public TestingDiskCacheManagerOperation build() {

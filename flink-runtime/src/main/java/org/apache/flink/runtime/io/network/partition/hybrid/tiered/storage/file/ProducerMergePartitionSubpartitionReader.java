@@ -24,12 +24,12 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.local.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -132,9 +132,10 @@ public class ProducerMergePartitionSubpartitionReader
                 buffers.add(segment);
                 throw throwable;
             }
-            NettyPayload nettyPayload = NettyPayload.newBuffer(buffer, nextToLoad++, subpartitionId);
+            NettyPayload nettyPayload =
+                    NettyPayload.newBuffer(buffer, nextToLoad++, subpartitionId);
             Integer segmentId = firstBufferContextInSegment.get(nettyPayload.getBufferIndex());
-            if(segmentId != null){
+            if (segmentId != null) {
                 nettyConnectionWriter.writeBuffer(NettyPayload.newSegment(segmentId));
                 ((TieredStorageNettyServiceImpl) nettyService)
                         .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
