@@ -38,7 +38,7 @@ import java.util.Arrays;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** The DataManager of LOCAL file. */
-public class MemoryTierProducerAgent implements TierProducerAgent {
+public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceProducer {
 
     private final int numBytesPerSegment;
 
@@ -80,7 +80,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
         this.subpartitionProducerAgents = new MemoryTierSubpartitionProducerAgent[numSubpartitions];
 
         Arrays.fill(numSubpartitionEmitBytes, 0);
-        nettyService.registerProducer(partitionId, createNettyServiceProducer());
+        nettyService.registerProducer(partitionId, this);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionProducerAgents[subpartitionId] =
                     new MemoryTierSubpartitionProducerAgent(subpartitionId, nettyService);
@@ -136,6 +136,23 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
         return true;
     }
 
+    @Override
+    public void connectionEstablished(
+            TieredStorageSubpartitionId subpartitionId,
+            NettyConnectionWriter nettyConnectionWriter) {
+        if (isBroadcastOnly) {
+            throw new RuntimeException("Illegal to register on broadcast only result partition.");
+        }
+        this.subpartitionProducerAgents[subpartitionId.getSubpartitionId()].registerNettyService(
+                nettyConnectionWriter);
+        nettyServiceRegistered[subpartitionId.getSubpartitionId()] = true;
+    }
+
+    @Override
+    public void connectionBroken(NettyConnectionId connectionId) {
+        // noop
+    }
+
     private void appendEndOfSegmentEvent(int targetChannel) {
         try {
             getSubpartitionMemoryDataManager(targetChannel)
@@ -156,22 +173,6 @@ public class MemoryTierProducerAgent implements TierProducerAgent {
     // ------------------------------------
     //           Internal Method
     // ------------------------------------
-
-    private NettyServiceProducer createNettyServiceProducer() {
-        return new NettyServiceProducer() {
-            @Override
-            public void connectionEstablished(
-                    TieredStorageSubpartitionId subpartitionId,
-                    NettyConnectionWriter nettyConnectionWriter) {
-                MemoryTierProducerAgent.this.register(subpartitionId, nettyConnectionWriter);
-            }
-
-            @Override
-            public void connectionBroken(NettyConnectionId connectionId) {
-                // nothing to do;
-            }
-        };
-    }
 
     private void releaseResources() {
         Arrays.stream(subpartitionProducerAgents)
