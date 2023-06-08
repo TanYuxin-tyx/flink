@@ -89,7 +89,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             currentSequenceNumber++;
             return BufferAndBacklog.fromBufferAndLookahead(
                     nextBuffer.get(),
-                    getnettyPayloadNextDataType(currentQueue),
+                    getNettyPayloadNextDataType(currentQueue),
                     currentQueue.size(),
                     currentSequenceNumber);
         }
@@ -103,7 +103,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
                     nettyPayloadQueues.get(queueIndexContainsCurrentSegment);
             boolean availability = numCreditsAvailable > 0;
             if (numCreditsAvailable <= 0
-                    && getnettyPayloadNextDataType(currentQueue) == Buffer.DataType.EVENT_BUFFER) {
+                    && getNettyPayloadNextDataType(currentQueue) == Buffer.DataType.EVENT_BUFFER) {
                 availability = true;
             }
             return new AvailabilityWithBacklog(availability, currentQueue.size());
@@ -203,7 +203,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
         }
     }
 
-    private Buffer.DataType getnettyPayloadNextDataType(Queue<NettyPayload> nettyPayload) {
+    private Buffer.DataType getNettyPayloadNextDataType(Queue<NettyPayload> nettyPayload) {
         NettyPayload nextBuffer = nettyPayload.peek();
         if (nextBuffer == null || !nextBuffer.getBuffer().isPresent()) {
             return Buffer.DataType.NONE;
