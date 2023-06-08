@@ -33,8 +33,6 @@ import java.util.concurrent.CompletableFuture;
 /** This class is responsible for managing cached buffers data before flush to local files. */
 public class DiskCacheManager implements DiskCacheManagerOperation {
 
-    private final int tierIndex;
-
     private final int numSubpartitions;
 
     private final SubpartitionDiskCacheManager[] subpartitionDiskCacheManagers;
@@ -45,11 +43,9 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
     PartitionFileWriter partitionFileWriter;
 
     public DiskCacheManager(
-            int tierIndex,
             int numSubpartitions,
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileManager partitionFileManager) {
-        this.tierIndex = tierIndex;
         this.numSubpartitions = numSubpartitions;
         this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {

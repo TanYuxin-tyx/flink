@@ -39,7 +39,6 @@ public interface TierFactory {
             @Nullable String remoteStorageBaseHomePath);
 
     TierProducerAgent createProducerAgent(
-            int tierIndex,
             int numSubpartitions,
             int bufferSize,
             ResultPartitionID resultPartitionID,

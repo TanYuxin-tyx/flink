@@ -102,11 +102,9 @@ public class TieredStorageUtils {
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
         List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
-        int i = 0;
         for (TierFactory tierFactory : storeConfiguration.getTierFactories()) {
             tierProducerAgents.add(
                     tierFactory.createProducerAgent(
-                            i++,
                             subpartitions.length,
                             networkBufferSize,
                             id,

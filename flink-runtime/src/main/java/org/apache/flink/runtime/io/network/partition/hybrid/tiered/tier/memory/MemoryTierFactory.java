@@ -56,7 +56,6 @@ public class MemoryTierFactory implements TierFactory {
 
     @Override
     public TierProducerAgent createProducerAgent(
-            int tierIndex,
             int numSubpartitions,
             int bufferSize,
             ResultPartitionID resultPartitionID,

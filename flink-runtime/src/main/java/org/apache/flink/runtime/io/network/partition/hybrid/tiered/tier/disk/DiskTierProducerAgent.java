@@ -74,7 +74,6 @@ public class DiskTierProducerAgent implements TierProducerAgent {
     private volatile boolean isClosed;
 
     public DiskTierProducerAgent(
-            int tierIndex,
             int numSubpartitions,
             int numBytesPerSegment,
             ResultPartitionID resultPartitionID,
@@ -102,7 +101,6 @@ public class DiskTierProducerAgent implements TierProducerAgent {
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.diskCacheManager =
                 new DiskCacheManager(
-                        tierIndex,
                         isBroadcastOnly ? 1 : numSubpartitions,
                         storageMemoryManager,
                         partitionFileManager);

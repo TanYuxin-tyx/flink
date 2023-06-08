@@ -53,7 +53,6 @@ public class DiskTierFactory implements TierFactory {
 
     @Override
     public TierProducerAgent createProducerAgent(
-            int tierIndex,
             int numSubpartitions,
             int bufferSize,
             ResultPartitionID resultPartitionID,
@@ -65,7 +64,6 @@ public class DiskTierFactory implements TierFactory {
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
         return new DiskTierProducerAgent(
-                tierIndex,
                 numSubpartitions,
                 numBytesPerSegment,
                 resultPartitionID,
