@@ -283,9 +283,9 @@ public class SingleInputGate extends IndexedInputGate {
         BiConsumer<Integer, Boolean> queueChannelCallBack =
                 (subpartitionId, priority) ->
                         queueChannel(channels[subpartitionId], null, priority);
-        TieredStoragePartitionId[] tieredResultPartitionIds =
+        List<TieredStoragePartitionId> tieredResultPartitionIds =
                 getTieredResultPartitionIds(resultPartitionIds);
-        TieredStorageSubpartitionId[] tieredSubPartitionIds =
+        List<TieredStorageSubpartitionId> tieredSubPartitionIds =
                 getTieredSubPartitionIds(subpartitionIds);
         ((TieredStorageNettyServiceImpl) nettyService)
                 .setUpInputChannels(
@@ -331,21 +331,21 @@ public class SingleInputGate extends IndexedInputGate {
         return allSuppliers;
     }
 
-    private TieredStoragePartitionId[] getTieredResultPartitionIds(
+    private List<TieredStoragePartitionId> getTieredResultPartitionIds(
             List<ResultPartitionID> resultPartitionIds) {
-        TieredStoragePartitionId[] ids = new TieredStoragePartitionId[resultPartitionIds.size()];
-        for (int index = 0; index < ids.length; ++index) {
-            ids[index] = TieredStorageIdMappingUtils.convertId(resultPartitionIds.get(index));
+        List<TieredStoragePartitionId> tieredStoragePartitionIds = new ArrayList<>();
+        for (ResultPartitionID resultPartitionID : resultPartitionIds) {
+            tieredStoragePartitionIds.add(TieredStorageIdMappingUtils.convertId(resultPartitionID));
         }
-        return ids;
+        return tieredStoragePartitionIds;
     }
 
-    private TieredStorageSubpartitionId[] getTieredSubPartitionIds(List<Integer> subpartitionIds) {
-        TieredStorageSubpartitionId[] ids = new TieredStorageSubpartitionId[subpartitionIds.size()];
-        for (int index = 0; index < ids.length; ++index) {
-            ids[index] = new TieredStorageSubpartitionId(subpartitionIds.get(index));
+    private List<TieredStorageSubpartitionId> getTieredSubPartitionIds(List<Integer> subpartitionIds) {
+        List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds = new ArrayList<>();
+        for (Integer subpartitionId : subpartitionIds) {
+            tieredStorageSubpartitionIds.add(new TieredStorageSubpartitionId(subpartitionId));
         }
-        return ids;
+        return tieredStorageSubpartitionIds;
     }
 
     protected PrioritizedDeque<InputChannel> getInputChannelsWithData() {

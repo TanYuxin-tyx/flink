@@ -37,8 +37,8 @@ public class TieredStorageConsumerClient {
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             TieredStorageNettyService nettyService,
-            TieredStoragePartitionId[] tieredPartitionIds,
-            TieredStorageSubpartitionId[] tieredSubpartitionIds,
+            List<TieredStoragePartitionId> tieredPartitionIds,
+            List<TieredStorageSubpartitionId> tieredSubpartitionIds,
             boolean isUpstreamBroadcast,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
         this.tierFactories = createTierFactories(baseRemoteStoragePath);
@@ -109,8 +109,8 @@ public class TieredStorageConsumerClient {
             List<ResultPartitionID> resultPartitionIDs,
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
-            TieredStoragePartitionId[] tieredPartitionIds,
-            TieredStorageSubpartitionId[] tieredSubpartitionIds,
+            List<TieredStoragePartitionId> tieredPartitionIds,
+            List<TieredStorageSubpartitionId> tieredSubpartitionIds,
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
@@ -120,7 +120,7 @@ public class TieredStorageConsumerClient {
         for (int index = 0; index < numSubpartitions; ++index) {
             nettyConnectionReaders[index] =
                     nettyService.registerConsumer(
-                            tieredPartitionIds[index], tieredSubpartitionIds[index]);
+                            tieredPartitionIds.get(index), tieredSubpartitionIds.get(index));
         }
         for (TierFactory tierFactory : tierFactories) {
             tierConsumerAgents.add(

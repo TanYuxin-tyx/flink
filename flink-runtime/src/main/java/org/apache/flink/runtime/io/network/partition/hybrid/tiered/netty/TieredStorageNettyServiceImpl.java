@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -55,28 +56,26 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     // ------------------------------------
 
     private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
-            registeredChannelIndexes = new ConcurrentHashMap<>();
+            registeredChannelIndexes = new HashMap<>();
 
     private final Map<
                     TieredStoragePartitionId,
                     Map<TieredStorageSubpartitionId, Supplier<InputChannel>>>
-            registeredInputChannelProviders = new ConcurrentHashMap<>();
+            registeredInputChannelProviders = new HashMap<>();
 
     private final Map<
                     TieredStoragePartitionId,
                     Map<
                             TieredStorageSubpartitionId,
                             NettyConnectionReaderAvailabilityAndPriorityHelper>>
-            registeredNettyConnectionReaderAvailabilityAndPriorityHelpers =
-                    new ConcurrentHashMap<>();
+            registeredNettyConnectionReaderAvailabilityAndPriorityHelpers = new HashMap<>();
 
     @Override
     public void registerProducer(
             TieredStoragePartitionId partitionId, NettyServiceProducer serviceProducer) {
-        List<NettyServiceProducer> serviceProducers =
-                registeredServiceProducers.getOrDefault(partitionId, new ArrayList<>());
-        serviceProducers.add(serviceProducer);
-        registeredServiceProducers.put(partitionId, serviceProducers);
+        registeredServiceProducers
+                .computeIfAbsent(partitionId, ignore -> new ArrayList<>())
+                .add(serviceProducer);
     }
 
     @Override
@@ -159,31 +158,30 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
      * @param subpartitionIds subpartition ids indicates the ids of subpartition.
      */
     public void setUpInputChannels(
-            TieredStoragePartitionId[] partitionIds,
-            TieredStorageSubpartitionId[] subpartitionIds,
+            List<TieredStoragePartitionId> partitionIds,
+            List<TieredStorageSubpartitionId> subpartitionIds,
             List<Supplier<InputChannel>> inputChannelProviders,
             NettyConnectionReaderAvailabilityAndPriorityHelper helper) {
-        checkState(partitionIds.length == subpartitionIds.length);
-        checkState(subpartitionIds.length == inputChannelProviders.size());
-        for (int index = 0; index < partitionIds.length; ++index) {
-            TieredStoragePartitionId partitionId = partitionIds[index];
-            TieredStorageSubpartitionId subpartitionId = subpartitionIds[index];
+        checkState(partitionIds.size() == subpartitionIds.size());
+        checkState(subpartitionIds.size() == inputChannelProviders.size());
+        for (int index = 0; index < partitionIds.size(); ++index) {
+            TieredStoragePartitionId partitionId = partitionIds.get(index);
+            TieredStorageSubpartitionId subpartitionId = subpartitionIds.get(index);
 
             Map<TieredStorageSubpartitionId, Integer> channelIndexes =
-                    registeredChannelIndexes.getOrDefault(partitionId, new ConcurrentHashMap<>());
+                    registeredChannelIndexes.getOrDefault(partitionId, new HashMap<>());
             channelIndexes.put(subpartitionId, index);
             registeredChannelIndexes.put(partitionId, channelIndexes);
 
             Map<TieredStorageSubpartitionId, Supplier<InputChannel>> providers =
-                    registeredInputChannelProviders.getOrDefault(
-                            partitionId, new ConcurrentHashMap<>());
+                    registeredInputChannelProviders.getOrDefault(partitionId, new HashMap<>());
             providers.put(subpartitionId, inputChannelProviders.get(index));
             registeredInputChannelProviders.put(partitionId, providers);
 
             Map<TieredStorageSubpartitionId, NettyConnectionReaderAvailabilityAndPriorityHelper>
                     helpers =
                             registeredNettyConnectionReaderAvailabilityAndPriorityHelpers
-                                    .getOrDefault(partitionId, new ConcurrentHashMap<>());
+                                    .getOrDefault(partitionId, new HashMap<>());
             helpers.put(subpartitionId, helper);
             registeredNettyConnectionReaderAvailabilityAndPriorityHelpers.put(partitionId, helpers);
         }
