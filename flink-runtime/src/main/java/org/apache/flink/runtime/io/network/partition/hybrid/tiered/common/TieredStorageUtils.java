@@ -90,14 +90,13 @@ public class TieredStorageUtils {
     }
 
     public static List<TierProducerAgent> createTierProducerAgents(
-            ResultPartitionID id,
+            TieredStoragePartitionId id,
             boolean isBroadcast,
             ResultSubpartition[] subpartitions,
             int networkBufferSize,
             TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storageMemoryManager,
             String dataFileBasePath,
-            float minReservedDiskSpaceFraction,
             PartitionFileManager partitionFileManager,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
@@ -109,7 +108,6 @@ public class TieredStorageUtils {
                             networkBufferSize,
                             id,
                             dataFileBasePath,
-                            minReservedDiskSpaceFraction,
                             isBroadcast,
                             partitionFileManager,
                             storageMemoryManager,

@@ -88,17 +88,6 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
         resourceRegistry.registerResource(partitionId, this::releaseResources);
     }
 
-    private void register(
-            TieredStorageSubpartitionId subpartitionId,
-            NettyConnectionWriter nettyConnectionWriter) {
-        if (isBroadcastOnly) {
-            throw new RuntimeException("Illegal to register on broadcast only result partition.");
-        }
-        this.subpartitionProducerAgents[subpartitionId.getSubpartitionId()].registerNettyService(
-                nettyConnectionWriter);
-        nettyServiceRegistered[subpartitionId.getSubpartitionId()] = true;
-    }
-
     @Override
     public boolean tryStartNewSegment(
             TieredStorageSubpartitionId subpartitionId,
@@ -141,7 +130,8 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             TieredStorageSubpartitionId subpartitionId,
             NettyConnectionWriter nettyConnectionWriter) {
         if (isBroadcastOnly) {
-            throw new RuntimeException("Illegal to register on broadcast only result partition.");
+            throw new RuntimeException(
+                    "Broadcast-only result partition is not allowed to use the memory tier.");
         }
         this.subpartitionProducerAgents[subpartitionId.getSubpartitionId()].registerNettyService(
                 nettyConnectionWriter);

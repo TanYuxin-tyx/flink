@@ -58,6 +58,8 @@ public class TieredStorageConfiguration {
     private static final int DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT =
             32 * 1024 * 1; // 32 k is only for test, expect 8M
 
+    private static final float DEFAULT_MIN_RESERVE_SPACE_FRACTION = 0.05f;
+
     private static final int DEFAULT_MAX_BUFFERS_READ_AHEAD = 5;
 
     private static final Duration DEFAULT_BUFFER_REQUEST_TIMEOUT = Duration.ofMinutes(5);
@@ -75,13 +77,16 @@ public class TieredStorageConfiguration {
     private static final TierFactory[] DEFAULT_MEMORY_DISK_TIER_FACTORIES =
             new TierFactory[] {
                 new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT),
-                new DiskTierFactory(DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT)
+                new DiskTierFactory(
+                        DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT, DEFAULT_MIN_RESERVE_SPACE_FRACTION)
             };
 
     private static final TierFactory[] DEFAULT_MEMORY_DISK_REMOTE_TIER_FACTORIES =
             new TierFactory[] {
                 new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT),
-                new DiskTierFactory(DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT),
+                new DiskTierFactory(
+                        DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
+                        DEFAULT_MIN_RESERVE_SPACE_FRACTION),
                 new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT)
             };
 
@@ -410,7 +415,9 @@ public class TieredStorageConfiguration {
             case IN_MEM:
                 return new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT);
             case IN_DISK:
-                return new DiskTierFactory(DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT);
+                return new DiskTierFactory(
+                        DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
+                        DEFAULT_MIN_RESERVE_SPACE_FRACTION);
             case IN_REMOTE:
                 return new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT);
             default:

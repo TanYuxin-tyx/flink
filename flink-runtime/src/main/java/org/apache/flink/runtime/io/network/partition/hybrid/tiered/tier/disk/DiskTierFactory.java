@@ -21,6 +21,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -40,8 +42,11 @@ public class DiskTierFactory implements TierFactory {
 
     private final int numBytesPerSegment;
 
-    public DiskTierFactory(int numBytesPerSegment) {
+    private final float minReservedDiskSpaceFraction;
+
+    public DiskTierFactory(int numBytesPerSegment, float minReservedDiskSpaceFraction) {
         this.numBytesPerSegment = numBytesPerSegment;
+        this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
     }
 
     @Override
@@ -55,9 +60,8 @@ public class DiskTierFactory implements TierFactory {
     public TierProducerAgent createProducerAgent(
             int numSubpartitions,
             int bufferSize,
-            ResultPartitionID resultPartitionID,
+            TieredStoragePartitionId partitionID,
             String dataFileBasePath,
-            float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
             TieredStorageMemoryManager storageMemoryManager,
@@ -66,7 +70,7 @@ public class DiskTierFactory implements TierFactory {
         return new DiskTierProducerAgent(
                 numSubpartitions,
                 numBytesPerSegment,
-                resultPartitionID,
+                TieredStorageIdMappingUtils.convertId(partitionID),
                 dataFileBasePath,
                 minReservedDiskSpaceFraction,
                 isBroadcastOnly,

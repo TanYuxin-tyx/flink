@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -41,9 +42,8 @@ public interface TierFactory {
     TierProducerAgent createProducerAgent(
             int numSubpartitions,
             int bufferSize,
-            ResultPartitionID resultPartitionID,
+            TieredStoragePartitionId resultPartitionID,
             String dataFileBasePath,
-            float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
             TieredStorageMemoryManager storageMemoryManager,

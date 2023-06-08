@@ -380,14 +380,13 @@ public class ResultPartitionFactory {
                         storeConfiguration.getBaseDfsHomePath());
 
         return TieredStorageUtils.createTierProducerAgents(
-                id,
+                TieredStorageIdMappingUtils.convertId(id),
                 isBroadcast,
                 subpartitions,
                 networkBufferSize,
                 storeConfiguration,
                 storageMemoryManager,
                 dataFileBasePath,
-                minReservedDiskSpaceFraction,
                 partitionFileManager,
                 nettyService,
                 resourceRegistry);
