@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;

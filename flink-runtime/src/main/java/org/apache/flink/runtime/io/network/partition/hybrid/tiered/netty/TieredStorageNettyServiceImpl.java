@@ -25,7 +25,6 @@ import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -59,15 +58,15 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             registeredChannelIndexes = new HashMap<>();
 
     private final Map<
-                    TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, Supplier<InputChannel>>>
+            TieredStoragePartitionId,
+            Map<TieredStorageSubpartitionId, Supplier<InputChannel>>>
             registeredInputChannelProviders = new HashMap<>();
 
     private final Map<
-                    TieredStoragePartitionId,
-                    Map<
-                            TieredStorageSubpartitionId,
-                            NettyConnectionReaderAvailabilityAndPriorityHelper>>
+            TieredStoragePartitionId,
+            Map<
+                    TieredStorageSubpartitionId,
+                    NettyConnectionReaderAvailabilityAndPriorityHelper>>
             registeredNettyConnectionReaderAvailabilityAndPriorityHelpers = new HashMap<>();
 
     @Override
@@ -152,12 +151,16 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     }
 
     /**
-     * Set up input channels in {@link SingleInputGate}.
+     * Set up input channels in {@link SingleInputGate}. The method will be invoked by the akka rpc
+     * thread at first, and then the method {@link
+     * TieredStorageNettyService#registerConsumer(TieredStoragePartitionId,
+     * TieredStorageSubpartitionId)} will be invoked by the same thread sequentially, which ensures
+     * thread safety.
      *
      * @param partitionIds partition ids indicates the ids of {@link TieredResultPartition}.
      * @param subpartitionIds subpartition ids indicates the ids of subpartition.
      */
-    public void setUpInputChannels(
+    public void setupInputChannels(
             List<TieredStoragePartitionId> partitionIds,
             List<TieredStorageSubpartitionId> subpartitionIds,
             List<Supplier<InputChannel>> inputChannelProviders,
@@ -168,22 +171,17 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             TieredStoragePartitionId partitionId = partitionIds.get(index);
             TieredStorageSubpartitionId subpartitionId = subpartitionIds.get(index);
 
-            Map<TieredStorageSubpartitionId, Integer> channelIndexes =
-                    registeredChannelIndexes.getOrDefault(partitionId, new HashMap<>());
-            channelIndexes.put(subpartitionId, index);
-            registeredChannelIndexes.put(partitionId, channelIndexes);
+            registeredChannelIndexes
+                    .computeIfAbsent(partitionId, ignored -> new HashMap<>())
+                    .put(subpartitionId, index);
 
-            Map<TieredStorageSubpartitionId, Supplier<InputChannel>> providers =
-                    registeredInputChannelProviders.getOrDefault(partitionId, new HashMap<>());
-            providers.put(subpartitionId, inputChannelProviders.get(index));
-            registeredInputChannelProviders.put(partitionId, providers);
+            registeredInputChannelProviders
+                    .computeIfAbsent(partitionId, ignored -> new HashMap<>())
+                    .put(subpartitionId, inputChannelProviders.get(index));
 
-            Map<TieredStorageSubpartitionId, NettyConnectionReaderAvailabilityAndPriorityHelper>
-                    helpers =
-                            registeredNettyConnectionReaderAvailabilityAndPriorityHelpers
-                                    .getOrDefault(partitionId, new HashMap<>());
-            helpers.put(subpartitionId, helper);
-            registeredNettyConnectionReaderAvailabilityAndPriorityHelpers.put(partitionId, helpers);
+            registeredNettyConnectionReaderAvailabilityAndPriorityHelpers
+                    .computeIfAbsent(partitionId, ignored -> new HashMap<>())
+                    .put(subpartitionId, helper);
         }
     }
 }

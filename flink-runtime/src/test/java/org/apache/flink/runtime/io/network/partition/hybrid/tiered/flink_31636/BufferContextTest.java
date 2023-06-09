@@ -1,6 +1,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.flink_31636;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.NettyPayload;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 
 /** Tests for {@link NettyPayload}. */
 class BufferContextTest {

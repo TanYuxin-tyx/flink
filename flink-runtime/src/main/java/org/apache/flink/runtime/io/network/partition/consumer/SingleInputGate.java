@@ -288,7 +288,7 @@ public class SingleInputGate extends IndexedInputGate {
         List<TieredStorageSubpartitionId> tieredSubPartitionIds =
                 getTieredSubPartitionIds(subpartitionIds);
         ((TieredStorageNettyServiceImpl) nettyService)
-                .setUpInputChannels(
+                .setupInputChannels(
                         tieredResultPartitionIds,
                         tieredSubPartitionIds,
                         createInputChannelSuppliers(),
