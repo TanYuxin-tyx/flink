@@ -67,6 +67,7 @@ public class DiskTierFactory implements TierFactory {
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
         return new DiskTierProducerAgent(
+                partitionID,
                 numSubpartitions,
                 numBytesPerSegment,
                 TieredStorageIdMappingUtils.convertId(partitionID),
