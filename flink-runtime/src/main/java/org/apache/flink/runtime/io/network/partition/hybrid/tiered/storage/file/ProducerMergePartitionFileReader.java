@@ -126,7 +126,7 @@ public class ProducerMergePartitionFileReader
     }
 
     @Override
-    public void registerNettyService(
+    public void connectionEstablished(
             int subpartitionId, NettyConnectionWriter nettyConnectionWriter) throws IOException {
         synchronized (lock) {
             checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");

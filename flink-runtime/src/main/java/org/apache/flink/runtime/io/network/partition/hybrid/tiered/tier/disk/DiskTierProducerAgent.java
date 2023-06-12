@@ -51,7 +51,7 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */
-public class DiskTierProducerAgent implements TierProducerAgent {
+public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceProducer {
 
     private final int numBytesPerSegment;
 
@@ -89,52 +89,23 @@ public class DiskTierProducerAgent implements TierProducerAgent {
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.firstBufferContextInSegment = new ArrayList<>();
+        this.numSubpartitionEmitBytes = new int[numSubpartitions];
+
         for (int i = 0; i < numSubpartitions; ++i) {
             firstBufferContextInSegment.add(new ConcurrentHashMap<>());
         }
-
         this.partitionFileReader =
                 partitionFileManager.createPartitionFileReader(
                         PartitionFileType.PRODUCER_MERGE,
                         nettyService,
                         firstBufferContextInSegment);
-
-        this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.diskCacheManager =
                 new DiskCacheManager(
                         isBroadcastOnly ? 1 : numSubpartitions,
                         storageMemoryManager,
                         partitionFileManager);
 
-        nettyService.registerProducer(
-                partitionId,
-                new NettyServiceProducer() {
-                    @Override
-                    public void connectionEstablished(
-                            TieredStorageSubpartitionId subpartitionId,
-                            NettyConnectionWriter nettyConnectionWriter) {
-                        DiskTierProducerAgent.this.register(subpartitionId, nettyConnectionWriter);
-                    }
-
-                    @Override
-                    public void connectionBroken(NettyConnectionId connectionId) {
-                        partitionFileReader.releaseReader(connectionId);
-                    }
-                });
-    }
-
-    private void register(
-            TieredStorageSubpartitionId subpartitionId,
-            NettyConnectionWriter nettyConnectionWriter) {
-        if (!Files.isReadable(dataFilePath)) {
-            throw new RuntimeException(new PartitionNotFoundException(resultPartitionID));
-        }
-        try {
-            partitionFileReader.registerNettyService(
-                    subpartitionId.getSubpartitionId(), nettyConnectionWriter);
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e, "Failed to create PartitionFileReader");
-        }
+        nettyService.registerProducer(partitionId, this);
     }
 
     @Override
@@ -155,6 +126,26 @@ public class DiskTierProducerAgent implements TierProducerAgent {
                             segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;
+    }
+
+    @Override
+    public void connectionEstablished(
+            TieredStorageSubpartitionId subpartitionId,
+            NettyConnectionWriter nettyConnectionWriter) {
+        if (!Files.isReadable(dataFilePath)) {
+            throw new RuntimeException(new PartitionNotFoundException(resultPartitionID));
+        }
+        try {
+            partitionFileReader.connectionEstablished(
+                    subpartitionId.getSubpartitionId(), nettyConnectionWriter);
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to create PartitionFileReader");
+        }
+    }
+
+    @Override
+    public void connectionBroken(NettyConnectionId connectionId) {
+        partitionFileReader.releaseReader(connectionId);
     }
 
     @Override
