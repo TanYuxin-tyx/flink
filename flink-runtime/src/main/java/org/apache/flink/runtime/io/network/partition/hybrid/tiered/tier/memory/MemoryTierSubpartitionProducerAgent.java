@@ -18,19 +18,11 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory;
 
-import org.apache.flink.core.memory.MemorySegment;
-import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
-
-import java.nio.ByteBuffer;
-
-import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 
 /** TODO. */
 public class MemoryTierSubpartitionProducerAgent {
@@ -55,16 +47,6 @@ public class MemoryTierSubpartitionProducerAgent {
 
     public void registerNettyService(NettyConnectionWriter nettyConnectionWriter) {
         this.nettyConnectionWriter = nettyConnectionWriter;
-    }
-
-    void appendSegmentEvent(ByteBuffer event) {
-        MemorySegment data = MemorySegmentFactory.wrap(event.array());
-        Buffer buffer =
-                new NetworkBuffer(
-                        data, FreeingBufferRecycler.INSTANCE, END_OF_SEGMENT, data.size());
-        NettyPayload nettyPayload =
-                NettyPayload.newBuffer(buffer, finishedBufferIndex, subpartitionId);
-        addFinishedBuffer(nettyPayload);
     }
 
     public void release() {

@@ -18,9 +18,13 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory;
 
+import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
@@ -35,7 +39,9 @@ import org.apache.flink.util.ExceptionUtils;
 import java.io.IOException;
 import java.util.Arrays;
 
+import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
 public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceProducer {
@@ -48,8 +54,8 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
 
     private final boolean isBroadcastOnly;
 
-    // Record the byte number currently written to each sub partition.
-    private final int[] numSubpartitionEmitBytes;
+    /** Record the byte number currently written to each subpartition. */
+    private final int[] currentSubpartitionWriteBuffers;
 
     /**
      * Each element of the list is all views of the subpartition corresponding to its index, which
@@ -75,11 +81,11 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
         this.numBuffersPerSegment = numBytesPerSegment / bufferSize;
         this.isBroadcastOnly = isBroadcastOnly;
         this.storageMemoryManager = storageMemoryManager;
-        this.numSubpartitionEmitBytes = new int[numSubpartitions];
+        this.currentSubpartitionWriteBuffers = new int[numSubpartitions];
         this.nettyServiceRegistered = new boolean[numSubpartitions];
         this.subpartitionProducerAgents = new MemoryTierSubpartitionProducerAgent[numSubpartitions];
 
-        Arrays.fill(numSubpartitionEmitBytes, 0);
+        Arrays.fill(currentSubpartitionWriteBuffers, 0);
         nettyService.registerProducer(partitionId, this);
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionProducerAgents[subpartitionId] =
@@ -93,17 +99,15 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             boolean forceUseCurrentTier) {
-        if (isBroadcastOnly && !forceUseCurrentTier) {
-            return false;
-        }
+        checkState(!isBroadcastOnly && !forceUseCurrentTier);
         boolean canStartNewSegment =
                 isSubpartitionRegistered(subpartitionId)
                         && (storageMemoryManager.getMaxNonReclaimableBuffers(this)
                                         - storageMemoryManager.numOwnerRequestedBuffer(this))
                                 > numBuffersPerSegment;
         if (canStartNewSegment || forceUseCurrentTier) {
-            getSubpartitionMemoryDataManager(subpartitionId.getSubpartitionId())
-                    .addSegmentBufferContext(segmentId);
+            subpartitionProducerAgents[subpartitionId.getSubpartitionId()].addSegmentBufferContext(
+                    segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;
     }
@@ -112,16 +116,15 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
     public void release() {}
 
     @Override
-    public boolean tryWrite(int consumerId, Buffer finishedBuffer) {
-        if (numSubpartitionEmitBytes[consumerId] != 0
-                && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
-                        > numBytesPerSegment) {
-            appendEndOfSegmentEvent(consumerId);
-            numSubpartitionEmitBytes[consumerId] = 0;
+    public boolean tryWrite(int subpartitionIndex, Buffer finishedBuffer) {
+        if (currentSubpartitionWriteBuffers[subpartitionIndex] != 0
+                && currentSubpartitionWriteBuffers[subpartitionIndex] + 1 > numBuffersPerSegment) {
+            appendEndOfSegmentEvent(subpartitionIndex);
+            currentSubpartitionWriteBuffers[subpartitionIndex] = 0;
             return false;
         }
-        numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
-        append(finishedBuffer, consumerId);
+        currentSubpartitionWriteBuffers[subpartitionIndex]++;
+        addFinishedBuffer(finishedBuffer, subpartitionIndex);
         return true;
     }
 
@@ -129,10 +132,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
     public void connectionEstablished(
             TieredStorageSubpartitionId subpartitionId,
             NettyConnectionWriter nettyConnectionWriter) {
-        if (isBroadcastOnly) {
-            throw new RuntimeException(
-                    "Broadcast-only result partition is not allowed to use the memory tier.");
-        }
+        checkState(!isBroadcastOnly);
         this.subpartitionProducerAgents[subpartitionId.getSubpartitionId()].registerNettyService(
                 nettyConnectionWriter);
         nettyServiceRegistered[subpartitionId.getSubpartitionId()] = true;
@@ -143,18 +143,25 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
         // noop
     }
 
-    private void appendEndOfSegmentEvent(int targetChannel) {
+    private void appendEndOfSegmentEvent(int subpartitionId) {
         try {
-            getSubpartitionMemoryDataManager(targetChannel)
-                    .appendSegmentEvent(
-                            EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE));
+            MemorySegment memorySegment =
+                    MemorySegmentFactory.wrap(
+                            EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE).array());
+            addFinishedBuffer(
+                    new NetworkBuffer(
+                            memorySegment,
+                            FreeingBufferRecycler.INSTANCE,
+                            END_OF_SEGMENT,
+                            memorySegment.size()),
+                    subpartitionId);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to append end of segment event,");
         }
     }
 
-    private void append(Buffer finishedBuffer, int targetChannel) {
-        getSubpartitionMemoryDataManager(targetChannel).addFinishedBuffer(finishedBuffer);
+    private void addFinishedBuffer(Buffer finishedBuffer, int subpartitionId) {
+        subpartitionProducerAgents[subpartitionId].addFinishedBuffer(finishedBuffer);
     }
 
     @Override
@@ -171,10 +178,5 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
 
     private boolean isSubpartitionRegistered(TieredStorageSubpartitionId subpartitionId) {
         return nettyServiceRegistered[subpartitionId.getSubpartitionId()];
-    }
-
-    private MemoryTierSubpartitionProducerAgent getSubpartitionMemoryDataManager(
-            int targetChannel) {
-        return subpartitionProducerAgents[targetChannel];
     }
 }
