@@ -1,6 +1,5 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
-import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -9,14 +8,10 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteCacheBufferSpiller;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -39,8 +34,6 @@ import static org.apache.flink.util.Preconditions.checkState;
 /** THe implementation of {@link PartitionFileWriter} with merged logic. */
 public class HashPartitionFileWriter implements PartitionFileWriter {
 
-    private static final Logger LOG = LoggerFactory.getLogger(RemoteCacheBufferSpiller.class);
-
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadExecutor(
                     new ThreadFactoryBuilder()
@@ -54,7 +47,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
 
     private final String baseShuffleDataPath;
 
-    private volatile WritableByteChannel[] subpartitionChannels;
+    private final WritableByteChannel[] subpartitionChannels;
 
     public HashPartitionFileWriter(
             JobID jobID,
@@ -169,10 +162,5 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         // clear the current channel
         subpartitionChannels[subpartitionId] = null;
         spillSuccessNotifier.complete(null);
-    }
-
-    @VisibleForTesting
-    public String getBaseSubpartitionPath(int subpartitionId) {
-        return "";
     }
 }
