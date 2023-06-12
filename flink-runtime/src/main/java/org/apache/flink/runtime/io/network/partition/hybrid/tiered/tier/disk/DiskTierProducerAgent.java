@@ -48,7 +48,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The DataManager of LOCAL file. */
 public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceProducer {
@@ -70,8 +69,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     private final DiskCacheManager diskCacheManager;
 
     private final List<Map<Integer, Integer>> firstBufferContextInSegment;
-
-    private volatile boolean isClosed;
 
     public DiskTierProducerAgent(
             TieredStoragePartitionId partitionId,
@@ -150,11 +147,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     @Override
     public void release() {
-        // release is called when release by scheduler, later than close.
-        // mainly work :
-        // 1. release read scheduler.
-        // 2. delete shuffle file.
-        // 3. release all data in memory.
+        // TODO, release the resources by the resource registry.
         if (!isReleased) {
             partitionFileReader.release();
             getDiskCacheManager().release();
@@ -193,11 +186,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     @Override
     public void close() {
-        if (!isClosed) {
-            // close is called when task is finished or failed.
-            checkNotNull(diskCacheManager).close();
-            isClosed = true;
-        }
+        diskCacheManager.close();
     }
 
     public DiskCacheManager getDiskCacheManager() {
