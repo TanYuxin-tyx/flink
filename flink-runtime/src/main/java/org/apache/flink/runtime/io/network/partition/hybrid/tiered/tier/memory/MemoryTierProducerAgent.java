@@ -41,18 +41,13 @@ import java.util.Arrays;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.util.Preconditions.checkArgument;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /** The DataManager of LOCAL file. */
 public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceProducer {
 
-    private final int numBytesPerSegment;
-
     private final int numBuffersPerSegment;
 
     private final TieredStorageMemoryManager storageMemoryManager;
-
-    private final boolean isBroadcastOnly;
 
     /** Record the byte number currently written to each subpartition. */
     private final int[] currentSubpartitionWriteBuffers;
@@ -76,10 +71,11 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             TieredStorageResourceRegistry resourceRegistry) {
         checkArgument(
                 numBytesPerSegment >= bufferSize, "One segment contains at least one buffer.");
+        checkArgument(
+                !isBroadcastOnly,
+                "Broadcast only partition is not allowed to use the memory tier.");
 
-        this.numBytesPerSegment = numBytesPerSegment;
         this.numBuffersPerSegment = numBytesPerSegment / bufferSize;
-        this.isBroadcastOnly = isBroadcastOnly;
         this.storageMemoryManager = storageMemoryManager;
         this.currentSubpartitionWriteBuffers = new int[numSubpartitions];
         this.nettyServiceRegistered = new boolean[numSubpartitions];
@@ -99,9 +95,8 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             boolean forceUseCurrentTier) {
-        checkState(!isBroadcastOnly && !forceUseCurrentTier);
         boolean canStartNewSegment =
-                isSubpartitionRegistered(subpartitionId)
+                nettyServiceRegistered[subpartitionId.getSubpartitionId()]
                         && (storageMemoryManager.getMaxNonReclaimableBuffers(this)
                                         - storageMemoryManager.numOwnerRequestedBuffer(this))
                                 > numBuffersPerSegment;
@@ -132,7 +127,6 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
     public void connectionEstablished(
             TieredStorageSubpartitionId subpartitionId,
             NettyConnectionWriter nettyConnectionWriter) {
-        checkState(!isBroadcastOnly);
         this.subpartitionProducerAgents[subpartitionId.getSubpartitionId()].registerNettyService(
                 nettyConnectionWriter);
         nettyServiceRegistered[subpartitionId.getSubpartitionId()] = true;
@@ -174,9 +168,5 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
     private void releaseResources() {
         Arrays.stream(subpartitionProducerAgents)
                 .forEach(MemoryTierSubpartitionProducerAgent::release);
-    }
-
-    private boolean isSubpartitionRegistered(TieredStorageSubpartitionId subpartitionId) {
-        return nettyServiceRegistered[subpartitionId.getSubpartitionId()];
     }
 }
