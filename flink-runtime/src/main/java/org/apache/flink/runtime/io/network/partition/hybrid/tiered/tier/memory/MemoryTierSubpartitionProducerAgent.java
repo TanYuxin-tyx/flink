@@ -24,6 +24,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPa
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
 /** TODO. */
 public class MemoryTierSubpartitionProducerAgent {
 
@@ -72,7 +74,7 @@ public class MemoryTierSubpartitionProducerAgent {
 
     private void addFinishedBuffer(NettyPayload nettyPayload) {
         finishedBufferIndex++;
-        nettyConnectionWriter.writeBuffer(nettyPayload);
+        checkNotNull(nettyConnectionWriter).writeBuffer(nettyPayload);
         if (nettyConnectionWriter.numQueuedBuffers() <= 1
                 && nettyService.getClass() == TieredStorageNettyServiceImpl.class) {
             ((TieredStorageNettyServiceImpl) nettyService)
