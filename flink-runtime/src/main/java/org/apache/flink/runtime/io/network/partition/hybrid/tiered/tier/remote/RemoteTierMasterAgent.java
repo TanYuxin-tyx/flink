@@ -55,7 +55,7 @@ public class RemoteTierMasterAgent implements TierMasterAgent {
     }
 
     @Override
-    public void register(JobID jobID, ResultPartitionID resultPartitionID) {
+    public void addPartition(JobID jobID, ResultPartitionID resultPartitionID) {
         resourceRegistry.registerResource(
                 TieredStorageIdMappingUtils.convertId(resultPartitionID),
                 createResourceOfReleasePartitionFiles(jobID, resultPartitionID));
@@ -63,7 +63,7 @@ public class RemoteTierMasterAgent implements TierMasterAgent {
     }
 
     @Override
-    public void release(ResultPartitionID resultPartitionID) {
+    public void releasePartition(ResultPartitionID resultPartitionID) {
         JobID jobID = resultPartitionIdToJobIds.remove(resultPartitionID);
         if (jobID != null) {
             resourceRegistry.clearResourceFor(

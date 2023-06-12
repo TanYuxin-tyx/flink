@@ -33,11 +33,11 @@ public class TieredStorageMasterClient {
     }
 
     public void register(JobID jobID, ResultPartitionID resultPartitionID) {
-        tiers.forEach(tierMasterAgent -> tierMasterAgent.register(jobID, resultPartitionID));
+        tiers.forEach(tierMasterAgent -> tierMasterAgent.addPartition(jobID, resultPartitionID));
     }
 
     public void release(ResultPartitionID resultPartitionID) {
-        tiers.forEach(tierMasterAgent -> tierMasterAgent.release(resultPartitionID));
+        tiers.forEach(tierMasterAgent -> tierMasterAgent.releasePartition(resultPartitionID));
     }
 
     public void release(JobID jobID) {

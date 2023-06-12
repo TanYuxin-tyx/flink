@@ -24,9 +24,9 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 public interface TierMasterAgent {
 
     // TODO use the tiered storage id
-    void register(JobID jobID, ResultPartitionID resultPartitionID);
+    void addPartition(JobID jobID, ResultPartitionID resultPartitionID);
 
-    void release(ResultPartitionID resultPartitionID);
+    void releasePartition(ResultPartitionID resultPartitionID);
 
     void release(JobID jobID);
 }

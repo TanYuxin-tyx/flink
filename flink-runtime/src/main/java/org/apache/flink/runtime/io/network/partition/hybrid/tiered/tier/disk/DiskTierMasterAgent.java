@@ -24,10 +24,10 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMast
 
 public class DiskTierMasterAgent implements TierMasterAgent {
     @Override
-    public void register(JobID jobID, ResultPartitionID resultPartitionID) {}
+    public void addPartition(JobID jobID, ResultPartitionID resultPartitionID) {}
 
     @Override
-    public void release(ResultPartitionID resultPartitionID) {}
+    public void releasePartition(ResultPartitionID resultPartitionID) {}
 
     @Override
     public void release(JobID jobID) {}
