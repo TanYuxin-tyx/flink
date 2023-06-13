@@ -8,6 +8,7 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.FileReaderId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
@@ -27,11 +28,9 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -41,11 +40,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** THe implementation of {@link DiskIOScheduler} for merged subpartition files. */
-public class DiskIOSchedulerImpl
-        implements Runnable, BufferRecycler, DiskIOScheduler {
+public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOScheduler {
 
-    private static final Logger LOG =
-            LoggerFactory.getLogger(DiskIOSchedulerImpl.class);
+    private static final Logger LOG = LoggerFactory.getLogger(DiskIOSchedulerImpl.class);
 
     private final ScheduledExecutorService ioExecutor;
 
@@ -60,10 +57,6 @@ public class DiskIOSchedulerImpl
     private final RegionBufferIndexTracker dataIndex;
 
     private final ByteBuffer headerBuf = BufferReaderWriterUtil.allocatedHeaderBuffer();
-
-    @GuardedBy("lock")
-    private final Set<ScheduledDiskSubpartition> allSubpartitionReaders =
-            new HashSet<>();
 
     private final int maxBufferReadAhead;
 
@@ -85,8 +78,11 @@ public class DiskIOSchedulerImpl
 
     private final List<Map<Integer, Integer>> firstBufferContextInSegment;
 
-    private final Map<NettyConnectionId, ScheduledDiskSubpartition>
-            readersWithNettyConnectionId = new ConcurrentHashMap<>();
+    @GuardedBy("lock")
+    private final Map<FileReaderId, ScheduledSubpartition> allSubpartitionReaders =
+            new ConcurrentHashMap<>();
+
+    private final Map<NettyConnectionId, FileReaderId> allFileReaderIds = new ConcurrentHashMap<>();
 
     public DiskIOSchedulerImpl(
             BatchShuffleReadBufferPool bufferPool,
@@ -126,8 +122,8 @@ public class DiskIOSchedulerImpl
         synchronized (lock) {
             checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
             lazyInitialize();
-            ScheduledDiskSubpartition subpartitionReader =
-                    new ScheduledDiskSubpartition(
+            ScheduledSubpartition subpartitionReader =
+                    new ScheduledSubpartition(
                             subpartitionId,
                             maxBufferReadAhead,
                             headerBuf,
@@ -136,16 +132,17 @@ public class DiskIOSchedulerImpl
                             nettyConnectionWriter,
                             nettyService,
                             firstBufferContextInSegment.get(subpartitionId));
-            allSubpartitionReaders.add(subpartitionReader);
-            readersWithNettyConnectionId.put(
-                    nettyConnectionWriter.getNettyConnectionId(), subpartitionReader);
+            allSubpartitionReaders.put(subpartitionReader.getFileReaderId(), subpartitionReader);
+            allFileReaderIds.put(
+                    nettyConnectionWriter.getNettyConnectionId(),
+                    subpartitionReader.getFileReaderId());
             triggerReaderRunning();
         }
     }
 
     @Override
     public void connectionBroken(NettyConnectionId id) {
-        removeSubpartition(readersWithNettyConnectionId.get(id));
+        removeSubpartition(allFileReaderIds.get(id));
     }
 
     @Override
@@ -166,7 +163,7 @@ public class DiskIOSchedulerImpl
     // ------------------------------------------------------------------------
 
     public int readBuffersFromFile() {
-        List<ScheduledDiskSubpartition> availableReaders = sortAvailableReaders();
+        List<ScheduledSubpartition> availableReaders = sortAvailableReaders();
         if (availableReaders.isEmpty()) {
             return 0;
         }
@@ -194,13 +191,13 @@ public class DiskIOSchedulerImpl
         return numBuffersRead;
     }
 
-    private List<ScheduledDiskSubpartition> sortAvailableReaders() {
+    private List<ScheduledSubpartition> sortAvailableReaders() {
         synchronized (lock) {
             if (isReleased) {
                 return new ArrayList<>();
             }
-            List<ScheduledDiskSubpartition> availableReaders =
-                    new ArrayList<>(allSubpartitionReaders);
+            List<ScheduledSubpartition> availableReaders =
+                    new ArrayList<>(allSubpartitionReaders.values());
             Collections.sort(availableReaders);
             return availableReaders;
         }
@@ -228,21 +225,18 @@ public class DiskIOSchedulerImpl
     }
 
     private void failSubpartitionReaders(
-            Collection<ScheduledDiskSubpartition> subpartitionReaders,
-            Throwable failureCause) {
-        for (ScheduledDiskSubpartition subpartitionReader : subpartitionReaders) {
-            removeSubpartition(subpartitionReader);
+            Collection<ScheduledSubpartition> subpartitionReaders, Throwable failureCause) {
+        for (ScheduledSubpartition subpartitionReader : subpartitionReaders) {
+            removeSubpartition(subpartitionReader.getFileReaderId());
             subpartitionReader.fail(failureCause);
         }
     }
 
     private void readData(
-            List<ScheduledDiskSubpartition> availableReaders,
-            Queue<MemorySegment> buffers) {
+            List<ScheduledSubpartition> availableReaders, Queue<MemorySegment> buffers) {
         int startIndex = 0;
         while (startIndex < availableReaders.size() && !buffers.isEmpty()) {
-            ScheduledDiskSubpartition subpartitionReader =
-                    availableReaders.get(startIndex);
+            ScheduledSubpartition subpartitionReader = availableReaders.get(startIndex);
             startIndex++;
             try {
                 subpartitionReader.readBuffers(buffers, this);
@@ -311,10 +305,9 @@ public class DiskIOSchedulerImpl
         }
     }
 
-    public void removeSubpartition(
-            ScheduledDiskSubpartition subpartitionReader) {
+    public void removeSubpartition(FileReaderId readerId) {
         synchronized (lock) {
-            allSubpartitionReaders.remove(subpartitionReader);
+            allSubpartitionReaders.remove(readerId);
             if (allSubpartitionReaders.isEmpty()) {
                 bufferPool.unregisterRequester(this);
                 closeFileChannel();

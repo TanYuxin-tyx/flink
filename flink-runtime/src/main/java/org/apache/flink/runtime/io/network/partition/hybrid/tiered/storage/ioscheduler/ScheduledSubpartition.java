@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.FileReaderId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 
 import java.io.IOException;
@@ -41,9 +42,8 @@ import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUt
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
-/** The implementation of {@link ScheduledDiskSubpartition}. */
-public class ScheduledDiskSubpartition
-        implements Comparable<ScheduledDiskSubpartition> {
+/** The implementation of {@link ScheduledSubpartition}. */
+public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> {
 
     private final NettyConnectionId nettyServiceWriterId;
 
@@ -51,7 +51,7 @@ public class ScheduledDiskSubpartition
 
     private final FileChannel dataFileChannel;
 
-    private final PartitionFileReaderCache partitionFileReaderCache;
+    private final SubpartitionFileCache subpartitionFileCache;
 
     private final RegionBufferIndexTracker dataIndex;
 
@@ -69,7 +69,9 @@ public class ScheduledDiskSubpartition
 
     private final Map<Integer, Integer> firstBufferContextInSegment;
 
-    public ScheduledDiskSubpartition(
+    private final FileReaderId fileReaderId = FileReaderId.newId();
+
+    public ScheduledSubpartition(
             int subpartitionId,
             int maxBufferReadAhead,
             ByteBuffer reusedHeaderBuffer,
@@ -86,7 +88,7 @@ public class ScheduledDiskSubpartition
         this.dataIndex = dataIndex;
         this.nettyService = nettyService;
         this.nettyConnectionWriter = nettyConnectionWriter;
-        this.partitionFileReaderCache = new PartitionFileReaderCache();
+        this.subpartitionFileCache = new SubpartitionFileCache();
         this.firstBufferContextInSegment = firstBufferContextInSegment;
     }
 
@@ -103,7 +105,7 @@ public class ScheduledDiskSubpartition
             return;
         }
         int numRemainingBuffer =
-                partitionFileReaderCache.getRemainingBuffersInRegion(nextToLoad, nettyServiceWriterId);
+                subpartitionFileCache.getRemainingBuffersInRegion(nextToLoad, nettyServiceWriterId);
         // If there is no data in index, skip this time.
         if (numRemainingBuffer == 0) {
             return;
@@ -137,13 +139,18 @@ public class ScheduledDiskSubpartition
                 ++numLoaded;
             }
             nettyConnectionWriter.writeBuffer(nettyPayload);
-            partitionFileReaderCache.advance(buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
+            subpartitionFileCache.advance(
+                    buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
             ++numLoaded;
         }
         if (nettyConnectionWriter.numQueuedBuffers() <= numLoaded) {
             ((TieredStorageNettyServiceImpl) nettyService)
                     .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
         }
+    }
+
+    public FileReaderId getFileReaderId() {
+        return fileReaderId;
     }
 
     public void fail(Throwable failureCause) {
@@ -157,7 +164,7 @@ public class ScheduledDiskSubpartition
     }
 
     @Override
-    public int compareTo(ScheduledDiskSubpartition that) {
+    public int compareTo(ScheduledSubpartition that) {
         checkArgument(that != null);
         return Long.compare(getNextOffsetToLoad(), that.getNextOffsetToLoad());
     }
@@ -166,7 +173,7 @@ public class ScheduledDiskSubpartition
         if (nextToLoad < 0) {
             return Long.MAX_VALUE;
         } else {
-            return partitionFileReaderCache.getNumSkipAndFileOffset().f1;
+            return subpartitionFileCache.getNumSkipAndFileOffset().f1;
         }
     }
 
@@ -175,15 +182,15 @@ public class ScheduledDiskSubpartition
     // ------------------------------------------------------------------------
 
     private void moveFileOffsetToBuffer() throws IOException {
-        Tuple2<Integer, Long> indexAndOffset = partitionFileReaderCache.getNumSkipAndFileOffset();
+        Tuple2<Integer, Long> indexAndOffset = subpartitionFileCache.getNumSkipAndFileOffset();
         dataFileChannel.position(indexAndOffset.f1);
         for (int i = 0; i < indexAndOffset.f0; ++i) {
             positionToNextBuffer(dataFileChannel, reusedHeaderBuffer);
         }
-        partitionFileReaderCache.skipAll(dataFileChannel.position());
+        subpartitionFileCache.skipAll(dataFileChannel.position());
     }
 
-    private class PartitionFileReaderCache {
+    private class SubpartitionFileCache {
 
         private int currentBufferIndex;
         private int numSkip;
