@@ -144,8 +144,8 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             TieredStoragePartitionId partitionId = partitionIds.get(index);
             TieredStorageSubpartitionId subpartitionId = subpartitionIds.get(index);
             registeredNettyConnectionReaders
-                    .get(partitionId)
-                    .get(subpartitionId)
+                    .remove(partitionId)
+                    .remove(subpartitionId)
                     .complete(
                             new NettyConnectionReaderImpl(
                                     index, inputChannelProviders.get(index), helper));
