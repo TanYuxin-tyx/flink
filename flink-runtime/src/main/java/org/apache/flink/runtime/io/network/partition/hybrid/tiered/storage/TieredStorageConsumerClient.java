@@ -18,6 +18,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 
 /** {@link TieredStorageConsumerClient} is used to read buffer from tiered store. */
@@ -115,12 +117,11 @@ public class TieredStorageConsumerClient {
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
-        NettyConnectionReader[] nettyConnectionReaders =
-                new NettyConnectionReader[numSubpartitions];
+        List<CompletableFuture<NettyConnectionReader>> nettyConnectionReaders = new ArrayList<>();
         for (int index = 0; index < numSubpartitions; ++index) {
-            nettyConnectionReaders[index] =
+            nettyConnectionReaders.add(
                     nettyService.registerConsumer(
-                            tieredPartitionIds.get(index), tieredSubpartitionIds.get(index));
+                            tieredPartitionIds.get(index), tieredSubpartitionIds.get(index)));
         }
         for (TierFactory tierFactory : tierFactories) {
             tierConsumerAgents.add(

@@ -23,15 +23,17 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 /** The data client is used to fetch data from disk tier. */
 public class DiskTierConsumerAgent implements TierConsumerAgent {
+    private final List<CompletableFuture<NettyConnectionReader>> readers;
 
-    private final NettyConnectionReader[] nettyConnectionReaders;
-
-    public DiskTierConsumerAgent(NettyConnectionReader[] nettyConnectionReaders) {
-        this.nettyConnectionReaders = nettyConnectionReaders;
+    public DiskTierConsumerAgent(List<CompletableFuture<NettyConnectionReader>> readers) {
+        this.readers = readers;
     }
 
     @Override
@@ -41,7 +43,11 @@ public class DiskTierConsumerAgent implements TierConsumerAgent {
 
     @Override
     public Optional<Buffer> getNextBuffer(int subpartitionId, int segmentId) {
-        return nettyConnectionReaders[subpartitionId].readBuffer(segmentId);
+        try {
+            return readers.get(subpartitionId).get().readBuffer(segmentId);
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

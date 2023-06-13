@@ -287,6 +287,23 @@ public class SingleInputGate extends IndexedInputGate {
                 getTieredResultPartitionIds(resultPartitionIds);
         List<TieredStorageSubpartitionId> tieredSubPartitionIds =
                 getTieredSubPartitionIds(subpartitionIds);
+
+        this.tieredStorageConsumerClient =
+                enableTieredStoreMode
+                        ? new TieredStorageConsumerClient(
+                        numberOfInputChannels,
+                        subpartitionIds,
+                        jobID,
+                        resultPartitionIds,
+                        (NetworkBufferPool) memorySegmentProvider,
+                        baseRemoteStoragePath,
+                        nettyService,
+                        tieredResultPartitionIds,
+                        tieredSubPartitionIds,
+                        isUpstreamBroadcastOnly,
+                        queueChannelCallBack)
+                        : null;
+
         ((TieredStorageNettyServiceImpl) nettyService)
                 .setupInputChannels(
                         tieredResultPartitionIds,
@@ -305,21 +322,7 @@ public class SingleInputGate extends IndexedInputGate {
                                 lastPrioritySequenceNumber[channelIndex] = sequenceNumber;
                             }
                         });
-        this.tieredStorageConsumerClient =
-                enableTieredStoreMode
-                        ? new TieredStorageConsumerClient(
-                                numberOfInputChannels,
-                                subpartitionIds,
-                                jobID,
-                                resultPartitionIds,
-                                (NetworkBufferPool) memorySegmentProvider,
-                                baseRemoteStoragePath,
-                                nettyService,
-                                tieredResultPartitionIds,
-                                tieredSubPartitionIds,
-                                isUpstreamBroadcastOnly,
-                                queueChannelCallBack)
-                        : null;
+
     }
 
     private List<Supplier<InputChannel>> createInputChannelSuppliers() {

@@ -38,6 +38,7 @@ import javax.annotation.Nullable;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 
 public class RemoteTierFactory implements TierFactory {
@@ -84,7 +85,7 @@ public class RemoteTierFactory implements TierFactory {
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack,
-            NettyConnectionReader[] readers) {
+            List<CompletableFuture<NettyConnectionReader>> readers) {
 
         TieredStorageMemoryManager storageMemoryManager = null;
         try {

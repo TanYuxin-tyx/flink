@@ -31,6 +31,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
@@ -54,20 +55,10 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     //          For consumer side
     // ------------------------------------
 
-    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
-            registeredChannelIndexes = new HashMap<>();
-
     private final Map<
             TieredStoragePartitionId,
-            Map<TieredStorageSubpartitionId, Supplier<InputChannel>>>
-            registeredInputChannelProviders = new HashMap<>();
-
-    private final Map<
-            TieredStoragePartitionId,
-            Map<
-                    TieredStorageSubpartitionId,
-                    NettyConnectionReaderAvailabilityAndPriorityHelper>>
-            registeredNettyConnectionReaderAvailabilityAndPriorityHelpers = new HashMap<>();
+            Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
+            registeredNettyConnectionReaders = new HashMap<>();
 
     @Override
     public void registerProducer(
@@ -78,29 +69,11 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     }
 
     @Override
-    public NettyConnectionReader registerConsumer(
+    public CompletableFuture<NettyConnectionReader> registerConsumer(
             TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
-        Integer channelIndex = registeredChannelIndexes.get(partitionId).remove(subpartitionId);
-        if (registeredChannelIndexes.get(partitionId).isEmpty()) {
-            registeredChannelIndexes.remove(partitionId);
-        }
-
-        Supplier<InputChannel> inputChannelProvider =
-                registeredInputChannelProviders.get(partitionId).remove(subpartitionId);
-        if (registeredInputChannelProviders.get(partitionId).isEmpty()) {
-            registeredInputChannelProviders.remove(partitionId);
-        }
-
-        NettyConnectionReaderAvailabilityAndPriorityHelper helper =
-                registeredNettyConnectionReaderAvailabilityAndPriorityHelpers
-                        .get(partitionId)
-                        .remove(subpartitionId);
-        if (registeredNettyConnectionReaderAvailabilityAndPriorityHelpers
-                .get(partitionId)
-                .isEmpty()) {
-            registeredNettyConnectionReaderAvailabilityAndPriorityHelpers.remove(partitionId);
-        }
-        return new NettyConnectionReaderImpl(channelIndex, inputChannelProvider, helper);
+        return registeredNettyConnectionReaders
+                .computeIfAbsent(partitionId, ignored -> new HashMap<>())
+                .computeIfAbsent(subpartitionId, ignored -> new CompletableFuture<>());
     }
 
     /**
@@ -170,18 +143,12 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
         for (int index = 0; index < partitionIds.size(); ++index) {
             TieredStoragePartitionId partitionId = partitionIds.get(index);
             TieredStorageSubpartitionId subpartitionId = subpartitionIds.get(index);
-
-            registeredChannelIndexes
-                    .computeIfAbsent(partitionId, ignored -> new HashMap<>())
-                    .put(subpartitionId, index);
-
-            registeredInputChannelProviders
-                    .computeIfAbsent(partitionId, ignored -> new HashMap<>())
-                    .put(subpartitionId, inputChannelProviders.get(index));
-
-            registeredNettyConnectionReaderAvailabilityAndPriorityHelpers
-                    .computeIfAbsent(partitionId, ignored -> new HashMap<>())
-                    .put(subpartitionId, helper);
+            registeredNettyConnectionReaders
+                    .get(partitionId)
+                    .get(subpartitionId)
+                    .complete(
+                            new NettyConnectionReaderImpl(
+                                    index, inputChannelProviders.get(index), helper));
         }
     }
 }
