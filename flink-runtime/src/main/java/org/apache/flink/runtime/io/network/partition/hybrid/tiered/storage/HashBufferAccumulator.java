@@ -90,7 +90,11 @@ public class HashBufferAccumulator
 
     @Override
     public void receive(
-            ByteBuffer record, TieredStorageSubpartitionId subpartitionId, Buffer.DataType dataType)
+            ByteBuffer record,
+            TieredStorageSubpartitionId subpartitionId,
+            Buffer.DataType dataType,
+            boolean isBroadcast,
+            boolean isEndOfPartition)
             throws IOException {
         getSubpartitionAccumulator(subpartitionId).append(record, dataType);
     }

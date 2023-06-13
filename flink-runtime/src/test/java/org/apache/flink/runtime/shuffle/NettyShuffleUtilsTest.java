@@ -70,6 +70,7 @@ public class NettyShuffleUtilsTest extends TestLogger {
         int sortShuffleMinParallelism = 8;
         int numSortShuffleMinBuffers = 12;
         boolean enableTieredStoreForHybridShuffle = false;
+        int numBuffersUseSortAccumulatorThreshold = 2;
 
         IntermediateDataSetID ids1 = new IntermediateDataSetID();
         IntermediateDataSetID ids2 = new IntermediateDataSetID();
@@ -102,6 +103,7 @@ public class NettyShuffleUtilsTest extends TestLogger {
                         sortShuffleMinParallelism,
                         numSortShuffleMinBuffers,
                         enableTieredStoreForHybridShuffle,
+                        numBuffersUseSortAccumulatorThreshold,
                         numInputChannels,
                         partitionReuseCount,
                         subpartitionNums,

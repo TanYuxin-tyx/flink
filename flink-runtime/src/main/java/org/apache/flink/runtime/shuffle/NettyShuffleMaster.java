@@ -70,6 +70,8 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
 
     private final boolean enableTieredStoreForHybridShuffle;
 
+    private final int numBuffersUseSortAccumulatorThreshold;
+
     public NettyShuffleMaster(Configuration conf) {
         checkNotNull(conf);
         buffersPerInputChannel =
@@ -96,6 +98,8 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
         tieredStoreTiers = conf.get(NettyShuffleEnvironmentOptions.TIERED_STORE_TIERS);
         TieredStorageConfiguration storageConfiguration = getStorageConfiguration();
         List<TierMasterAgent> tieredMasterClients = createTieredMasterClients(storageConfiguration);
+        numBuffersUseSortAccumulatorThreshold =
+                storageConfiguration.numBuffersUseSortAccumulatorThreshold();
         tieredStorageMasterClient = new TieredStorageMasterClient(tieredMasterClients);
         checkArgument(
                 !maxRequiredBuffersPerGate.isPresent() || maxRequiredBuffersPerGate.get() >= 1,
@@ -185,6 +189,7 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                         sortShuffleMinParallelism,
                         sortShuffleMinBuffers,
                         enableTieredStoreForHybridShuffle,
+                        numBuffersUseSortAccumulatorThreshold,
                         desc.getInputChannelNums(),
                         desc.getPartitionReuseCount(),
                         desc.getSubpartitionNums(),

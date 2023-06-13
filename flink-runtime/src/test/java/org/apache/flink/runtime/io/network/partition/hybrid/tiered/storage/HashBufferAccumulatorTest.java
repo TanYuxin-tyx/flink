@@ -107,7 +107,7 @@ class HashBufferAccumulatorTest {
                     numExpectBuffers++;
                     numRecordBytesSinceLastEvent = 0;
                 }
-                bufferAccumulator.receive(record, subpartitionId, dataType);
+                bufferAccumulator.receive(record, subpartitionId, dataType, false, false);
             }
 
             assertThat(numReceivedFinishedBuffer.get()).isEqualTo(numExpectBuffers);
@@ -132,7 +132,11 @@ class HashBufferAccumulatorTest {
 
             ByteBuffer endEvent = EventSerializer.toSerializedEvent(EndOfPartitionEvent.INSTANCE);
             bufferAccumulator.receive(
-                    endEvent, new TieredStorageSubpartitionId(0), Buffer.DataType.EVENT_BUFFER);
+                    endEvent,
+                    new TieredStorageSubpartitionId(0),
+                    Buffer.DataType.EVENT_BUFFER,
+                    false,
+                    false);
 
             assertThat(tieredStorageMemoryManager.numOwnerRequestedBuffer(bufferAccumulator))
                     .isZero();
@@ -161,7 +165,9 @@ class HashBufferAccumulatorTest {
                                 bufferAccumulator.receive(
                                         generateRandomData(1, new Random()),
                                         new TieredStorageSubpartitionId(0),
-                                        Buffer.DataType.DATA_BUFFER);
+                                        Buffer.DataType.DATA_BUFFER,
+                                        false,
+                                        false);
                             }
                         })
                 .isInstanceOf(IllegalStateException.class)

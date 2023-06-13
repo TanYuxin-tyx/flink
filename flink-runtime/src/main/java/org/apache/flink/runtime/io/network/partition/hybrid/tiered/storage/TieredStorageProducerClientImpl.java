@@ -48,6 +48,8 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
 
     private final int numSubpartitions;
 
+    private final boolean useSortBufferAccumulator;
+
     private final BufferAccumulator bufferAccumulator;
 
     private final BufferCompressor bufferCompressor;
@@ -69,11 +71,13 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
 
     public TieredStorageProducerClientImpl(
             int numSubpartitions,
+            boolean useSortBufferAccumulator,
             boolean isBroadcastOnly,
             BufferAccumulator bufferAccumulator,
             @Nullable BufferCompressor bufferCompressor,
             List<TierProducerAgent> tierProducerAgents) {
         this.isBroadcastOnly = isBroadcastOnly;
+        this.useSortBufferAccumulator = useSortBufferAccumulator;
         this.numSubpartitions = numSubpartitions;
         this.bufferAccumulator = bufferAccumulator;
         this.bufferCompressor = bufferCompressor;
@@ -105,16 +109,22 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             ByteBuffer record,
             TieredStorageSubpartitionId subpartitionId,
             Buffer.DataType dataType,
-            boolean isBroadcast)
+            boolean isBroadcast,
+            boolean isEndOfPartition)
             throws IOException {
 
         if (isBroadcast && !isBroadcastOnly) {
             for (int i = 0; i < numSubpartitions; ++i) {
                 bufferAccumulator.receive(
-                        record.duplicate(), new TieredStorageSubpartitionId(i), dataType);
+                        record.duplicate(),
+                        new TieredStorageSubpartitionId(i),
+                        dataType,
+                        true,
+                        isEndOfPartition);
             }
         } else {
-            bufferAccumulator.receive(record, subpartitionId, dataType);
+            bufferAccumulator.receive(
+                    record, subpartitionId, dataType, isBroadcast, isEndOfPartition);
         }
     }
 
