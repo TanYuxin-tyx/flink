@@ -18,7 +18,9 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
+import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 
 /**
  * The {@link PartitionFileReader} interface defines the read logic for different types of shuffle
@@ -26,9 +28,10 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
  */
 public interface PartitionFileReader {
 
-    Buffer readBuffer(int subpartitionId, FileReaderId id);
+    Buffer readBuffer(
+            int subpartitionId, FileReaderId id, MemorySegment buffer, BufferRecycler recycler);
 
-    int getNextBufferIndex(int subpartition, FileReaderId id);
+    long getFileOffset(int subpartition, FileReaderId id);
 
-    void release();
+    int getReadableBuffers(int subpartition, int currentBufferIndex, FileReaderId id);
 }

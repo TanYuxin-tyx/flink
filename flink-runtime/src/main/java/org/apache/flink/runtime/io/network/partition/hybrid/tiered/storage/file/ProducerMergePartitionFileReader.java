@@ -18,24 +18,174 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
+import org.apache.flink.util.ExceptionUtils;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
+
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.positionToNextBuffer;
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
 
 public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
-    // private final FileChannel dataFileChannel;
+    private final ByteBuffer reusedHeaderBuffer;
 
-    // private final ByteBuffer reusedHeaderBuffer;
+    private final RegionBufferIndexTracker dataIndex;
 
-    @Override
-    public Buffer readBuffer(int subpartitionId, FileReaderId id) {
-        return null;
+    private final Map<FileReaderId, SubpartitionFileCache> allFileCaches =
+            new ConcurrentHashMap<>();
+
+    private final Supplier<FileChannel> channelSupplier;
+
+    public ProducerMergePartitionFileReader(
+            Supplier<FileChannel> channelSupplier,
+            ByteBuffer reusedHeaderBuffer,
+            RegionBufferIndexTracker dataIndex) {
+        this.channelSupplier = channelSupplier;
+        this.reusedHeaderBuffer = reusedHeaderBuffer;
+        this.dataIndex = dataIndex;
     }
 
     @Override
-    public int getNextBufferIndex(int subpartitionId, FileReaderId id) {
-        return 0;
+    public Buffer readBuffer(
+            int subpartitionId, FileReaderId id, MemorySegment segment, BufferRecycler recycler) {
+        FileChannel fileChannel = channelSupplier.get();
+        if (fileChannel == null) {
+            return null;
+        }
+        SubpartitionFileCache subpartitionFileCache =
+                allFileCaches.computeIfAbsent(
+                        id, ignore -> new SubpartitionFileCache(subpartitionId));
+        Buffer buffer = null;
+        try {
+            buffer = readFromByteChannel(fileChannel, reusedHeaderBuffer, segment, recycler);
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to read buffer.");
+        }
+        if (buffer != null) {
+            subpartitionFileCache.advance(
+                    buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
+        }
+        return buffer;
     }
 
     @Override
-    public void release() {}
+    public long getFileOffset(int subpartitionId, FileReaderId id) {
+        SubpartitionFileCache subpartitionFileCache =
+                allFileCaches.computeIfAbsent(
+                        id, ignore -> new SubpartitionFileCache(subpartitionId));
+        return subpartitionFileCache.getNumSkipAndFileOffset().f1;
+    }
+
+    @Override
+    public int getReadableBuffers(int subpartitionId, int currentBufferIndex, FileReaderId id) {
+        SubpartitionFileCache subpartitionFileCache =
+                allFileCaches.computeIfAbsent(
+                        id, ignore -> new SubpartitionFileCache(subpartitionId));
+        int remainingBuffersInRegion =
+                subpartitionFileCache.getRemainingBuffersInRegion(currentBufferIndex, id);
+        if (remainingBuffersInRegion > 0) {
+            moveFileOffsetToBuffer(subpartitionFileCache);
+        }
+        return remainingBuffersInRegion;
+    }
+
+    private void moveFileOffsetToBuffer(SubpartitionFileCache subpartitionFileCache) {
+        FileChannel fileChannel = channelSupplier.get();
+        if (fileChannel == null) {
+            return;
+        }
+        Tuple2<Integer, Long> indexAndOffset = subpartitionFileCache.getNumSkipAndFileOffset();
+        try {
+            fileChannel.position(indexAndOffset.f1);
+            for (int i = 0; i < indexAndOffset.f0; ++i) {
+                positionToNextBuffer(channelSupplier.get(), reusedHeaderBuffer);
+            }
+            subpartitionFileCache.skipAll(channelSupplier.get().position());
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to move file offset to buffer.");
+        }
+    }
+
+    private class SubpartitionFileCache {
+
+        private final int subpartitionId;
+        private int currentBufferIndex;
+        private int numSkip;
+        private int numReadable;
+        private long offset;
+
+        public SubpartitionFileCache(int subpartitionId) {
+            this.subpartitionId = subpartitionId;
+        }
+
+        private int getRemainingBuffersInRegion(
+                int bufferIndex, FileReaderId nettyServiceWriterId) {
+            updateCachedRegionIfNeeded(bufferIndex, nettyServiceWriterId);
+            return numReadable;
+        }
+
+        private Tuple2<Integer, Long> getNumSkipAndFileOffset() {
+            return new Tuple2<>(numSkip, currentBufferIndex == -1 ? Long.MAX_VALUE : offset);
+        }
+
+        private void skipAll(long newOffset) {
+            this.offset = newOffset;
+            this.numSkip = 0;
+        }
+
+        private void advance(long bufferSize) {
+            if (isInCachedRegion(currentBufferIndex + 1)) {
+                currentBufferIndex++;
+                numReadable--;
+                offset += bufferSize;
+            }
+        }
+
+        // ------------------------------------------------------------------------
+        //  Internal Methods
+        // ------------------------------------------------------------------------
+
+        private void updateCachedRegionIfNeeded(
+                int bufferIndex, FileReaderId nettyServiceWriterId) {
+            if (isInCachedRegion(bufferIndex)) {
+                int numAdvance = bufferIndex - currentBufferIndex;
+                numSkip += numAdvance;
+                numReadable -= numAdvance;
+                currentBufferIndex = bufferIndex;
+                return;
+            }
+
+            Optional<RegionBufferIndexTracker.ReadableRegion> lookupResultOpt =
+                    dataIndex.getReadableRegion(subpartitionId, bufferIndex, nettyServiceWriterId);
+            if (!lookupResultOpt.isPresent()) {
+                currentBufferIndex = -1;
+                numReadable = 0;
+                numSkip = 0;
+                offset = -1L;
+            } else {
+                RegionBufferIndexTracker.ReadableRegion cachedRegion = lookupResultOpt.get();
+                currentBufferIndex = bufferIndex;
+                numSkip = cachedRegion.numSkip;
+                numReadable = cachedRegion.numReadable;
+                offset = cachedRegion.offset;
+            }
+        }
+
+        private boolean isInCachedRegion(int bufferIndex) {
+            return bufferIndex < currentBufferIndex + numReadable
+                    && bufferIndex >= currentBufferIndex;
+        }
+    }
 }

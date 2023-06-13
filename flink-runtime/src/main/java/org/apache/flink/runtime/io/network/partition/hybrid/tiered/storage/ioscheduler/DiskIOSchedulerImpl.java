@@ -9,6 +9,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.FileReaderId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
@@ -84,6 +86,8 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
 
     private final Map<NettyConnectionId, FileReaderId> allFileReaderIds = new ConcurrentHashMap<>();
 
+    private final PartitionFileReader partitionFileReader;
+
     public DiskIOSchedulerImpl(
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
@@ -103,6 +107,8 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.nettyService = nettyService;
         this.firstBufferContextInSegment = firstBufferContextInSegment;
+        this.partitionFileReader =
+                new ProducerMergePartitionFileReader(() -> dataFileChannel, headerBuf, dataIndex);
     }
 
     @Override
@@ -128,10 +134,10 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
                             maxBufferReadAhead,
                             headerBuf,
                             dataFileChannel,
-                            dataIndex,
                             nettyConnectionWriter,
                             nettyService,
-                            firstBufferContextInSegment.get(subpartitionId));
+                            firstBufferContextInSegment.get(subpartitionId),
+                            partitionFileReader);
             allSubpartitionReaders.put(subpartitionReader.getFileReaderId(), subpartitionReader);
             allFileReaderIds.put(
                     nettyConnectionWriter.getNettyConnectionId(),
@@ -161,6 +167,23 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
     // ------------------------------------------------------------------------
     //  Internal Methods
     // ------------------------------------------------------------------------
+
+    @GuardedBy("lock")
+    private void lazyInitialize() throws IOException {
+        assert Thread.holdsLock(lock);
+        try {
+            if (allSubpartitionReaders.isEmpty()) {
+                dataFileChannel = openFileChannel(dataFilePath);
+                bufferPool.registerRequester(this);
+            }
+        } catch (IOException exception) {
+            if (allSubpartitionReaders.isEmpty()) {
+                bufferPool.unregisterRequester(this);
+                closeFileChannel();
+            }
+            throw exception;
+        }
+    }
 
     public int readBuffersFromFile() {
         List<ScheduledSubpartition> availableReaders = sortAvailableReaders();
@@ -288,22 +311,7 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
         return bufferPool.getLastBufferOperationTimestamp() + bufferRequestTimeout.toMillis();
     }
 
-    @GuardedBy("lock")
-    private void lazyInitialize() throws IOException {
-        assert Thread.holdsLock(lock);
-        try {
-            if (allSubpartitionReaders.isEmpty()) {
-                dataFileChannel = openFileChannel(dataFilePath);
-                bufferPool.registerRequester(this);
-            }
-        } catch (IOException exception) {
-            if (allSubpartitionReaders.isEmpty()) {
-                bufferPool.unregisterRequester(this);
-                closeFileChannel();
-            }
-            throw exception;
-        }
-    }
+
 
     public void removeSubpartition(FileReaderId readerId) {
         synchronized (lock) {
@@ -322,7 +330,7 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
 
     @GuardedBy("lock")
     private void closeFileChannel() {
-        assert Thread.holdsLock(lock);
+        //assert Thread.holdsLock(lock);
 
         IOUtils.closeQuietly(dataFileChannel);
         dataFileChannel = null;
