@@ -39,7 +39,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 
-/** Tests for {@link SortBufferAccumulator}. */
+/** Tests for {@link SortBufferAccumulator1}. */
 public class SortBufferAccumulatorTest {
 
     @Test
