@@ -47,7 +47,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
 
     private final List<NettyConnectionId> nettyConnectionIds;
 
-    private boolean isReleased = false;
+    private volatile boolean isReleased = false;
 
     private int requiredSegmentId = 0;
 
@@ -75,11 +75,7 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
             return null;
         }
         Queue<NettyPayload> currentQueue = nettyPayloadQueues.get(queueIndexContainsCurrentSegment);
-        Optional<Buffer> nextBuffer =
-                readNettyPayload(
-                        currentQueue,
-                        serviceProducers.get(queueIndexContainsCurrentSegment),
-                        nettyConnectionIds.get(queueIndexContainsCurrentSegment));
+        Optional<Buffer> nextBuffer = readNettyPayload(currentQueue);
         if (nextBuffer.isPresent()) {
             stopSendingData = nextBuffer.get().getDataType() == END_OF_SEGMENT;
             if (stopSendingData) {
@@ -180,21 +176,18 @@ public class TieredStoreResultSubpartitionView implements ResultSubpartitionView
     //       Internal Methods
     // -------------------------------
 
-    private Optional<Buffer> readNettyPayload(
-            Queue<NettyPayload> nettyPayloadQueue,
-            NettyServiceProducer serviceProducer,
-            NettyConnectionId id)
+    private Optional<Buffer> readNettyPayload(Queue<NettyPayload> nettyPayloadQueue)
             throws IOException {
         NettyPayload nettyPayload = nettyPayloadQueue.poll();
         if (nettyPayload == null) {
             return Optional.empty();
         } else {
             if (nettyPayload.getSegmentId() != -1) {
-                return readNettyPayload(nettyPayloadQueue, serviceProducer, id);
+                return readNettyPayload(nettyPayloadQueue);
             }
             Optional<Throwable> error = nettyPayload.getError();
             if (error.isPresent()) {
-                releaseQueue(nettyPayloadQueue, serviceProducer, id);
+                releaseAllResources();
                 throw new IOException(error.get());
             } else {
                 return nettyPayload.getBuffer();

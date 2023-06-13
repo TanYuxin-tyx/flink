@@ -53,7 +53,7 @@ public class MemoryTierSubpartitionProducerAgent {
 
     public void release() {
         if (nettyConnectionWriter != null) {
-            nettyConnectionWriter.close();
+            nettyConnectionWriter.close(null);
         }
     }
 

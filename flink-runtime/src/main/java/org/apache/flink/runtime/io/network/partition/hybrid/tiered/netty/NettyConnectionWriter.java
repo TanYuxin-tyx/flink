@@ -20,6 +20,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
+import javax.annotation.Nullable;
+
 /**
  * {@link NettyConnectionWriter} is used by {@link TierProducerAgent} to write buffers to netty
  * connection. Buffers in the writer will be written to a queue structure and netty server will send
@@ -29,7 +31,7 @@ public interface NettyConnectionWriter {
     /**
      * Write a buffer to netty connection.
      *
-     * @param nettyPayload netty payload represents the buffer.
+     * @param nettyPayload the payload send to netty connection.
      */
     void writeBuffer(NettyPayload nettyPayload);
 
@@ -47,6 +49,11 @@ public interface NettyConnectionWriter {
      */
     int numQueuedBuffers();
 
-    /** Close the connection and release all resources. */
-    void close();
+    /**
+     * If error is null, remove and recycle all buffers in the writer. If error is not null, the
+     * error will be written after all buffers are removed and recycled.
+     *
+     * @param error error represents the exception information.
+     */
+    void close(@Nullable Throwable error);
 }

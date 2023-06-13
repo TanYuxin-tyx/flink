@@ -20,6 +20,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 
+import javax.annotation.Nullable;
+
 import java.util.Queue;
 
 /** The default implementation of {@link NettyConnectionWriter}. */
@@ -50,10 +52,13 @@ public class NettyConnectionWriterImpl implements NettyConnectionWriter {
     }
 
     @Override
-    public void close() {
+    public void close(@Nullable Throwable error) {
         NettyPayload nettyPayload;
         while ((nettyPayload = bufferQueue.poll()) != null) {
             nettyPayload.getBuffer().ifPresent(Buffer::recycleBuffer);
+        }
+        if(error != null){
+            writeBuffer(NettyPayload.newError(error));
         }
     }
 }

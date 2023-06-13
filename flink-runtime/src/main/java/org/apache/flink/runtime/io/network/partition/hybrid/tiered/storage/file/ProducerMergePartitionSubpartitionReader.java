@@ -156,8 +156,7 @@ public class ProducerMergePartitionSubpartitionReader
             return;
         }
         isFailed = true;
-        nettyConnectionWriter.close();
-        nettyConnectionWriter.writeBuffer(NettyPayload.newError(failureCause));
+        nettyConnectionWriter.close(failureCause);
         ((TieredStorageNettyServiceImpl) nettyService)
                 .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
     }
