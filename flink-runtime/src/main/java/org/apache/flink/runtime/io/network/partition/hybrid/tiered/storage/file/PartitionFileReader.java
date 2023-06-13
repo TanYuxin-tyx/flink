@@ -29,9 +29,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 public interface PartitionFileReader {
 
     Buffer readBuffer(
-            int subpartitionId, FileReaderId id, MemorySegment buffer, BufferRecycler recycler);
+            int subpartitionId, FileReaderId id, MemorySegment segment, BufferRecycler recycler);
 
-    long getFileOffset(int subpartition, FileReaderId id);
+    long getFileOffset(int subpartitionId, FileReaderId id);
 
-    int getReadableBuffers(int subpartition, int currentBufferIndex, FileReaderId id);
+    int getReadableBuffers(int subpartitionId, int currentBufferIndex, FileReaderId id);
 }
