@@ -46,7 +46,11 @@ public interface BufferAccumulator extends AutoCloseable {
      * transformed into finished buffers.
      */
     void receive(
-            ByteBuffer record, TieredStorageSubpartitionId subpartitionId, Buffer.DataType dataType)
+            ByteBuffer record,
+            TieredStorageSubpartitionId subpartitionId,
+            Buffer.DataType dataType,
+            boolean isBroadcast,
+            boolean isEndOfPartition)
             throws IOException;
 
     /**

@@ -33,11 +33,11 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.HashBufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SortBufferAccumulator1;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClientImpl;
@@ -178,7 +178,6 @@ public class ResultPartitionFactory {
                 desc.getNumberOfSubpartitions(),
                 desc.getMaxParallelism(),
                 desc.isBroadcast(),
-                createBufferPoolFactory(desc.getNumberOfSubpartitions(), desc.getPartitionType()),
                 resourceRegistry,
                 tieredStorageNettyServiceImpl);
     }
@@ -193,7 +192,6 @@ public class ResultPartitionFactory {
             int numberOfSubpartitions,
             int maxParallelism,
             boolean isBroadcast,
-            SupplierWithException<BufferPool, IOException> bufferPoolFactory,
             TieredStorageResourceRegistry resourceRegistry,
             TieredStorageNettyServiceImpl nettyService) {
         BufferCompressor bufferCompressor = null;
@@ -217,7 +215,7 @@ public class ResultPartitionFactory {
                             maxParallelism,
                             partitionManager,
                             bufferCompressor,
-                            bufferPoolFactory);
+                            createBufferPoolFactory(numberOfSubpartitions, type));
 
             for (int i = 0; i < subpartitions.length; i++) {
                 if (type == ResultPartitionType.PIPELINED_APPROXIMATE) {
@@ -248,7 +246,7 @@ public class ResultPartitionFactory {
                                 partitionManager,
                                 channelManager.createChannel().getPath(),
                                 bufferCompressor,
-                                bufferPoolFactory);
+                                createBufferPoolFactory(numberOfSubpartitions, type));
             } else {
                 final BoundedBlockingResultPartition blockingPartition =
                         new BoundedBlockingResultPartition(
@@ -260,7 +258,7 @@ public class ResultPartitionFactory {
                                 maxParallelism,
                                 partitionManager,
                                 bufferCompressor,
-                                bufferPoolFactory);
+                                createBufferPoolFactory(numberOfSubpartitions, type));
 
                 initializeBoundedBlockingPartitions(
                         subpartitions,
@@ -295,16 +293,23 @@ public class ResultPartitionFactory {
                                 resourceRegistry);
 
                 TieredStoragePartitionId partitionId = TieredStorageIdMappingUtils.convertId(id);
+                int numBuffersUseSortAccumulatorThreshold =
+                        storageConfiguration.numBuffersUseSortAccumulatorThreshold();
+                boolean useSortAccumulator =
+                        useSortBufferAccumulator(
+                                subpartitions.length, numBuffersUseSortAccumulatorThreshold);
                 BufferAccumulator bufferAccumulator =
-                        new HashBufferAccumulator(
-                                partitionId,
+                        createBufferAccumulator(
                                 resourceRegistry,
                                 subpartitions.length,
-                                networkBufferSize,
-                                storageMemoryManager);
+                                useSortAccumulator,
+                                numBuffersUseSortAccumulatorThreshold,
+                                storageMemoryManager,
+                                partitionId);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(
                                 subpartitions.length,
+                                useSortAccumulator,
                                 isBroadcast,
                                 bufferAccumulator,
                                 bufferCompressor,
@@ -324,7 +329,10 @@ public class ResultPartitionFactory {
                                 storageConfiguration.getTierExclusiveBuffers(),
                                 bufferCompressor,
                                 tieredStorageProducerClient,
-                                bufferPoolFactory,
+                                createBufferPoolFactory(
+                                        numberOfSubpartitions,
+                                        numBuffersUseSortAccumulatorThreshold,
+                                        type),
                                 resourceRegistry,
                                 nettyService);
             } else {
@@ -344,7 +352,7 @@ public class ResultPartitionFactory {
                                 getHybridShuffleConfiguration(numberOfSubpartitions, type),
                                 bufferCompressor,
                                 isBroadcast,
-                                bufferPoolFactory);
+                                createBufferPoolFactory(numberOfSubpartitions, type));
             }
 
         } else {
@@ -356,6 +364,29 @@ public class ResultPartitionFactory {
         return partition;
     }
 
+    private BufferAccumulator createBufferAccumulator(
+            TieredStorageResourceRegistry resourceRegistry,
+            int numSubpartitions,
+            boolean useSortAccumulator,
+            int numBuffersUseSortAccumulatorThreshold,
+            TieredStorageMemoryManager storageMemoryManager,
+            TieredStoragePartitionId partitionId) {
+        return useSortAccumulator
+                ? new SortBufferAccumulator1(
+                        partitionId,
+                        numSubpartitions,
+                        numBuffersUseSortAccumulatorThreshold,
+                        networkBufferSize,
+                        storageMemoryManager,
+                        resourceRegistry)
+                : new HashBufferAccumulator(
+                        partitionId,
+                        resourceRegistry,
+                        numSubpartitions,
+                        networkBufferSize,
+                        storageMemoryManager);
+    }
+
     @SuppressWarnings("checkstyle:EmptyLineSeparator")
     private List<TierProducerAgent> createTierStorages(
             JobID jobID,
@@ -364,7 +395,7 @@ public class ResultPartitionFactory {
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storageMemoryManager,
-            TieredStorageNettyService nettyService,
+            TieredStorageNettyServiceImpl nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
         String dataFileBasePath = channelManager.createChannel().getPath();
         PartitionFileManager partitionFileManager =
@@ -448,6 +479,11 @@ public class ResultPartitionFactory {
         }
     }
 
+    private static boolean useSortBufferAccumulator(
+            int numSubpartitions, int numBuffersUseSortAccumulatorThreshold) {
+        return numSubpartitions + 1 > numBuffersUseSortAccumulatorThreshold;
+    }
+
     private static void releasePartitionsQuietly(ResultSubpartition[] partitions, int until) {
         for (int i = 0; i < until; i++) {
             final ResultSubpartition subpartition = partitions[i];
@@ -482,6 +518,25 @@ public class ResultPartitionFactory {
     @VisibleForTesting
     SupplierWithException<BufferPool, IOException> createBufferPoolFactory(
             int numberOfSubpartitions, ResultPartitionType type) {
+        return createBufferPoolFactory(numberOfSubpartitions, -1, type);
+    }
+
+    /**
+     * The minimum pool size should be <code>numberOfSubpartitions + 1</code> for two
+     * considerations:
+     *
+     * <p>1. StreamTask can only process input if there is at-least one available buffer on output
+     * side, so it might cause stuck problem if the minimum pool size is exactly equal to the number
+     * of subpartitions, because every subpartition might maintain a partial unfilled buffer.
+     *
+     * <p>2. Increases one more buffer for every output LocalBufferPool to avoid performance
+     * regression if processing input is based on at-least one buffer available on output side.
+     */
+    @VisibleForTesting
+    SupplierWithException<BufferPool, IOException> createBufferPoolFactory(
+            int numberOfSubpartitions,
+            int numBuffersOfSortAccumulatorThreshold,
+            ResultPartitionType type) {
         return () -> {
             Pair<Integer, Integer> pair =
                     NettyShuffleUtils.getMinMaxNetworkBuffersPerResultPartition(
@@ -490,6 +545,7 @@ public class ResultPartitionFactory {
                             sortShuffleMinParallelism,
                             sortShuffleMinBuffers,
                             numberOfSubpartitions,
+                            numBuffersOfSortAccumulatorThreshold,
                             enableTieredStoreForHybridShuffle,
                             type);
 

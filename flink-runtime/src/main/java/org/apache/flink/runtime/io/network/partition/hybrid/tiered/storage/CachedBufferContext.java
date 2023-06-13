@@ -18,28 +18,34 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import java.util.List;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.function.Consumer;
+public class CachedBufferContext {
 
-/** The producer interface of Tiered Store, data can be written to different store tiers. */
-public interface TieredStorageProducerClient {
+    private final List<MemorySegmentAndChannel> memorySegmentAndChannels;
 
-    void write(
-            ByteBuffer record,
-            TieredStorageSubpartitionId subpartitionId,
-            Buffer.DataType dataType,
+    private final boolean isBroadcast;
+
+    private final boolean isEndOfPartition;
+
+    public CachedBufferContext(
+            List<MemorySegmentAndChannel> memorySegmentAndChannels,
             boolean isBroadcast,
-            boolean isEndOfPartition)
-            throws IOException;
+            boolean isEndOfPartition) {
+        this.memorySegmentAndChannels = memorySegmentAndChannels;
+        this.isBroadcast = isBroadcast;
+        this.isEndOfPartition = isEndOfPartition;
+    }
 
-    void setMetricStatisticsUpdater(
-            Consumer<TieredStorageProducerMetricUpdate> metricStatisticsUpdater);
+    public List<MemorySegmentAndChannel> getMemorySegmentAndChannels() {
+        return memorySegmentAndChannels;
+    }
 
-    void close();
+    public boolean isBroadcast() {
+        return isBroadcast;
+    }
 
-    void release();
+    public boolean isEndOfPartition() {
+        return isEndOfPartition;
+    }
 }

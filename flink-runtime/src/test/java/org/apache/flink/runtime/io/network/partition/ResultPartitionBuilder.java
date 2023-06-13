@@ -291,12 +291,6 @@ public class ResultPartitionBuilder {
                         false,
                         tieredStoreTiers);
 
-        SupplierWithException<BufferPool, IOException> factory =
-                bufferPoolFactory.orElseGet(
-                        () ->
-                                resultPartitionFactory.createBufferPoolFactory(
-                                        numberOfSubpartitions, partitionType));
-
         return resultPartitionFactory.create(
                 jobID,
                 "Result Partition task",
@@ -306,7 +300,6 @@ public class ResultPartitionBuilder {
                 numberOfSubpartitions,
                 numTargetKeyGroups,
                 isBroadcast,
-                factory,
                 new TieredStorageResourceRegistry(),
                 new TieredStorageNettyServiceImpl());
     }

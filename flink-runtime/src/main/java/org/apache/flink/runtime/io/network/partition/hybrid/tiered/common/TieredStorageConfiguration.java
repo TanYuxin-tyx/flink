@@ -62,6 +62,9 @@ public class TieredStorageConfiguration {
 
     private static final int DEFAULT_MAX_BUFFERS_READ_AHEAD = 5;
 
+    private static final int DEFAULT_NUM_BUFFERS_USE_SORT_ACCUMULATOR_THRESHOLD =
+            512; // TODO chang to 512
+
     private static final Duration DEFAULT_BUFFER_REQUEST_TIMEOUT = Duration.ofMinutes(5);
 
     private static final float DEFAULT_TIERED_STORE_BUFFER_IN_MEMORY_RATIO = 0.4f;
@@ -100,6 +103,8 @@ public class TieredStorageConfiguration {
 
     private final long bufferPoolSizeCheckIntervalMs;
 
+    private final int numBuffersUseSortAccumulatorThreshold;
+
     private final String baseDfsHomePath;
 
     private final int[] tierExclusiveBuffers;
@@ -116,6 +121,7 @@ public class TieredStorageConfiguration {
             float tieredStoreTriggerFlushRatio,
             float numBuffersTriggerFlushRatio,
             long bufferPoolSizeCheckIntervalMs,
+            int numBuffersUseSortAccumulatorThreshold,
             String baseDfsHomePath,
             int configuredNetworkBuffersPerChannel,
             int[] tierExclusiveBuffers,
@@ -129,6 +135,7 @@ public class TieredStorageConfiguration {
         this.tieredStoreTriggerFlushRatio = tieredStoreTriggerFlushRatio;
         this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
         this.bufferPoolSizeCheckIntervalMs = bufferPoolSizeCheckIntervalMs;
+        this.numBuffersUseSortAccumulatorThreshold = numBuffersUseSortAccumulatorThreshold;
         this.baseDfsHomePath = baseDfsHomePath;
         this.configuredNetworkBuffersPerChannel = configuredNetworkBuffersPerChannel;
         this.tierExclusiveBuffers = tierExclusiveBuffers;
@@ -186,6 +193,10 @@ public class TieredStorageConfiguration {
         return bufferPoolSizeCheckIntervalMs;
     }
 
+    public int numBuffersUseSortAccumulatorThreshold() {
+        return numBuffersUseSortAccumulatorThreshold;
+    }
+
     public String getBaseDfsHomePath() {
         return baseDfsHomePath;
     }
@@ -217,6 +228,9 @@ public class TieredStorageConfiguration {
         private float numBuffersTriggerFlushRatio = DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO;
 
         private long bufferPoolSizeCheckIntervalMs = DEFAULT_BUFFER_POLL_SIZE_CHECK_INTERVAL_MS;
+
+        private int numBuffersUseSortAccumulatorThreshold =
+                DEFAULT_NUM_BUFFERS_USE_SORT_ACCUMULATOR_THRESHOLD;
 
         private String baseDfsHomePath = null;
 
@@ -278,6 +292,12 @@ public class TieredStorageConfiguration {
         public TieredStorageConfiguration.Builder setBufferPoolSizeCheckIntervalMs(
                 long bufferPoolSizeCheckIntervalMs) {
             this.bufferPoolSizeCheckIntervalMs = bufferPoolSizeCheckIntervalMs;
+            return this;
+        }
+
+        public TieredStorageConfiguration.Builder setNumBuffersUseSortAccumulatorThreshold(
+                int numBuffersUseSortAccumulatorThreshold) {
+            this.numBuffersUseSortAccumulatorThreshold = numBuffersUseSortAccumulatorThreshold;
             return this;
         }
 
@@ -387,6 +407,7 @@ public class TieredStorageConfiguration {
                     tieredStoreTriggerFlushRatio,
                     numBuffersTriggerFlushRatio,
                     bufferPoolSizeCheckIntervalMs,
+                    numBuffersUseSortAccumulatorThreshold,
                     baseDfsHomePath,
                     configuredNetworkBuffersPerChannel,
                     tierExclusiveBuffers,

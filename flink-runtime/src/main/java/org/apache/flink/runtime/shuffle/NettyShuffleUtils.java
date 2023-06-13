@@ -68,6 +68,7 @@ public class NettyShuffleUtils {
             final int sortShuffleMinParallelism,
             final int sortShuffleMinBuffers,
             final int numSubpartitions,
+            final int numSortAccumulatorThreshold,
             final boolean enableTieredStoreForHybridShuffle,
             final ResultPartitionType type) {
         boolean isSortShuffle =
@@ -79,10 +80,14 @@ public class NettyShuffleUtils {
         } else {
             int numAddedBuffers;
             if (type.isHybridResultPartition() && enableTieredStoreForHybridShuffle) {
+                checkState(
+                        numSortAccumulatorThreshold >= 0,
+                        "Must be non-negative when enable tiered storage.");
                 numAddedBuffers =
-                        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.values().stream()
-                                .mapToInt(i -> i)
-                                .sum();
+                        Math.min(numSubpartitions + 1, numSortAccumulatorThreshold)
+                                + HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.values().stream()
+                                        .mapToInt(i -> i)
+                                        .sum();
             } else {
                 numAddedBuffers = 1;
             }
@@ -110,6 +115,7 @@ public class NettyShuffleUtils {
             final int sortShuffleMinParallelism,
             final int sortShuffleMinBuffers,
             final boolean enableTieredStoreForHybridShuffle,
+            final int numBuffersUseSortAccumulatorThreshold,
             final Map<IntermediateDataSetID, Integer> inputChannelNums,
             final Map<IntermediateDataSetID, Integer> partitionReuseCount,
             final Map<IntermediateDataSetID, Integer> subpartitionNums,
@@ -148,6 +154,7 @@ public class NettyShuffleUtils {
                             sortShuffleMinParallelism,
                             sortShuffleMinBuffers,
                             enableTieredStoreForHybridShuffle,
+                            numBuffersUseSortAccumulatorThreshold,
                             numSubs);
         }
 
@@ -179,6 +186,7 @@ public class NettyShuffleUtils {
             int sortShuffleMinParallelism,
             int sortShuffleMinBuffers,
             boolean enableTieredStoreForHybridShuffle,
+            int numBuffersUseSortAccumulatorThreshold,
             int numSubpartitions) {
 
         Pair<Integer, Integer> minAndMax =
@@ -188,6 +196,7 @@ public class NettyShuffleUtils {
                         sortShuffleMinParallelism,
                         sortShuffleMinBuffers,
                         numSubpartitions,
+                        numBuffersUseSortAccumulatorThreshold,
                         enableTieredStoreForHybridShuffle,
                         type);
 
