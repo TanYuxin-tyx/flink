@@ -5,7 +5,6 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
@@ -84,15 +83,12 @@ public class DiskIOSchedulerImpl
 
     private final TieredStorageNettyService nettyService;
 
-    private final ResultPartitionID resultPartitionID;
-
     private final List<Map<Integer, Integer>> firstBufferContextInSegment;
 
     private final Map<NettyConnectionId, ScheduledDiskSubpartition>
             readersWithNettyConnectionId = new ConcurrentHashMap<>();
 
     public DiskIOSchedulerImpl(
-            ResultPartitionID partitionId,
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
             RegionBufferIndexTracker dataIndex,
@@ -102,7 +98,6 @@ public class DiskIOSchedulerImpl
             int maxBufferReadAhead,
             TieredStorageNettyService nettyService,
             List<Map<Integer, Integer>> firstBufferContextInSegment) {
-        this.resultPartitionID = partitionId;
         this.dataIndex = checkNotNull(dataIndex);
         this.dataFilePath = checkNotNull(dataFilePath);
         this.bufferPool = checkNotNull(bufferPool);
@@ -150,7 +145,7 @@ public class DiskIOSchedulerImpl
 
     @Override
     public void connectionBroken(NettyConnectionId id) {
-        removeSubpartitionReader(readersWithNettyConnectionId.get(id));
+        removeSubpartition(readersWithNettyConnectionId.get(id));
     }
 
     @Override
@@ -236,7 +231,7 @@ public class DiskIOSchedulerImpl
             Collection<ScheduledDiskSubpartition> subpartitionReaders,
             Throwable failureCause) {
         for (ScheduledDiskSubpartition subpartitionReader : subpartitionReaders) {
-            removeSubpartitionReader(subpartitionReader);
+            removeSubpartition(subpartitionReader);
             subpartitionReader.fail(failureCause);
         }
     }
@@ -316,7 +311,7 @@ public class DiskIOSchedulerImpl
         }
     }
 
-    public void removeSubpartitionReader(
+    public void removeSubpartition(
             ScheduledDiskSubpartition subpartitionReader) {
         synchronized (lock) {
             allSubpartitionReaders.remove(subpartitionReader);

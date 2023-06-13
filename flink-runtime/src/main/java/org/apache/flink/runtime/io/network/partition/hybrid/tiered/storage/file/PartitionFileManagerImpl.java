@@ -82,7 +82,6 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
             TieredStorageNettyService nettyService,
             List<Map<Integer, Integer>> firstBufferContextInSegment) {
         return new DiskIOSchedulerImpl(
-                resultPartitionID,
                 readBufferPool,
                 readIOExecutor,
                 producerMergeIndex,
