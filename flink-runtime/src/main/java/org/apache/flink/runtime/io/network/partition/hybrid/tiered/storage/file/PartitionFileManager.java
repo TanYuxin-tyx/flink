@@ -1,6 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler.DiskIOScheduler;
 
 import java.util.List;
 import java.util.Map;
@@ -13,8 +14,7 @@ public interface PartitionFileManager {
 
     PartitionFileWriter createPartitionFileWriter(PartitionFileType partitionFileType);
 
-    PartitionFileReader createPartitionFileReader(
-            PartitionFileType partitionFileTyp,
+    DiskIOScheduler createDiskIOScheduler(
             TieredStorageNettyService nettyService,
             List<Map<Integer, Integer>> firstBufferContextInSegment);
 }

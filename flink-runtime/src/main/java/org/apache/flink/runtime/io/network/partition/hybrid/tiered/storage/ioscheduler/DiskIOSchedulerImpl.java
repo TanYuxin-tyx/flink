@@ -1,4 +1,4 @@
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler;
 
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
@@ -41,12 +41,12 @@ import java.util.concurrent.TimeoutException;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** THe implementation of {@link PartitionFileReader} for merged subpartition files. */
-public class ProducerMergePartitionFileReader
-        implements Runnable, BufferRecycler, PartitionFileReader {
+/** THe implementation of {@link DiskIOScheduler} for merged subpartition files. */
+public class DiskIOSchedulerImpl
+        implements Runnable, BufferRecycler, DiskIOScheduler {
 
     private static final Logger LOG =
-            LoggerFactory.getLogger(ProducerMergePartitionFileReader.class);
+            LoggerFactory.getLogger(DiskIOSchedulerImpl.class);
 
     private final ScheduledExecutorService ioExecutor;
 
@@ -63,7 +63,7 @@ public class ProducerMergePartitionFileReader
     private final ByteBuffer headerBuf = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
     @GuardedBy("lock")
-    private final Set<ProducerMergePartitionSubpartitionReader> allSubpartitionReaders =
+    private final Set<ScheduledDiskSubpartition> allSubpartitionReaders =
             new HashSet<>();
 
     private final int maxBufferReadAhead;
@@ -88,10 +88,10 @@ public class ProducerMergePartitionFileReader
 
     private final List<Map<Integer, Integer>> firstBufferContextInSegment;
 
-    private final Map<NettyConnectionId, ProducerMergePartitionSubpartitionReader>
+    private final Map<NettyConnectionId, ScheduledDiskSubpartition>
             readersWithNettyConnectionId = new ConcurrentHashMap<>();
 
-    public ProducerMergePartitionFileReader(
+    public DiskIOSchedulerImpl(
             ResultPartitionID partitionId,
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
@@ -131,9 +131,8 @@ public class ProducerMergePartitionFileReader
         synchronized (lock) {
             checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
             lazyInitialize();
-            ProducerMergePartitionSubpartitionReader subpartitionReader =
-                    new ProducerMergePartitionSubpartitionReader(
-                            resultPartitionID,
+            ScheduledDiskSubpartition subpartitionReader =
+                    new ScheduledDiskSubpartition(
                             subpartitionId,
                             maxBufferReadAhead,
                             headerBuf,
@@ -150,7 +149,7 @@ public class ProducerMergePartitionFileReader
     }
 
     @Override
-    public void releaseReader(NettyConnectionId id) {
+    public void connectionBroken(NettyConnectionId id) {
         removeSubpartitionReader(readersWithNettyConnectionId.get(id));
     }
 
@@ -172,7 +171,7 @@ public class ProducerMergePartitionFileReader
     // ------------------------------------------------------------------------
 
     public int readBuffersFromFile() {
-        List<ProducerMergePartitionSubpartitionReader> availableReaders = sortAvailableReaders();
+        List<ScheduledDiskSubpartition> availableReaders = sortAvailableReaders();
         if (availableReaders.isEmpty()) {
             return 0;
         }
@@ -200,12 +199,12 @@ public class ProducerMergePartitionFileReader
         return numBuffersRead;
     }
 
-    private List<ProducerMergePartitionSubpartitionReader> sortAvailableReaders() {
+    private List<ScheduledDiskSubpartition> sortAvailableReaders() {
         synchronized (lock) {
             if (isReleased) {
                 return new ArrayList<>();
             }
-            List<ProducerMergePartitionSubpartitionReader> availableReaders =
+            List<ScheduledDiskSubpartition> availableReaders =
                     new ArrayList<>(allSubpartitionReaders);
             Collections.sort(availableReaders);
             return availableReaders;
@@ -234,20 +233,20 @@ public class ProducerMergePartitionFileReader
     }
 
     private void failSubpartitionReaders(
-            Collection<ProducerMergePartitionSubpartitionReader> subpartitionReaders,
+            Collection<ScheduledDiskSubpartition> subpartitionReaders,
             Throwable failureCause) {
-        for (ProducerMergePartitionSubpartitionReader subpartitionReader : subpartitionReaders) {
+        for (ScheduledDiskSubpartition subpartitionReader : subpartitionReaders) {
             removeSubpartitionReader(subpartitionReader);
             subpartitionReader.fail(failureCause);
         }
     }
 
     private void readData(
-            List<ProducerMergePartitionSubpartitionReader> availableReaders,
+            List<ScheduledDiskSubpartition> availableReaders,
             Queue<MemorySegment> buffers) {
         int startIndex = 0;
         while (startIndex < availableReaders.size() && !buffers.isEmpty()) {
-            ProducerMergePartitionSubpartitionReader subpartitionReader =
+            ScheduledDiskSubpartition subpartitionReader =
                     availableReaders.get(startIndex);
             startIndex++;
             try {
@@ -318,7 +317,7 @@ public class ProducerMergePartitionFileReader
     }
 
     public void removeSubpartitionReader(
-            ProducerMergePartitionSubpartitionReader subpartitionReader) {
+            ScheduledDiskSubpartition subpartitionReader) {
         synchronized (lock) {
             allSubpartitionReaders.remove(subpartitionReader);
             if (allSubpartitionReaders.isEmpty()) {

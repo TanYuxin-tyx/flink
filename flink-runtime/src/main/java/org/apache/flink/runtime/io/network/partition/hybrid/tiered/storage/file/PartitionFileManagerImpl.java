@@ -5,6 +5,8 @@ import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler.DiskIOScheduler;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler.DiskIOSchedulerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 
 import java.nio.file.Path;
@@ -76,25 +78,19 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
     }
 
     @Override
-    public PartitionFileReader createPartitionFileReader(
-            PartitionFileType partitionFileType,
+    public DiskIOScheduler createDiskIOScheduler(
             TieredStorageNettyService nettyService,
             List<Map<Integer, Integer>> firstBufferContextInSegment) {
-        if (partitionFileType == PartitionFileType.PRODUCER_MERGE) {
-            return new ProducerMergePartitionFileReader(
-                    resultPartitionID,
-                    readBufferPool,
-                    readIOExecutor,
-                    producerMergeIndex,
-                    producerMergeShuffleFilePath,
-                    storeConfiguration.getMaxRequestedBuffers(),
-                    storeConfiguration.getBufferRequestTimeout(),
-                    storeConfiguration.getMaxBuffersReadAhead(),
-                    nettyService,
-                    firstBufferContextInSegment);
-        }
-        throw new UnsupportedOperationException(
-                "PartitionFileManager doesn't support the type of partition file: "
-                        + partitionFileType);
+        return new DiskIOSchedulerImpl(
+                resultPartitionID,
+                readBufferPool,
+                readIOExecutor,
+                producerMergeIndex,
+                producerMergeShuffleFilePath,
+                storeConfiguration.getMaxRequestedBuffers(),
+                storeConfiguration.getBufferRequestTimeout(),
+                storeConfiguration.getMaxBuffersReadAhead(),
+                nettyService,
+                firstBufferContextInSegment);
     }
 }

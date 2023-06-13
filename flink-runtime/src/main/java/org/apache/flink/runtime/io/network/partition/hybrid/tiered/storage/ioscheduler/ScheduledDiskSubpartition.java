@@ -16,19 +16,18 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 
 import java.io.IOException;
@@ -42,9 +41,9 @@ import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUt
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
-/** The implementation of {@link ProducerMergePartitionSubpartitionReader}. */
-public class ProducerMergePartitionSubpartitionReader
-        implements Comparable<ProducerMergePartitionSubpartitionReader> {
+/** The implementation of {@link ScheduledDiskSubpartition}. */
+public class ScheduledDiskSubpartition
+        implements Comparable<ScheduledDiskSubpartition> {
 
     private final NettyConnectionId nettyServiceWriterId;
 
@@ -52,7 +51,7 @@ public class ProducerMergePartitionSubpartitionReader
 
     private final FileChannel dataFileChannel;
 
-    private final RegionCache regionCache;
+    private final PartitionFileReaderCache partitionFileReaderCache;
 
     private final RegionBufferIndexTracker dataIndex;
 
@@ -68,12 +67,9 @@ public class ProducerMergePartitionSubpartitionReader
 
     private final NettyConnectionWriter nettyConnectionWriter;
 
-    private ResultPartitionID id;
-
     private final Map<Integer, Integer> firstBufferContextInSegment;
 
-    public ProducerMergePartitionSubpartitionReader(
-            ResultPartitionID id,
+    public ScheduledDiskSubpartition(
             int subpartitionId,
             int maxBufferReadAhead,
             ByteBuffer reusedHeaderBuffer,
@@ -82,7 +78,6 @@ public class ProducerMergePartitionSubpartitionReader
             NettyConnectionWriter nettyConnectionWriter,
             TieredStorageNettyService nettyService,
             Map<Integer, Integer> firstBufferContextInSegment) {
-        this.id = id;
         this.subpartitionId = subpartitionId;
         this.nettyServiceWriterId = nettyConnectionWriter.getNettyConnectionId();
         this.dataFileChannel = dataFileChannel;
@@ -91,7 +86,7 @@ public class ProducerMergePartitionSubpartitionReader
         this.dataIndex = dataIndex;
         this.nettyService = nettyService;
         this.nettyConnectionWriter = nettyConnectionWriter;
-        this.regionCache = new RegionCache();
+        this.partitionFileReaderCache = new PartitionFileReaderCache();
         this.firstBufferContextInSegment = firstBufferContextInSegment;
     }
 
@@ -108,7 +103,7 @@ public class ProducerMergePartitionSubpartitionReader
             return;
         }
         int numRemainingBuffer =
-                regionCache.getRemainingBuffersInRegion(nextToLoad, nettyServiceWriterId);
+                partitionFileReaderCache.getRemainingBuffersInRegion(nextToLoad, nettyServiceWriterId);
         // If there is no data in index, skip this time.
         if (numRemainingBuffer == 0) {
             return;
@@ -142,7 +137,7 @@ public class ProducerMergePartitionSubpartitionReader
                 ++numLoaded;
             }
             nettyConnectionWriter.writeBuffer(nettyPayload);
-            regionCache.advance(buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
+            partitionFileReaderCache.advance(buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
             ++numLoaded;
         }
         if (nettyConnectionWriter.numQueuedBuffers() <= numLoaded) {
@@ -162,7 +157,7 @@ public class ProducerMergePartitionSubpartitionReader
     }
 
     @Override
-    public int compareTo(ProducerMergePartitionSubpartitionReader that) {
+    public int compareTo(ScheduledDiskSubpartition that) {
         checkArgument(that != null);
         return Long.compare(getNextOffsetToLoad(), that.getNextOffsetToLoad());
     }
@@ -171,7 +166,7 @@ public class ProducerMergePartitionSubpartitionReader
         if (nextToLoad < 0) {
             return Long.MAX_VALUE;
         } else {
-            return regionCache.getNumSkipAndFileOffset().f1;
+            return partitionFileReaderCache.getNumSkipAndFileOffset().f1;
         }
     }
 
@@ -180,15 +175,15 @@ public class ProducerMergePartitionSubpartitionReader
     // ------------------------------------------------------------------------
 
     private void moveFileOffsetToBuffer() throws IOException {
-        Tuple2<Integer, Long> indexAndOffset = regionCache.getNumSkipAndFileOffset();
+        Tuple2<Integer, Long> indexAndOffset = partitionFileReaderCache.getNumSkipAndFileOffset();
         dataFileChannel.position(indexAndOffset.f1);
         for (int i = 0; i < indexAndOffset.f0; ++i) {
             positionToNextBuffer(dataFileChannel, reusedHeaderBuffer);
         }
-        regionCache.skipAll(dataFileChannel.position());
+        partitionFileReaderCache.skipAll(dataFileChannel.position());
     }
 
-    private class RegionCache {
+    private class PartitionFileReaderCache {
 
         private int currentBufferIndex;
         private int numSkip;

@@ -25,8 +25,8 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler.DiskIOScheduler;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler.DiskIOSchedulerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskCacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTrackerImpl;
@@ -45,7 +45,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 
-/** Tests for {@link ProducerMergePartitionFileReader}. */
+/** Tests for {@link DiskIOSchedulerImpl}. */
 class ProducerMergePartitionFileReaderTest {
 
     private static final int NUM_SUBPARTITIONS = 1;
@@ -66,7 +66,7 @@ class ProducerMergePartitionFileReaderTest {
 
     private Path dataFilePath;
 
-    private PartitionFileReader producerMergePartitionFileReader;
+    private DiskIOScheduler producerMergeDiskIOScheduler;
 
     private RegionBufferIndexTracker regionBufferIndexTracker;
 

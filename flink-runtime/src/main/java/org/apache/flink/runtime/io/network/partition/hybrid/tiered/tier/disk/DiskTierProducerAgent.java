@@ -30,9 +30,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceProducer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler.DiskIOScheduler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -60,7 +59,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     private final float minReservedDiskSpaceFraction;
 
-    private final PartitionFileReader partitionFileReader;
+    private final DiskIOScheduler diskIOScheduler;
 
     private volatile boolean isReleased;
 
@@ -91,9 +90,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
         for (int i = 0; i < numSubpartitions; ++i) {
             firstBufferContextInSegment.add(new ConcurrentHashMap<>());
         }
-        this.partitionFileReader =
-                partitionFileManager.createPartitionFileReader(
-                        PartitionFileType.PRODUCER_MERGE,
+        this.diskIOScheduler =
+                partitionFileManager.createDiskIOScheduler(
                         nettyService,
                         firstBufferContextInSegment);
         this.diskCacheManager =
@@ -133,7 +131,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             throw new RuntimeException(new PartitionNotFoundException(resultPartitionID));
         }
         try {
-            partitionFileReader.connectionEstablished(
+            diskIOScheduler.connectionEstablished(
                     subpartitionId.getSubpartitionId(), nettyConnectionWriter);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to create PartitionFileReader");
@@ -142,14 +140,14 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     @Override
     public void connectionBroken(NettyConnectionId connectionId) {
-        partitionFileReader.releaseReader(connectionId);
+        diskIOScheduler.connectionBroken(connectionId);
     }
 
     @Override
     public void release() {
         // TODO, release the resources by the resource registry.
         if (!isReleased) {
-            partitionFileReader.release();
+            diskIOScheduler.release();
             getDiskCacheManager().release();
             isReleased = true;
         }
