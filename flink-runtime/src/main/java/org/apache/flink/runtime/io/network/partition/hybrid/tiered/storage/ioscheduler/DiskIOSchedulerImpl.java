@@ -30,6 +30,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -56,13 +57,23 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
 
     private final Path dataFilePath;
 
-    private final RegionBufferIndexTracker dataIndex;
-
     private final ByteBuffer headerBuf = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
     private final int maxBufferReadAhead;
 
     private final int maxRequestedBuffers;
+
+    private final TieredStorageNettyService nettyService;
+
+    private final List<Map<Integer, Integer>> firstBufferContextInSegment;
+
+    private final Map<NettyConnectionId, FileReaderId> allFileReaderIds = new ConcurrentHashMap<>();
+
+    private final PartitionFileReader partitionFileReader;
+
+    @GuardedBy("lock")
+    private final Map<FileReaderId, ScheduledSubpartition> allScheduledSubpartitions =
+            new HashMap<>();
 
     @GuardedBy("lock")
     private FileChannel dataFileChannel;
@@ -76,18 +87,6 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
     @GuardedBy("lock")
     private volatile boolean isReleased;
 
-    private final TieredStorageNettyService nettyService;
-
-    private final List<Map<Integer, Integer>> firstBufferContextInSegment;
-
-    @GuardedBy("lock")
-    private final Map<FileReaderId, ScheduledSubpartition> allSubpartitionReaders =
-            new ConcurrentHashMap<>();
-
-    private final Map<NettyConnectionId, FileReaderId> allFileReaderIds = new ConcurrentHashMap<>();
-
-    private final PartitionFileReader partitionFileReader;
-
     public DiskIOSchedulerImpl(
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
@@ -98,7 +97,6 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
             int maxBufferReadAhead,
             TieredStorageNettyService nettyService,
             List<Map<Integer, Integer>> firstBufferContextInSegment) {
-        this.dataIndex = checkNotNull(dataIndex);
         this.dataFilePath = checkNotNull(dataFilePath);
         this.bufferPool = checkNotNull(bufferPool);
         this.ioExecutor = checkNotNull(ioExecutor);
@@ -128,7 +126,7 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
         synchronized (lock) {
             checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
             lazyInitialize();
-            ScheduledSubpartition subpartitionReader =
+            ScheduledSubpartition scheduledSubpartition =
                     new ScheduledSubpartition(
                             subpartitionId,
                             maxBufferReadAhead,
@@ -138,10 +136,11 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
                             nettyService,
                             firstBufferContextInSegment.get(subpartitionId),
                             partitionFileReader);
-            allSubpartitionReaders.put(subpartitionReader.getFileReaderId(), subpartitionReader);
+            allScheduledSubpartitions.put(
+                    scheduledSubpartition.getFileReaderId(), scheduledSubpartition);
             allFileReaderIds.put(
                     nettyConnectionWriter.getNettyConnectionId(),
-                    subpartitionReader.getFileReaderId());
+                    scheduledSubpartition.getFileReaderId());
             triggerReaderRunning();
         }
     }
@@ -158,7 +157,7 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
                 return;
             }
             isReleased = true;
-            allSubpartitionReaders.clear();
+            allScheduledSubpartitions.clear();
             firstBufferContextInSegment.clear();
         }
         IOUtils.deleteFileQuietly(dataFilePath);
@@ -172,12 +171,12 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
     private void lazyInitialize() throws IOException {
         assert Thread.holdsLock(lock);
         try {
-            if (allSubpartitionReaders.isEmpty()) {
+            if (allScheduledSubpartitions.isEmpty()) {
                 dataFileChannel = openFileChannel(dataFilePath);
                 bufferPool.registerRequester(this);
             }
         } catch (IOException exception) {
-            if (allSubpartitionReaders.isEmpty()) {
+            if (allScheduledSubpartitions.isEmpty()) {
                 bufferPool.unregisterRequester(this);
                 closeFileChannel();
             }
@@ -185,7 +184,7 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
         }
     }
 
-    public int readBuffersFromFile() {
+    private int readBuffersFromFile() {
         List<ScheduledSubpartition> availableReaders = sortAvailableReaders();
         if (availableReaders.isEmpty()) {
             return 0;
@@ -220,7 +219,7 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
                 return new ArrayList<>();
             }
             List<ScheduledSubpartition> availableReaders =
-                    new ArrayList<>(allSubpartitionReaders.values());
+                    new ArrayList<>(allScheduledSubpartitions.values());
             Collections.sort(availableReaders);
             return availableReaders;
         }
@@ -286,7 +285,7 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
     private void triggerReaderRunning() {
         synchronized (lock) {
             if (!isRunning
-                    && !allSubpartitionReaders.isEmpty()
+                    && !allScheduledSubpartitions.isEmpty()
                     && numRequestedBuffers + bufferPool.getNumBuffersPerRequest()
                             <= maxRequestedBuffers
                     && numRequestedBuffers < bufferPool.getAverageBuffersPerRequester()) {
@@ -311,12 +310,10 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
         return bufferPool.getLastBufferOperationTimestamp() + bufferRequestTimeout.toMillis();
     }
 
-
-
-    public void removeSubpartition(FileReaderId readerId) {
+    private void removeSubpartition(FileReaderId readerId) {
         synchronized (lock) {
-            allSubpartitionReaders.remove(readerId);
-            if (allSubpartitionReaders.isEmpty()) {
+            allScheduledSubpartitions.remove(readerId);
+            if (allScheduledSubpartitions.isEmpty()) {
                 bufferPool.unregisterRequester(this);
                 closeFileChannel();
             }
@@ -330,8 +327,7 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
 
     @GuardedBy("lock")
     private void closeFileChannel() {
-        //assert Thread.holdsLock(lock);
-
+        assert Thread.holdsLock(lock);
         IOUtils.closeQuietly(dataFileChannel);
         dataFileChannel = null;
     }
@@ -345,7 +341,6 @@ public class DiskIOSchedulerImpl implements Runnable, BufferRecycler, DiskIOSche
         synchronized (lock) {
             bufferPool.recycle(segment);
             --numRequestedBuffers;
-
             triggerReaderRunning();
         }
     }
