@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -120,6 +119,16 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
         this.numOwnerRequestedBuffers = new ConcurrentHashMap<>();
         this.bufferReclaimRequestListeners = new ArrayList<>();
         this.isInitialized = false;
+        if (mayReclaimBuffer) {
+            this.executor =
+                    Executors.newSingleThreadScheduledExecutor(
+                            new ThreadFactoryBuilder()
+                                    .setNameFormat("buffer reclaim checker")
+                                    .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
+                                    .build());
+            this.executor.scheduleAtFixedRate(
+                    this::reclaimBuffersIfNeeded, 10, 50, TimeUnit.MILLISECONDS);
+        }
     }
 
     @Override
@@ -130,15 +139,6 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
                     !tieredMemorySpecs.containsKey(memorySpec.getOwner()),
                     "Duplicated memory spec.");
             tieredMemorySpecs.put(memorySpec.getOwner(), memorySpec);
-        }
-
-        if (mayReclaimBuffer) {
-            this.executor =
-                    Executors.newSingleThreadScheduledExecutor(
-                            new ThreadFactoryBuilder()
-                                    .setNameFormat("buffer reclaim checker")
-                                    .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
-                                    .build());
         }
 
         this.isInitialized = true;
@@ -155,16 +155,12 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
 
         reclaimBuffersIfNeeded();
 
-        CompletableFuture<Void> requestBufferFuture = new CompletableFuture<>();
-        scheduleCheckRequestBufferFuture(
-                requestBufferFuture, INITIAL_REQUEST_BUFFER_TIMEOUT_FOR_RECLAIMING_MS);
         MemorySegment memorySegment = null;
         try {
             memorySegment = bufferPool.requestMemorySegmentBlocking();
         } catch (InterruptedException e) {
             ExceptionUtils.rethrow(e);
         }
-        requestBufferFuture.complete(null);
 
         incNumRequestedBuffer(owner);
         return new BufferBuilder(
@@ -214,29 +210,6 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
                 ExceptionUtils.rethrow(e);
             }
         }
-    }
-
-    private void scheduleCheckRequestBufferFuture(
-            CompletableFuture<Void> requestBufferFuture, long delayMs) {
-        if (!mayReclaimBuffer || requestBufferFuture.isDone()) {
-            return;
-        }
-        checkNotNull(executor)
-                .schedule(
-                        // The delay time will be doubled after each check to avoid checking the
-                        // future too frequently.
-                        () -> internalCheckRequestBufferFuture(requestBufferFuture, delayMs * 2),
-                        delayMs,
-                        TimeUnit.MILLISECONDS);
-    }
-
-    private void internalCheckRequestBufferFuture(
-            CompletableFuture<Void> requestBufferFuture, long delayForNextCheckMs) {
-        if (requestBufferFuture.isDone()) {
-            return;
-        }
-        reclaimBuffersIfNeeded();
-        scheduleCheckRequestBufferFuture(requestBufferFuture, delayForNextCheckMs);
     }
 
     private void incNumRequestedBuffer(Object owner) {
