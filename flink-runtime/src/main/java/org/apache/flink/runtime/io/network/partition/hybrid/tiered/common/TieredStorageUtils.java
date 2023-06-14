@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -32,6 +33,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
@@ -41,6 +43,7 @@ import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -99,7 +102,10 @@ public class TieredStorageUtils {
             String dataFileBasePath,
             PartitionFileManager partitionFileManager,
             TieredStorageNettyService nettyService,
-            TieredStorageResourceRegistry resourceRegistry) {
+            TieredStorageResourceRegistry resourceRegistry,
+            RegionBufferIndexTrackerImpl index,
+            BatchShuffleReadBufferPool batchShuffleReadBufferPool,
+            ScheduledExecutorService batchShuffleReadIOExecutor) {
         List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
         for (TierFactory tierFactory : storeConfiguration.getTierFactories()) {
             tierProducerAgents.add(
@@ -111,7 +117,10 @@ public class TieredStorageUtils {
                             partitionFileManager,
                             storageMemoryManager,
                             nettyService,
-                            resourceRegistry));
+                            resourceRegistry,
+                            batchShuffleReadBufferPool,
+                            batchShuffleReadIOExecutor,
+                            storeConfiguration));
         }
         return tierProducerAgents;
     }
