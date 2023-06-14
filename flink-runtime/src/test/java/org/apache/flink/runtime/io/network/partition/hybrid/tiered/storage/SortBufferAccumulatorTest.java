@@ -39,7 +39,7 @@ import java.util.List;
 import java.util.Queue;
 import java.util.Random;
 
-/** Tests for {@link SortBufferAccumulator1}. */
+/** Tests for {@link SortBufferAccumulator}. */
 public class SortBufferAccumulatorTest {
 
     @Test
@@ -62,8 +62,8 @@ public class SortBufferAccumulatorTest {
                         .build();
 
         List<Buffer> accumulatedBuffers = new ArrayList<>();
-        SortBufferAccumulator1 sortBufferAccumulator =
-                new SortBufferAccumulator1(
+        SortBufferAccumulator sortBufferAccumulator =
+                new SortBufferAccumulator(
                         partitionId,
                         numSubpartitions,
                         1,

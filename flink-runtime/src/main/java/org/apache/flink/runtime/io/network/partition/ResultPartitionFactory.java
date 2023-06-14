@@ -37,7 +37,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.HashBufferAccumulator;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SortBufferAccumulator1;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SortBufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClientImpl;
@@ -372,7 +372,7 @@ public class ResultPartitionFactory {
             TieredStorageMemoryManager storageMemoryManager,
             TieredStoragePartitionId partitionId) {
         return useSortAccumulator
-                ? new SortBufferAccumulator1(
+                ? new SortBufferAccumulator(
                         partitionId,
                         numSubpartitions,
                         numBuffersUseSortAccumulatorThreshold,

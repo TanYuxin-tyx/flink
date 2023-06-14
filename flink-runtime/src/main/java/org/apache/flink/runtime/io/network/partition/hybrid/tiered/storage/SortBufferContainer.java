@@ -36,7 +36,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-public class SortBasedCacheBuffer implements CacheBuffer {
+public class SortBufferContainer {
 
     /**
      * Size of an index entry: 4 bytes for record length, 4 bytes for data type and 8 bytes for
@@ -110,7 +110,7 @@ public class SortBasedCacheBuffer implements CacheBuffer {
     /** Used to index the current available channel to read data from. */
     private int readOrderIndex = -1;
 
-    public SortBasedCacheBuffer(
+    public SortBufferContainer(
             LinkedList<MemorySegment> freeSegments,
             BufferRecycler bufferRecycler,
             int numSubpartitions,
@@ -147,7 +147,6 @@ public class SortBasedCacheBuffer implements CacheBuffer {
      * No partial record will be written to this {@link SortBasedDataBuffer}, which means that
      * either all data of target record will be written or nothing will be written.
      */
-    @Override
     public boolean append(ByteBuffer source, int targetChannel, Buffer.DataType dataType)
             throws IOException {
         checkArgument(source.hasRemaining(), "Cannot append empty data.");
@@ -263,7 +262,6 @@ public class SortBasedCacheBuffer implements CacheBuffer {
         }
     }
 
-    @Override
     public MemorySegmentAndChannel getNextBuffer(MemorySegment transitBuffer) {
         checkState(isFinished, "Sort buffer is not ready to be read.");
         checkState(!isReleased, "Sort buffer is already released.");
@@ -390,22 +388,18 @@ public class SortBasedCacheBuffer implements CacheBuffer {
         return (int) (value);
     }
 
-    @Override
     public long numTotalRecords() {
         return numTotalRecords;
     }
 
-    @Override
     public long numTotalBytes() {
         return numTotalBytes;
     }
 
-    @Override
     public boolean hasRemaining() {
         return numTotalBytesRead < numTotalBytes;
     }
 
-    @Override
     public void finish() {
         checkState(!isFinished, "DataBuffer is already finished.");
 
@@ -415,12 +409,10 @@ public class SortBasedCacheBuffer implements CacheBuffer {
         updateReadChannelAndIndexEntryAddress();
     }
 
-    @Override
     public boolean isFinished() {
         return isFinished;
     }
 
-    @Override
     public void release() {
         if (isReleased) {
             return;
@@ -429,7 +421,6 @@ public class SortBasedCacheBuffer implements CacheBuffer {
         clearSegments();
     }
 
-    @Override
     public boolean isReleased() {
         return isReleased;
     }
