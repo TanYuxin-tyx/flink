@@ -30,8 +30,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.channels.FileChannel;
 import java.util.Map;
 import java.util.Queue;
 
@@ -41,10 +39,6 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> {
 
     private final NettyConnectionId nettyServiceWriterId;
-
-    private final ByteBuffer reusedHeaderBuffer;
-
-    private final FileChannel dataFileChannel;
 
     private final int subpartitionId;
 
@@ -67,16 +61,12 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
     public ScheduledSubpartition(
             int subpartitionId,
             int maxBufferReadAhead,
-            ByteBuffer reusedHeaderBuffer,
-            FileChannel dataFileChannel,
             NettyConnectionWriter nettyConnectionWriter,
             TieredStorageNettyService nettyService,
             Map<Integer, Integer> firstBufferContextInSegment,
             PartitionFileReader partitionFileReader) {
         this.subpartitionId = subpartitionId;
         this.nettyServiceWriterId = nettyConnectionWriter.getNettyConnectionId();
-        this.dataFileChannel = dataFileChannel;
-        this.reusedHeaderBuffer = reusedHeaderBuffer;
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.nettyService = nettyService;
         this.nettyConnectionWriter = nettyConnectionWriter;
