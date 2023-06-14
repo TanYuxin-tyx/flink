@@ -92,8 +92,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
         }
         this.diskIOScheduler =
                 partitionFileManager.createDiskIOScheduler(
-                        nettyService,
-                        firstBufferContextInSegment);
+                        nettyService, firstBufferContextInSegment);
         this.diskCacheManager =
                 new DiskCacheManager(
                         isBroadcastOnly ? 1 : numSubpartitions,
@@ -130,12 +129,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
         if (!Files.isReadable(dataFilePath)) {
             throw new RuntimeException(new PartitionNotFoundException(resultPartitionID));
         }
-        try {
-            diskIOScheduler.connectionEstablished(
-                    subpartitionId.getSubpartitionId(), nettyConnectionWriter);
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e, "Failed to create PartitionFileReader");
-        }
+        diskIOScheduler.connectionEstablished(subpartitionId, nettyConnectionWriter);
     }
 
     @Override

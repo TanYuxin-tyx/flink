@@ -39,7 +39,7 @@ import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUt
 
 public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
-    private final ByteBuffer reusedHeaderBuffer;
+    private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
     private final RegionBufferIndexTracker dataIndex;
 
@@ -49,11 +49,8 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
     private final Supplier<FileChannel> channelSupplier;
 
     public ProducerMergePartitionFileReader(
-            Supplier<FileChannel> channelSupplier,
-            ByteBuffer reusedHeaderBuffer,
-            RegionBufferIndexTracker dataIndex) {
+            Supplier<FileChannel> channelSupplier, RegionBufferIndexTracker dataIndex) {
         this.channelSupplier = channelSupplier;
-        this.reusedHeaderBuffer = reusedHeaderBuffer;
         this.dataIndex = dataIndex;
     }
 
