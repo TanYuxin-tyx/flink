@@ -108,7 +108,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         this.nettyService = nettyService;
         this.firstBufferContextInSegment = firstBufferContextInSegment;
         this.partitionFileReader =
-                new ProducerMergePartitionFileReader(() -> dataFileChannel, dataIndex);
+                new ProducerMergePartitionFileReader(dataFilePath, dataIndex);
     }
 
     @Override
@@ -170,17 +170,20 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     @GuardedBy("lock")
     private void lazyInitialize() {
         assert Thread.holdsLock(lock);
-        try {
-            if (allScheduledSubpartitions.isEmpty()) {
-                dataFileChannel = openFileChannel(dataFilePath);
-                bufferPool.registerRequester(this);
-            }
-        } catch (IOException e) {
-            if (allScheduledSubpartitions.isEmpty()) {
-                bufferPool.unregisterRequester(this);
-                closeFileChannel();
-            }
-            throw new RuntimeException(e);
+        //try {
+        //    if (allScheduledSubpartitions.isEmpty()) {
+        //        dataFileChannel = openFileChannel(dataFilePath);
+        //        bufferPool.registerRequester(this);
+        //    }
+        //} catch (IOException e) {
+        //    if (allScheduledSubpartitions.isEmpty()) {
+        //        bufferPool.unregisterRequester(this);
+        //        closeFileChannel();
+        //    }
+        //    throw new RuntimeException(e);
+        //}
+        if (allScheduledSubpartitions.isEmpty()) {
+            bufferPool.registerRequester(this);
         }
     }
 

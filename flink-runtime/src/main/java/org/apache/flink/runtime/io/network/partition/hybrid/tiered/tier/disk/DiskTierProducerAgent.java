@@ -90,15 +90,14 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
         for (int i = 0; i < numSubpartitions; ++i) {
             firstBufferContextInSegment.add(new ConcurrentHashMap<>());
         }
-        this.diskIOScheduler =
-                partitionFileManager.createDiskIOScheduler(
-                        nettyService, firstBufferContextInSegment);
         this.diskCacheManager =
                 new DiskCacheManager(
                         isBroadcastOnly ? 1 : numSubpartitions,
                         storageMemoryManager,
                         partitionFileManager);
-
+        this.diskIOScheduler =
+                partitionFileManager.createDiskIOScheduler(
+                        nettyService, firstBufferContextInSegment);
         nettyService.registerProducer(partitionId, this);
     }
 

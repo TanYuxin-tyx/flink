@@ -29,10 +29,11 @@ import org.apache.flink.util.ExceptionUtils;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.positionToNextBuffer;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
@@ -46,18 +47,18 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
     private final Map<FileReaderId, SubpartitionFileCache> allFileCaches =
             new ConcurrentHashMap<>();
 
-    private final Supplier<FileChannel> channelSupplier;
+    private final Path dataFilePath;
 
-    public ProducerMergePartitionFileReader(
-            Supplier<FileChannel> channelSupplier, RegionBufferIndexTracker dataIndex) {
-        this.channelSupplier = channelSupplier;
+    private FileChannel fileChannel;
+
+    public ProducerMergePartitionFileReader(Path dataFilePath, RegionBufferIndexTracker dataIndex) {
+        this.dataFilePath = dataFilePath;
         this.dataIndex = dataIndex;
     }
 
     @Override
     public Buffer readBuffer(
             int subpartitionId, FileReaderId id, MemorySegment segment, BufferRecycler recycler) {
-        FileChannel fileChannel = channelSupplier.get();
         if (fileChannel == null) {
             return null;
         }
@@ -87,6 +88,13 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
     @Override
     public int getReadableBuffers(int subpartitionId, int currentBufferIndex, FileReaderId id) {
+        if (fileChannel == null) {
+            try {
+                fileChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to open a file channel.", e);
+            }
+        }
         SubpartitionFileCache subpartitionFileCache =
                 allFileCaches.computeIfAbsent(
                         id, ignore -> new SubpartitionFileCache(subpartitionId));
@@ -99,7 +107,6 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
     }
 
     private void moveFileOffsetToBuffer(SubpartitionFileCache subpartitionFileCache) {
-        FileChannel fileChannel = channelSupplier.get();
         if (fileChannel == null) {
             return;
         }
@@ -107,9 +114,9 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
         try {
             fileChannel.position(indexAndOffset.f1);
             for (int i = 0; i < indexAndOffset.f0; ++i) {
-                positionToNextBuffer(channelSupplier.get(), reusedHeaderBuffer);
+                positionToNextBuffer(fileChannel, reusedHeaderBuffer);
             }
-            subpartitionFileCache.skipAll(channelSupplier.get().position());
+            subpartitionFileCache.skipAll(fileChannel.position());
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to move file offset to buffer.");
         }
