@@ -10,9 +10,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceProducer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.FileReaderId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
 
@@ -39,6 +38,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType.PRODUCER_MERGE;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -92,13 +92,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     public DiskIOScheduler(
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
-            RegionBufferIndexTracker dataIndex,
             Path dataFilePath,
             int maxRequestedBuffers,
             Duration bufferRequestTimeout,
             int maxBufferReadAhead,
             TieredStorageNettyService nettyService,
-            List<Map<Integer, Integer>> firstBufferContextInSegment) {
+            List<Map<Integer, Integer>> firstBufferContextInSegment,
+            PartitionFileManager partitionFileManager) {
         this.dataFilePath = checkNotNull(dataFilePath);
         this.bufferPool = checkNotNull(bufferPool);
         this.ioExecutor = checkNotNull(ioExecutor);
@@ -107,8 +107,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.nettyService = nettyService;
         this.firstBufferContextInSegment = firstBufferContextInSegment;
-        this.partitionFileReader =
-                new ProducerMergePartitionFileReader(dataFilePath, dataIndex);
+        this.partitionFileReader = partitionFileManager.createPartitionFileReader(PRODUCER_MERGE);
     }
 
     @Override
@@ -170,18 +169,18 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     @GuardedBy("lock")
     private void lazyInitialize() {
         assert Thread.holdsLock(lock);
-        //try {
+        // try {
         //    if (allScheduledSubpartitions.isEmpty()) {
         //        dataFileChannel = openFileChannel(dataFilePath);
         //        bufferPool.registerRequester(this);
         //    }
-        //} catch (IOException e) {
+        // } catch (IOException e) {
         //    if (allScheduledSubpartitions.isEmpty()) {
         //        bufferPool.unregisterRequester(this);
         //        closeFileChannel();
         //    }
         //    throw new RuntimeException(e);
-        //}
+        // }
         if (allScheduledSubpartitions.isEmpty()) {
             bufferPool.registerRequester(this);
         }

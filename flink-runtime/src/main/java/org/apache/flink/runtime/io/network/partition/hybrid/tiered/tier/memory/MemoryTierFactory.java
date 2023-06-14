@@ -19,8 +19,10 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
@@ -36,6 +38,7 @@ import javax.annotation.Nullable;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiConsumer;
 
 /** The memory tier factory. */
@@ -67,7 +70,10 @@ public class MemoryTierFactory implements TierFactory {
             PartitionFileManager partitionFileManager,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
-            TieredStorageResourceRegistry resourceRegistry) {
+            TieredStorageResourceRegistry resourceRegistry,
+            BatchShuffleReadBufferPool batchShuffleReadBufferPool,
+            ScheduledExecutorService batchShuffleReadIOExecutor,
+            TieredStorageConfiguration tieredStorageConfiguration) {
         return new MemoryTierProducerAgent(
                 partitionID,
                 numSubpartitions,

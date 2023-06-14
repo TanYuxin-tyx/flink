@@ -18,11 +18,13 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
+import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
@@ -44,6 +46,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
@@ -79,7 +82,10 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
             TieredStorageMemoryManager storageMemoryManager,
-            TieredStorageNettyService nettyService) {
+            TieredStorageNettyService nettyService,
+            BatchShuffleReadBufferPool batchShuffleReadBufferPool,
+            ScheduledExecutorService batchShuffleReadIOExecutor,
+            TieredStorageConfiguration storeConfiguration) {
         this.numBytesPerSegment = numBytesPerSegment;
         this.resultPartitionID = resultPartitionID;
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
@@ -96,8 +102,16 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         storageMemoryManager,
                         partitionFileManager);
         this.diskIOScheduler =
-                partitionFileManager.createDiskIOScheduler(
-                        nettyService, firstBufferContextInSegment);
+                new DiskIOScheduler(
+                        batchShuffleReadBufferPool,
+                        batchShuffleReadIOExecutor,
+                        dataFilePath,
+                        storeConfiguration.getMaxRequestedBuffers(),
+                        storeConfiguration.getBufferRequestTimeout(),
+                        storeConfiguration.getMaxBuffersReadAhead(),
+                        nettyService,
+                        firstBufferContextInSegment,
+                        partitionFileManager);
         nettyService.registerProducer(partitionId, this);
     }
 

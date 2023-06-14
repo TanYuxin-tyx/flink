@@ -58,6 +58,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
@@ -367,10 +368,13 @@ public class ResultPartitionFactory {
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
         String dataFileBasePath = channelManager.createChannel().getPath();
+        RegionBufferIndexTrackerImpl index = new RegionBufferIndexTrackerImpl(
+                isBroadcast ? 1 : subpartitions.length);
+        Path dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         PartitionFileManager partitionFileManager =
                 new PartitionFileManagerImpl(
-                        Paths.get(dataFileBasePath + DATA_FILE_SUFFIX),
-                        new RegionBufferIndexTrackerImpl(isBroadcast ? 1 : subpartitions.length),
+                        dataFilePath,
+                        index,
                         batchShuffleReadBufferPool,
                         batchShuffleReadIOExecutor,
                         storeConfiguration,
@@ -378,7 +382,6 @@ public class ResultPartitionFactory {
                         jobID,
                         id,
                         storeConfiguration.getBaseDfsHomePath());
-
         return TieredStorageUtils.createTierProducerAgents(
                 TieredStorageIdMappingUtils.convertId(id),
                 isBroadcast,
@@ -389,7 +392,11 @@ public class ResultPartitionFactory {
                 dataFileBasePath,
                 partitionFileManager,
                 nettyService,
-                resourceRegistry);
+                resourceRegistry,
+                index,
+                batchShuffleReadBufferPool,
+                batchShuffleReadIOExecutor
+                );
     }
 
     private HybridShuffleConfiguration getHybridShuffleConfiguration(
