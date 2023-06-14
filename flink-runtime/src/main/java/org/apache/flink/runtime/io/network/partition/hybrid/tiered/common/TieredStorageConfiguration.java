@@ -63,7 +63,7 @@ public class TieredStorageConfiguration {
     private static final int DEFAULT_MAX_BUFFERS_READ_AHEAD = 5;
 
     private static final int DEFAULT_NUM_BUFFERS_USE_SORT_ACCUMULATOR_THRESHOLD =
-            400; // TODO chang to 512
+            480; // TODO chang to 512
 
     private static final Duration DEFAULT_BUFFER_REQUEST_TIMEOUT = Duration.ofMinutes(5);
 

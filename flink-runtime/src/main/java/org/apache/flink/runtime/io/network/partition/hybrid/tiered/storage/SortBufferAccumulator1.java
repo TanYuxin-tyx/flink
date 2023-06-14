@@ -42,8 +42,6 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class SortBufferAccumulator1 implements BufferAccumulator {
     private static final int NUM_WRITE_BUFFER_BYTES = 4 * 1024 * 1024;
 
-    private final int expectedNumWriteBatchBuffers;
-
     private final int numSubpartitions;
 
     private final int numBuffersOfSortAccumulatorThreshold;
@@ -80,7 +78,6 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
         this.numSubpartitions = numSubpartitions;
         this.bufferSize = bufferSize;
         this.numBuffersOfSortAccumulatorThreshold = numBuffersOfSortAccumulatorThreshold;
-        expectedNumWriteBatchBuffers = numBuffersOfSortAccumulatorThreshold / 2;
         this.storeMemoryManager = storeMemoryManager;
         resourceRegistry.registerResource(partitionId, this::releaseResources);
     }
@@ -177,8 +174,7 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
     }
 
     private void requestGuaranteedBuffers() {
-        int effectiveRequiredBuffers =
-                Math.min(numSubpartitions + 1, numBuffersOfSortAccumulatorThreshold);
+        int effectiveRequiredBuffers = effectiveRequestedBuffers();
 
         while (freeSegments.size() < effectiveRequiredBuffers) {
             BufferBuilder bufferBuilder = storeMemoryManager.requestBufferBlocking(this);
@@ -198,7 +194,7 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
             numWriteBuffers = 1;
         } else {
             numWriteBuffers =
-                    Math.min(expectedNumWriteBatchBuffers, NUM_WRITE_BUFFER_BYTES / bufferSize);
+                    Math.min(effectiveRequestedBuffers() / 2, NUM_WRITE_BUFFER_BYTES / bufferSize);
         }
         numWriteBuffers = Math.min(freeSegments.size() / 2, numWriteBuffers);
         numBuffersForSort = freeSegments.size() - numWriteBuffers;
@@ -268,6 +264,10 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
             freeSegment = buffer.getMemorySegment();
         }
         return freeSegment;
+    }
+
+    private int effectiveRequestedBuffers() {
+        return Math.min(numSubpartitions + 1, numBuffersOfSortAccumulatorThreshold);
     }
 
     private void releaseDataBuffer(CacheBuffer dataBuffer) {
