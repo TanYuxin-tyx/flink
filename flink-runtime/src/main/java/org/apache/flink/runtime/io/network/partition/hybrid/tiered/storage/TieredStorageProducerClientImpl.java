@@ -50,6 +50,8 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
 
     private final boolean useSortBufferAccumulator;
 
+    private final TieredStorageMemoryManager memoryManager;
+
     private final BufferAccumulator bufferAccumulator;
 
     private final BufferCompressor bufferCompressor;
@@ -73,12 +75,14 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             int numSubpartitions,
             boolean useSortBufferAccumulator,
             boolean isBroadcastOnly,
+            TieredStorageMemoryManager memoryManager,
             BufferAccumulator bufferAccumulator,
             @Nullable BufferCompressor bufferCompressor,
             List<TierProducerAgent> tierProducerAgents) {
         this.isBroadcastOnly = isBroadcastOnly;
         this.useSortBufferAccumulator = useSortBufferAccumulator;
         this.numSubpartitions = numSubpartitions;
+        this.memoryManager = memoryManager;
         this.bufferAccumulator = bufferAccumulator;
         this.bufferCompressor = bufferCompressor;
         this.tierProducerAgents = tierProducerAgents;
@@ -200,6 +204,9 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
                             subpartitionId.getSubpartitionId(), compressedBuffer),
                     "Failed to write the first buffer to the new segment");
         }
+        memoryManager.transferBufferOwnership(
+                bufferAccumulator,
+                currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()]);
     }
 
     private void chooseStorageTierToStartSegment(TieredStorageSubpartitionId subpartitionId)

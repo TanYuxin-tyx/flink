@@ -311,6 +311,7 @@ public class ResultPartitionFactory {
                                 subpartitions.length,
                                 useSortAccumulator,
                                 isBroadcast,
+                                storageMemoryManager,
                                 bufferAccumulator,
                                 bufferCompressor,
                                 tierProducerAgents);

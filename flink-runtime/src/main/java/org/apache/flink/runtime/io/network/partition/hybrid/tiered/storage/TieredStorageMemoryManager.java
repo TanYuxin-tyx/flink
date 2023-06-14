@@ -105,4 +105,6 @@ public interface TieredStorageMemoryManager {
      * TieredStorageMemoryManager}.
      */
     void release();
+
+    void transferBufferOwnership(Object oldOwner, Object newOwner);
 }

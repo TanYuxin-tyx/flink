@@ -88,6 +88,9 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
         releaseRunnable.run();
     }
 
+    @Override
+    public void transferBufferOwnership(Object oldOwner, Object newOwner) {}
+
     /** Builder for {@link TestingTieredStorageMemoryManager}. */
     public static class Builder {
 

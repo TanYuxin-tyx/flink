@@ -197,6 +197,18 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     }
 
     @Override
+    public void transferBufferOwnership(Object oldOwner, Object newOwner) {
+        AtomicInteger numOldOwnerRequested = numOwnerRequestedBuffers.get(oldOwner);
+        if (numOldOwnerRequested == null) {
+            throw new RuntimeException("Failed to transfer buffer ownership for " + oldOwner);
+        }
+        numOldOwnerRequested.decrementAndGet();
+        numOwnerRequestedBuffers
+                .computeIfAbsent(newOwner, ignore -> new AtomicInteger(0))
+                .incrementAndGet();
+    }
+
+    @Override
     public void release() {
         checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
         if (executor != null) {
