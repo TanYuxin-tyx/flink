@@ -38,10 +38,11 @@ import java.util.function.BiConsumer;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
+/** . */
 public class SortBufferAccumulator1 implements BufferAccumulator {
     private static final int NUM_WRITE_BUFFER_BYTES = 4 * 1024 * 1024;
 
-    private static final int EXPECTED_WRITE_BATCH_SIZE = 256;
+    private final int expectedNumWriteBatchBuffers;
 
     private final int numSubpartitions;
 
@@ -52,8 +53,6 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
     private final TieredStorageMemoryManager storeMemoryManager;
 
     private int numBuffersForSort;
-
-    private boolean useHashBuffer = false;
 
     private CacheBuffer broadcastDataBuffer;
 
@@ -81,6 +80,7 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
         this.numSubpartitions = numSubpartitions;
         this.bufferSize = bufferSize;
         this.numBuffersOfSortAccumulatorThreshold = numBuffersOfSortAccumulatorThreshold;
+        expectedNumWriteBatchBuffers = numBuffersOfSortAccumulatorThreshold / 2;
         this.storeMemoryManager = storeMemoryManager;
         resourceRegistry.registerResource(partitionId, this::releaseResources);
     }
@@ -106,21 +106,21 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
         CacheBuffer dataBuffer = isBroadcast ? getBroadcastDataBuffer() : getUnicastDataBuffer();
         if (!dataBuffer.append(record, targetSubpartition, dataType)) {
             if (isEndOfPartition) {
-                flushDataBuffer(dataBuffer, isBroadcast, true);
+                flushDataBuffer(dataBuffer);
             }
             return;
         }
 
         if (!dataBuffer.hasRemaining()) {
             dataBuffer.release();
-            writeLargeRecord(record, targetSubpartition, dataType, isBroadcast);
+            writeLargeRecord(record, targetSubpartition, dataType);
             if (isEndOfPartition) {
-                flushDataBuffer(dataBuffer, isBroadcast, true);
+                flushDataBuffer(dataBuffer);
             }
             return;
         }
 
-        flushDataBuffer(dataBuffer, isBroadcast, isEndOfPartition);
+        flushDataBuffer(dataBuffer);
         dataBuffer.release();
         if (record.hasRemaining()) {
             receive(record, subpartitionId, dataType, isBroadcast, isEndOfPartition);
@@ -138,7 +138,7 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
         releaseDataBuffer(broadcastDataBuffer);
     }
 
-    private CacheBuffer getUnicastDataBuffer() throws IOException {
+    private CacheBuffer getUnicastDataBuffer() {
         flushBroadcastDataBuffer();
 
         if (unicastDataBuffer != null
@@ -151,7 +151,7 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
         return unicastDataBuffer;
     }
 
-    private CacheBuffer getBroadcastDataBuffer() throws IOException {
+    private CacheBuffer getBroadcastDataBuffer() {
         flushUnicastDataBuffer();
 
         if (broadcastDataBuffer != null
@@ -164,7 +164,7 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
         return broadcastDataBuffer;
     }
 
-    private CacheBuffer createNewDataBuffer() throws IOException {
+    private CacheBuffer createNewDataBuffer() {
         requestNetworkBuffers();
 
         return new SortBasedCacheBuffer(
@@ -176,10 +176,7 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
                 null);
     }
 
-    private void requestGuaranteedBuffers() throws IOException {
-
-        //        int effectiveRequiredBuffers = Math.min(EXPECTED_WRITE_BATCH_SIZE,
-        // numSubpartitions + 8);
+    private void requestGuaranteedBuffers() {
         int effectiveRequiredBuffers =
                 Math.min(numSubpartitions + 1, numBuffersOfSortAccumulatorThreshold);
 
@@ -193,32 +190,28 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
         }
     }
 
-    private void requestNetworkBuffers() throws IOException {
+    private void requestNetworkBuffers() {
         requestGuaranteedBuffers();
 
-        useHashBuffer = false;
-        int numWriteBuffers = 0;
-        if (freeSegments.size() > numSubpartitions) {
-            useHashBuffer = false;
-        } else if (bufferSize >= NUM_WRITE_BUFFER_BYTES) {
+        int numWriteBuffers;
+        if (bufferSize >= NUM_WRITE_BUFFER_BYTES) {
             numWriteBuffers = 1;
         } else {
             numWriteBuffers =
-                    Math.min(EXPECTED_WRITE_BATCH_SIZE, NUM_WRITE_BUFFER_BYTES / bufferSize);
+                    Math.min(expectedNumWriteBatchBuffers, NUM_WRITE_BUFFER_BYTES / bufferSize);
         }
         numWriteBuffers = Math.min(freeSegments.size() / 2, numWriteBuffers);
         numBuffersForSort = freeSegments.size() - numWriteBuffers;
     }
 
-    private void flushDataBuffer(
-            CacheBuffer dataBuffer, boolean isBroadcast, boolean isEndOfPartition) {
+    private void flushDataBuffer(CacheBuffer dataBuffer) {
         if (dataBuffer == null || dataBuffer.isReleased() || !dataBuffer.hasRemaining()) {
             return;
         }
         dataBuffer.finish();
 
         do {
-            MemorySegment freeSegment = useHashBuffer ? null : getFreeSegment();
+            MemorySegment freeSegment = getFreeSegment();
             MemorySegmentAndChannel memorySegmentAndChannel = dataBuffer.getNextBuffer(freeSegment);
             if (memorySegmentAndChannel == null) {
                 if (freeSegment != null) {
@@ -226,7 +219,7 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
                 }
                 break;
             }
-            addFinishedBuffer(memorySegmentAndChannel, isBroadcast, isEndOfPartition);
+            addFinishedBuffer(memorySegmentAndChannel);
         } while (true);
 
         releaseFreeBuffers();
@@ -235,7 +228,7 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
 
     private void flushBroadcastDataBuffer() {
         if (broadcastDataBuffer != null) {
-            flushDataBuffer(broadcastDataBuffer, true, false);
+            flushDataBuffer(broadcastDataBuffer);
             broadcastDataBuffer.release();
             broadcastDataBuffer = null;
         }
@@ -243,17 +236,14 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
 
     private void flushUnicastDataBuffer() {
         if (unicastDataBuffer != null) {
-            flushDataBuffer(unicastDataBuffer, false, false);
+            flushDataBuffer(unicastDataBuffer);
             unicastDataBuffer.release();
             unicastDataBuffer = null;
         }
     }
 
     private void writeLargeRecord(
-            ByteBuffer record,
-            int targetSubpartition,
-            Buffer.DataType dataType,
-            boolean isBroadcast) {
+            ByteBuffer record, int targetSubpartition, Buffer.DataType dataType) {
 
         checkState(dataType != Buffer.DataType.EVENT_BUFFER);
         while (record.hasRemaining()) {
@@ -264,7 +254,7 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
             MemorySegmentAndChannel memorySegmentAndChannel =
                     new MemorySegmentAndChannel(
                             writeBuffer, targetSubpartition, dataType, toCopy, true);
-            addFinishedBuffer(memorySegmentAndChannel, isBroadcast, false);
+            addFinishedBuffer(memorySegmentAndChannel);
         }
 
         releaseFreeBuffers();
@@ -286,24 +276,17 @@ public class SortBufferAccumulator1 implements BufferAccumulator {
         }
     }
 
-    private void addFinishedBuffer(
-            MemorySegmentAndChannel bufferWithChannel,
-            boolean isBroadcast,
-            boolean isEndOfPartition) {
-        //        finishedBufferListener.accept(
-        //                new CachedBufferContext(
-        //                        Collections.singletonList(bufferWithChannel),
-        //                        isBroadcast,
-        //                        isEndOfPartition));
+    private void addFinishedBuffer(MemorySegmentAndChannel bufferWithChannel) {
         NetworkBuffer networkBuffer =
                 new NetworkBuffer(
                         bufferWithChannel.getBuffer(),
                         this::recycleBuffer,
                         bufferWithChannel.getDataType(),
                         bufferWithChannel.getDataSize());
-        accumulatedBufferFlusher.accept(
-                new TieredStorageSubpartitionId(bufferWithChannel.getChannelIndex()),
-                Collections.singletonList(networkBuffer));
+        checkNotNull(accumulatedBufferFlusher)
+                .accept(
+                        new TieredStorageSubpartitionId(bufferWithChannel.getChannelIndex()),
+                        Collections.singletonList(networkBuffer));
     }
 
     private void releaseFreeBuffers() {
