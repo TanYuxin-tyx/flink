@@ -55,6 +55,21 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     //          For consumer side
     // ------------------------------------
 
+    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
+            registeredChannelIndexes = new HashMap<>();
+
+    private final Map<
+            TieredStoragePartitionId,
+            Map<TieredStorageSubpartitionId, Supplier<InputChannel>>>
+            registeredInputChannelProviders = new HashMap<>();
+
+    private final Map<
+            TieredStoragePartitionId,
+            Map<
+                    TieredStorageSubpartitionId,
+                    NettyConnectionReaderAvailabilityAndPriorityHelper>>
+            registeredNettyConnectionReaderAvailabilityAndPriorityHelpers = new HashMap<>();
+
     private final Map<
             TieredStoragePartitionId,
             Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
@@ -71,9 +86,32 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     @Override
     public CompletableFuture<NettyConnectionReader> registerConsumer(
             TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
-        return registeredNettyConnectionReaders
-                .computeIfAbsent(partitionId, ignored -> new HashMap<>())
-                .computeIfAbsent(subpartitionId, ignored -> new CompletableFuture<>());
+
+        Map<TieredStorageSubpartitionId, Integer> channelIndexRegistry =
+                registeredChannelIndexes.get(partitionId);
+        if (channelIndexRegistry == null) {
+            return registeredNettyConnectionReaders
+                    .computeIfAbsent(partitionId, ignored -> new HashMap<>())
+                    .computeIfAbsent(subpartitionId, ignored -> new CompletableFuture<>());
+        } else {
+            Integer channelIndex = channelIndexRegistry.remove(subpartitionId);
+            Supplier<InputChannel> inputChannelProvider =
+                    registeredInputChannelProviders.get(partitionId).remove(subpartitionId);
+            if (registeredInputChannelProviders.get(partitionId).isEmpty()) {
+                registeredInputChannelProviders.remove(partitionId);
+            }
+            NettyConnectionReaderAvailabilityAndPriorityHelper helper =
+                    registeredNettyConnectionReaderAvailabilityAndPriorityHelpers
+                            .get(partitionId)
+                            .remove(subpartitionId);
+            if (registeredNettyConnectionReaderAvailabilityAndPriorityHelpers
+                    .get(partitionId)
+                    .isEmpty()) {
+                registeredNettyConnectionReaderAvailabilityAndPriorityHelpers.remove(partitionId);
+            }
+            return CompletableFuture.completedFuture(
+                    new NettyConnectionReaderImpl(channelIndex, inputChannelProvider, helper));
+        }
     }
 
     /**
@@ -82,7 +120,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
      * @param partitionId partition id indicates the unique id of {@link TieredResultPartition}.
      * @param subpartitionId subpartition id indicates the unique id of subpartition.
      * @param availabilityListener listener is used to listen the available status of data.
-     * @return the {@link TieredStoreResultSubpartitionView}.
+     * @return the {@link TieredStorageResultSubpartitionView}.
      */
     public ResultSubpartitionView createResultSubpartitionView(
             TieredStoragePartitionId partitionId,
@@ -90,7 +128,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             BufferAvailabilityListener availabilityListener) {
         List<NettyServiceProducer> serviceProducers = registeredServiceProducers.get(partitionId);
         if (serviceProducers == null) {
-            return new TieredStoreResultSubpartitionView(
+            return new TieredStorageResultSubpartitionView(
                     availabilityListener, new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         }
         List<Queue<NettyPayload>> queues = new ArrayList<>();
@@ -104,7 +142,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             registeredAvailabilityListeners.put(
                     writer.getNettyConnectionId(), availabilityListener);
         }
-        return new TieredStoreResultSubpartitionView(
+        return new TieredStorageResultSubpartitionView(
                 availabilityListener,
                 queues,
                 nettyConnectionIds,
@@ -143,12 +181,27 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
         for (int index = 0; index < partitionIds.size(); ++index) {
             TieredStoragePartitionId partitionId = partitionIds.get(index);
             TieredStorageSubpartitionId subpartitionId = subpartitionIds.get(index);
-            registeredNettyConnectionReaders
-                    .remove(partitionId)
-                    .remove(subpartitionId)
-                    .complete(
-                            new NettyConnectionReaderImpl(
-                                    index, inputChannelProviders.get(index), helper));
+            Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>
+                    readerRegistry = registeredNettyConnectionReaders.get(partitionId);
+            if (readerRegistry != null) {
+                readerRegistry
+                        .remove(subpartitionId)
+                        .complete(
+                                new NettyConnectionReaderImpl(
+                                        index, inputChannelProviders.get(index), helper));
+            } else {
+                registeredChannelIndexes
+                        .computeIfAbsent(partitionId, ignored -> new HashMap<>())
+                        .put(subpartitionId, index);
+
+                registeredInputChannelProviders
+                        .computeIfAbsent(partitionId, ignored -> new HashMap<>())
+                        .put(subpartitionId, inputChannelProviders.get(index));
+
+                registeredNettyConnectionReaderAvailabilityAndPriorityHelpers
+                        .computeIfAbsent(partitionId, ignored -> new HashMap<>())
+                        .put(subpartitionId, helper);
+            }
         }
     }
 }
