@@ -38,8 +38,8 @@ import java.util.Queue;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The implementation of {@link ScheduledSubpartition}. */
-public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> {
+/** The implementation of {@link ScheduledSubpartitionReader}. */
+public class ScheduledSubpartitionReader implements Comparable<ScheduledSubpartitionReader> {
 
     private final NettyConnectionId nettyServiceWriterId;
 
@@ -63,7 +63,7 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
 
     private final ReadingProgressRecorder readingProgressRecorder;
 
-    public ScheduledSubpartition(
+    public ScheduledSubpartitionReader(
             int subpartitionId,
             int maxBufferReadAhead,
             NettyConnectionWriter nettyConnectionWriter,
@@ -157,7 +157,7 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
     }
 
     @Override
-    public int compareTo(ScheduledSubpartition that) {
+    public int compareTo(ScheduledSubpartitionReader that) {
         checkArgument(that != null);
         return Long.compare(getNextOffsetToLoad(), that.getNextOffsetToLoad());
     }
