@@ -30,6 +30,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
@@ -67,6 +69,8 @@ public class RemoteTierFactory implements TierFactory {
             String dataFileBasePath,
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
+            PartitionFileWriter partitionFileWriter,
+            PartitionFileReader partitionFileReader,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry,
@@ -79,7 +83,7 @@ public class RemoteTierFactory implements TierFactory {
                 numBytesPerSegment,
                 isBroadcastOnly,
                 storageMemoryManager,
-                partitionFileManager);
+                partitionFileWriter);
     }
 
     @Override

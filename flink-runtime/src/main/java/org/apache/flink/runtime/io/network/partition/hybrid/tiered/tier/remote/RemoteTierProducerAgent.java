@@ -23,8 +23,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
 import java.util.Arrays;
@@ -48,7 +47,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
             int numBytesPerSegment,
             boolean isBroadcastOnly,
             TieredStorageMemoryManager storageMemoryManager,
-            PartitionFileManager partitionFileManager) {
+            PartitionFileWriter partitionFileWriter) {
         this.numBytesPerSegment = numBytesPerSegment;
         this.segmentIndexTracker =
                 new SubpartitionSegmentIdTrackerImpl(numSubpartitions, isBroadcastOnly);
@@ -56,8 +55,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
                 new RemoteCacheManager(
                         isBroadcastOnly ? 1 : numSubpartitions,
                         storageMemoryManager,
-                        partitionFileManager.createPartitionFileWriter(
-                                PartitionFileType.PRODUCER_HASH));
+                        partitionFileWriter);
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.subpartitionLastestSegmentId = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);

@@ -29,6 +29,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
@@ -69,6 +71,8 @@ public class MemoryTierFactory implements TierFactory {
             String dataFileBasePath,
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
+            PartitionFileWriter partitionFileWriter,
+            PartitionFileReader partitionFileReader,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry,
