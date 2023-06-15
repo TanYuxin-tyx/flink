@@ -81,7 +81,7 @@ public class SortBufferAccumulatorTest {
             random.nextBytes(bytes);
             ByteBuffer record = ByteBuffer.wrap(bytes);
 
-            // select a random subpartition to write
+            // select a random subpartition to writeRecord
             int subpartition = random.nextInt(numSubpartitions);
             // select a random data type
             //            boolean isBuffer = random.nextBoolean();
