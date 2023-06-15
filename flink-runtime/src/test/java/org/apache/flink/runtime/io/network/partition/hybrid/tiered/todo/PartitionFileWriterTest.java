@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.memory.MemorySegment;
@@ -27,12 +26,9 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManagerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFile;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTrackerImpl;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -68,24 +64,11 @@ class PartitionFileWriterTest {
 
     private Path dataFilePath;
 
-    private PartitionFileManager partitionFileManager;
-
     private PartitionFileWriter partitionFileWriter;
 
     @BeforeEach
     void before() {
         this.dataFilePath = tempDir.resolve(".data");
-        this.partitionFileManager =
-                new PartitionFileManagerImpl(
-                        dataFilePath,
-                        new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS),
-                        null,
-                        null,
-                        null,
-                        NUM_SUBPARTITIONS,
-                        JobID.generate(),
-                        new ResultPartitionID(),
-                        null);
     }
 
     @ParameterizedTest
@@ -190,6 +173,7 @@ class PartitionFileWriterTest {
     }
 
     private PartitionFileWriter createProducerMergePartitionFileWriter() {
-        return partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
+        return ProducerMergePartitionFile.createPartitionFileWriter(
+                dataFilePath, new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS));
     }
 }

@@ -18,12 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 
-import org.apache.flink.api.common.JobID;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManagerImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFile;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteCacheManager;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -47,23 +43,10 @@ class RemoteDiskCacheManagerTest {
 
     private TemporaryFolder tmpFolder;
 
-    private PartitionFileManager partitionFileManager;
-
     @BeforeEach
     void setup() throws IOException {
         this.tmpFolder = TemporaryFolder.builder().build();
         tmpFolder.create();
-        this.partitionFileManager =
-                new PartitionFileManagerImpl(
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        NUM_SUBPARTITIONS,
-                        JobID.generate(),
-                        new ResultPartitionID(),
-                        tmpFolder.getRoot().getPath());
     }
 
     @Test
@@ -86,8 +69,9 @@ class RemoteDiskCacheManagerTest {
                 new RemoteCacheManager(
                         NUM_SUBPARTITIONS,
                         new TieredStorageMemoryManagerImpl(0.5f, false),
-                        partitionFileManager.createPartitionFileWriter(
-                                PartitionFileType.PRODUCER_HASH));
+                        ProducerMergePartitionFile.createPartitionFileWriter(
+                                tmpFolder.getRoot().toPath(),
+                                new TestingRegionBufferIndexTracker.Builder().build()));
         return cacheDataManager;
     }
 }
