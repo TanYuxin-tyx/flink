@@ -21,30 +21,18 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -91,41 +79,6 @@ public class TieredStorageUtils {
             writeSize += writeChannel.write(bufferWithHeader);
         }
         checkState(writeSize == expectedBytes);
-    }
-
-    public static List<TierProducerAgent> createTierProducerAgents(
-            TieredStoragePartitionId id,
-            boolean isBroadcast,
-            ResultSubpartition[] subpartitions,
-            int networkBufferSize,
-            TieredStorageConfiguration storeConfiguration,
-            TieredStorageMemoryManager storageMemoryManager,
-            String dataFileBasePath,
-            PartitionFileManager partitionFileManager,
-            TieredStorageNettyService nettyService,
-            TieredStorageResourceRegistry resourceRegistry,
-            RegionBufferIndexTrackerImpl index,
-            BatchShuffleReadBufferPool batchShuffleReadBufferPool,
-            ScheduledExecutorService batchShuffleReadIOExecutor,
-            RegionBufferIndexTracker dataIndex) {
-        List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
-        for (TierFactory tierFactory : storeConfiguration.getTierFactories()) {
-            tierProducerAgents.add(
-                    tierFactory.createProducerAgent(
-                            subpartitions.length,
-                            id,
-                            dataFileBasePath,
-                            isBroadcast,
-                            partitionFileManager,
-                            storageMemoryManager,
-                            nettyService,
-                            resourceRegistry,
-                            batchShuffleReadBufferPool,
-                            batchShuffleReadIOExecutor,
-                            storeConfiguration,
-                            dataIndex));
-        }
-        return tierProducerAgents;
     }
 
     public static String createBaseSubpartitionPath(

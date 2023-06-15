@@ -30,9 +30,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFile;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFileWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
@@ -40,14 +39,10 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProd
 
 import javax.annotation.Nullable;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiConsumer;
-
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
 
 public class DiskTierFactory implements TierFactory {
 
@@ -74,6 +69,8 @@ public class DiskTierFactory implements TierFactory {
             String dataFileBasePath,
             boolean isBroadcastOnly,
             PartitionFileManager partitionFileManager,
+            PartitionFileWriter partitionFileWriter,
+            PartitionFileReader partitionFileReader,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry,
@@ -81,11 +78,6 @@ public class DiskTierFactory implements TierFactory {
             ScheduledExecutorService batchShuffleReadIOExecutor,
             TieredStorageConfiguration storageConfiguration,
             RegionBufferIndexTracker dataIndex) {
-        Path dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
-        ProducerMergePartitionFileWriter partitionFileWriter =
-                ProducerMergePartitionFile.createPartitionFileWriter(dataFilePath, dataIndex);
-        ProducerMergePartitionFileReader partitionFileReader =
-                ProducerMergePartitionFile.createPartitionFileReader(dataFilePath);
         return new DiskTierProducerAgent(
                 partitionID,
                 numSubpartitions,
