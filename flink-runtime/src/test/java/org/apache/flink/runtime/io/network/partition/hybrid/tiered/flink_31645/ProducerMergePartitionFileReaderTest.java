@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler.DiskIOScheduler;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,7 +65,7 @@ class ProducerMergePartitionFileReaderTest {
 
     private DiskIOScheduler producerMergeDiskIOScheduler;
 
-    private RegionBufferIndexTracker regionBufferIndexTracker;
+    private PartitionFileIndex partitionFileIndex;
 
     private final BufferAvailabilityListener defaultAvailabilityListener =
             new NoOpBufferAvailablityListener();

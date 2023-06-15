@@ -34,7 +34,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierCons
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
 
 import javax.annotation.Nullable;
 
@@ -77,7 +77,7 @@ public class MemoryTierFactory implements TierFactory {
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
             ScheduledExecutorService batchShuffleReadIOExecutor,
             TieredStorageConfiguration tieredStorageConfiguration,
-            RegionBufferIndexTracker dataIndex) {
+            PartitionFileIndex dataIndex) {
         return new MemoryTierProducerAgent(
                 partitionID,
                 numSubpartitions,

@@ -28,7 +28,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -157,7 +157,7 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void spill(List<NettyPayload> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
         try {
-            List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers = new ArrayList<>();
+            List<PartitionFileIndex.SpilledBuffer> spilledBuffers = new ArrayList<>();
             long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
             // write all buffers to file
             writeBuffers(toWrite, expectedBytes);
@@ -172,20 +172,20 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
     /**
      * Compute buffer's file offset and create spilled buffers.
      *
-     * @param toWrite for create {@link RegionBufferIndexTracker.SpilledBuffer}.
-     * @param spilledBuffers receive the created {@link RegionBufferIndexTracker.SpilledBuffer} by
+     * @param toWrite for create {@link PartitionFileIndex.SpilledBuffer}.
+     * @param spilledBuffers receive the created {@link PartitionFileIndex.SpilledBuffer} by
      *     this method.
      * @return total bytes(header size + buffer size) of all buffers to write.
      */
     private long createSpilledBuffersAndGetTotalBytes(
             List<NettyPayload> toWrite,
-            List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
+            List<PartitionFileIndex.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
         for (NettyPayload nettyPayload : toWrite) {
             Buffer buffer = nettyPayload.getBuffer().get();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
-                    new RegionBufferIndexTracker.SpilledBuffer(
+                    new PartitionFileIndex.SpilledBuffer(
                             nettyPayload.getSubpartitionId(),
                             nettyPayload.getBufferIndex(),
                             totalBytesWritten + expectedBytes));

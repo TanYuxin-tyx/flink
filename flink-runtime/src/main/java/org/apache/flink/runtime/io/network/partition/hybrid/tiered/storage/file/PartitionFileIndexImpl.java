@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 
@@ -32,11 +32,11 @@ import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
-/** Default implementation of {@link RegionBufferIndexTracker}. */
-public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
+/** Default implementation of {@link PartitionFileIndex}. */
+public class PartitionFileIndexImpl implements PartitionFileIndex {
 
     @GuardedBy("lock")
-    private final List<List<InternalRegion>> subpartitionFirstBufferIndexInternalRegions;
+    private final List<List<Region>> subpartitionRegions;
 
     private final List<Map<NettyConnectionId, Integer>> lastestIndexOfReader;
 
@@ -44,34 +44,50 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
 
     private boolean isReleased;
 
-    public RegionBufferIndexTrackerImpl(int numSubpartitions) {
-        this.subpartitionFirstBufferIndexInternalRegions = new ArrayList<>();
+    public PartitionFileIndexImpl(int numSubpartitions) {
+        this.subpartitionRegions = new ArrayList<>();
         this.lastestIndexOfReader = new ArrayList<>();
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
-            subpartitionFirstBufferIndexInternalRegions.add(new ArrayList<>());
+            subpartitionRegions.add(new ArrayList<>());
             lastestIndexOfReader.add(new HashMap<>());
         }
     }
 
     @Override
-    public Optional<ReadableRegion> getReadableRegion(
+    public Optional<Region> getRegionIndex(
             int subpartitionId, int bufferIndex, NettyConnectionId nettyServiceWriterId) {
         synchronized (lock) {
-            return getInternalRegion(subpartitionId, bufferIndex, nettyServiceWriterId)
-                    .map(internalRegion -> internalRegion.toReadableRegion(bufferIndex))
-                    .filter(internalRegion -> internalRegion.numReadable > 0);
+            if (isReleased) {
+                return Optional.empty();
+            }
+            // return the latest region
+            int currentRegionIndex =
+                    lastestIndexOfReader.get(subpartitionId).getOrDefault(nettyServiceWriterId, 0);
+            List<Region> currentRegions =
+                    subpartitionRegions.get(subpartitionId);
+            while (currentRegionIndex < currentRegions.size()) {
+                Region region = currentRegions.get(currentRegionIndex);
+                if (region.containBuffer(bufferIndex)) {
+                    return Optional.of(region);
+                }
+                ++currentRegionIndex;
+                lastestIndexOfReader
+                        .get(subpartitionId)
+                        .put(nettyServiceWriterId, currentRegionIndex);
+            }
+            return Optional.empty();
         }
     }
 
     @Override
-    public void addBuffers(List<SpilledBuffer> spilledBuffers) {
-        final Map<Integer, List<InternalRegion>> subpartitionInternalRegions =
-                convertToInternalRegions(spilledBuffers);
+    public void addRegionIndex(List<SpilledBuffer> spilledBuffers) {
+        final Map<Integer, List<Region>> subpartitionInternalRegions =
+                convertToRegions(spilledBuffers);
         synchronized (lock) {
             subpartitionInternalRegions.forEach(
                     (subpartition, internalRegions) -> {
-                        List<InternalRegion> regionList =
-                                subpartitionFirstBufferIndexInternalRegions.get(subpartition);
+                        List<Region> regionList =
+                                subpartitionRegions.get(subpartition);
                         regionList.addAll(internalRegions);
                     });
         }
@@ -80,42 +96,20 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
     @Override
     public void release() {
         synchronized (lock) {
-            subpartitionFirstBufferIndexInternalRegions.clear();
+            subpartitionRegions.clear();
             lastestIndexOfReader.clear();
             isReleased = true;
         }
     }
 
-    @GuardedBy("lock")
-    private Optional<InternalRegion> getInternalRegion(
-            int subpartitionId, int bufferIndex, NettyConnectionId nettyServiceWriterId) {
-        if (isReleased) {
-            return Optional.empty();
-        }
-        // return the latest region
-        int currentRegionIndex =
-                lastestIndexOfReader.get(subpartitionId).getOrDefault(nettyServiceWriterId, 0);
-        List<InternalRegion> currentRegions =
-                subpartitionFirstBufferIndexInternalRegions.get(subpartitionId);
-        while (currentRegionIndex < currentRegions.size()) {
-            InternalRegion internalRegion = currentRegions.get(currentRegionIndex);
-            if (internalRegion.containBuffer(bufferIndex)) {
-                return Optional.of(internalRegion);
-            }
-            ++currentRegionIndex;
-            lastestIndexOfReader.get(subpartitionId).put(nettyServiceWriterId, currentRegionIndex);
-        }
-        return Optional.empty();
-    }
-
-    private static Map<Integer, List<InternalRegion>> convertToInternalRegions(
+    private static Map<Integer, List<Region>> convertToRegions(
             List<SpilledBuffer> spilledBuffers) {
 
         if (spilledBuffers.isEmpty()) {
             return Collections.emptyMap();
         }
 
-        final Map<Integer, List<InternalRegion>> internalRegionsBySubpartition = new HashMap<>();
+        final Map<Integer, List<Region>> internalRegionsBySubpartition = new HashMap<>();
         final Iterator<SpilledBuffer> iterator = spilledBuffers.iterator();
         // There's at least one buffer
         SpilledBuffer firstBufferOfCurrentRegion = iterator.next();
@@ -149,57 +143,17 @@ public class RegionBufferIndexTrackerImpl implements RegionBufferIndexTracker {
     private static void addInternalRegionToMap(
             SpilledBuffer firstBufferInRegion,
             SpilledBuffer lastBufferInRegion,
-            Map<Integer, List<InternalRegion>> internalRegionsBySubpartition) {
+            Map<Integer, List<Region>> internalRegionsBySubpartition) {
         checkArgument(firstBufferInRegion.subpartitionId == lastBufferInRegion.subpartitionId);
         checkArgument(firstBufferInRegion.bufferIndex <= lastBufferInRegion.bufferIndex);
         internalRegionsBySubpartition
                 .computeIfAbsent(firstBufferInRegion.subpartitionId, ArrayList::new)
                 .add(
-                        new InternalRegion(
+                        new Region(
                                 firstBufferInRegion.bufferIndex,
                                 firstBufferInRegion.fileOffset,
                                 lastBufferInRegion.bufferIndex
                                         - firstBufferInRegion.bufferIndex
                                         + 1));
-    }
-
-    /**
-     * A {@link InternalRegion} represents a series of physically continuous buffers in the file,
-     * which are from the same subpartition, and has sequential buffer index.
-     *
-     * <p>The following example illustrates some physically continuous buffers in a file and regions
-     * upon them, where `x-y` denotes buffer from subpartition x with buffer index y, and `()`
-     * denotes a region.
-     *
-     * <p>(1-1, 1-2), (2-1), (2-2, 2-3), (1-5, 1-6), (1-4)
-     *
-     * <p>Note: The file may not contain all the buffers. E.g., 1-3 is missing in the above example.
-     *
-     * <p>Note: Buffers in file may have different orders than their buffer index. E.g., 1-4 comes
-     * after 1-6 in the above example.
-     *
-     * <p>Note: This index may not always maintain the longest possible regions. E.g., 2-1, 2-2, 2-3
-     * are in two separate regions.
-     */
-    private static class InternalRegion {
-        private final int firstBufferIndex;
-        private final long firstBufferOffset;
-        private final int numBuffers;
-
-        private InternalRegion(int firstBufferIndex, long firstBufferOffset, int numBuffers) {
-            this.firstBufferIndex = firstBufferIndex;
-            this.firstBufferOffset = firstBufferOffset;
-            this.numBuffers = numBuffers;
-        }
-
-        private boolean containBuffer(int bufferIndex) {
-            return bufferIndex >= firstBufferIndex && bufferIndex < firstBufferIndex + numBuffers;
-        }
-
-        private ReadableRegion toReadableRegion(int bufferIndex) {
-            int nSkip = bufferIndex - firstBufferIndex;
-            int nReadable = numBuffers - nSkip;
-            return new ReadableRegion(nSkip, nReadable, firstBufferOffset);
-        }
     }
 }
