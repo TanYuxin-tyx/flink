@@ -26,6 +26,8 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -209,14 +211,14 @@ public class SortBufferAccumulator implements BufferAccumulator {
 
         do {
             MemorySegment freeSegment = getFreeSegment();
-            MemorySegmentAndChannel memorySegmentAndChannel = dataBuffer.getNextBuffer(freeSegment);
-            if (memorySegmentAndChannel == null) {
+            Pair<Integer, Buffer> bufferAndChannel = dataBuffer.getNextBuffer(freeSegment);
+            if (bufferAndChannel == null) {
                 if (freeSegment != null) {
                     recycleBuffer(freeSegment);
                 }
                 break;
             }
-            addFinishedBuffer(memorySegmentAndChannel);
+            addFinishedBuffer(bufferAndChannel);
         } while (true);
 
         releaseFreeBuffers();
@@ -248,10 +250,10 @@ public class SortBufferAccumulator implements BufferAccumulator {
             MemorySegment writeBuffer = checkNotNull(getFreeSegment());
             writeBuffer.put(0, record, toCopy);
 
-            MemorySegmentAndChannel memorySegmentAndChannel =
-                    new MemorySegmentAndChannel(
-                            writeBuffer, targetSubpartition, dataType, toCopy, true);
-            addFinishedBuffer(memorySegmentAndChannel);
+            addFinishedBuffer(
+                    Pair.of(
+                            targetSubpartition,
+                            new NetworkBuffer(writeBuffer, bufferRecycler, dataType, toCopy)));
         }
 
         releaseFreeBuffers();
@@ -277,17 +279,11 @@ public class SortBufferAccumulator implements BufferAccumulator {
         }
     }
 
-    private void addFinishedBuffer(MemorySegmentAndChannel bufferWithChannel) {
-        NetworkBuffer networkBuffer =
-                new NetworkBuffer(
-                        bufferWithChannel.getBuffer(),
-                        this::recycleBuffer,
-                        bufferWithChannel.getDataType(),
-                        bufferWithChannel.getDataSize());
+    private void addFinishedBuffer(Pair<Integer, Buffer> bufferAndChannel) {
         checkNotNull(accumulatedBufferFlusher)
                 .accept(
-                        new TieredStorageSubpartitionId(bufferWithChannel.getChannelIndex()),
-                        Collections.singletonList(networkBuffer));
+                        new TieredStorageSubpartitionId(bufferAndChannel.getLeft()),
+                        Collections.singletonList(bufferAndChannel.getRight()));
     }
 
     private void releaseFreeBuffers() {

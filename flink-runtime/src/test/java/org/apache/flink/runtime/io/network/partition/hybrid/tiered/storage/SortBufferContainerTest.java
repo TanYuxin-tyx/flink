@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -104,7 +105,7 @@ public class SortBufferContainerTest {
             --numDataBuffers;
 
             while (dataBuffer.hasRemaining()) {
-                MemorySegmentAndChannel buffer = copyIntoSegment(bufferSize, dataBuffer);
+                Pair<Integer, Buffer> buffer = copyIntoSegment(bufferSize, dataBuffer);
                 if (buffer == null) {
                     break;
                 }
@@ -128,22 +129,24 @@ public class SortBufferContainerTest {
                 numSubpartitions, numBytesWritten, numBytesRead, dataWritten, buffersRead);
     }
 
-    private MemorySegmentAndChannel copyIntoSegment(
-            int bufferSize, SortBufferContainer dataBuffer) {
+    private Pair<Integer, Buffer> copyIntoSegment(int bufferSize, SortBufferContainer dataBuffer) {
         MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(bufferSize);
         return dataBuffer.getNextBuffer(segment);
     }
 
     private void addBufferRead(
-            MemorySegmentAndChannel buffer, Queue<Buffer>[] buffersRead, int[] numBytesRead) {
-        int channel = buffer.getChannelIndex();
+            Pair<Integer, Buffer> bufferAndChannel,
+            Queue<Buffer>[] buffersRead,
+            int[] numBytesRead) {
+        int channel = bufferAndChannel.getLeft();
+        Buffer buffer = bufferAndChannel.getRight();
         buffersRead[channel].add(
                 new NetworkBuffer(
-                        buffer.getBuffer(),
+                        buffer.getMemorySegment(),
                         MemorySegment::free,
                         buffer.getDataType(),
-                        buffer.getDataSize()));
-        numBytesRead[channel] += buffer.getDataSize();
+                        buffer.getSize()));
+        numBytesRead[channel] += buffer.getSize();
     }
 
     public static void checkWriteReadResult(

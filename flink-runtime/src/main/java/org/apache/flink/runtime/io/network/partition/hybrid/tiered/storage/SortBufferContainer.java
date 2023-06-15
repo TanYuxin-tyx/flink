@@ -22,7 +22,10 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.SortBasedDataBuffer;
+
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nullable;
 
@@ -262,7 +265,7 @@ public class SortBufferContainer {
         }
     }
 
-    public MemorySegmentAndChannel getNextBuffer(MemorySegment transitBuffer) {
+    public Pair<Integer, Buffer> getNextBuffer(MemorySegment transitBuffer) {
         checkState(isFinished, "Sort buffer is not ready to be read.");
         checkState(!isReleased, "Sort buffer is already released.");
 
@@ -273,7 +276,6 @@ public class SortBufferContainer {
         int numBytesCopied = 0;
         Buffer.DataType bufferDataType = Buffer.DataType.DATA_BUFFER;
         int channelIndex = subpartitionReadOrder[readOrderIndex];
-        boolean needRecycleToLocalBufferPool = true;
 
         do {
             int sourceSegmentIndex = getSegmentIndexFromPointer(readIndexEntryAddress);
@@ -299,7 +301,6 @@ public class SortBufferContainer {
             if (bufferDataType.isEvent() && transitBuffer.size() < length) {
                 bufferRecycler.recycle(transitBuffer);
                 transitBuffer = MemorySegmentFactory.allocateUnpooledSegment(length);
-                needRecycleToLocalBufferPool = false;
             }
 
             numBytesCopied +=
@@ -321,12 +322,9 @@ public class SortBufferContainer {
         } while (numBytesCopied < transitBuffer.size() && bufferDataType.isBuffer());
 
         numTotalBytesRead += numBytesCopied;
-        return new MemorySegmentAndChannel(
-                transitBuffer,
+        return Pair.of(
                 channelIndex,
-                bufferDataType,
-                numBytesCopied,
-                needRecycleToLocalBufferPool);
+                new NetworkBuffer(transitBuffer, bufferRecycler, bufferDataType, numBytesCopied));
     }
 
     private int copyRecordOrEvent(
