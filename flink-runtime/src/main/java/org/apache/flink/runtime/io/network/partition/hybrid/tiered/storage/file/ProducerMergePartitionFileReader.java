@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
@@ -26,6 +25,8 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.IOUtils;
+
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -36,7 +37,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.positionToNextBuffer;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
 
 public class ProducerMergePartitionFileReader implements PartitionFileReader {
@@ -50,7 +50,7 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
     private final Path dataFilePath;
 
-    private FileChannel fileChannel;
+    @Nullable private FileChannel fileChannel;
 
     public ProducerMergePartitionFileReader(Path dataFilePath, RegionBufferIndexTracker dataIndex) {
         this.dataFilePath = dataFilePath;
@@ -84,7 +84,7 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
         SubpartitionFileCache subpartitionFileCache =
                 allFileCaches.computeIfAbsent(
                         id, ignore -> new SubpartitionFileCache(subpartitionId));
-        return subpartitionFileCache.getNumSkipAndFileOffset().f1;
+        return subpartitionFileCache.getCurrentFileOffset();
     }
 
     @Override
@@ -102,25 +102,14 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
         int remainingBuffersInRegion =
                 subpartitionFileCache.getRemainingBuffersInRegion(currentBufferIndex, id);
         if (remainingBuffersInRegion > 0) {
-            moveFileOffsetToBuffer(subpartitionFileCache);
+            long fileOffset = subpartitionFileCache.getCurrentFileOffset();
+            try {
+                fileChannel.position(fileOffset);
+            } catch (IOException e) {
+                ExceptionUtils.rethrow(e, "Failed to move file offset to buffer.");
+            }
         }
         return remainingBuffersInRegion;
-    }
-
-    private void moveFileOffsetToBuffer(SubpartitionFileCache subpartitionFileCache) {
-        if (fileChannel == null) {
-            return;
-        }
-        Tuple2<Integer, Long> indexAndOffset = subpartitionFileCache.getNumSkipAndFileOffset();
-        try {
-            fileChannel.position(indexAndOffset.f1);
-            for (int i = 0; i < indexAndOffset.f0; ++i) {
-                positionToNextBuffer(fileChannel, reusedHeaderBuffer);
-            }
-            subpartitionFileCache.skipAll(fileChannel.position());
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e, "Failed to move file offset to buffer.");
-        }
     }
 
     @Override
@@ -133,7 +122,6 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
         private final int subpartitionId;
         private int currentBufferIndex;
-        private int numSkip;
         private int numReadable;
         private long offset;
 
@@ -147,13 +135,8 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
             return numReadable;
         }
 
-        private Tuple2<Integer, Long> getNumSkipAndFileOffset() {
-            return new Tuple2<>(numSkip, currentBufferIndex == -1 ? Long.MAX_VALUE : offset);
-        }
-
-        private void skipAll(long newOffset) {
-            this.offset = newOffset;
-            this.numSkip = 0;
+        private long getCurrentFileOffset() {
+            return currentBufferIndex == -1 ? Long.MAX_VALUE : offset;
         }
 
         private void advance(long bufferSize) {
@@ -171,24 +154,17 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
         private void updateCachedRegionIfNeeded(
                 int bufferIndex, FileReaderId nettyServiceWriterId) {
             if (isInCachedRegion(bufferIndex)) {
-                int numAdvance = bufferIndex - currentBufferIndex;
-                numSkip += numAdvance;
-                numReadable -= numAdvance;
-                currentBufferIndex = bufferIndex;
                 return;
             }
-
             Optional<RegionBufferIndexTracker.ReadableRegion> lookupResultOpt =
                     dataIndex.getReadableRegion(subpartitionId, bufferIndex, nettyServiceWriterId);
             if (!lookupResultOpt.isPresent()) {
                 currentBufferIndex = -1;
                 numReadable = 0;
-                numSkip = 0;
                 offset = -1L;
             } else {
                 RegionBufferIndexTracker.ReadableRegion cachedRegion = lookupResultOpt.get();
                 currentBufferIndex = bufferIndex;
-                numSkip = cachedRegion.numSkip;
                 numReadable = cachedRegion.numReadable;
                 offset = cachedRegion.offset;
             }
