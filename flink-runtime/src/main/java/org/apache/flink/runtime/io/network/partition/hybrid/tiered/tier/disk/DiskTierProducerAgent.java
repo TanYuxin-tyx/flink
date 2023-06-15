@@ -106,7 +106,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                 new DiskIOScheduler(
                         batchShuffleReadBufferPool,
                         batchShuffleReadIOExecutor,
-                        dataFilePath,
                         storeConfiguration.getMaxRequestedBuffers(),
                         storeConfiguration.getBufferRequestTimeout(),
                         storeConfiguration.getMaxBuffersReadAhead(),
