@@ -26,9 +26,7 @@ import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler.DiskIOScheduler;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskCacheBufferSpiller;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTrackerImpl;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,7 +80,6 @@ class ProducerMergePartitionFileReaderTest {
         random.nextBytes(dataBytes);
         bufferPool = new BatchShuffleReadBufferPool(BUFFER_POOL_SIZE * BUFFER_SIZE, BUFFER_SIZE);
         bufferPool.initialize();
-        generateShuffleData(tempDir);
         dataFileChannel = openFileChannel(dataFilePath);
     }
 
@@ -163,15 +160,6 @@ class ProducerMergePartitionFileReaderTest {
     //            5,
     //            new TieredStorageNettyServiceImpl());
     // }
-
-    private void generateShuffleData(Path tempDir)
-            throws IOException, ExecutionException, InterruptedException {
-        dataFilePath = tempDir.resolve(".data");
-        regionBufferIndexTracker = new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS);
-        DiskCacheBufferSpiller spiller =
-                new DiskCacheBufferSpiller(dataFilePath, regionBufferIndexTracker);
-        spiller.spillAsync(generateBufferContexts()).get();
-    }
 
     private List<NettyPayload> generateBufferContexts() {
         List<NettyPayload> nettyPayloads = new ArrayList<>();
