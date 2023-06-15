@@ -23,8 +23,6 @@ import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
 
 import java.nio.ByteBuffer;
@@ -47,15 +45,14 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
     public DiskCacheManager(
             int numSubpartitions,
             TieredStorageMemoryManager storageMemoryManager,
-            PartitionFileManager partitionFileManager) {
+            PartitionFileWriter partitionFileWriter) {
         this.numSubpartitions = numSubpartitions;
         this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionDiskCacheManagers[subpartitionId] =
                     new SubpartitionDiskCacheManager(subpartitionId);
         }
-        this.partitionFileWriter =
-                partitionFileManager.createPartitionFileWriter(PartitionFileType.PRODUCER_MERGE);
+        this.partitionFileWriter = partitionFileWriter;
         storageMemoryManager.listenBufferReclaimRequest(this::notifyFlushCachedBuffers);
     }
 

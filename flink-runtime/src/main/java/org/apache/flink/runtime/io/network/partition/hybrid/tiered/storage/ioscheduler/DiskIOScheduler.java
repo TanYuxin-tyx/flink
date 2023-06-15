@@ -9,7 +9,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceProducer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
@@ -32,7 +31,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileType.PRODUCER_MERGE;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -86,7 +84,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             int maxBufferReadAhead,
             TieredStorageNettyService nettyService,
             List<Map<Integer, Integer>> segmentIdRecorder,
-            PartitionFileManager partitionFileManager,
+            PartitionFileReader partitionFileReader,
             RegionBufferIndexTracker dataIndex) {
         this.bufferPool = checkNotNull(bufferPool);
         this.ioExecutor = checkNotNull(ioExecutor);
@@ -95,7 +93,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.nettyService = nettyService;
         this.segmentIdRecorder = segmentIdRecorder;
-        this.partitionFileReader = partitionFileManager.createPartitionFileReader(PRODUCER_MERGE);
+        this.partitionFileReader = partitionFileReader;
         this.dataIndex = dataIndex;
         bufferPool.registerRequester(this);
     }
