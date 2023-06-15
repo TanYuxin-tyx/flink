@@ -22,7 +22,6 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.IOUtils;
 
@@ -44,7 +43,7 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
     @Nullable private FileChannel fileChannel;
 
-    public ProducerMergePartitionFileReader(Path dataFilePath, RegionBufferIndexTracker dataIndex) {
+    public ProducerMergePartitionFileReader(Path dataFilePath) {
         this.dataFilePath = dataFilePath;
     }
 
