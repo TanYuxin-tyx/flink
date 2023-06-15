@@ -85,7 +85,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             TieredStorageNettyService nettyService,
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
             ScheduledExecutorService batchShuffleReadIOExecutor,
-            TieredStorageConfiguration storeConfiguration) {
+            TieredStorageConfiguration storeConfiguration,
+            RegionBufferIndexTracker dataIndex) {
         this.numBytesPerSegment = numBytesPerSegment;
         this.resultPartitionID = resultPartitionID;
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
@@ -111,7 +112,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         storeConfiguration.getMaxBuffersReadAhead(),
                         nettyService,
                         firstBufferContextInSegment,
-                        partitionFileManager);
+                        partitionFileManager,
+                        dataIndex);
         nettyService.registerProducer(partitionId, this);
     }
 

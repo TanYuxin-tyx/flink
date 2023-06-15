@@ -400,13 +400,13 @@ public class ResultPartitionFactory {
             TieredStorageNettyServiceImpl nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
         String dataFileBasePath = channelManager.createChannel().getPath();
-        RegionBufferIndexTrackerImpl index = new RegionBufferIndexTrackerImpl(
-                isBroadcast ? 1 : subpartitions.length);
+        RegionBufferIndexTrackerImpl dataIndex =
+                new RegionBufferIndexTrackerImpl(isBroadcast ? 1 : subpartitions.length);
         Path dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         PartitionFileManager partitionFileManager =
                 new PartitionFileManagerImpl(
                         dataFilePath,
-                        index,
+                        dataIndex,
                         batchShuffleReadBufferPool,
                         batchShuffleReadIOExecutor,
                         storeConfiguration,
@@ -425,10 +425,10 @@ public class ResultPartitionFactory {
                 partitionFileManager,
                 nettyService,
                 resourceRegistry,
-                index,
+                dataIndex,
                 batchShuffleReadBufferPool,
-                batchShuffleReadIOExecutor
-                );
+                batchShuffleReadIOExecutor,
+                dataIndex);
     }
 
     private HybridShuffleConfiguration getHybridShuffleConfiguration(

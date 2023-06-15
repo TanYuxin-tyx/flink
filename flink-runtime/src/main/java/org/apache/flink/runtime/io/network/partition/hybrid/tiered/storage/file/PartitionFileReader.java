@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
@@ -32,13 +31,8 @@ public interface PartitionFileReader {
     Buffer readBuffer(
             int subpartitionId,
             long fileOffSet,
-            FileReaderId id,
             MemorySegment segment,
             BufferRecycler recycler);
-
-    long getFileOffset(int subpartitionId, FileReaderId id);
-
-    Tuple2<Integer, Long> getReadableBuffers(int subpartitionId, int currentBufferIndex, FileReaderId id);
 
     void release();
 }

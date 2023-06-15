@@ -12,6 +12,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.FileReaderId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.IOUtils;
 
@@ -59,8 +60,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
     private final BatchShuffleReadBufferPool bufferPool;
 
-    private final Path dataFilePath;
-
     private final int maxBufferReadAhead;
 
     private final int maxRequestedBuffers;
@@ -89,6 +88,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     @GuardedBy("lock")
     private volatile boolean isReleased;
 
+    private final RegionBufferIndexTracker dataIndex;
+
     public DiskIOScheduler(
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
@@ -98,8 +99,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             int maxBufferReadAhead,
             TieredStorageNettyService nettyService,
             List<Map<Integer, Integer>> firstBufferContextInSegment,
-            PartitionFileManager partitionFileManager) {
-        this.dataFilePath = checkNotNull(dataFilePath);
+            PartitionFileManager partitionFileManager,
+            RegionBufferIndexTracker dataIndex) {
         this.bufferPool = checkNotNull(bufferPool);
         this.ioExecutor = checkNotNull(ioExecutor);
         this.maxRequestedBuffers = maxRequestedBuffers;
@@ -108,11 +109,12 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         this.nettyService = nettyService;
         this.firstBufferContextInSegment = firstBufferContextInSegment;
         this.partitionFileReader = partitionFileManager.createPartitionFileReader(PRODUCER_MERGE);
+        this.dataIndex = dataIndex;
     }
 
     @Override
     public void run() {
-        synchronized (lock){
+        synchronized (lock) {
             int numBuffersRead = readBuffersFromFile();
             isRunning = false;
             if (numBuffersRead == 0) {
@@ -137,7 +139,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                             nettyConnectionWriter,
                             nettyService,
                             firstBufferContextInSegment.get(subpartitionId.getSubpartitionId()),
-                            partitionFileReader);
+                            partitionFileReader,
+                            dataIndex);
             allScheduledSubpartitions.put(
                     scheduledSubpartition.getFileReaderId(), scheduledSubpartition);
             allFileReaderIds.put(

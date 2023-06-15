@@ -29,6 +29,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 
 import javax.annotation.Nullable;
 
@@ -54,7 +55,8 @@ public interface TierFactory {
             TieredStorageResourceRegistry resourceRegistry,
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
             ScheduledExecutorService batchShuffleReadIOExecutor,
-            TieredStorageConfiguration tieredStorageConfiguration);
+            TieredStorageConfiguration tieredStorageConfiguration,
+            RegionBufferIndexTracker dataIndex);
 
     TierConsumerAgent createConsumerAgent(
             int numSubpartitions,

@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler;
 
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
@@ -30,12 +29,15 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.FileReaderId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** The implementation of {@link ScheduledSubpartition}. */
 public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> {
@@ -60,13 +62,18 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
 
     private final PartitionFileReader partitionFileReader;
 
+    private final RegionBufferIndexTracker dataIndex;
+
+    private final SubpartitionFileCache subpartitionFileCache;
+
     public ScheduledSubpartition(
             int subpartitionId,
             int maxBufferReadAhead,
             NettyConnectionWriter nettyConnectionWriter,
             TieredStorageNettyService nettyService,
             Map<Integer, Integer> firstBufferContextInSegment,
-            PartitionFileReader partitionFileReader) {
+            PartitionFileReader partitionFileReader,
+            RegionBufferIndexTracker dataIndex) {
         this.subpartitionId = subpartitionId;
         this.nettyServiceWriterId = nettyConnectionWriter.getNettyConnectionId();
         this.maxBufferReadAhead = maxBufferReadAhead;
@@ -74,6 +81,8 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
         this.nettyConnectionWriter = nettyConnectionWriter;
         this.firstBufferContextInSegment = firstBufferContextInSegment;
         this.partitionFileReader = partitionFileReader;
+        this.dataIndex = dataIndex;
+        this.subpartitionFileCache = new SubpartitionFileCache(subpartitionId);
     }
 
     public void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
@@ -89,15 +98,13 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
             return;
         }
 
-        Tuple2<Integer, Long> result =
-                partitionFileReader.getReadableBuffers(subpartitionId, nextToLoad, fileReaderId);
-        int numRemainingBuffer = result.f0;
-        long fileOffset = result.f1;
-
+        int numRemainingBuffer =
+                subpartitionFileCache.getRemainingBuffersInRegion(nextToLoad, fileReaderId);
         // If there is no data in index, skip this time.
         if (numRemainingBuffer == 0) {
             return;
         }
+        checkState(numRemainingBuffer > 0);
         int numLoaded = 0;
         while (!buffers.isEmpty()
                 && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead
@@ -107,11 +114,7 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
             try {
                 if ((buffer =
                                 partitionFileReader.readBuffer(
-                                        subpartitionId,
-                                        fileOffset,
-                                        fileReaderId,
-                                        segment,
-                                        recycler))
+                                        subpartitionId, subpartitionFileCache.getCurrentFileOffset(), segment, recycler))
                         == null) {
                     buffers.add(segment);
                     break;
@@ -120,7 +123,8 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
                 buffers.add(segment);
                 throw throwable;
             }
-            fileOffset += buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
+            int bufferLength = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
+            subpartitionFileCache.advance(bufferLength);
             NettyPayload nettyPayload =
                     NettyPayload.newBuffer(buffer, nextToLoad++, subpartitionId);
             Integer segmentId = firstBufferContextInSegment.get(nettyPayload.getBufferIndex());
@@ -163,7 +167,65 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
         if (nextToLoad < 0) {
             return Long.MAX_VALUE;
         } else {
-            return partitionFileReader.getFileOffset(subpartitionId, fileReaderId);
+            return subpartitionFileCache.getCurrentFileOffset();
+        }
+    }
+
+    private class SubpartitionFileCache {
+
+        private final int subpartitionId;
+        private int currentBufferIndex;
+        private int numReadable;
+        private long offset;
+
+        public SubpartitionFileCache(int subpartitionId) {
+            this.subpartitionId = subpartitionId;
+        }
+
+        private int getRemainingBuffersInRegion(
+                int bufferIndex, FileReaderId nettyServiceWriterId) {
+            updateCachedRegionIfNeeded(bufferIndex, nettyServiceWriterId);
+            return numReadable;
+        }
+
+        private long getCurrentFileOffset() {
+            return currentBufferIndex == -1 ? Long.MAX_VALUE : offset;
+        }
+
+        private void advance(long bufferSize) {
+            if (isInCachedRegion(currentBufferIndex + 1)) {
+                currentBufferIndex++;
+                numReadable--;
+                offset += bufferSize;
+            }
+        }
+
+        // ------------------------------------------------------------------------
+        //  Internal Methods
+        // ------------------------------------------------------------------------
+
+        private void updateCachedRegionIfNeeded(
+                int bufferIndex, FileReaderId nettyServiceWriterId) {
+            if (isInCachedRegion(bufferIndex)) {
+                return;
+            }
+            Optional<RegionBufferIndexTracker.ReadableRegion> lookupResultOpt =
+                    dataIndex.getReadableRegion(subpartitionId, bufferIndex, nettyServiceWriterId);
+            if (!lookupResultOpt.isPresent()) {
+                currentBufferIndex = -1;
+                numReadable = 0;
+                offset = -1L;
+            } else {
+                RegionBufferIndexTracker.ReadableRegion cachedRegion = lookupResultOpt.get();
+                currentBufferIndex = bufferIndex;
+                numReadable = cachedRegion.numReadable;
+                offset = cachedRegion.offset;
+            }
+        }
+
+        private boolean isInCachedRegion(int bufferIndex) {
+            return bufferIndex < currentBufferIndex + numReadable
+                    && bufferIndex >= currentBufferIndex;
         }
     }
 }
