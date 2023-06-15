@@ -27,8 +27,6 @@ import org.apache.flink.runtime.io.network.partition.SortBasedDataBuffer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -50,11 +48,11 @@ public class SortBufferContainer {
     /** A list of {@link MemorySegment}s used to store data in memory. */
     private final LinkedList<MemorySegment> freeSegments;
 
+    /** A segment list as a joint buffer which stores all records and index entries. */
+    private final ArrayList<MemorySegment> dataSegments = new ArrayList<>();
+
     /** {@link BufferRecycler} used to recycle {@link #freeSegments}. */
     private final BufferRecycler bufferRecycler;
-
-    /** A segment list as a joint buffer which stores all records and index entries. */
-    private final ArrayList<MemorySegment> segments = new ArrayList<>();
 
     /** Addresses of the first record's index entry for each subpartition. */
     private final long[] firstIndexEntryAddresses;
@@ -63,7 +61,7 @@ public class SortBufferContainer {
     private final long[] lastIndexEntryAddresses;
 
     /** Size of buffers requested from buffer pool. All buffers must be of the same size. */
-    private final int bufferSize;
+    private final int bufferSizeBytes;
 
     /** Number of guaranteed buffers can be allocated from the buffer pool for data sort. */
     private final int numGuaranteedBuffers;
@@ -101,9 +99,6 @@ public class SortBufferContainer {
     // For reading
     // ---------------------------------------------------------------------------------------------
 
-    /** Data of different subpartitions in this sort buffer will be read in this order. */
-    private final int[] subpartitionReadOrder;
-
     /** Index entry address of the current record or event to be read. */
     private long readIndexEntryAddress;
 
@@ -111,21 +106,20 @@ public class SortBufferContainer {
     private int recordRemainingBytes;
 
     /** Used to index the current available channel to read data from. */
-    private int readOrderIndex = -1;
+    private int readingSubpartitionId = -1;
 
     public SortBufferContainer(
             LinkedList<MemorySegment> freeSegments,
             BufferRecycler bufferRecycler,
             int numSubpartitions,
-            int bufferSize,
-            int numGuaranteedBuffers,
-            @Nullable int[] customReadOrder) {
-        checkArgument(bufferSize > INDEX_ENTRY_SIZE, "Buffer size is too small.");
+            int bufferSizeBytes,
+            int numGuaranteedBuffers) {
+        checkArgument(bufferSizeBytes > INDEX_ENTRY_SIZE, "Buffer size is too small.");
         checkArgument(numGuaranteedBuffers > 0, "No guaranteed buffers for sort.");
 
         this.freeSegments = checkNotNull(freeSegments);
         this.bufferRecycler = checkNotNull(bufferRecycler);
-        this.bufferSize = bufferSize;
+        this.bufferSizeBytes = bufferSizeBytes;
         this.numGuaranteedBuffers = numGuaranteedBuffers;
         checkState(numGuaranteedBuffers <= freeSegments.size(), "Wrong number of free segments.");
         this.firstIndexEntryAddresses = new long[numSubpartitions];
@@ -134,16 +128,6 @@ public class SortBufferContainer {
         // initialized with -1 means the corresponding channel has no data
         Arrays.fill(firstIndexEntryAddresses, -1L);
         Arrays.fill(lastIndexEntryAddresses, -1L);
-
-        this.subpartitionReadOrder = new int[numSubpartitions];
-        if (customReadOrder != null) {
-            checkArgument(customReadOrder.length == numSubpartitions, "Illegal data read order.");
-            System.arraycopy(customReadOrder, 0, this.subpartitionReadOrder, 0, numSubpartitions);
-        } else {
-            for (int channel = 0; channel < numSubpartitions; ++channel) {
-                this.subpartitionReadOrder[channel] = channel;
-            }
-        }
     }
 
     /**
@@ -174,8 +158,8 @@ public class SortBufferContainer {
         return false;
     }
 
-    private void writeIndex(int channelIndex, int numRecordBytes, Buffer.DataType dataType) {
-        MemorySegment segment = segments.get(writeSegmentIndex);
+    private void writeIndex(int subpartitionId, int numRecordBytes, Buffer.DataType dataType) {
+        MemorySegment segment = dataSegments.get(writeSegmentIndex);
 
         // record length takes the high 32 bits and data type takes the low 32 bits
         segment.putLong(writeSegmentOffset, ((long) numRecordBytes << 32) | dataType.ordinal());
@@ -183,16 +167,16 @@ public class SortBufferContainer {
         // segment index takes the high 32 bits and segment offset takes the low 32 bits
         long indexEntryAddress = ((long) writeSegmentIndex << 32) | writeSegmentOffset;
 
-        long lastIndexEntryAddress = lastIndexEntryAddresses[channelIndex];
-        lastIndexEntryAddresses[channelIndex] = indexEntryAddress;
+        long lastIndexEntryAddress = lastIndexEntryAddresses[subpartitionId];
+        lastIndexEntryAddresses[subpartitionId] = indexEntryAddress;
 
         if (lastIndexEntryAddress >= 0) {
             // link the previous index entry of the given channel to the new index entry
-            segment = segments.get(getSegmentIndexFromPointer(lastIndexEntryAddress));
+            segment = dataSegments.get(getSegmentIndexFromPointer(lastIndexEntryAddress));
             segment.putLong(
                     getSegmentOffsetFromPointer(lastIndexEntryAddress) + 8, indexEntryAddress);
         } else {
-            firstIndexEntryAddresses[channelIndex] = indexEntryAddress;
+            firstIndexEntryAddresses[subpartitionId] = indexEntryAddress;
         }
 
         // move the write position forward so as to write the corresponding record
@@ -201,8 +185,8 @@ public class SortBufferContainer {
 
     private void writeRecord(ByteBuffer source) {
         while (source.hasRemaining()) {
-            MemorySegment segment = segments.get(writeSegmentIndex);
-            int toCopy = Math.min(bufferSize - writeSegmentOffset, source.remaining());
+            MemorySegment segment = dataSegments.get(writeSegmentIndex);
+            int toCopy = Math.min(bufferSizeBytes - writeSegmentOffset, source.remaining());
             segment.put(writeSegmentOffset, source, toCopy);
 
             // move the write position forward so as to write the remaining bytes or next record
@@ -213,7 +197,7 @@ public class SortBufferContainer {
     private boolean allocateBuffersForRecord(int numRecordBytes) {
         int numBytesRequired = INDEX_ENTRY_SIZE + numRecordBytes;
         int availableBytes =
-                writeSegmentIndex == segments.size() ? 0 : bufferSize - writeSegmentOffset;
+                writeSegmentIndex == dataSegments.size() ? 0 : bufferSizeBytes - writeSegmentOffset;
 
         // return directly if current available bytes is adequate
         if (availableBytes >= numBytesRequired) {
@@ -226,7 +210,7 @@ public class SortBufferContainer {
             availableBytes = 0;
         }
 
-        if (availableBytes + (numGuaranteedBuffers - segments.size()) * (long) bufferSize
+        if (availableBytes + (numGuaranteedBuffers - dataSegments.size()) * (long) bufferSizeBytes
                 < numBytesRequired) {
             return false;
         }
@@ -234,7 +218,7 @@ public class SortBufferContainer {
         // allocate exactly enough buffers for the appended record
         do {
             MemorySegment segment = freeSegments.poll();
-            availableBytes += bufferSize;
+            availableBytes += bufferSizeBytes;
             addBuffer(checkNotNull(segment));
         } while (availableBytes < numBytesRequired);
 
@@ -242,7 +226,7 @@ public class SortBufferContainer {
     }
 
     private void addBuffer(MemorySegment segment) {
-        if (segment.size() != bufferSize) {
+        if (segment.size() != bufferSizeBytes) {
             bufferRecycler.recycle(segment);
             throw new IllegalStateException("Illegal memory segment size.");
         }
@@ -252,14 +236,14 @@ public class SortBufferContainer {
             throw new IllegalStateException("Sort buffer is already released.");
         }
 
-        segments.add(segment);
+        dataSegments.add(segment);
     }
 
     private void updateWriteSegmentIndexAndOffset(int numBytes) {
         writeSegmentOffset += numBytes;
 
         // using the next available free buffer if the current is full
-        if (writeSegmentOffset == bufferSize) {
+        if (writeSegmentOffset == bufferSizeBytes) {
             ++writeSegmentIndex;
             writeSegmentOffset = 0;
         }
@@ -275,12 +259,12 @@ public class SortBufferContainer {
 
         int numBytesCopied = 0;
         Buffer.DataType bufferDataType = Buffer.DataType.DATA_BUFFER;
-        int channelIndex = subpartitionReadOrder[readOrderIndex];
+        int currentReadingSubpartitionId = readingSubpartitionId;
 
         do {
             int sourceSegmentIndex = getSegmentIndexFromPointer(readIndexEntryAddress);
             int sourceSegmentOffset = getSegmentOffsetFromPointer(readIndexEntryAddress);
-            MemorySegment sourceSegment = segments.get(sourceSegmentIndex);
+            MemorySegment sourceSegment = dataSegments.get(sourceSegmentIndex);
 
             long lengthAndDataType = sourceSegment.getLong(sourceSegmentOffset);
             int length = getSegmentIndexFromPointer(lengthAndDataType);
@@ -313,7 +297,8 @@ public class SortBufferContainer {
 
             if (recordRemainingBytes == 0) {
                 // move to next channel if the current channel has been finished
-                if (readIndexEntryAddress == lastIndexEntryAddresses[channelIndex]) {
+                if (readIndexEntryAddress
+                        == lastIndexEntryAddresses[currentReadingSubpartitionId]) {
                     updateReadChannelAndIndexEntryAddress();
                     break;
                 }
@@ -323,7 +308,7 @@ public class SortBufferContainer {
 
         numTotalBytesRead += numBytesCopied;
         return Pair.of(
-                channelIndex,
+                currentReadingSubpartitionId,
                 new NetworkBuffer(transitBuffer, bufferRecycler, bufferDataType, numBytesCopied));
     }
 
@@ -337,8 +322,8 @@ public class SortBufferContainer {
             // skip the data already read if there is remaining partial record after the previous
             // copy
             long position = (long) sourceSegmentOffset + (recordLength - recordRemainingBytes);
-            sourceSegmentIndex += (position / bufferSize);
-            sourceSegmentOffset = (int) (position % bufferSize);
+            sourceSegmentIndex += (position / bufferSizeBytes);
+            sourceSegmentOffset = (int) (position % bufferSizeBytes);
         } else {
             recordRemainingBytes = recordLength;
         }
@@ -349,15 +334,15 @@ public class SortBufferContainer {
         MemorySegment sourceSegment;
         do {
             // move to next data buffer if all data of the current buffer has been copied
-            if (sourceSegmentOffset == bufferSize) {
+            if (sourceSegmentOffset == bufferSizeBytes) {
                 ++sourceSegmentIndex;
                 sourceSegmentOffset = 0;
             }
 
             int sourceRemainingBytes =
-                    Math.min(bufferSize - sourceSegmentOffset, recordRemainingBytes);
+                    Math.min(bufferSizeBytes - sourceSegmentOffset, recordRemainingBytes);
             int numBytes = Math.min(targetSegmentSize - targetSegmentOffset, sourceRemainingBytes);
-            sourceSegment = segments.get(sourceSegmentIndex);
+            sourceSegment = dataSegments.get(sourceSegmentIndex);
             sourceSegment.copyTo(sourceSegmentOffset, targetSegment, targetSegmentOffset, numBytes);
 
             recordRemainingBytes -= numBytes;
@@ -370,9 +355,8 @@ public class SortBufferContainer {
 
     private void updateReadChannelAndIndexEntryAddress() {
         // skip the channels without any data
-        while (++readOrderIndex < firstIndexEntryAddresses.length) {
-            int channelIndex = subpartitionReadOrder[readOrderIndex];
-            if ((readIndexEntryAddress = firstIndexEntryAddresses[channelIndex]) >= 0) {
+        while (++readingSubpartitionId < firstIndexEntryAddresses.length) {
+            if ((readIndexEntryAddress = firstIndexEntryAddresses[readingSubpartitionId]) >= 0) {
                 break;
             }
         }
@@ -424,9 +408,11 @@ public class SortBufferContainer {
     }
 
     private void clearSegments() {
-        for (MemorySegment segment : segments) {
+        for (MemorySegment segment : dataSegments) {
             bufferRecycler.recycle(segment);
         }
-        segments.clear();
+        dataSegments.clear();
     }
+
+    private class WriteStatistics {}
 }
