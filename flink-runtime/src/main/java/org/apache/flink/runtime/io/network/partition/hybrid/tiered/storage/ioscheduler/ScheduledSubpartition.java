@@ -114,6 +114,7 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
                 if ((buffer =
                                 partitionFileReader.readBuffer(
                                         subpartitionId,
+                                        -1,
                                         readingProgressRecorder.getCurrentFileOffset(),
                                         segment,
                                         recycler))
