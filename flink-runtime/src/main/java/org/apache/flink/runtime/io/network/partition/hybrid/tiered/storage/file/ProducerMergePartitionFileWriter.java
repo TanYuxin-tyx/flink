@@ -1,5 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
@@ -18,12 +20,16 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateBufferWithHeaders;
 
@@ -63,10 +69,18 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     }
 
     @Override
-    public CompletableFuture<Void> spillAsync(
-            int subpartitionId, int segmentId, List<NettyPayload> bufferToSpill) {
+    public CompletableFuture<Void> write(
+            List<Tuple2<Integer, Tuple3<Integer, List<NettyPayload>, Boolean>>> toWriteBuffers) {
+        List<NettyPayload> buffersToSpill =
+                toWriteBuffers.stream()
+                        .map(subpartitionBuffers -> subpartitionBuffers.f1)
+                        .map(segmentBuffers -> segmentBuffers.f1)
+                        .flatMap(
+                                (Function<List<NettyPayload>, Stream<NettyPayload>>)
+                                        Collection::stream)
+                        .collect(Collectors.toList());
         CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
-        ioExecutor.execute(() -> spill(bufferToSpill, spillSuccessNotifier));
+        ioExecutor.execute(() -> spill(buffersToSpill, spillSuccessNotifier));
         return spillSuccessNotifier;
     }
 
