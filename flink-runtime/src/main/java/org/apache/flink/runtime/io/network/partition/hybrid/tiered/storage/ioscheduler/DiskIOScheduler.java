@@ -10,7 +10,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceProducer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
 import org.slf4j.Logger;
@@ -61,7 +61,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
     private final PartitionFileReader partitionFileReader;
 
-    private final RegionBufferIndexTracker dataIndex;
+    private final PartitionFileIndex dataIndex;
 
     @GuardedBy("lock")
     private final Map<NettyConnectionId, ScheduledSubpartitionReader> allScheduledReaders =
@@ -85,7 +85,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             TieredStorageNettyService nettyService,
             List<Map<Integer, Integer>> segmentIdRecorder,
             PartitionFileReader partitionFileReader,
-            RegionBufferIndexTracker dataIndex) {
+            PartitionFileIndex dataIndex) {
         this.bufferPool = checkNotNull(bufferPool);
         this.ioExecutor = checkNotNull(ioExecutor);
         this.maxRequestedBuffers = maxRequestedBuffers;

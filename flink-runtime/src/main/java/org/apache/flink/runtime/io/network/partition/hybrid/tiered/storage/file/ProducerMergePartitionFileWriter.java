@@ -5,7 +5,6 @@ import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
@@ -53,10 +52,10 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     /** Records the current writing location. */
     private long totalBytesWritten;
 
-    private final RegionBufferIndexTracker regionBufferIndexTracker;
+    private final PartitionFileIndex partitionFileIndex;
 
     public ProducerMergePartitionFileWriter(
-            Path dataFilePath, RegionBufferIndexTracker regionBufferIndexTracker) {
+            Path dataFilePath, PartitionFileIndex partitionFileIndex) {
         LOG.info("Creating partition file " + dataFilePath);
         try {
             this.dataFileChannel =
@@ -65,7 +64,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
         } catch (IOException e) {
             throw new RuntimeException("Failed to create file channel.", e);
         }
-        this.regionBufferIndexTracker = regionBufferIndexTracker;
+        this.partitionFileIndex = partitionFileIndex;
     }
 
     @Override
@@ -88,10 +87,10 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void spill(List<NettyPayload> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
         try {
-            List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers = new ArrayList<>();
+            List<PartitionFileIndex.SpilledBuffer> spilledBuffers = new ArrayList<>();
             long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
             writeBuffers(toWrite, expectedBytes);
-            regionBufferIndexTracker.addBuffers(spilledBuffers);
+            partitionFileIndex.addRegionIndex(spilledBuffers);
             for (NettyPayload nettyPayload : toWrite) {
                 nettyPayload.getBuffer().get().recycleBuffer();
             }
@@ -104,20 +103,20 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     /**
      * Compute buffer's file offset and create spilled buffers.
      *
-     * @param toWrite for create {@link RegionBufferIndexTracker.SpilledBuffer}.
-     * @param spilledBuffers receive the created {@link RegionBufferIndexTracker.SpilledBuffer} by
+     * @param toWrite for create {@link PartitionFileIndex.SpilledBuffer}.
+     * @param spilledBuffers receive the created {@link PartitionFileIndex.SpilledBuffer} by
      *     this method.
      * @return total bytes(header size + buffer size) of all buffers to write.
      */
     private long createSpilledBuffersAndGetTotalBytes(
             List<NettyPayload> toWrite,
-            List<RegionBufferIndexTracker.SpilledBuffer> spilledBuffers) {
+            List<PartitionFileIndex.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
         for (NettyPayload nettyPayload : toWrite) {
             Buffer buffer = nettyPayload.getBuffer().get();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
-                    new RegionBufferIndexTracker.SpilledBuffer(
+                    new PartitionFileIndex.SpilledBuffer(
                             nettyPayload.getSubpartitionId(),
                             nettyPayload.getBufferIndex(),
                             totalBytesWritten + expectedBytes));
@@ -157,6 +156,6 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
         } catch (Exception e) {
             ExceptionUtils.rethrow(e);
         }
-        regionBufferIndexTracker.release();
+        partitionFileIndex.release();
     }
 }

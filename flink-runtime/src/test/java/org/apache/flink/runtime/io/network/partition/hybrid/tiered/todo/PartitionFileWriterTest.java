@@ -29,7 +29,7 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFile;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTrackerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndexImpl;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -174,6 +174,6 @@ class PartitionFileWriterTest {
 
     private PartitionFileWriter createProducerMergePartitionFileWriter() {
         return ProducerMergePartitionFile.createPartitionFileWriter(
-                dataFilePath, new RegionBufferIndexTrackerImpl(NUM_SUBPARTITIONS));
+                dataFilePath, new PartitionFileIndexImpl(NUM_SUBPARTITIONS));
     }
 }

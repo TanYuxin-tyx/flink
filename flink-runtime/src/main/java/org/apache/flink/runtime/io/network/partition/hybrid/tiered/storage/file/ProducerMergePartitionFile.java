@@ -18,15 +18,13 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
-
 import java.nio.file.Path;
 
 public class ProducerMergePartitionFile {
 
     public static ProducerMergePartitionFileWriter createPartitionFileWriter(
-            Path dataFilePath, RegionBufferIndexTracker regionBufferIndexTracker) {
-        return new ProducerMergePartitionFileWriter(dataFilePath, regionBufferIndexTracker);
+            Path dataFilePath, PartitionFileIndex partitionFileIndex) {
+        return new ProducerMergePartitionFileWriter(dataFilePath, partitionFileIndex);
     }
 
     public static ProducerMergePartitionFileReader createPartitionFileReader(Path dataFilePath) {
