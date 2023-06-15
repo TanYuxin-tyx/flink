@@ -22,18 +22,24 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 
-/**
- * The {@link PartitionFileReader} interface defines the read logic for different types of shuffle
- * files.
- */
-public interface PartitionFileReader {
+/** The {@link PartitionFileReader2} interface defines the reading logic of partition files. */
+public interface PartitionFileReader2 {
 
+    /**
+     * Read a buffer from partition file.
+     *
+     * @param subpartitionId subpartition id indicates the id of subpartition.
+     * @param fileOffset file offset indicates the current reading offset.
+     * @param memorySegment memory segment indicates a segment of available buffer.
+     * @param recycler recycler indicates the owner of the buffer.
+     * @return the buffer.
+     */
     Buffer readBuffer(
-            int subpartitionId, FileReaderId id, MemorySegment segment, BufferRecycler recycler);
+            int subpartitionId,
+            long fileOffset,
+            MemorySegment memorySegment,
+            BufferRecycler recycler);
 
-    long getFileOffset(int subpartitionId, FileReaderId id);
-
-    int getReadableBuffers(int subpartitionId, int currentBufferIndex, FileReaderId id);
-
+    /** Release the {@link PartitionFileReader2}. */
     void release();
 }

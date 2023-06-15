@@ -111,13 +111,15 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     }
 
     @Override
-    public synchronized void run() {
-        int numBuffersRead = readBuffersFromFile();
-        isRunning = false;
-        if (numBuffersRead == 0) {
-            ioExecutor.schedule(this::triggerReaderRunning, 5, TimeUnit.MILLISECONDS);
-        } else {
-            triggerReaderRunning();
+    public void run() {
+        synchronized (lock){
+            int numBuffersRead = readBuffersFromFile();
+            isRunning = false;
+            if (numBuffersRead == 0) {
+                ioExecutor.schedule(this::triggerReaderRunning, 5, TimeUnit.MILLISECONDS);
+            } else {
+                triggerReaderRunning();
+            }
         }
     }
 
@@ -158,8 +160,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             isReleased = true;
             allScheduledSubpartitions.clear();
             firstBufferContextInSegment.clear();
+            partitionFileReader.release();
         }
-        IOUtils.deleteFileQuietly(dataFilePath);
     }
 
     // ------------------------------------------------------------------------
