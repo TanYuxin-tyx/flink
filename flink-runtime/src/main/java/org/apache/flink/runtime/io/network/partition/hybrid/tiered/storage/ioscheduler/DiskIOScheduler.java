@@ -9,7 +9,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceProducer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.FileReaderId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
@@ -34,7 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -68,12 +66,10 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
     private final List<Map<Integer, Integer>> firstBufferContextInSegment;
 
-    private final Map<NettyConnectionId, FileReaderId> allFileReaderIds = new ConcurrentHashMap<>();
-
     private final PartitionFileReader partitionFileReader;
 
     @GuardedBy("lock")
-    private final Map<FileReaderId, ScheduledSubpartition> allScheduledSubpartitions =
+    private final Map<NettyConnectionId, ScheduledSubpartition> allScheduledSubpartitions =
             new HashMap<>();
 
     @GuardedBy("lock")
@@ -142,17 +138,14 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                             partitionFileReader,
                             dataIndex);
             allScheduledSubpartitions.put(
-                    scheduledSubpartition.getFileReaderId(), scheduledSubpartition);
-            allFileReaderIds.put(
-                    nettyConnectionWriter.getNettyConnectionId(),
-                    scheduledSubpartition.getFileReaderId());
+                    nettyConnectionWriter.getNettyConnectionId(), scheduledSubpartition);
             triggerReaderRunning();
         }
     }
 
     @Override
     public void connectionBroken(NettyConnectionId id) {
-        removeSubpartition(allFileReaderIds.get(id));
+        removeSubpartition(id);
     }
 
     public void release() {
@@ -256,7 +249,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     private void failSubpartitionReaders(
             Collection<ScheduledSubpartition> subpartitionReaders, Throwable failureCause) {
         for (ScheduledSubpartition subpartitionReader : subpartitionReaders) {
-            removeSubpartition(subpartitionReader.getFileReaderId());
+            removeSubpartition(subpartitionReader.getNettyServiceWriterId());
             subpartitionReader.fail(failureCause);
         }
     }
@@ -317,7 +310,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         return bufferPool.getLastBufferOperationTimestamp() + bufferRequestTimeout.toMillis();
     }
 
-    private void removeSubpartition(FileReaderId readerId) {
+    private void removeSubpartition(NettyConnectionId readerId) {
         synchronized (lock) {
             allScheduledSubpartitions.remove(readerId);
             if (allScheduledSubpartitions.isEmpty()) {

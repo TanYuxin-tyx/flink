@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.FileReaderId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.function.TriFunction;
 
@@ -48,7 +48,7 @@ public class TestingRegionBufferIndexTracker implements RegionBufferIndexTracker
 
     @Override
     public Optional<ReadableRegion> getReadableRegion(
-            int subpartitionId, int bufferIndex, FileReaderId nettyServiceWriterId) {
+            int subpartitionId, int bufferIndex, NettyConnectionId nettyServiceWriterId) {
         return getReadableRegionFunction.apply(subpartitionId, bufferIndex, 0);
     }
 
