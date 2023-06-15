@@ -23,7 +23,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -71,17 +70,14 @@ public class SortBufferAccumulator implements BufferAccumulator {
     private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher;
 
     public SortBufferAccumulator(
-            TieredStoragePartitionId partitionId,
             int numSubpartitions,
             int numBuffersOfSortAccumulatorThreshold,
             int bufferSize,
-            TieredStorageMemoryManager storeMemoryManager,
-            TieredStorageResourceRegistry resourceRegistry) {
+            TieredStorageMemoryManager storeMemoryManager) {
         this.numSubpartitions = numSubpartitions;
         this.bufferSize = bufferSize;
         this.numBuffersOfSortAccumulatorThreshold = numBuffersOfSortAccumulatorThreshold;
         this.storeMemoryManager = storeMemoryManager;
-        resourceRegistry.registerResource(partitionId, this::releaseResources);
     }
 
     @Override
@@ -128,7 +124,11 @@ public class SortBufferAccumulator implements BufferAccumulator {
     }
 
     @Override
-    public void close() {}
+    public void close() {
+        releaseFreeBuffers();
+        releaseDataBuffer(unicastDataBuffer);
+        releaseDataBuffer(broadcastDataBuffer);
+    }
 
     public void release() {
         releaseFreeBuffers();
@@ -295,13 +295,5 @@ public class SortBufferAccumulator implements BufferAccumulator {
 
     private void recycleBuffer(MemorySegment memorySegment) {
         bufferRecycler.recycle(memorySegment);
-    }
-
-    private void releaseResources() {
-        releaseFreeBuffers();
-        // the close method will always be called by the task thread, so there is need to make
-        // the sort buffer fields volatile and visible to the cancel thread intermediately
-        releaseDataBuffer(unicastDataBuffer);
-        releaseDataBuffer(broadcastDataBuffer);
     }
 }
