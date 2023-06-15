@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.IOUtils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -120,6 +121,12 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to move file offset to buffer.");
         }
+    }
+
+    @Override
+    public void release() {
+        fileChannel = null;
+        IOUtils.deleteFileQuietly(dataFilePath);
     }
 
     private class SubpartitionFileCache {
