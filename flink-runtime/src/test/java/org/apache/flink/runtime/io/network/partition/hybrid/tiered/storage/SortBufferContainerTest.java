@@ -79,14 +79,14 @@ public class SortBufferContainerTest {
             random.nextBytes(bytes);
             ByteBuffer record = ByteBuffer.wrap(bytes);
 
-            // select a random subpartition to write
+            // select a random subpartition to writeRecord
             int subpartition = random.nextInt(numSubpartitions);
 
             // select a random data type
             boolean isBuffer = random.nextBoolean();
             Buffer.DataType dataType =
                     isBuffer ? Buffer.DataType.DATA_BUFFER : Buffer.DataType.EVENT_BUFFER;
-            boolean isFull = dataBuffer.append(record, subpartition, dataType);
+            boolean isFull = dataBuffer.writeRecord(record, subpartition, dataType);
 
             record.flip();
             if (record.hasRemaining()) {
@@ -125,7 +125,7 @@ public class SortBufferContainerTest {
 
     private Pair<Integer, Buffer> copyIntoSegment(int bufferSize, SortBufferContainer dataBuffer) {
         MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(bufferSize);
-        return dataBuffer.getNextBuffer(segment);
+        return dataBuffer.readBuffer(segment);
     }
 
     private void addBufferRead(
@@ -194,7 +194,7 @@ public class SortBufferContainerTest {
         ByteBuffer record = ByteBuffer.allocate(1);
         record.position(1);
 
-        dataBuffer.append(record, 0, Buffer.DataType.DATA_BUFFER);
+        dataBuffer.writeRecord(record, 0, Buffer.DataType.DATA_BUFFER);
     }
 
     @Test(expected = IllegalStateException.class)
@@ -204,7 +204,7 @@ public class SortBufferContainerTest {
         SortBufferContainer dataBuffer = createDataBuffer(1, bufferSize, 1);
         dataBuffer.finish();
 
-        dataBuffer.append(ByteBuffer.allocate(1), 0, Buffer.DataType.DATA_BUFFER);
+        dataBuffer.writeRecord(ByteBuffer.allocate(1), 0, Buffer.DataType.DATA_BUFFER);
     }
 
     @Test(expected = IllegalStateException.class)
@@ -214,7 +214,7 @@ public class SortBufferContainerTest {
         SortBufferContainer dataBuffer = createDataBuffer(1, bufferSize, 1);
         dataBuffer.release();
 
-        dataBuffer.append(ByteBuffer.allocate(1), 0, Buffer.DataType.DATA_BUFFER);
+        dataBuffer.writeRecord(ByteBuffer.allocate(1), 0, Buffer.DataType.DATA_BUFFER);
     }
 
     @Test
@@ -228,7 +228,7 @@ public class SortBufferContainerTest {
             appendAndCheckResult(dataBuffer, bufferSize, false, bufferSize * i, i, true);
         }
 
-        // append should fail for insufficient capacity
+        // writeRecord should fail for insufficient capacity
         int numRecords = bufferPoolSize - 1;
         long numBytes = bufferSize * numRecords;
         appendAndCheckResult(dataBuffer, bufferSize + 1, true, numBytes, numRecords, true);
@@ -253,7 +253,7 @@ public class SortBufferContainerTest {
             throws IOException {
         ByteBuffer largeRecord = ByteBuffer.allocate(recordSize);
 
-        assertEquals(isFull, dataBuffer.append(largeRecord, 0, Buffer.DataType.DATA_BUFFER));
+        assertEquals(isFull, dataBuffer.writeRecord(largeRecord, 0, Buffer.DataType.DATA_BUFFER));
         assertEquals(numBytes, dataBuffer.numTotalBytes());
         assertEquals(numRecords, dataBuffer.numTotalRecords());
         assertEquals(hasRemaining, dataBuffer.hasRemaining());
@@ -264,10 +264,10 @@ public class SortBufferContainerTest {
         int bufferSize = 1024;
 
         SortBufferContainer dataBuffer = createDataBuffer(1, bufferSize, 1);
-        dataBuffer.append(ByteBuffer.allocate(1), 0, Buffer.DataType.DATA_BUFFER);
+        dataBuffer.writeRecord(ByteBuffer.allocate(1), 0, Buffer.DataType.DATA_BUFFER);
 
         assertTrue(dataBuffer.hasRemaining());
-        dataBuffer.getNextBuffer(MemorySegmentFactory.allocateUnpooledSegment(bufferSize));
+        dataBuffer.readBuffer(MemorySegmentFactory.allocateUnpooledSegment(bufferSize));
     }
 
     @Test(expected = IllegalStateException.class)
@@ -275,14 +275,14 @@ public class SortBufferContainerTest {
         int bufferSize = 1024;
 
         SortBufferContainer dataBuffer = createDataBuffer(1, bufferSize, 1);
-        dataBuffer.append(ByteBuffer.allocate(1), 0, Buffer.DataType.DATA_BUFFER);
+        dataBuffer.writeRecord(ByteBuffer.allocate(1), 0, Buffer.DataType.DATA_BUFFER);
         dataBuffer.finish();
         assertTrue(dataBuffer.hasRemaining());
 
         dataBuffer.release();
         assertTrue(dataBuffer.hasRemaining());
 
-        dataBuffer.getNextBuffer(MemorySegmentFactory.allocateUnpooledSegment(bufferSize));
+        dataBuffer.readBuffer(MemorySegmentFactory.allocateUnpooledSegment(bufferSize));
     }
 
     @Test
@@ -293,8 +293,7 @@ public class SortBufferContainerTest {
         dataBuffer.finish();
 
         assertFalse(dataBuffer.hasRemaining());
-        assertNull(
-                dataBuffer.getNextBuffer(MemorySegmentFactory.allocateUnpooledSegment(bufferSize)));
+        assertNull(dataBuffer.readBuffer(MemorySegmentFactory.allocateUnpooledSegment(bufferSize)));
     }
 
     @Test
@@ -312,7 +311,7 @@ public class SortBufferContainerTest {
         }
         SortBufferContainer dataBuffer =
                 new SortBufferContainer(segments, bufferPool, 1, bufferSize, bufferPoolSize);
-        dataBuffer.append(ByteBuffer.allocate(recordSize), 0, Buffer.DataType.DATA_BUFFER);
+        dataBuffer.writeRecord(ByteBuffer.allocate(recordSize), 0, Buffer.DataType.DATA_BUFFER);
 
         assertEquals(bufferPoolSize, bufferPool.bestEffortGetNumOfUsedBuffers());
         assertTrue(dataBuffer.hasRemaining());

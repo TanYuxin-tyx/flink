@@ -202,7 +202,7 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             checkState(
                     currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].tryWrite(
                             subpartitionId.getSubpartitionId(), compressedBuffer),
-                    "Failed to write the first buffer to the new segment");
+                    "Failed to writeRecord the first buffer to the new segment");
         }
         memoryManager.transferBufferOwnership(
                 bufferAccumulator,

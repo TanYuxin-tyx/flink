@@ -100,7 +100,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         int targetSubpartition = subpartitionId.getSubpartitionId();
         SortBufferContainer sortBufferContainer =
                 isBroadcast ? getBroadcastDataBuffer() : getUnicastDataBuffer();
-        if (!sortBufferContainer.append(record, targetSubpartition, dataType)) {
+        if (!sortBufferContainer.writeRecord(record, targetSubpartition, dataType)) {
             if (isEndOfPartition) {
                 flushDataBuffer(sortBufferContainer);
             }
@@ -209,7 +209,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         do {
             MemorySegment freeSegment = getFreeSegment();
             Pair<Integer, Buffer> bufferAndSubpartitionId =
-                    sortBufferContainer.getNextBuffer(freeSegment);
+                    sortBufferContainer.readBuffer(freeSegment);
             if (bufferAndSubpartitionId == null) {
                 if (freeSegment != null) {
                     recycleBuffer(freeSegment);
