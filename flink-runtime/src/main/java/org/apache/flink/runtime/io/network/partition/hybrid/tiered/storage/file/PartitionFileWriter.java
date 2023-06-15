@@ -11,8 +11,6 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface PartitionFileWriter {
 
-    CompletableFuture<Void> spillAsync(List<NettyPayload> bufferToSpill);
-
     CompletableFuture<Void> spillAsync(
             int subpartitionId, int segmentId, List<NettyPayload> bufferToSpill);
 

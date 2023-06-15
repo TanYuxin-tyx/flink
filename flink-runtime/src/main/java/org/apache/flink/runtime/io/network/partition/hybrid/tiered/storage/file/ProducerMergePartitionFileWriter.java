@@ -65,21 +65,15 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     @Override
     public CompletableFuture<Void> spillAsync(
             int subpartitionId, int segmentId, List<NettyPayload> bufferToSpill) {
-        // nothing to do.
-        return null;
+        CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
+        ioExecutor.execute(() -> spill(bufferToSpill, spillSuccessNotifier));
+        return spillSuccessNotifier;
     }
 
     @Override
     public CompletableFuture<Void> finishSegment(int subpartitionId, int segmentId) {
         // nothing to do.
         return null;
-    }
-
-    @Override
-    public CompletableFuture<Void> spillAsync(List<NettyPayload> bufferToSpill) {
-        CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
-        ioExecutor.execute(() -> spill(bufferToSpill, spillSuccessNotifier));
-        return spillSuccessNotifier;
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
