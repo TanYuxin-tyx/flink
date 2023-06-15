@@ -49,7 +49,11 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
     @Override
     public Buffer readBuffer(
-            int subpartitionId, long fileOffSet, MemorySegment segment, BufferRecycler recycler) {
+            int subpartitionId,
+            int segmentId,
+            long fileOffSet,
+            MemorySegment segment,
+            BufferRecycler recycler) {
         if (fileChannel == null) {
             try {
                 fileChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);

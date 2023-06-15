@@ -28,11 +28,23 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
  */
 public interface PartitionFileReader {
 
+    /**
+     * Read a buffer from partition file.
+     *
+     * @param subpartitionId subpartition id indicates the id of subpartition.
+     * @param segmentId segment id indicates the id of required segment.
+     * @param fileOffset file offset indicates the current reading offset.
+     * @param memorySegment memory segment indicates a segment of available buffer.
+     * @param recycler recycler indicates the owner of the buffer.
+     * @return the buffer.
+     */
     Buffer readBuffer(
             int subpartitionId,
-            long fileOffSet,
-            MemorySegment segment,
+            int segmentId,
+            long fileOffset,
+            MemorySegment memorySegment,
             BufferRecycler recycler);
 
+    /** Release the {@link PartitionFileReader}. */
     void release();
 }
