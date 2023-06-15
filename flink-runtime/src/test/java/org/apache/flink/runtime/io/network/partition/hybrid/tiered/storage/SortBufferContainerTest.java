@@ -67,11 +67,8 @@ public class SortBufferContainerTest {
         Arrays.fill(numBytesRead, 0);
 
         // fill the sort buffer with randomly generated data
-        int totalBytesWritten = 0;
-        int[] subpartitionReadOrder = getRandomSubpartitionOrder(numSubpartitions);
         SortBufferContainer dataBuffer =
-                createDataBuffer(
-                        bufferPoolSize, bufferSize, numSubpartitions, subpartitionReadOrder);
+                createDataBuffer(bufferPoolSize, bufferSize, numSubpartitions);
         int numDataBuffers = 5;
         while (numDataBuffers > 0) {
             // record size may be larger than buffer size so a record may span multiple segments
@@ -95,7 +92,6 @@ public class SortBufferContainerTest {
             if (record.hasRemaining()) {
                 dataWritten[subpartition].add(new DataAndType(record, dataType));
                 numBytesWritten[subpartition] += record.remaining();
-                totalBytesWritten += record.remaining();
             }
 
             if (!isFull) {
@@ -111,9 +107,7 @@ public class SortBufferContainerTest {
                 }
                 addBufferRead(buffer, buffersRead, numBytesRead);
             }
-            dataBuffer =
-                    createDataBuffer(
-                            bufferPoolSize, bufferSize, numSubpartitions, subpartitionReadOrder);
+            dataBuffer = createDataBuffer(bufferPoolSize, bufferSize, numSubpartitions);
         }
 
         // read all data from the sort buffer
@@ -317,7 +311,7 @@ public class SortBufferContainerTest {
             segments.add(bufferPool.requestMemorySegmentBlocking());
         }
         SortBufferContainer dataBuffer =
-                new SortBufferContainer(segments, bufferPool, 1, bufferSize, bufferPoolSize, null);
+                new SortBufferContainer(segments, bufferPool, 1, bufferSize, bufferPoolSize);
         dataBuffer.append(ByteBuffer.allocate(recordSize), 0, Buffer.DataType.DATA_BUFFER);
 
         assertEquals(bufferPoolSize, bufferPool.bestEffortGetNumOfUsedBuffers());
@@ -335,12 +329,6 @@ public class SortBufferContainerTest {
 
     private SortBufferContainer createDataBuffer(
             int bufferPoolSize, int bufferSize, int numSubpartitions) throws Exception {
-        return createDataBuffer(bufferPoolSize, bufferSize, numSubpartitions, null);
-    }
-
-    private SortBufferContainer createDataBuffer(
-            int bufferPoolSize, int bufferSize, int numSubpartitions, int[] customReadOrder)
-            throws Exception {
         NetworkBufferPool globalPool = new NetworkBufferPool(bufferPoolSize, bufferSize);
         BufferPool bufferPool = globalPool.createBufferPool(bufferPoolSize, bufferPoolSize);
 
@@ -349,12 +337,7 @@ public class SortBufferContainerTest {
             segments.add(bufferPool.requestMemorySegmentBlocking());
         }
         return new SortBufferContainer(
-                segments,
-                bufferPool,
-                numSubpartitions,
-                bufferSize,
-                bufferPoolSize,
-                customReadOrder);
+                segments, bufferPool, numSubpartitions, bufferSize, bufferPoolSize);
     }
 
     public static int[] getRandomSubpartitionOrder(int numSubpartitions) {

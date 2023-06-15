@@ -168,12 +168,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         requestNetworkBuffers();
 
         return new SortBufferContainer(
-                freeSegments,
-                this::recycleBuffer,
-                numSubpartitions,
-                bufferSize,
-                numBuffersForSort,
-                null);
+                freeSegments, this::recycleBuffer, numSubpartitions, bufferSize, numBuffersForSort);
     }
 
     private void requestGuaranteedBuffers() {
@@ -213,14 +208,15 @@ public class SortBufferAccumulator implements BufferAccumulator {
 
         do {
             MemorySegment freeSegment = getFreeSegment();
-            Pair<Integer, Buffer> bufferAndChannel = sortBufferContainer.getNextBuffer(freeSegment);
-            if (bufferAndChannel == null) {
+            Pair<Integer, Buffer> bufferAndSubpartitionId =
+                    sortBufferContainer.getNextBuffer(freeSegment);
+            if (bufferAndSubpartitionId == null) {
                 if (freeSegment != null) {
                     recycleBuffer(freeSegment);
                 }
                 break;
             }
-            addFinishedBuffer(bufferAndChannel);
+            addFinishedBuffer(bufferAndSubpartitionId);
         } while (true);
 
         releaseFreeBuffers();
