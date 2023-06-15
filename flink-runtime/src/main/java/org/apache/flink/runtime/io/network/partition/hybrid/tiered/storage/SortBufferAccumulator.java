@@ -98,26 +98,26 @@ public class SortBufferAccumulator implements BufferAccumulator {
             flushBroadcastDataBuffer();
         }
         int targetSubpartition = subpartitionId.getSubpartitionId();
-        SortBufferContainer dataBuffer =
+        SortBufferContainer sortBufferContainer =
                 isBroadcast ? getBroadcastDataBuffer() : getUnicastDataBuffer();
-        if (!dataBuffer.append(record, targetSubpartition, dataType)) {
+        if (!sortBufferContainer.append(record, targetSubpartition, dataType)) {
             if (isEndOfPartition) {
-                flushDataBuffer(dataBuffer);
+                flushDataBuffer(sortBufferContainer);
             }
             return;
         }
 
-        if (!dataBuffer.hasRemaining()) {
-            dataBuffer.release();
+        if (!sortBufferContainer.hasRemaining()) {
+            sortBufferContainer.release();
             writeLargeRecord(record, targetSubpartition, dataType);
             if (isEndOfPartition) {
-                flushDataBuffer(dataBuffer);
+                flushDataBuffer(sortBufferContainer);
             }
             return;
         }
 
-        flushDataBuffer(dataBuffer);
-        dataBuffer.release();
+        flushDataBuffer(sortBufferContainer);
+        sortBufferContainer.release();
         if (record.hasRemaining()) {
             receive(record, subpartitionId, dataType, isBroadcast, isEndOfPartition);
         }
@@ -203,15 +203,17 @@ public class SortBufferAccumulator implements BufferAccumulator {
         numBuffersForSort = freeSegments.size() - numWriteBuffers;
     }
 
-    private void flushDataBuffer(SortBufferContainer dataBuffer) {
-        if (dataBuffer == null || dataBuffer.isReleased() || !dataBuffer.hasRemaining()) {
+    private void flushDataBuffer(SortBufferContainer sortBufferContainer) {
+        if (sortBufferContainer == null
+                || sortBufferContainer.isReleased()
+                || !sortBufferContainer.hasRemaining()) {
             return;
         }
-        dataBuffer.finish();
+        sortBufferContainer.finish();
 
         do {
             MemorySegment freeSegment = getFreeSegment();
-            Pair<Integer, Buffer> bufferAndChannel = dataBuffer.getNextBuffer(freeSegment);
+            Pair<Integer, Buffer> bufferAndChannel = sortBufferContainer.getNextBuffer(freeSegment);
             if (bufferAndChannel == null) {
                 if (freeSegment != null) {
                     recycleBuffer(freeSegment);
@@ -222,7 +224,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         } while (true);
 
         releaseFreeBuffers();
-        dataBuffer.release();
+        sortBufferContainer.release();
     }
 
     private void flushBroadcastDataBuffer() {
@@ -273,9 +275,9 @@ public class SortBufferAccumulator implements BufferAccumulator {
         return Math.min(numSubpartitions + 1, numBuffersOfSortAccumulatorThreshold);
     }
 
-    private void releaseDataBuffer(SortBufferContainer dataBuffer) {
-        if (dataBuffer != null) {
-            dataBuffer.release();
+    private void releaseDataBuffer(SortBufferContainer sortBufferContainer) {
+        if (sortBufferContainer != null) {
+            sortBufferContainer.release();
         }
     }
 
