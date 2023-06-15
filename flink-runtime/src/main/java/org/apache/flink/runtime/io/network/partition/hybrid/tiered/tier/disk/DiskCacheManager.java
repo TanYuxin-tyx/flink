@@ -145,7 +145,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
         }
         if (!nettyPayloads.isEmpty()) {
             CompletableFuture<Void> spillSuccessNotifier =
-                    partitionFileWriter.spillAsync(nettyPayloads);
+                    partitionFileWriter.spillAsync(-1, -1, nettyPayloads);
             if (changeFlushState) {
                 hasFlushCompleted = spillSuccessNotifier;
             }

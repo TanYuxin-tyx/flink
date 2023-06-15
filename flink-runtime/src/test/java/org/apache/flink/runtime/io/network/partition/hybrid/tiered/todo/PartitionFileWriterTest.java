@@ -102,7 +102,7 @@ class PartitionFileWriterTest {
                         isCompressed,
                         Arrays.asList(Tuple2.of(4, 0), Tuple2.of(5, 1), Tuple2.of(6, 2))));
         CompletableFuture<Void> spillFinishedFuture =
-                partitionFileWriter.spillAsync(nettyPayloadList);
+                partitionFileWriter.spillAsync(-1, -1, nettyPayloadList);
         spillFinishedFuture.get();
         checkData(
                 isCompressed,
@@ -124,11 +124,11 @@ class PartitionFileWriterTest {
                                 false,
                                 Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
         CompletableFuture<Void> spillFinishedFuture =
-                partitionFileWriter.spillAsync(nettyPayloadList);
+                partitionFileWriter.spillAsync(-1, -1, nettyPayloadList);
         spillFinishedFuture.get();
         partitionFileWriter.release();
         checkData(false, Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2)));
-        assertThatThrownBy(() -> partitionFileWriter.spillAsync(nettyPayloadList))
+        assertThatThrownBy(() -> partitionFileWriter.spillAsync(-1, -1, nettyPayloadList))
                 .isInstanceOf(RejectedExecutionException.class);
     }
 

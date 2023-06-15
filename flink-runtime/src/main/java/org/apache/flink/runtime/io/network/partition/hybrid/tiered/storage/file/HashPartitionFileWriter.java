@@ -62,12 +62,6 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     }
 
     @Override
-    public CompletableFuture<Void> spillAsync(List<NettyPayload> bufferToSpill) {
-        // nothing to do.
-        return null;
-    }
-
-    @Override
     public CompletableFuture<Void> spillAsync(
             int subpartitionId, int segmentId, List<NettyPayload> bufferToSpill) {
         checkState(bufferToSpill.size() > 0);
