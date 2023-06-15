@@ -18,9 +18,11 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
@@ -86,8 +88,12 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
         if (nettyConnectionWriter.numQueuedBuffers() >= maxBufferReadAhead) {
             return;
         }
-        int numRemainingBuffer =
+
+        Tuple2<Integer, Long> result =
                 partitionFileReader.getReadableBuffers(subpartitionId, nextToLoad, fileReaderId);
+        int numRemainingBuffer = result.f0;
+        long fileOffset = result.f1;
+
         // If there is no data in index, skip this time.
         if (numRemainingBuffer == 0) {
             return;
@@ -101,7 +107,11 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
             try {
                 if ((buffer =
                                 partitionFileReader.readBuffer(
-                                        subpartitionId, fileReaderId, segment, recycler))
+                                        subpartitionId,
+                                        fileOffset,
+                                        fileReaderId,
+                                        segment,
+                                        recycler))
                         == null) {
                     buffers.add(segment);
                     break;
@@ -110,6 +120,7 @@ public class ScheduledSubpartition implements Comparable<ScheduledSubpartition> 
                 buffers.add(segment);
                 throw throwable;
             }
+            fileOffset += buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             NettyPayload nettyPayload =
                     NettyPayload.newBuffer(buffer, nextToLoad++, subpartitionId);
             Integer segmentId = firstBufferContextInSegment.get(nettyPayload.getBufferIndex());

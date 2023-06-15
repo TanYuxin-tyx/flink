@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
@@ -59,13 +60,22 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
     @Override
     public Buffer readBuffer(
-            int subpartitionId, FileReaderId id, MemorySegment segment, BufferRecycler recycler) {
+            int subpartitionId,
+            long fileOffSet,
+            FileReaderId id,
+            MemorySegment segment,
+            BufferRecycler recycler) {
         if (fileChannel == null) {
             return null;
         }
         SubpartitionFileCache subpartitionFileCache =
                 allFileCaches.computeIfAbsent(
                         id, ignore -> new SubpartitionFileCache(subpartitionId));
+        try {
+            fileChannel.position(fileOffSet);
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to move file offset to buffer.");
+        }
         Buffer buffer = null;
         try {
             buffer = readFromByteChannel(fileChannel, reusedHeaderBuffer, segment, recycler);
@@ -88,7 +98,7 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
     }
 
     @Override
-    public int getReadableBuffers(int subpartitionId, int currentBufferIndex, FileReaderId id) {
+    public Tuple2<Integer, Long> getReadableBuffers(int subpartitionId, int currentBufferIndex, FileReaderId id) {
         if (fileChannel == null) {
             try {
                 fileChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
@@ -101,15 +111,16 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
                         id, ignore -> new SubpartitionFileCache(subpartitionId));
         int remainingBuffersInRegion =
                 subpartitionFileCache.getRemainingBuffersInRegion(currentBufferIndex, id);
+        long fileOffset = -1L;
         if (remainingBuffersInRegion > 0) {
-            long fileOffset = subpartitionFileCache.getCurrentFileOffset();
-            try {
-                fileChannel.position(fileOffset);
-            } catch (IOException e) {
-                ExceptionUtils.rethrow(e, "Failed to move file offset to buffer.");
-            }
+            fileOffset = subpartitionFileCache.getCurrentFileOffset();
+            //try {
+            //    fileChannel.position(fileOffset);
+            //} catch (IOException e) {
+            //    ExceptionUtils.rethrow(e, "Failed to move file offset to buffer.");
+            //}
         }
-        return remainingBuffersInRegion;
+        return Tuple2.of(remainingBuffersInRegion, fileOffset);
     }
 
     @Override
