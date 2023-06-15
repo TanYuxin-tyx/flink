@@ -19,6 +19,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
@@ -31,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
@@ -117,7 +120,8 @@ public class SubpartitionRemoteCacheManager {
     // ------------------------------------------------------------------------
 
     void addFinishedBuffer(Buffer buffer) {
-        NettyPayload toAddBuffer = NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
+        NettyPayload toAddBuffer =
+                NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
         addFinishedBuffer(toAddBuffer);
     }
 
@@ -135,9 +139,14 @@ public class SubpartitionRemoteCacheManager {
         List<NettyPayload> nettyPayloads = generateToSpillBuffersWithId();
         if (nettyPayloads.size() > 0) {
             synchronized (currentSegmentId) {
+                Tuple2<Integer, Tuple3<Integer, List<NettyPayload>, Boolean>>
+                        subpartitionToWriteBuffers =
+                                new Tuple2<>(
+                                        targetChannel,
+                                        new Tuple3<>(currentSegmentId.get(), nettyPayloads, false));
                 lastSpillFuture =
-                        partitionFileWriter.spillAsync(
-                                targetChannel, currentSegmentId.get(), nettyPayloads);
+                        partitionFileWriter.write(
+                                Collections.singletonList(subpartitionToWriteBuffers));
             }
         }
         return nettyPayloads.size();

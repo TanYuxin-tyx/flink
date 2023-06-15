@@ -1,6 +1,8 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -62,12 +64,20 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     }
 
     @Override
-    public CompletableFuture<Void> spillAsync(
-            int subpartitionId, int segmentId, List<NettyPayload> bufferToSpill) {
-        checkState(bufferToSpill.size() > 0);
+    public CompletableFuture<Void> write(
+            List<Tuple2<Integer, Tuple3<Integer, List<NettyPayload>, Boolean>>> toWriteBuffers) {
+        checkState(toWriteBuffers.size() == 1);
+        int subpartitionId = toWriteBuffers.get(0).f0;
+        Tuple3<Integer, List<NettyPayload>, Boolean> segmentBuffers = toWriteBuffers.get(0).f1;
+        checkState(segmentBuffers.f1.size() > 0, "Buffers to be spilled should not be empty.");
         CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
         ioExecutor.execute(
-                () -> spill(subpartitionId, segmentId, bufferToSpill, spillSuccessNotifier));
+                () ->
+                        spill(
+                                subpartitionId,
+                                segmentBuffers.f0,
+                                segmentBuffers.f1,
+                                spillSuccessNotifier));
         return spillSuccessNotifier;
     }
 

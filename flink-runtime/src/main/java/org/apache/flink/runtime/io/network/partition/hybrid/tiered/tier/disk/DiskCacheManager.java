@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -139,13 +141,20 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
         if (changeFlushState && !hasFlushCompleted.isDone()) {
             return;
         }
-        List<NettyPayload> nettyPayloads = new ArrayList<>();
+        List<Tuple2<Integer, Tuple3<Integer, List<NettyPayload>, Boolean>>> toWriteBuffers =
+                new ArrayList<>();
+        int numToWriteBuffers = 0;
         for (int subpartitionId = 0; subpartitionId < getNumSubpartitions(); subpartitionId++) {
-            nettyPayloads.addAll(getBuffersInOrder(subpartitionId));
+            List<NettyPayload> subpartitionNettyPayloads = getBuffersInOrder(subpartitionId);
+            toWriteBuffers.add(
+                    new Tuple2<>(
+                            subpartitionId, new Tuple3<>(-1, subpartitionNettyPayloads, false)));
+            numToWriteBuffers += subpartitionNettyPayloads.size();
         }
-        if (!nettyPayloads.isEmpty()) {
+
+        if (numToWriteBuffers > 0) {
             CompletableFuture<Void> spillSuccessNotifier =
-                    partitionFileWriter.spillAsync(-1, -1, nettyPayloads);
+                    partitionFileWriter.write(toWriteBuffers);
             if (changeFlushState) {
                 hasFlushCompleted = spillSuccessNotifier;
             }
