@@ -43,8 +43,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClientImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.HashPartitionFile;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFile;
@@ -66,7 +64,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -409,18 +406,6 @@ public class ResultPartitionFactory {
         String dataFileBasePath = channelManager.createChannel().getPath();
         RegionBufferIndexTrackerImpl dataIndex =
                 new RegionBufferIndexTrackerImpl(isBroadcast ? 1 : subpartitions.length);
-        Path dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
-        PartitionFileManager partitionFileManager =
-                new PartitionFileManagerImpl(
-                        dataFilePath,
-                        dataIndex,
-                        batchShuffleReadBufferPool,
-                        batchShuffleReadIOExecutor,
-                        storeConfiguration,
-                        subpartitions.length,
-                        jobID,
-                        id,
-                        storeConfiguration.getBaseDfsHomePath());
         return createTierProducerAgents(
                 jobID,
                 id,
@@ -430,7 +415,6 @@ public class ResultPartitionFactory {
                 storageMemoryManager,
                 dataFileBasePath,
                 storeConfiguration.getBaseDfsHomePath(),
-                partitionFileManager,
                 nettyService,
                 resourceRegistry,
                 dataIndex,
@@ -446,7 +430,6 @@ public class ResultPartitionFactory {
             TieredStorageMemoryManager storageMemoryManager,
             String dataFileBasePath,
             String remoteStorageShuffleHomePath,
-            PartitionFileManager partitionFileManager,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry,
             RegionBufferIndexTrackerImpl regionBufferIndexTracker,
@@ -470,7 +453,6 @@ public class ResultPartitionFactory {
                             TieredStorageIdMappingUtils.convertId(id),
                             dataFileBasePath,
                             isBroadcast,
-                            partitionFileManager,
                             partitionFileWriter,
                             partitionFileReader,
                             storageMemoryManager,

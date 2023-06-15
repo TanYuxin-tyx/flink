@@ -73,7 +73,7 @@ public class TestingRegionBufferIndexTracker implements RegionBufferIndexTracker
 
         private BiConsumer<Integer, Integer> markBufferReadableConsumer = (ignore1, ignore2) -> {};
 
-        private Builder() {}
+        public Builder() {}
 
         public Builder setGetReadableRegionFunction(
                 TriFunction<Integer, Integer, Integer, Optional<ReadableRegion>>
