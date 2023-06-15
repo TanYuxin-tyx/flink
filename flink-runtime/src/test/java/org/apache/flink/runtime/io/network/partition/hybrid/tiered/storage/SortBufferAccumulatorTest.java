@@ -63,13 +63,7 @@ public class SortBufferAccumulatorTest {
 
         List<Buffer> accumulatedBuffers = new ArrayList<>();
         SortBufferAccumulator sortBufferAccumulator =
-                new SortBufferAccumulator(
-                        partitionId,
-                        numSubpartitions,
-                        1,
-                        bufferSize,
-                        memoryManager,
-                        new TieredStorageResourceRegistry());
+                new SortBufferAccumulator(numSubpartitions, 1, bufferSize, memoryManager);
         sortBufferAccumulator.setup(
                 (subpartitionIndex, buffers) -> accumulatedBuffers.addAll(buffers));
 

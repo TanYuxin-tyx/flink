@@ -375,12 +375,10 @@ public class ResultPartitionFactory {
             TieredStoragePartitionId partitionId) {
         return useSortAccumulator
                 ? new SortBufferAccumulator(
-                        partitionId,
                         numSubpartitions,
                         numBuffersUseSortAccumulatorThreshold,
                         networkBufferSize,
-                        storageMemoryManager,
-                        resourceRegistry)
+                        storageMemoryManager)
                 : new HashBufferAccumulator(
                         partitionId,
                         resourceRegistry,
