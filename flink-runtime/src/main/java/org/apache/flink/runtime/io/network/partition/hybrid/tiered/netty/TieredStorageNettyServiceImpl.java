@@ -82,7 +82,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
      * @param partitionId partition id indicates the unique id of {@link TieredResultPartition}.
      * @param subpartitionId subpartition id indicates the unique id of subpartition.
      * @param availabilityListener listener is used to listen the available status of data.
-     * @return the {@link TieredStoreResultSubpartitionView}.
+     * @return the {@link TieredStorageResultSubpartitionView}.
      */
     public ResultSubpartitionView createResultSubpartitionView(
             TieredStoragePartitionId partitionId,
@@ -90,7 +90,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             BufferAvailabilityListener availabilityListener) {
         List<NettyServiceProducer> serviceProducers = registeredServiceProducers.get(partitionId);
         if (serviceProducers == null) {
-            return new TieredStoreResultSubpartitionView(
+            return new TieredStorageResultSubpartitionView(
                     availabilityListener, new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         }
         List<Queue<NettyPayload>> queues = new ArrayList<>();
@@ -104,7 +104,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             registeredAvailabilityListeners.put(
                     writer.getNettyConnectionId(), availabilityListener);
         }
-        return new TieredStoreResultSubpartitionView(
+        return new TieredStorageResultSubpartitionView(
                 availabilityListener,
                 queues,
                 nettyConnectionIds,
