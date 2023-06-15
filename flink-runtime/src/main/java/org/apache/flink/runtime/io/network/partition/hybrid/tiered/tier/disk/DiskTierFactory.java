@@ -72,7 +72,8 @@ public class DiskTierFactory implements TierFactory {
             TieredStorageResourceRegistry resourceRegistry,
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
             ScheduledExecutorService batchShuffleReadIOExecutor,
-            TieredStorageConfiguration storageConfiguration) {
+            TieredStorageConfiguration storageConfiguration,
+            RegionBufferIndexTracker dataIndex) {
         return new DiskTierProducerAgent(
                 partitionID,
                 numSubpartitions,
@@ -86,7 +87,8 @@ public class DiskTierFactory implements TierFactory {
                 nettyService,
                 batchShuffleReadBufferPool,
                 batchShuffleReadIOExecutor,
-                storageConfiguration
+                storageConfiguration,
+                dataIndex
                 );
     }
 

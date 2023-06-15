@@ -33,6 +33,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.RegionBufferIndexTrackerImpl;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -105,7 +106,8 @@ public class TieredStorageUtils {
             TieredStorageResourceRegistry resourceRegistry,
             RegionBufferIndexTrackerImpl index,
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
-            ScheduledExecutorService batchShuffleReadIOExecutor) {
+            ScheduledExecutorService batchShuffleReadIOExecutor,
+            RegionBufferIndexTracker dataIndex) {
         List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
         for (TierFactory tierFactory : storeConfiguration.getTierFactories()) {
             tierProducerAgents.add(
@@ -120,7 +122,8 @@ public class TieredStorageUtils {
                             resourceRegistry,
                             batchShuffleReadBufferPool,
                             batchShuffleReadIOExecutor,
-                            storeConfiguration));
+                            storeConfiguration,
+                            dataIndex));
         }
         return tierProducerAgents;
     }
