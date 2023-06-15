@@ -78,8 +78,7 @@ public class PartitionFileManagerImpl implements PartitionFileManager {
     @Override
     public PartitionFileReader createPartitionFileReader(PartitionFileType partitionFileType) {
         if (Objects.requireNonNull(partitionFileType) == PartitionFileType.PRODUCER_MERGE) {
-            return new ProducerMergePartitionFileReader(
-                    producerMergeShuffleFilePath, producerMergeIndex);
+            return new ProducerMergePartitionFileReader(producerMergeShuffleFilePath);
         }
         throw new UnsupportedOperationException(
                 "PartitionFileReader doesn't support the type of partition file: "

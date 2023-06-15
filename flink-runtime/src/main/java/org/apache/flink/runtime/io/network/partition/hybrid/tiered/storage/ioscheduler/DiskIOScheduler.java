@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
-import java.nio.channels.FileChannel;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -47,11 +46,11 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
     private static final Logger LOG = LoggerFactory.getLogger(DiskIOScheduler.class);
 
+    private final Object lock = new Object();
+
     private final ScheduledExecutorService ioExecutor;
 
     private final Duration bufferRequestTimeout;
-
-    private final Object lock = new Object();
 
     private final BatchShuffleReadBufferPool bufferPool;
 
@@ -68,9 +67,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     @GuardedBy("lock")
     private final Map<NettyConnectionId, ScheduledSubpartition> allScheduledSubpartitions =
             new HashMap<>();
-
-    @GuardedBy("lock")
-    private FileChannel dataFileChannel;
 
     @GuardedBy("lock")
     private volatile boolean isRunning;
@@ -111,9 +107,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             int numBuffersRead = readBuffersFromFile();
             isRunning = false;
             if (numBuffersRead == 0) {
-                ioExecutor.schedule(this::triggerReaderRunning, 5, TimeUnit.MILLISECONDS);
+                ioExecutor.schedule(this::triggerScheduling, 5, TimeUnit.MILLISECONDS);
             } else {
-                triggerReaderRunning();
+                triggerScheduling();
             }
         }
     }
@@ -135,7 +131,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                             dataIndex);
             allScheduledSubpartitions.put(
                     nettyConnectionWriter.getNettyConnectionId(), scheduledSubpartition);
-            triggerReaderRunning();
+            triggerScheduling();
         }
     }
 
@@ -162,16 +158,16 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     // ------------------------------------------------------------------------
 
     private int readBuffersFromFile() {
-        List<ScheduledSubpartition> availableReaders = sortAvailableReaders();
-        if (availableReaders.isEmpty()) {
+        List<ScheduledSubpartition> availableSubpartitions = sortScheduledSubpartitions();
+        if (availableSubpartitions.isEmpty()) {
             return 0;
         }
         Queue<MemorySegment> buffers;
         try {
             buffers = allocateBuffers();
         } catch (Exception exception) {
-            // fail all pending subpartition readers immediately if any exception occurs
-            failSubpartitionReaders(availableReaders, exception);
+            // fail all pending scheduled subpartitions immediately if any exception occurs
+            failScheduledSubpartitions(availableSubpartitions, exception);
             LOG.error("Failed to request buffers for data reading.", exception);
             return 0;
         }
@@ -181,7 +177,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             return 0;
         }
 
-        readData(availableReaders, buffers);
+        readData(availableSubpartitions, buffers);
         int numBuffersRead = numBuffersAllocated - buffers.size();
         releaseBuffers(buffers);
         synchronized (lock) {
@@ -191,29 +187,30 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     }
 
     private void readData(
-            List<ScheduledSubpartition> availableReaders, Queue<MemorySegment> buffers) {
+            List<ScheduledSubpartition> scheduledSubpartitions, Queue<MemorySegment> buffers) {
         int startIndex = 0;
-        while (startIndex < availableReaders.size() && !buffers.isEmpty()) {
-            ScheduledSubpartition subpartitionReader = availableReaders.get(startIndex);
+        while (startIndex < scheduledSubpartitions.size() && !buffers.isEmpty()) {
+            ScheduledSubpartition scheduledSubpartition = scheduledSubpartitions.get(startIndex);
             startIndex++;
             try {
-                subpartitionReader.readBuffers(buffers, this);
+                scheduledSubpartition.readBuffers(buffers, this);
             } catch (IOException throwable) {
-                failSubpartitionReaders(Collections.singletonList(subpartitionReader), throwable);
+                failScheduledSubpartitions(
+                        Collections.singletonList(scheduledSubpartition), throwable);
                 LOG.debug("Failed to read shuffle data.", throwable);
             }
         }
     }
 
-    private List<ScheduledSubpartition> sortAvailableReaders() {
+    private List<ScheduledSubpartition> sortScheduledSubpartitions() {
         synchronized (lock) {
             if (isReleased) {
                 return new ArrayList<>();
             }
-            List<ScheduledSubpartition> availableReaders =
+            List<ScheduledSubpartition> scheduledSubpartitions =
                     new ArrayList<>(allScheduledSubpartitions.values());
-            Collections.sort(availableReaders);
-            return availableReaders;
+            Collections.sort(scheduledSubpartitions);
+            return scheduledSubpartitions;
         }
     }
 
@@ -244,7 +241,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                         TaskManagerOptions.NETWORK_BATCH_SHUFFLE_READ_MEMORY.key()));
     }
 
-    private void failSubpartitionReaders(
+    private void failScheduledSubpartitions(
             Collection<ScheduledSubpartition> subpartitionReaders, Throwable failureCause) {
         for (ScheduledSubpartition subpartitionReader : subpartitionReaders) {
             removeScheduledSubpartition(subpartitionReader.getNettyServiceWriterId());
@@ -265,7 +262,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         }
     }
 
-    private void triggerReaderRunning() {
+    private void triggerScheduling() {
         synchronized (lock) {
             if (!isRunning
                     && !allScheduledSubpartitions.isEmpty()
@@ -302,7 +299,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         synchronized (lock) {
             bufferPool.recycle(segment);
             --numRequestedBuffers;
-            triggerReaderRunning();
+            triggerScheduling();
         }
     }
 }
