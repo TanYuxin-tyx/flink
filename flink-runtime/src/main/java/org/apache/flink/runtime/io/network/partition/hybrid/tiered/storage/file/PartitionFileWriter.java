@@ -16,7 +16,5 @@ public interface PartitionFileWriter {
     CompletableFuture<Void> write(
             List<Tuple2<Integer, Tuple3<Integer, List<NettyPayload>, Boolean>>> toWriteBuffers);
 
-    CompletableFuture<Void> finishSegment(int subpartitionId, int segmentId);
-
     void release();
 }

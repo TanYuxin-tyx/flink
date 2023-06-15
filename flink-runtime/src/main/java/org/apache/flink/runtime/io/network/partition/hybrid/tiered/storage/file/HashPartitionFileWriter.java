@@ -12,6 +12,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
+import org.apache.flink.util.concurrent.FutureUtils;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -66,27 +68,20 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     @Override
     public CompletableFuture<Void> write(
             List<Tuple2<Integer, Tuple3<Integer, List<NettyPayload>, Boolean>>> toWriteBuffers) {
-        checkState(toWriteBuffers.size() == 1);
-        int subpartitionId = toWriteBuffers.get(0).f0;
-        Tuple3<Integer, List<NettyPayload>, Boolean> segmentBuffers = toWriteBuffers.get(0).f1;
-        checkState(segmentBuffers.f1.size() > 0, "Buffers to be spilled should not be empty.");
-        CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
-        ioExecutor.execute(
-                () ->
-                        spill(
-                                subpartitionId,
-                                segmentBuffers.f0,
-                                segmentBuffers.f1,
-                                spillSuccessNotifier));
-        return spillSuccessNotifier;
-    }
-
-    @Override
-    public CompletableFuture<Void> finishSegment(int subpartitionId, int segmentId) {
-        CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
-        ioExecutor.execute(
-                () -> writeFinishSegmentFile(subpartitionId, segmentId, spillSuccessNotifier));
-        return spillSuccessNotifier;
+        List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
+        toWriteBuffers.forEach(
+                subpartitionBuffers -> {
+                    int subpartitionId = toWriteBuffers.get(0).f0;
+                    Tuple3<Integer, List<NettyPayload>, Boolean> segmentBuffers =
+                            toWriteBuffers.get(0).f1;
+                    CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
+                    Runnable writeRunnable =
+                            getWriteOrFinisheSegmentRunnable(
+                                    subpartitionId, segmentBuffers, spillSuccessNotifier);
+                    ioExecutor.execute(writeRunnable);
+                    completableFutures.add(spillSuccessNotifier);
+                });
+        return FutureUtils.waitForAll(completableFutures);
     }
 
     @Override
@@ -99,6 +94,26 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         } catch (Exception e) {
             ExceptionUtils.rethrow(e);
         }
+    }
+
+    private Runnable getWriteOrFinisheSegmentRunnable(
+            int subpartitionId,
+            Tuple3<Integer, List<NettyPayload>, Boolean> segmentBuffers,
+            CompletableFuture<Void> spillSuccessNotifier) {
+        int segmentId = segmentBuffers.f0;
+        List<NettyPayload> toWriteBuffers = segmentBuffers.f1;
+        boolean isFinishSegment = segmentBuffers.f2;
+        checkState(!toWriteBuffers.isEmpty() || isFinishSegment);
+
+        Runnable writeRunnable;
+        if (toWriteBuffers.size() > 0) {
+            writeRunnable =
+                    () -> spill(subpartitionId, segmentId, toWriteBuffers, spillSuccessNotifier);
+        } else {
+            writeRunnable =
+                    () -> writeFinishSegmentFile(subpartitionId, segmentId, spillSuccessNotifier);
+        }
+        return writeRunnable;
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
