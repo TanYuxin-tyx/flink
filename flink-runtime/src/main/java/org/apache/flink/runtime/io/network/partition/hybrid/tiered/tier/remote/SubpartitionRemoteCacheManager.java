@@ -90,7 +90,12 @@ public class SubpartitionRemoteCacheManager {
         checkState(currentSegmentId.get() == -1 || currentSegmentId.get() == segmentIndex);
         int bufferNumber = flushCachedBuffers();
         if (bufferNumber > 0) {
-            lastSpillFuture = partitionFileWriter.finishSegment(targetChannel, segmentIndex);
+            Tuple3<Integer, List<NettyPayload>, Boolean> finishSegmentMarkTuple =
+                    new Tuple3<>(segmentIndex, Collections.emptyList(), true);
+            lastSpillFuture =
+                    partitionFileWriter.write(
+                            Collections.singletonList(
+                                    new Tuple2<>(targetChannel, finishSegmentMarkTuple)));
         }
         checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
     }

@@ -79,15 +79,10 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
                                 (Function<List<NettyPayload>, Stream<NettyPayload>>)
                                         Collection::stream)
                         .collect(Collectors.toList());
+
         CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
         ioExecutor.execute(() -> spill(buffersToSpill, spillSuccessNotifier));
         return spillSuccessNotifier;
-    }
-
-    @Override
-    public CompletableFuture<Void> finishSegment(int subpartitionId, int segmentId) {
-        // nothing to do.
-        return null;
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
