@@ -39,6 +39,7 @@ import java.nio.file.StandardOpenOption;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
 
+/** THe implementation of {@link PartitionFileReader} with merged logic. */
 public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
@@ -61,12 +62,14 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
             int segmentId,
             long fileOffSet,
             MemorySegment segment,
-            BufferRecycler recycler) throws IOException {
+            BufferRecycler recycler)
+            throws IOException {
         if (fileChannel == null) {
             try {
                 fileChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
             } catch (FileNotFoundException e) {
-                throw new PartitionNotFoundException(TieredStorageIdMappingUtils.convertId(partitionId));
+                throw new PartitionNotFoundException(
+                        TieredStorageIdMappingUtils.convertId(partitionId));
             }
         }
         try {

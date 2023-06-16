@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.NoOpBufferAvailablityListener;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler.DiskIOScheduler;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskIOSchedulerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
 
 import org.junit.jupiter.api.AfterEach;
@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
 
-/** Tests for {@link DiskIOScheduler}. */
+/** Tests for {@link DiskIOSchedulerImpl}. */
 class ProducerMergePartitionFileReaderTest {
 
     private static final int NUM_SUBPARTITIONS = 1;
@@ -63,7 +63,7 @@ class ProducerMergePartitionFileReaderTest {
 
     private Path dataFilePath;
 
-    private DiskIOScheduler producerMergeDiskIOScheduler;
+    private DiskIOSchedulerImpl producerMergeDiskIOSchedulerImpl;
 
     private PartitionFileIndex partitionFileIndex;
 

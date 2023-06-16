@@ -36,7 +36,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler.DiskIOScheduler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -68,7 +67,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     private final float minReservedDiskSpaceFraction;
 
-    private final DiskIOScheduler diskIOScheduler;
+    private final DiskIOSchedulerImpl diskIOSchedulerImpl;
 
     private final DiskCacheManager diskCacheManager;
 
@@ -124,8 +123,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         isBroadcastOnly ? 1 : numSubpartitions,
                         storageMemoryManager,
                         partitionFileWriter);
-        this.diskIOScheduler =
-                new DiskIOScheduler(
+        this.diskIOSchedulerImpl =
+                new DiskIOSchedulerImpl(
                         batchShuffleReadBufferPool,
                         batchShuffleReadIOExecutor,
                         storeConfiguration.getMaxRequestedBuffers(),
@@ -181,12 +180,12 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                     new PartitionNotFoundException(
                             TieredStorageIdMappingUtils.convertId(partitionId)));
         }
-        diskIOScheduler.connectionEstablished(subpartitionId, nettyConnectionWriter);
+        diskIOSchedulerImpl.connectionEstablished(subpartitionId, nettyConnectionWriter);
     }
 
     @Override
     public void connectionBroken(NettyConnectionId connectionId) {
-        diskIOScheduler.connectionBroken(connectionId);
+        diskIOSchedulerImpl.connectionBroken(connectionId);
     }
 
     @Override
@@ -218,7 +217,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     private void releaseResources() {
         if (!isReleased) {
-            diskIOScheduler.release();
+            diskIOSchedulerImpl.release();
             diskCacheManager.release();
             isReleased = true;
         }

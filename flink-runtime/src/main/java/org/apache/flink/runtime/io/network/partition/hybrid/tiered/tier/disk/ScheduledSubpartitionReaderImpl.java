@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -27,9 +27,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex.Region;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 
 import java.io.IOException;
 import java.util.Map;
@@ -39,8 +39,8 @@ import java.util.Queue;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** The implementation of {@link ScheduledSubpartitionReader}. */
-public class ScheduledSubpartitionReader implements Comparable<ScheduledSubpartitionReader> {
+/** The implementation of {@link ScheduledSubpartitionReaderImpl}. */
+public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionReader {
 
     private final NettyConnectionId nettyServiceWriterId;
 
@@ -48,15 +48,11 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
 
     private final int maxBufferReadAhead;
 
-    private int nextToLoad = 0;
-
-    private boolean isFailed;
-
     private final TieredStorageNettyService nettyService;
 
     private final NettyConnectionWriter nettyConnectionWriter;
 
-    private final Map<Integer, Integer> firstBufferContextInSegment;
+    private final Map<Integer, Integer> segmentIdRecorder;
 
     private final PartitionFileReader partitionFileReader;
 
@@ -64,12 +60,16 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
 
     private final SubpartitionReaderProgress subpartitionReaderProgress;
 
-    public ScheduledSubpartitionReader(
+    private int nextToLoad = 0;
+
+    private boolean isFailed;
+
+    public ScheduledSubpartitionReaderImpl(
             int subpartitionId,
             int maxBufferReadAhead,
             NettyConnectionWriter nettyConnectionWriter,
             TieredStorageNettyService nettyService,
-            Map<Integer, Integer> firstBufferContextInSegment,
+            Map<Integer, Integer> segmentIdRecorder,
             PartitionFileReader partitionFileReader,
             PartitionFileIndex dataIndex) {
         this.subpartitionId = subpartitionId;
@@ -77,18 +77,19 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.nettyService = nettyService;
         this.nettyConnectionWriter = nettyConnectionWriter;
-        this.firstBufferContextInSegment = firstBufferContextInSegment;
+        this.segmentIdRecorder = segmentIdRecorder;
         this.partitionFileReader = partitionFileReader;
         this.dataIndex = dataIndex;
         this.subpartitionReaderProgress = new SubpartitionReaderProgress(subpartitionId);
     }
 
-    public void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
+    @Override
+    public void loadDiskDataToBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
             throws IOException {
 
         if (isFailed) {
             throw new IOException(
-                    "The disk tier file reader of subpartition "
+                    "The scheduled subpartition reader for "
                             + subpartitionId
                             + " has already been failed.");
         }
@@ -102,12 +103,11 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
         if (numRemainingBuffer == 0) {
             return;
         }
-        checkState(numRemainingBuffer > 0);
         int numLoaded = 0;
         while (!buffers.isEmpty()
                 && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead
                 && numRemainingBuffer-- > 0) {
-            MemorySegment segment = buffers.poll();
+            MemorySegment memorySegment = buffers.poll();
             Buffer buffer;
             try {
                 if ((buffer =
@@ -115,21 +115,21 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
                                         subpartitionId,
                                         -1,
                                         subpartitionReaderProgress.getCurrentFileOffset(),
-                                        segment,
+                                        memorySegment,
                                         recycler))
                         == null) {
-                    buffers.add(segment);
+                    buffers.add(memorySegment);
                     break;
                 }
             } catch (Throwable throwable) {
-                buffers.add(segment);
+                buffers.add(memorySegment);
                 throw throwable;
             }
-            int bufferLength = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
-            subpartitionReaderProgress.advance(bufferLength);
+            subpartitionReaderProgress.advance(
+                    buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
             NettyPayload nettyPayload =
                     NettyPayload.newBuffer(buffer, nextToLoad++, subpartitionId);
-            Integer segmentId = firstBufferContextInSegment.get(nettyPayload.getBufferIndex());
+            Integer segmentId = segmentIdRecorder.get(nettyPayload.getBufferIndex());
             if (segmentId != null) {
                 nettyConnectionWriter.writeBuffer(NettyPayload.newSegment(segmentId));
                 ((TieredStorageNettyServiceImpl) nettyService)
@@ -145,7 +145,19 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
         }
     }
 
-    public void fail(Throwable failureCause) {
+    @Override
+    public int compareTo(ScheduledSubpartitionReader reader) {
+        checkArgument(reader != null);
+        return Long.compare(getReadingFileOffset(), reader.getReadingFileOffset());
+    }
+
+    @Override
+    public long getReadingFileOffset() {
+        return subpartitionReaderProgress.getCurrentFileOffset();
+    }
+
+    @Override
+    public void failReader(Throwable failureCause) {
         if (isFailed) {
             return;
         }
@@ -155,36 +167,16 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
                 .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
     }
 
-    @Override
-    public int compareTo(ScheduledSubpartitionReader that) {
-        checkArgument(that != null);
-        return Long.compare(getNextOffsetToLoad(), that.getNextOffsetToLoad());
-    }
-
-    public long getNextOffsetToLoad() {
-        if (nextToLoad < 0) {
-            return Long.MAX_VALUE;
-        } else {
-            return subpartitionReaderProgress.getCurrentFileOffset();
-        }
-    }
-
-    public NettyConnectionId getNettyServiceWriterId() {
-        return nettyServiceWriterId;
-    }
-
     /**
      * {@link SubpartitionReaderProgress} is used to record the necessary information of reading
-     * progress of a subpartition reader, which includes the id of subpartition, next buffer index,
-     * current file offset, and the number of available buffers in the subpartition.
+     * progress of a subpartition reader, which includes the id of subpartition, current file
+     * offset, and the number of available buffers in the subpartition.
      */
     private class SubpartitionReaderProgress {
 
         private final int subpartitionId;
 
-        private int nextBufferIndex;
-
-        private long currentFileOffset;
+        private long currentFileOffset = Long.MAX_VALUE;
 
         private int numBuffersReadable;
 
@@ -195,8 +187,8 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
         /**
          * Get the number of readable buffers for a {@link NettyConnectionWriter}.
          *
-         * @param nettyServiceWriterId
-         * @return
+         * @param nettyServiceWriterId the id of netty service writer.
+         * @return the number of readable buffers.
          */
         private int getReadableBufferNumber(NettyConnectionId nettyServiceWriterId) {
             if (numBuffersReadable == 0) {
@@ -210,14 +202,24 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
             return numBuffersReadable;
         }
 
+        /**
+         * Get the current file offset.
+         *
+         * @return the file offset.
+         */
         private long getCurrentFileOffset() {
-            return nextBufferIndex == -1 ? Long.MAX_VALUE : currentFileOffset;
+            return currentFileOffset;
         }
 
+        /**
+         * Update the progress.
+         *
+         * @param bufferSize is the size of buffer.
+         */
         private void advance(long bufferSize) {
-            nextBufferIndex++;
             numBuffersReadable--;
             currentFileOffset += bufferSize;
+            checkState(numBuffersReadable >= 0);
         }
     }
 }

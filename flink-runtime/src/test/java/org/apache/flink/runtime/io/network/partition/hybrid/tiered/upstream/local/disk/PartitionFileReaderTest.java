@@ -121,13 +121,13 @@
 //        TestingProducerMergePartitionTierConsumer reader =
 //                new TestingProducerMergePartitionTierConsumer();
 //        reader.setReadBuffersConsumer(
-//                (requestedBuffers, readBuffers) -> readBuffers.addAll(requestedBuffers));
+//                (requestedBuffers, loadDiskDataToBuffers) -> loadDiskDataToBuffers.addAll(requestedBuffers));
 //        factory.allReaders.add(reader);
-//        assertThat(reader.readBuffers).isEmpty();
+//        assertThat(reader.loadDiskDataToBuffers).isEmpty();
 //        partitionFileReader.createNettyBufferQueue(
 //                0, NettyBasedTierConsumerViewId.DEFAULT, nettyServiceView);
 //        ioExecutor.trigger();
-//        assertThat(reader.readBuffers).hasSize(BUFFER_POOL_SIZE);
+//        assertThat(reader.loadDiskDataToBuffers).hasSize(BUFFER_POOL_SIZE);
 //    }
 //
 //    @Test
@@ -136,24 +136,24 @@
 //        TestingProducerMergePartitionTierConsumer reader =
 //                new TestingProducerMergePartitionTierConsumer();
 //        reader.setReadBuffersConsumer(
-//                (requestedBuffer, readBuffers) -> {
+//                (requestedBuffer, loadDiskDataToBuffers) -> {
 //                    while (!requestedBuffer.isEmpty()) {
-//                        readBuffers.add(requestedBuffer.poll());
+//                        loadDiskDataToBuffers.add(requestedBuffer.poll());
 //                    }
 //                });
 //        factory.allReaders.add(reader);
 //        partitionFileReader.createNettyBufferQueue(
 //                0, NettyBasedTierConsumerViewId.DEFAULT, nettyServiceView);
 //        ioExecutor.trigger();
-//        assertThat(reader.readBuffers).hasSize(BUFFER_POOL_SIZE);
+//        assertThat(reader.loadDiskDataToBuffers).hasSize(BUFFER_POOL_SIZE);
 //        assertThat(bufferPool.getAvailableBuffers()).isZero();
 //        ((ProducerMergePartitionFileReader)
-// partitionFileReader).recycle(reader.readBuffers.poll());
+// partitionFileReader).recycle(reader.loadDiskDataToBuffers.poll());
 //        ((ProducerMergePartitionFileReader)
-// partitionFileReader).recycle(reader.readBuffers.poll());
+// partitionFileReader).recycle(reader.loadDiskDataToBuffers.poll());
 //        // recycle buffer will push new runnable to ioExecutor.
 //        ioExecutor.trigger();
-//        assertThat(reader.readBuffers).hasSize(BUFFER_POOL_SIZE);
+//        assertThat(reader.loadDiskDataToBuffers).hasSize(BUFFER_POOL_SIZE);
 //    }
 //
 //    /** Test all not used buffers will be released after run method finish. */
@@ -165,12 +165,12 @@
 //        CompletableFuture<Void> prepareForSchedulingFinished = new CompletableFuture<>();
 //        reader.setPrepareForSchedulingRunnable(() -> prepareForSchedulingFinished.complete(null));
 //        reader.setReadBuffersConsumer(
-//                (requestedBuffers, readBuffers) -> {
+//                (requestedBuffers, loadDiskDataToBuffers) -> {
 //                    assertThat(prepareForSchedulingFinished).isCompleted();
 //                    assertThat(requestedBuffers).hasSize(BUFFER_POOL_SIZE);
 //                    assertThat(bufferPool.getAvailableBuffers()).isEqualTo(0);
 //                    // read one buffer, return another buffer to data manager.
-//                    readBuffers.add(requestedBuffers.poll());
+//                    loadDiskDataToBuffers.add(requestedBuffers.poll());
 //                });
 //        factory.allReaders.add(reader);
 //        partitionFileReader.createNettyBufferQueue(
@@ -191,12 +191,12 @@
 //        CompletableFuture<Void> readBuffersFinished1 = new CompletableFuture<>();
 //        CompletableFuture<Void> readBuffersFinished2 = new CompletableFuture<>();
 //        reader1.setReadBuffersConsumer(
-//                (requestedBuffers, readBuffers) -> {
+//                (requestedBuffers, loadDiskDataToBuffers) -> {
 //                    assertThat(readBuffersFinished2).isNotDone();
 //                    readBuffersFinished1.complete(null);
 //                });
 //        reader2.setReadBuffersConsumer(
-//                (requestedBuffers, readBuffers) -> {
+//                (requestedBuffers, loadDiskDataToBuffers) -> {
 //                    assertThat(readBuffersFinished1).isDone();
 //                    readBuffersFinished2.complete(null);
 //                });
@@ -254,7 +254,7 @@
 //        CompletableFuture<Throwable> cause = new CompletableFuture<>();
 //        reader.setFailConsumer((cause::complete));
 //        reader.setReadBuffersConsumer(
-//                (requestedBuffers, readBuffers) -> {
+//                (requestedBuffers, loadDiskDataToBuffers) -> {
 //                    throw new IOException("expected exception.");
 //                });
 //        factory.allReaders.add(reader);
@@ -314,12 +314,12 @@
 //
 //        private Runnable releaseDataViewRunnable = () -> {};
 //
-//        private final Queue<MemorySegment> readBuffers;
+//        private final Queue<MemorySegment> loadDiskDataToBuffers;
 //
 //        private int priority;
 //
 //        private TestingProducerMergePartitionTierConsumer() {
-//            this.readBuffers = new ArrayDeque<>();
+//            this.loadDiskDataToBuffers = new ArrayDeque<>();
 //        }
 //
 //        @Override
@@ -328,9 +328,9 @@
 //        }
 //
 //        @Override
-//        public void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
+//        public void loadDiskDataToBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
 //                throws IOException {
-//            readBuffersConsumer.accept(buffers, readBuffers);
+//            readBuffersConsumer.accept(buffers, loadDiskDataToBuffers);
 //        }
 //
 //        @Override
