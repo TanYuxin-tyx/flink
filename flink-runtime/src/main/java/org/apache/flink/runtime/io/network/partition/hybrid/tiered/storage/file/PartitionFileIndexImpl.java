@@ -130,8 +130,8 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
 
         while (iterator.hasNext()) {
             SpilledBuffer currentBuffer = iterator.next();
-            if (currentBuffer.subpartitionId != firstBufferInRegion.subpartitionId
-                    || currentBuffer.bufferIndex != lastBufferInRegion.bufferIndex + 1) {
+            if (currentBuffer.getSubpartitionId() != firstBufferInRegion.getSubpartitionId()
+                    || currentBuffer.getBufferIndex() != lastBufferInRegion.getBufferIndex() + 1) {
                 // the current buffer belongs to a new region, close the previous region
                 addInternalRegionToMap(
                         firstBufferInRegion, lastBufferInRegion, subpartitionRegions);
@@ -149,16 +149,16 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
             SpilledBuffer firstBufferInRegion,
             SpilledBuffer lastBufferInRegion,
             Map<Integer, List<Region>> internalRegionsBySubpartition) {
-        checkArgument(firstBufferInRegion.subpartitionId == lastBufferInRegion.subpartitionId);
-        checkArgument(firstBufferInRegion.bufferIndex <= lastBufferInRegion.bufferIndex);
+        checkArgument(
+                firstBufferInRegion.getSubpartitionId() == lastBufferInRegion.getSubpartitionId());
+        checkArgument(firstBufferInRegion.getBufferIndex() <= lastBufferInRegion.getBufferIndex());
         internalRegionsBySubpartition
-                .computeIfAbsent(firstBufferInRegion.subpartitionId, ArrayList::new)
+                .computeIfAbsent(firstBufferInRegion.getSubpartitionId(), ArrayList::new)
                 .add(
                         new Region(
-                                firstBufferInRegion.bufferIndex,
-                                firstBufferInRegion.fileOffset,
-                                lastBufferInRegion.bufferIndex
-                                        - firstBufferInRegion.bufferIndex
+                                firstBufferInRegion.getFileOffset(),
+                                lastBufferInRegion.getBufferIndex()
+                                        - firstBufferInRegion.getBufferIndex()
                                         + 1));
     }
 }

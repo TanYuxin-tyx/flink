@@ -40,18 +40,30 @@ public interface PartitionFileIndex {
     /** Represents a buffer to be spilled. */
     class SpilledBuffer {
         /** The subpartition id that the buffer belongs to. */
-        public final int subpartitionId;
+        private final int subpartitionId;
 
         /** The buffer index within the subpartition. */
-        public final int bufferIndex;
+        private final int bufferIndex;
 
         /** The file offset that the buffer begin with. */
-        public final long fileOffset;
+        private final long fileOffset;
 
         public SpilledBuffer(int subpartitionId, int bufferIndex, long fileOffset) {
             this.subpartitionId = subpartitionId;
             this.bufferIndex = bufferIndex;
             this.fileOffset = fileOffset;
+        }
+
+        public int getSubpartitionId() {
+            return subpartitionId;
+        }
+
+        public int getBufferIndex() {
+            return bufferIndex;
+        }
+
+        public long getFileOffset() {
+            return fileOffset;
         }
     }
 
@@ -61,23 +73,15 @@ public interface PartitionFileIndex {
      */
     class Region {
 
-        /** The first buffer index of the region. */
-        private final int firstBufferIndex;
-
         /** The file offset of the region. */
         private final long regionFileOffset;
 
         /** The number of buffers that the region contains. */
         private final int numBuffers;
 
-        Region(int firstBufferIndex, long regionFileOffset, int numBuffers) {
-            this.firstBufferIndex = firstBufferIndex;
+        Region(long regionFileOffset, int numBuffers) {
             this.regionFileOffset = regionFileOffset;
             this.numBuffers = numBuffers;
-        }
-
-        public boolean containBuffer(int bufferIndex) {
-            return bufferIndex >= firstBufferIndex && bufferIndex < firstBufferIndex + numBuffers;
         }
 
         public long getRegionFileOffset() {
