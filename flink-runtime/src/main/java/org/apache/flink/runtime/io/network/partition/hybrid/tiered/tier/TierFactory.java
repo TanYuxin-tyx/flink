@@ -28,9 +28,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
 
 import javax.annotation.Nullable;
 
@@ -52,13 +52,13 @@ public interface TierFactory {
             boolean isBroadcastOnly,
             PartitionFileWriter partitionFileWriter,
             PartitionFileReader partitionFileReader,
+            PartitionFileIndex partitionFileIndex,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
-            TieredStorageResourceRegistry resourceRegistry,
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
             ScheduledExecutorService batchShuffleReadIOExecutor,
             TieredStorageConfiguration tieredStorageConfiguration,
-            PartitionFileIndex dataIndex);
+            TieredStorageResourceRegistry resourceRegistry);
 
     TierConsumerAgent createConsumerAgent(
             int numSubpartitions,

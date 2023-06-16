@@ -85,12 +85,12 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             boolean isBroadcastOnly,
             PartitionFileWriter partitionFileWriter,
             PartitionFileReader partitionFileReader,
+            PartitionFileIndex dataIndex,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
             ScheduledExecutorService batchShuffleReadIOExecutor,
             TieredStorageConfiguration storeConfiguration,
-            PartitionFileIndex dataIndex,
             TieredStorageResourceRegistry resourceRegistry) {
         this.numBytesPerSegment = numBytesPerSegment;
         this.resultPartitionID = resultPartitionID;

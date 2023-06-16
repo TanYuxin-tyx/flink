@@ -70,13 +70,13 @@ public class DiskTierFactory implements TierFactory {
             boolean isBroadcastOnly,
             PartitionFileWriter partitionFileWriter,
             PartitionFileReader partitionFileReader,
+            PartitionFileIndex partitionFileIndex,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
-            TieredStorageResourceRegistry resourceRegistry,
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
             ScheduledExecutorService batchShuffleReadIOExecutor,
             TieredStorageConfiguration storageConfiguration,
-            PartitionFileIndex dataIndex) {
+            TieredStorageResourceRegistry resourceRegistry) {
         return new DiskTierProducerAgent(
                 partitionID,
                 numSubpartitions,
@@ -87,12 +87,12 @@ public class DiskTierFactory implements TierFactory {
                 isBroadcastOnly,
                 partitionFileWriter,
                 partitionFileReader,
+                partitionFileIndex,
                 storageMemoryManager,
                 nettyService,
                 batchShuffleReadBufferPool,
                 batchShuffleReadIOExecutor,
                 storageConfiguration,
-                dataIndex,
                 resourceRegistry);
     }
 
