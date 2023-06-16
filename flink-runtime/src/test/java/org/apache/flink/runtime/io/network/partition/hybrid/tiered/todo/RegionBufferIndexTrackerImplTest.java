@@ -57,11 +57,11 @@
 //    void testGetReadableRegionBufferNotExist() {
 //        partitionFileIndex.addRegionIndex(createSpilledBuffers(0, Arrays.asList(0, 2)));
 //        // subpartition 0 does not have buffer with index 1
-//        // assertThat(regionBufferIndexTracker.getRegionIndex(0, 1, -1,
+//        // assertThat(regionBufferIndexTracker.getNextRegion(0, 1, -1,
 //        // NettyServiceViewId.DEFAULT))
 //        //        .isNotPresent();
 //        //// subpartition 1 has no buffer
-//        // assertThat(regionBufferIndexTracker.getRegionIndex(1, 0, -1,
+//        // assertThat(regionBufferIndexTracker.getNextRegion(1, 0, -1,
 //        // NettyServiceViewId.DEFAULT))
 //        //        .isNotPresent();
 //    }
@@ -71,7 +71,7 @@
 //    void testGetReadableRegionNotReadable() {
 //        partitionFileIndex.addRegionIndex(createSpilledBuffers(0, Collections.singletonList(0)));
 //        // 0-0 is not readable as consuming offset is bigger than 0.
-//        // assertThat(regionBufferIndexTracker.getRegionIndex(0, 0, 1,
+//        // assertThat(regionBufferIndexTracker.getNextRegion(0, 0, 1,
 //        // NettyServiceViewId.DEFAULT))
 //        //        .isNotPresent();
 //    }
@@ -87,7 +87,7 @@
 //        partitionFileIndex.addRegionIndex(
 //                createSpilledBuffers(subpartitionId, Arrays.asList(0, 1, 3, 4, 5)));
 //        // assertThat(
-//        //                regionBufferIndexTracker.getRegionIndex(
+//        //                regionBufferIndexTracker.getNextRegion(
 //        //                        subpartitionId, 1, 0, TierReaderViewId.DEFAULT))
 //        //        .hasValueSatisfying(
 //        //                readableRegion -> {
@@ -96,7 +96,7 @@
 //        //                    assertThat(readableRegion.numReadable).isEqualTo(1);
 //        //                });
 //        // assertThat(
-//        //                regionBufferIndexTracker.getRegionIndex(
+//        //                regionBufferIndexTracker.getNextRegion(
 //        //                        subpartitionId, 3, 0, TierReaderViewId.DEFAULT))
 //        //        .hasValueSatisfying(
 //        //                readableRegion -> {
@@ -106,7 +106,7 @@
 //        //                            .isLessThanOrEqualTo(2);
 //        //                });
 //        // assertThat(
-//        //                regionBufferIndexTracker.getRegionIndex(
+//        //                regionBufferIndexTracker.getNextRegion(
 //        //                        subpartitionId, 4, 0, TierReaderViewId.DEFAULT))
 //        //        .hasValueSatisfying(
 //        //                readableRegion -> {

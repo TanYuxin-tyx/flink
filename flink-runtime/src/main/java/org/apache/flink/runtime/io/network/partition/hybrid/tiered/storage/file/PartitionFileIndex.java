@@ -33,8 +33,7 @@ public interface PartitionFileIndex {
 
     void addRegionIndex(List<SpilledBuffer> spilledBuffers);
 
-    Optional<PartitionFileIndexImpl.Region> getRegionIndex(
-            int subpartitionId, int bufferIndex, NettyConnectionId nettyServiceWriterId);
+    Optional<Region> getNextRegion(int subpartitionId, NettyConnectionId nettyServiceWriterId);
 
     void release();
 

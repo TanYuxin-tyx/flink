@@ -191,9 +191,8 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
             if (isInCachedRegion(bufferIndex)) {
                 return numBuffersReadable;
             }
-            Optional<Region> internalRegion = dataIndex.getRegionIndex(
+            Optional<Region> internalRegion = dataIndex.getNextRegion(
                     subpartitionId,
-                    bufferIndex,
                     nettyServiceWriterId);
             if (!internalRegion.isPresent()) {
                 currentReadingBufferIndex = -1;

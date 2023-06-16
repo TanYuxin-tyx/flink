@@ -48,7 +48,7 @@
 //    }
 //
 //    @Override
-//    public Optional<PartitionFileIndexImpl.InternalRegion> getRegionIndex(
+//    public Optional<PartitionFileIndexImpl.InternalRegion> getNextRegion(
 //            int subpartitionId, int bufferIndex, NettyConnectionId nettyServiceWriterId) {
 //        //return getReadableRegionFunction.apply(subpartitionId, bufferIndex, 0);
 //        return null;

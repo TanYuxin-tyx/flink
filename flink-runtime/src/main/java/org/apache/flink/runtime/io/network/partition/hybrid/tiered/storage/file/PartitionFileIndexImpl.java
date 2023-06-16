@@ -67,8 +67,8 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
     }
 
     @Override
-    public Optional<Region> getRegionIndex(
-            int subpartitionId, int bufferIndex, NettyConnectionId nettyServiceWriterId) {
+    public Optional<Region> getNextRegion(
+            int subpartitionId, NettyConnectionId nettyServiceWriterId) {
         synchronized (lock) {
             if (isReleased) {
                 return Optional.empty();
@@ -79,15 +79,13 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
                             .get(subpartitionId)
                             .getOrDefault(nettyServiceWriterId, 0);
             List<Region> currentRegions = subpartitionRegions.get(subpartitionId);
-            while (currentRegionIndex < currentRegions.size()) {
+            if (currentRegionIndex < currentRegions.size()) {
                 Region region = currentRegions.get(currentRegionIndex);
-                if (region.containBuffer(bufferIndex)) {
-                    return Optional.of(region);
-                }
                 ++currentRegionIndex;
                 subpartitionReaderRegionIndexes
                         .get(subpartitionId)
                         .put(nettyServiceWriterId, currentRegionIndex);
+                return Optional.of(region);
             }
             return Optional.empty();
         }
