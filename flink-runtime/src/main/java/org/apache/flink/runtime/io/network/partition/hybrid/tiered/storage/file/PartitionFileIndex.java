@@ -24,9 +24,10 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Index of spilled data. For each spilled data buffer, this maintains the subpartition it belongs
- * to, the buffer index within the subpartition, the offset in file it begin with, and its
- * readability.
+ * The {@link PartitionFileIndex} represents the indexes and the regions of the spilled buffers. For
+ * each spilled data buffer, this maintains the subpartition it belongs to, the buffer index within
+ * the subpartition, the offset in file it begin with. The {@link Region} represents a series of
+ * physically continuous buffers in the file, which are from the same subpartition.
  */
 public interface PartitionFileIndex {
 
@@ -37,15 +38,15 @@ public interface PartitionFileIndex {
 
     void release();
 
-    /** Represents a spilled buffer. */
+    /** Represents a buffer to be spilled. */
     class SpilledBuffer {
-        /** Id of subpartition that the buffer belongs to. */
+        /** The subpartition id that the buffer belongs to. */
         public final int subpartitionId;
 
-        /** Index of the buffer within the subpartition. */
+        /** The buffer index within the subpartition. */
         public final int bufferIndex;
 
-        /** File offset that the buffer begin with. */
+        /** The file offset that the buffer begin with. */
         public final long fileOffset;
 
         public SpilledBuffer(int subpartitionId, int bufferIndex, long fileOffset) {
@@ -55,14 +56,19 @@ public interface PartitionFileIndex {
         }
     }
 
-
     /**
-     * A {@link Region} represents a series of physically continuous buffers in the file,
-     * which are from the same subpartition, and has sequential buffer index.
+     * A {@link Region} represents a series of physically continuous buffers in the file, which are
+     * from the same subpartition.
      */
     class Region {
+
+        /** The first buffer index of the region. */
         private final int firstBufferIndex;
+
+        /** The file offset of the region. */
         private final long regionFileOffset;
+
+        /** The number of buffers that the region contains. */
         private final int numBuffers;
 
         Region(int firstBufferIndex, long regionFileOffset, int numBuffers) {

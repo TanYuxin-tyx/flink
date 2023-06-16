@@ -60,7 +60,9 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     private final TieredStoragePartitionId partitionId;
 
-    private final int numBytesPerSegment;
+    private final int numBuffersPerSegment;
+
+    private final int bufferSizeBytes;
 
     private final Path dataFilePath;
 
@@ -78,7 +80,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     private final List<Map<Integer, Integer>> firstBufferIndexInSegment;
 
     /** Record the number of buffers currently written to each subpartition. */
-    private final int[] currentSubpartitionWriteBytes;
+    private final int[] currentSubpartitionWriteBuffers;
 
     private volatile boolean isReleased;
 
@@ -104,11 +106,12 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                 "One segment should contain at least one buffer.");
 
         this.partitionId = partitionId;
-        this.numBytesPerSegment = numBytesPerSegment;
+        this.numBuffersPerSegment = numBytesPerSegment / bufferSizeBytes;
+        this.bufferSizeBytes = bufferSizeBytes;
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.firstBufferIndexInSegment = new ArrayList<>();
-        this.currentSubpartitionWriteBytes = new int[numSubpartitions];
+        this.currentSubpartitionWriteBuffers = new int[numSubpartitions];
 
         for (int i = 0; i < numSubpartitions; ++i) {
             // Each map is used to store the segment ids belonging to a subpartition. The map can be
@@ -143,7 +146,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             boolean forceUseCurrentTier) {
         File filePath = dataFilePath.toFile();
         boolean canStartNewSegment =
-                filePath.getUsableSpace()
+                filePath.getUsableSpace() - ((long) numBuffersPerSegment) * bufferSizeBytes
                         > (long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction);
         if (canStartNewSegment || forceUseCurrentTier) {
             firstBufferIndexInSegment
@@ -158,14 +161,13 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     @Override
     public boolean tryWrite(int subpartitionId, Buffer finishedBuffer) {
-        if (currentSubpartitionWriteBytes[subpartitionId] != 0
-                && currentSubpartitionWriteBytes[subpartitionId] + finishedBuffer.readableBytes()
-                        > numBytesPerSegment) {
+        if (currentSubpartitionWriteBuffers[subpartitionId] != 0
+                && currentSubpartitionWriteBuffers[subpartitionId] + 1 > numBuffersPerSegment) {
             emitEndOfSegmentEvent(subpartitionId);
-            currentSubpartitionWriteBytes[subpartitionId] = 0;
+            currentSubpartitionWriteBuffers[subpartitionId] = 0;
             return false;
         }
-        currentSubpartitionWriteBytes[subpartitionId] += finishedBuffer.readableBytes();
+        currentSubpartitionWriteBuffers[subpartitionId]++;
         emitBuffer(finishedBuffer, subpartitionId);
         return true;
     }

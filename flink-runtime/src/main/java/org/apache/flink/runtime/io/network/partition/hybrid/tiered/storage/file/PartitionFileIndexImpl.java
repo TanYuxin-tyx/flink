@@ -35,21 +35,34 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 /** Default implementation of {@link PartitionFileIndex}. */
 public class PartitionFileIndexImpl implements PartitionFileIndex {
 
+    /**
+     * The regions belonging to each subpartitions.
+     *
+     * <p>Note that the field can be accessed by the writing and reading IO thread, so the lock is
+     * to ensure the thread safety.
+     */
     @GuardedBy("lock")
     private final List<List<Region>> subpartitionRegions;
 
-    private final List<Map<NettyConnectionId, Integer>> lastestIndexOfReader;
+    /**
+     * The region index of a reader is reading for each subpartition. The list index is
+     * corresponding to the subpartition id. The key in the map represents the reader, the value in
+     * the map represents the reading region index.
+     */
+    @GuardedBy("lock")
+    private final List<Map<NettyConnectionId, Integer>> subpartitionReaderRegionIndexes;
+
+    @GuardedBy("lock")
+    private boolean isReleased;
 
     private final Object lock = new Object();
 
-    private boolean isReleased;
-
     public PartitionFileIndexImpl(int numSubpartitions) {
         this.subpartitionRegions = new ArrayList<>();
-        this.lastestIndexOfReader = new ArrayList<>();
+        this.subpartitionReaderRegionIndexes = new ArrayList<>();
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionRegions.add(new ArrayList<>());
-            lastestIndexOfReader.add(new HashMap<>());
+            subpartitionReaderRegionIndexes.add(new HashMap<>());
         }
     }
 
@@ -62,16 +75,17 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
             }
             // return the latest region
             int currentRegionIndex =
-                    lastestIndexOfReader.get(subpartitionId).getOrDefault(nettyServiceWriterId, 0);
-            List<Region> currentRegions =
-                    subpartitionRegions.get(subpartitionId);
+                    subpartitionReaderRegionIndexes
+                            .get(subpartitionId)
+                            .getOrDefault(nettyServiceWriterId, 0);
+            List<Region> currentRegions = subpartitionRegions.get(subpartitionId);
             while (currentRegionIndex < currentRegions.size()) {
                 Region region = currentRegions.get(currentRegionIndex);
                 if (region.containBuffer(bufferIndex)) {
                     return Optional.of(region);
                 }
                 ++currentRegionIndex;
-                lastestIndexOfReader
+                subpartitionReaderRegionIndexes
                         .get(subpartitionId)
                         .put(nettyServiceWriterId, currentRegionIndex);
             }
@@ -86,8 +100,7 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
         synchronized (lock) {
             subpartitionInternalRegions.forEach(
                     (subpartition, internalRegions) -> {
-                        List<Region> regionList =
-                                subpartitionRegions.get(subpartition);
+                        List<Region> regionList = subpartitionRegions.get(subpartition);
                         regionList.addAll(internalRegions);
                     });
         }
@@ -97,47 +110,41 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
     public void release() {
         synchronized (lock) {
             subpartitionRegions.clear();
-            lastestIndexOfReader.clear();
+            subpartitionReaderRegionIndexes.clear();
             isReleased = true;
         }
     }
 
-    private static Map<Integer, List<Region>> convertToRegions(
-            List<SpilledBuffer> spilledBuffers) {
+    // ------------------------------------------------------------------------
+    //  Internal Methods
+    // ------------------------------------------------------------------------
 
+    private static Map<Integer, List<Region>> convertToRegions(List<SpilledBuffer> spilledBuffers) {
         if (spilledBuffers.isEmpty()) {
             return Collections.emptyMap();
         }
 
-        final Map<Integer, List<Region>> internalRegionsBySubpartition = new HashMap<>();
+        final Map<Integer, List<Region>> subpartitionRegions = new HashMap<>();
         final Iterator<SpilledBuffer> iterator = spilledBuffers.iterator();
         // There's at least one buffer
-        SpilledBuffer firstBufferOfCurrentRegion = iterator.next();
-        SpilledBuffer lastBufferOfCurrentRegion = firstBufferOfCurrentRegion;
+        SpilledBuffer firstBufferInRegion = iterator.next();
+        SpilledBuffer lastBufferInRegion = firstBufferInRegion;
 
         while (iterator.hasNext()) {
             SpilledBuffer currentBuffer = iterator.next();
-
-            if (currentBuffer.subpartitionId != firstBufferOfCurrentRegion.subpartitionId
-                    || currentBuffer.bufferIndex != lastBufferOfCurrentRegion.bufferIndex + 1) {
+            if (currentBuffer.subpartitionId != firstBufferInRegion.subpartitionId
+                    || currentBuffer.bufferIndex != lastBufferInRegion.bufferIndex + 1) {
                 // the current buffer belongs to a new region, close the previous region
                 addInternalRegionToMap(
-                        firstBufferOfCurrentRegion,
-                        lastBufferOfCurrentRegion,
-                        internalRegionsBySubpartition);
-                firstBufferOfCurrentRegion = currentBuffer;
+                        firstBufferInRegion, lastBufferInRegion, subpartitionRegions);
+                firstBufferInRegion = currentBuffer;
             }
 
-            lastBufferOfCurrentRegion = currentBuffer;
+            lastBufferInRegion = currentBuffer;
         }
 
-        // close the last region
-        addInternalRegionToMap(
-                firstBufferOfCurrentRegion,
-                lastBufferOfCurrentRegion,
-                internalRegionsBySubpartition);
-
-        return internalRegionsBySubpartition;
+        addInternalRegionToMap(firstBufferInRegion, lastBufferInRegion, subpartitionRegions);
+        return subpartitionRegions;
     }
 
     private static void addInternalRegionToMap(

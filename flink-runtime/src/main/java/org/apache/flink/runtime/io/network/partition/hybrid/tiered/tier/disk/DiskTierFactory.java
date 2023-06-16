@@ -68,7 +68,7 @@ public class DiskTierFactory implements TierFactory {
     @Override
     public TierProducerAgent createProducerAgent(
             int numSubpartitions,
-            TieredStoragePartitionId partitionID,
+            TieredStoragePartitionId partitionId,
             String dataFileBasePath,
             boolean isBroadcastOnly,
             PartitionFileWriter partitionFileWriter,
@@ -81,7 +81,7 @@ public class DiskTierFactory implements TierFactory {
             TieredStorageConfiguration storageConfiguration,
             TieredStorageResourceRegistry resourceRegistry) {
         return new DiskTierProducerAgent(
-                partitionID,
+                partitionId,
                 numSubpartitions,
                 numBytesPerSegment,
                 bufferSizeBytes,

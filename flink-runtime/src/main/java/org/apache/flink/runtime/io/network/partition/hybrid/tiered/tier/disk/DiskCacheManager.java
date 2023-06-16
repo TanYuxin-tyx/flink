@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.SegmentNettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.SubpartitionNettyPayload;
+import org.apache.flink.util.concurrent.FutureUtils;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -43,8 +44,7 @@ public class DiskCacheManager {
 
     private final SubpartitionDiskCacheManager[] subpartitionCacheManagers;
 
-    private volatile CompletableFuture<Void> hasFlushCompleted =
-            CompletableFuture.completedFuture(null);
+    private CompletableFuture<Void> hasFlushCompleted;
 
     public DiskCacheManager(
             int numSubpartitions,
@@ -53,16 +53,14 @@ public class DiskCacheManager {
         this.numSubpartitions = numSubpartitions;
         this.partitionFileWriter = partitionFileWriter;
         this.subpartitionCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
+        this.hasFlushCompleted = FutureUtils.completedVoidFuture();
+
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionCacheManagers[subpartitionId] =
                     new SubpartitionDiskCacheManager(subpartitionId);
         }
         storageMemoryManager.listenBufferReclaimRequest(this::notifyFlushCachedBuffers);
     }
-
-    // ------------------------------------
-    //          For ResultPartition
-    // ------------------------------------
 
     /**
      * Append the end-of-segment event to {@link DiskCacheManager}.
@@ -81,20 +79,20 @@ public class DiskCacheManager {
      * Append buffer to {@link DiskCacheManager}.
      *
      * @param buffer to be managed by this class.
-     * @param targetChannel target subpartition of this record.
+     * @param subpartitionId the subpartition of this record.
      */
-    public void append(Buffer buffer, int targetChannel) {
-        subpartitionCacheManagers[targetChannel].append(buffer);
+    public void append(Buffer buffer, int subpartitionId) {
+        subpartitionCacheManagers[subpartitionId].append(buffer);
     }
 
+    /**
+     * Return the finished buffer index.
+     *
+     * @param subpartitionId the target subpartition id
+     * @return the finished buffer index
+     */
     public int getFinishedBufferIndex(int subpartitionId) {
         return subpartitionCacheManagers[subpartitionId].getFinishedBufferIndex();
-    }
-
-    public List<NettyPayload> getBuffersInOrder(int subpartitionId) {
-        SubpartitionDiskCacheManager targetSubpartitionDataManager =
-                subpartitionCacheManagers[subpartitionId];
-        return targetSubpartitionDataManager.getAllBuffers();
     }
 
     /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
@@ -122,14 +120,31 @@ public class DiskCacheManager {
         flushBuffers(true);
     }
 
+    /**
+     * Note that the request of flushing buffers may come from the disk check thread or the task
+     * thread, so the method itself should ensure the thread safety.
+     */
     private synchronized void flushBuffers(boolean needForceFlush) {
         if (!needForceFlush && !hasFlushCompleted.isDone()) {
             return;
         }
         List<SubpartitionNettyPayload> toWriteBuffers = new ArrayList<>();
+        int numToWriteBuffers = getSubpartitionBuffersToFlush(toWriteBuffers);
+
+        if (numToWriteBuffers > 0) {
+            CompletableFuture<Void> flushCompletableFuture =
+                    partitionFileWriter.write(toWriteBuffers);
+            if (!needForceFlush) {
+                hasFlushCompleted = flushCompletableFuture;
+            }
+        }
+    }
+
+    private int getSubpartitionBuffersToFlush(List<SubpartitionNettyPayload> toWriteBuffers) {
         int numToWriteBuffers = 0;
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; subpartitionId++) {
-            List<NettyPayload> nettyPayloads = getBuffersInOrder(subpartitionId);
+            List<NettyPayload> nettyPayloads =
+                    subpartitionCacheManagers[subpartitionId].getAllBuffers();
             toWriteBuffers.add(
                     new SubpartitionNettyPayload(
                             subpartitionId,
@@ -137,13 +152,6 @@ public class DiskCacheManager {
                                     new SegmentNettyPayload(-1, nettyPayloads, false))));
             numToWriteBuffers += nettyPayloads.size();
         }
-
-        if (numToWriteBuffers > 0) {
-            CompletableFuture<Void> spillSuccessNotifier =
-                    partitionFileWriter.write(toWriteBuffers);
-            if (!needForceFlush) {
-                hasFlushCompleted = spillSuccessNotifier;
-            }
-        }
+        return numToWriteBuffers;
     }
 }
