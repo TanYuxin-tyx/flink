@@ -99,8 +99,8 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
         Map<Integer, List<Region>> convertedRegions = convertToRegions(spilledBuffers);
         synchronized (lock) {
             convertedRegions.forEach(
-                    (subpartition, Regions) ->
-                            subpartitionRegions.get(subpartition).addAll(Regions));
+                    (subpartition, regions) ->
+                            subpartitionRegions.get(subpartition).addAll(regions));
         }
     }
 
