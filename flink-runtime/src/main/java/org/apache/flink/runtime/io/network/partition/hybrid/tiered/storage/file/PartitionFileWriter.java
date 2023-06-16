@@ -9,7 +9,15 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface PartitionFileWriter {
 
+    /**
+     * Write the {@link SubpartitionNettyPayload}s to the partition file. The written buffers may
+     * belong to multiple subpartitions.
+     *
+     * @return the completable future indicating whether the writing file process has finished. If
+     *     the {@link CompletableFuture} is completed, the written process is completed.
+     */
     CompletableFuture<Void> write(List<SubpartitionNettyPayload> toWriteBuffers);
 
+    /** Release all the resources of the {@link PartitionFileWriter}. */
     void release();
 }

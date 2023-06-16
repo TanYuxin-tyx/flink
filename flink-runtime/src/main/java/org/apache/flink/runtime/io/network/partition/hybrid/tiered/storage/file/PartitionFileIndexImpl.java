@@ -31,7 +31,7 @@ import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
-/** Default implementation of {@link PartitionFileIndex}. */
+/** The default implementation of {@link PartitionFileIndex}. */
 public class PartitionFileIndexImpl implements PartitionFileIndex {
 
     /**

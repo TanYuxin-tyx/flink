@@ -36,8 +36,8 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * The {@link SubpartitionDiskCacheManager} is responsible for managing the cached buffers in a
- * single subpartition.
+ * The {@link SubpartitionDiskCacheManager} is responsible to manage the cached buffers in a single
+ * subpartition.
  */
 public class SubpartitionDiskCacheManager {
 
@@ -45,8 +45,8 @@ public class SubpartitionDiskCacheManager {
 
     private int finishedBufferIndex;
 
-    // Note that this field can be accessed by multiple threads, so the thread safety should be
-    // ensured.
+    // Note that this field can be accessed by the task thread or the write IO thread, so the thread
+    // safety should be ensured.
     private final Deque<NettyPayload> allBuffers = new LinkedList<>();
 
     public SubpartitionDiskCacheManager(int subpartitionId) {

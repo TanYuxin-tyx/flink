@@ -22,6 +22,10 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPa
 
 import java.util.List;
 
+/**
+ * The wrapper class {@link SegmentNettyPayload} for a segment, which holds all the {@link
+ * NettyPayload} buffers and the flag that mark whether this segment need to be finished.
+ */
 public class SegmentNettyPayload {
 
     private final int segmentId;

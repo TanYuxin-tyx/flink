@@ -20,6 +20,10 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file
 
 import java.util.List;
 
+/**
+ * The wrapper class {@link SubpartitionNettyPayload} for a subpartition, which holds all the {@link
+ * SegmentNettyPayload} buffers.
+ */
 public class SubpartitionNettyPayload {
 
     private final int subpartitionId;
