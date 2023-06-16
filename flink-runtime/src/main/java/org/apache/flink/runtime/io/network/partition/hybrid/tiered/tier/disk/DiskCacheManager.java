@@ -27,33 +27,36 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-/** This class is responsible for managing cached buffers data before flush to local files. */
+/**
+ * The {@link DiskCacheManager} is responsible for managing cached buffers before flushing to files.
+ */
 public class DiskCacheManager {
 
     private final int numSubpartitions;
 
-    private final SubpartitionDiskCacheManager[] subpartitionDiskCacheManagers;
+    private final PartitionFileWriter partitionFileWriter;
+
+    private final SubpartitionDiskCacheManager[] subpartitionCacheManagers;
 
     private volatile CompletableFuture<Void> hasFlushCompleted =
             CompletableFuture.completedFuture(null);
-
-    PartitionFileWriter partitionFileWriter;
 
     public DiskCacheManager(
             int numSubpartitions,
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileWriter partitionFileWriter) {
         this.numSubpartitions = numSubpartitions;
-        this.subpartitionDiskCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
+        this.partitionFileWriter = partitionFileWriter;
+        this.subpartitionCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
-            subpartitionDiskCacheManagers[subpartitionId] =
+            subpartitionCacheManagers[subpartitionId] =
                     new SubpartitionDiskCacheManager(subpartitionId);
         }
-        this.partitionFileWriter = partitionFileWriter;
         storageMemoryManager.listenBufferReclaimRequest(this::notifyFlushCachedBuffers);
     }
 
@@ -62,14 +65,15 @@ public class DiskCacheManager {
     // ------------------------------------
 
     /**
-     * Append record to {@link DiskCacheManager}.
+     * Append the end-of-segment event to {@link DiskCacheManager}.
      *
-     * @param record to be managed by this class.
-     * @param targetChannel target subpartition of this record.
+     * @param record the end-of-segment event
+     * @param subpartitionId target subpartition of this record.
      * @param dataType the type of this record. In other words, is it data or event.
      */
-    public void appendSegmentEvent(ByteBuffer record, int targetChannel, Buffer.DataType dataType) {
-        getSubpartitionCacheDataManager(targetChannel).appendSegmentEvent(record, dataType);
+    public void appendEndOfSegmentEvent(
+            ByteBuffer record, int subpartitionId, Buffer.DataType dataType) {
+        subpartitionCacheManagers[subpartitionId].appendEndOfSegmentEvent(record, dataType);
         flushAndReleaseCacheBuffers();
     }
 
@@ -80,7 +84,17 @@ public class DiskCacheManager {
      * @param targetChannel target subpartition of this record.
      */
     public void append(Buffer buffer, int targetChannel) {
-        getSubpartitionCacheDataManager(targetChannel).append(buffer);
+        subpartitionCacheManagers[targetChannel].append(buffer);
+    }
+
+    public int getFinishedBufferIndex(int subpartitionId) {
+        return subpartitionCacheManagers[subpartitionId].getFinishedBufferIndex();
+    }
+
+    public List<NettyPayload> getBuffersInOrder(int subpartitionId) {
+        SubpartitionDiskCacheManager targetSubpartitionDataManager =
+                subpartitionCacheManagers[subpartitionId];
+        return targetSubpartitionDataManager.getAllBuffers();
     }
 
     /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
@@ -92,44 +106,24 @@ public class DiskCacheManager {
      * Release this {@link DiskCacheManager}, it means all memory taken by this class will recycle.
      */
     public void release() {
-        for (int i = 0; i < numSubpartitions; i++) {
-            getSubpartitionCacheDataManager(i).release();
-        }
+        Arrays.stream(subpartitionCacheManagers).forEach(SubpartitionDiskCacheManager::release);
         partitionFileWriter.release();
     }
-
-    // ------------------------------------
-    //        For Spilling Strategy
-    // ------------------------------------
-
-    public int getFinishedBufferIndex(int subpartitionId) {
-        return subpartitionDiskCacheManagers[subpartitionId].getFinishedBufferIndex();
-    }
-
-    public List<NettyPayload> getBuffersInOrder(int subpartitionId) {
-        SubpartitionDiskCacheManager targetSubpartitionDataManager =
-                getSubpartitionCacheDataManager(subpartitionId);
-        return targetSubpartitionDataManager.getBuffersSatisfyStatus();
-    }
-
-    // ------------------------------------
-    //      Callback for subpartition
-    // ------------------------------------
 
     // ------------------------------------
     //           Internal Method
     // ------------------------------------
 
     private void notifyFlushCachedBuffers() {
-        spillBuffers(true);
+        flushBuffers(false);
     }
 
     private void flushAndReleaseCacheBuffers() {
-        spillBuffers(false);
+        flushBuffers(true);
     }
 
-    private synchronized void spillBuffers(boolean changeFlushState) {
-        if (changeFlushState && !hasFlushCompleted.isDone()) {
+    private synchronized void flushBuffers(boolean needForceFlush) {
+        if (!needForceFlush && !hasFlushCompleted.isDone()) {
             return;
         }
         List<SubpartitionNettyPayload> toWriteBuffers = new ArrayList<>();
@@ -147,13 +141,9 @@ public class DiskCacheManager {
         if (numToWriteBuffers > 0) {
             CompletableFuture<Void> spillSuccessNotifier =
                     partitionFileWriter.write(toWriteBuffers);
-            if (changeFlushState) {
+            if (!needForceFlush) {
                 hasFlushCompleted = spillSuccessNotifier;
             }
         }
-    }
-
-    private SubpartitionDiskCacheManager getSubpartitionCacheDataManager(int targetChannel) {
-        return subpartitionDiskCacheManagers[targetChannel];
     }
 }

@@ -32,9 +32,10 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceProducer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.ioscheduler.DiskIOScheduler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
@@ -89,7 +90,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
             ScheduledExecutorService batchShuffleReadIOExecutor,
             TieredStorageConfiguration storeConfiguration,
-            PartitionFileIndex dataIndex) {
+            PartitionFileIndex dataIndex,
+            TieredStorageResourceRegistry resourceRegistry) {
         this.numBytesPerSegment = numBytesPerSegment;
         this.resultPartitionID = resultPartitionID;
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
@@ -117,6 +119,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         partitionFileReader,
                         dataIndex);
         nettyService.registerProducer(partitionId, this);
+        resourceRegistry.registerResource(partitionId, this::releaseResources);
     }
 
     @Override
@@ -140,6 +143,20 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     }
 
     @Override
+    public boolean tryWrite(int consumerId, Buffer finishedBuffer) {
+        if (numSubpartitionEmitBytes[consumerId] != 0
+                && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
+                        > numBytesPerSegment) {
+            emitEndOfSegmentEvent(consumerId);
+            numSubpartitionEmitBytes[consumerId] = 0;
+            return false;
+        }
+        numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
+        emitBuffer(finishedBuffer, consumerId);
+        return true;
+    }
+
+    @Override
     public void connectionEstablished(
             TieredStorageSubpartitionId subpartitionId,
             NettyConnectionWriter nettyConnectionWriter) {
@@ -155,50 +172,38 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     }
 
     @Override
+    public void close() {
+        diskCacheManager.close();
+    }
+
+    @Override
     public void release() {
         // TODO, release the resources by the resource registry.
         if (!isReleased) {
             diskIOScheduler.release();
-            getDiskCacheManager().release();
+            diskCacheManager.release();
             isReleased = true;
         }
     }
 
-    @Override
-    public boolean tryWrite(int consumerId, Buffer finishedBuffer) {
-        if (numSubpartitionEmitBytes[consumerId] != 0
-                && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
-                        > numBytesPerSegment) {
-            emitEndOfSegmentEvent(consumerId);
-            numSubpartitionEmitBytes[consumerId] = 0;
-            return false;
-        }
-        numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
-        emitBuffer(finishedBuffer, consumerId);
-        return true;
-    }
+    // ------------------------------------------------------------------------
+    //  Internal Methods
+    // ------------------------------------------------------------------------
 
-    private void emitEndOfSegmentEvent(int targetChannel) {
+    private void emitEndOfSegmentEvent(int subpartitionId) {
         try {
-            diskCacheManager.appendSegmentEvent(
+            diskCacheManager.appendEndOfSegmentEvent(
                     EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE),
-                    targetChannel,
+                    subpartitionId,
                     END_OF_SEGMENT);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to emitEndOfSegmentEvent");
         }
     }
 
-    private void emitBuffer(Buffer finishedBuffer, int targetSubpartition) {
-        diskCacheManager.append(finishedBuffer, targetSubpartition);
+    private void emitBuffer(Buffer finishedBuffer, int subpartition) {
+        diskCacheManager.append(finishedBuffer, subpartition);
     }
 
-    @Override
-    public void close() {
-        diskCacheManager.close();
-    }
-
-    public DiskCacheManager getDiskCacheManager() {
-        return diskCacheManager;
-    }
+    private void releaseResources() {}
 }

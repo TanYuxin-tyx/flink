@@ -33,42 +33,45 @@ import java.util.LinkedList;
 import java.util.List;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkState;
 
-/** This class is responsible for managing the data in a single subpartition. */
+/**
+ * The {@link SubpartitionDiskCacheManager} is responsible for managing the cached buffers in a
+ * single subpartition.
+ */
 public class SubpartitionDiskCacheManager {
 
-    private final int targetChannel;
+    private final int subpartitionId;
 
-    // Not guarded by lock because it is expected only accessed from task's main thread.
     private int finishedBufferIndex;
 
+    // Note that this field can be accessed by multiple threads, so the thread safety should be
+    // ensured.
     private final Deque<NettyPayload> allBuffers = new LinkedList<>();
 
-    public SubpartitionDiskCacheManager(int targetChannel) {
-        this.targetChannel = targetChannel;
+    public SubpartitionDiskCacheManager(int subpartitionId) {
+        this.subpartitionId = subpartitionId;
     }
 
     // ------------------------------------------------------------------------
     //  Called by DiskCacheManager
     // ------------------------------------------------------------------------
-
-    public void appendSegmentEvent(ByteBuffer record, DataType dataType) {
+    void appendEndOfSegmentEvent(ByteBuffer record, DataType dataType) {
         writeEvent(record, dataType);
     }
 
-    public int getFinishedBufferIndex() {
+    int getFinishedBufferIndex() {
         return finishedBufferIndex;
     }
 
-    public void append(Buffer buffer) {
+    void append(Buffer buffer) {
         NettyPayload toAddBuffer =
-                NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
+                NettyPayload.newBuffer(buffer, finishedBufferIndex, subpartitionId);
         addFinishedBuffer(toAddBuffer);
     }
 
-    // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
-    // subpartitionLock.
-    public List<NettyPayload> getBuffersSatisfyStatus() {
+    // Note that allBuffers can be touched by multiple threads.
+    List<NettyPayload> getAllBuffers() {
         synchronized (allBuffers) {
             List<NettyPayload> targetBuffers = new ArrayList<>(allBuffers);
             allBuffers.clear();
@@ -76,7 +79,9 @@ public class SubpartitionDiskCacheManager {
         }
     }
 
-    public void release() {}
+    public void release() {
+        checkState(allBuffers.isEmpty(), "Leaking buffers.");
+    }
 
     // ------------------------------------------------------------------------
     //  Internal Methods
@@ -90,13 +95,11 @@ public class SubpartitionDiskCacheManager {
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
         NettyPayload nettyPayload =
-                NettyPayload.newBuffer(buffer, finishedBufferIndex, targetChannel);
+                NettyPayload.newBuffer(buffer, finishedBufferIndex, subpartitionId);
         addFinishedBuffer(nettyPayload);
     }
 
-    @SuppressWarnings("FieldAccessNotGuarded")
-    // Note that: callWithLock ensure that code block guarded by resultPartitionReadLock and
-    // subpartitionLock.
+    // Note that allBuffers can be touched by multiple threads.
     private void addFinishedBuffer(NettyPayload nettyPayload) {
         synchronized (allBuffers) {
             finishedBufferIndex++;
