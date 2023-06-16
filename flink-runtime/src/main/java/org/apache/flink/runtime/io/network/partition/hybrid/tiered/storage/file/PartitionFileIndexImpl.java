@@ -92,7 +92,7 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
     }
 
     @Override
-    public void addRegionIndex(List<SpilledBuffer> spilledBuffers) {
+    public void writeRegions(List<SpilledBuffer> spilledBuffers) {
         final Map<Integer, List<Region>> subpartitionInternalRegions =
                 convertToRegions(spilledBuffers);
         synchronized (lock) {

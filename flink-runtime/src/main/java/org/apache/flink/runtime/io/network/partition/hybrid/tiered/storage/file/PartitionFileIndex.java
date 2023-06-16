@@ -31,7 +31,7 @@ import java.util.Optional;
  */
 public interface PartitionFileIndex {
 
-    void addRegionIndex(List<SpilledBuffer> spilledBuffers);
+    void writeRegions(List<SpilledBuffer> spilledBuffers);
 
     Optional<Region> getNextRegion(int subpartitionId, NettyConnectionId nettyServiceWriterId);
 

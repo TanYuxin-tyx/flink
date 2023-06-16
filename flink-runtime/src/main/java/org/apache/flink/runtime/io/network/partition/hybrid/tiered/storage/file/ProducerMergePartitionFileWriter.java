@@ -90,7 +90,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
             List<PartitionFileIndex.SpilledBuffer> spilledBuffers = new ArrayList<>();
             long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
             writeBuffers(toWrite, expectedBytes);
-            partitionFileIndex.addRegionIndex(spilledBuffers);
+            partitionFileIndex.writeRegions(spilledBuffers);
             for (NettyPayload nettyPayload : toWrite) {
                 nettyPayload.getBuffer().get().recycleBuffer();
             }

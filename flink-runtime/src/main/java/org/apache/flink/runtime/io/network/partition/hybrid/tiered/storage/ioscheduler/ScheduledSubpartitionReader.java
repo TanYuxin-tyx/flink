@@ -62,7 +62,7 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
 
     private final PartitionFileIndex dataIndex;
 
-    private final ReadingProgressRecorder readingProgressRecorder;
+    private final SubpartitionReaderProgress subpartitionReaderProgress;
 
     public ScheduledSubpartitionReader(
             int subpartitionId,
@@ -80,7 +80,7 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
         this.firstBufferContextInSegment = firstBufferContextInSegment;
         this.partitionFileReader = partitionFileReader;
         this.dataIndex = dataIndex;
-        this.readingProgressRecorder = new ReadingProgressRecorder(subpartitionId);
+        this.subpartitionReaderProgress = new SubpartitionReaderProgress(subpartitionId);
     }
 
     public void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
@@ -98,12 +98,10 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
             return;
         }
         int numRemainingBuffer =
-                readingProgressRecorder.getRemainingBuffersInRegion(
-                        nextToLoad, nettyServiceWriterId);
+                subpartitionReaderProgress.getReadableBufferNumber(nettyServiceWriterId);
         if (numRemainingBuffer == 0) {
             return;
         }
-
         checkState(numRemainingBuffer > 0);
         int numLoaded = 0;
         while (!buffers.isEmpty()
@@ -116,7 +114,7 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
                                 partitionFileReader.readBuffer(
                                         subpartitionId,
                                         -1,
-                                        readingProgressRecorder.getCurrentFileOffset(),
+                                        subpartitionReaderProgress.getCurrentFileOffset(),
                                         segment,
                                         recycler))
                         == null) {
@@ -128,7 +126,7 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
                 throw throwable;
             }
             int bufferLength = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
-            readingProgressRecorder.advance(bufferLength);
+            subpartitionReaderProgress.advance(bufferLength);
             NettyPayload nettyPayload =
                     NettyPayload.newBuffer(buffer, nextToLoad++, subpartitionId);
             Integer segmentId = firstBufferContextInSegment.get(nettyPayload.getBufferIndex());
@@ -167,7 +165,7 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
         if (nextToLoad < 0) {
             return Long.MAX_VALUE;
         } else {
-            return readingProgressRecorder.getCurrentFileOffset();
+            return subpartitionReaderProgress.getCurrentFileOffset();
         }
     }
 
@@ -175,57 +173,51 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
         return nettyServiceWriterId;
     }
 
-    private class ReadingProgressRecorder {
+    /**
+     * {@link SubpartitionReaderProgress} is used to record the necessary information of reading
+     * progress of a subpartition reader, which includes the id of subpartition, next buffer index,
+     * current file offset, and the number of available buffers in the subpartition.
+     */
+    private class SubpartitionReaderProgress {
 
         private final int subpartitionId;
-        private int currentReadingBufferIndex;
-        private int numBuffersReadable;
+
+        private int nextBufferIndex;
+
         private long currentFileOffset;
 
-        public ReadingProgressRecorder(int subpartitionId) {
+        private int numBuffersReadable;
+
+        public SubpartitionReaderProgress(int subpartitionId) {
             this.subpartitionId = subpartitionId;
         }
 
-        private int getRemainingBuffersInRegion(
-                int bufferIndex, NettyConnectionId nettyServiceWriterId) {
-            if (isInCachedRegion(bufferIndex)) {
-                return numBuffersReadable;
-            }
-            Optional<Region> internalRegion = dataIndex.getNextRegion(
-                    subpartitionId,
-                    nettyServiceWriterId);
-            if (!internalRegion.isPresent()) {
-                currentReadingBufferIndex = -1;
-                numBuffersReadable = 0;
-                currentFileOffset = -1L;
-            } else {
-                Region region = internalRegion.get();
-                currentReadingBufferIndex = bufferIndex;
-                numBuffersReadable = region.getNumBuffers();
-                currentFileOffset = region.getRegionFileOffset();
+        /**
+         * Get the number of readable buffers for a {@link NettyConnectionWriter}.
+         *
+         * @param nettyServiceWriterId
+         * @return
+         */
+        private int getReadableBufferNumber(NettyConnectionId nettyServiceWriterId) {
+            if (numBuffersReadable == 0) {
+                Optional<Region> region =
+                        dataIndex.getNextRegion(subpartitionId, nettyServiceWriterId);
+                if (region.isPresent()) {
+                    numBuffersReadable = region.get().getNumBuffers();
+                    currentFileOffset = region.get().getRegionFileOffset();
+                }
             }
             return numBuffersReadable;
         }
 
         private long getCurrentFileOffset() {
-            return currentReadingBufferIndex == -1 ? Long.MAX_VALUE : currentFileOffset;
+            return nextBufferIndex == -1 ? Long.MAX_VALUE : currentFileOffset;
         }
 
         private void advance(long bufferSize) {
-            if (isInCachedRegion(currentReadingBufferIndex + 1)) {
-                currentReadingBufferIndex++;
-                numBuffersReadable--;
-                currentFileOffset += bufferSize;
-            }
-        }
-
-        // ------------------------------------------------------------------------
-        //  Internal Methods
-        // ------------------------------------------------------------------------
-
-        private boolean isInCachedRegion(int bufferIndex) {
-            return bufferIndex < currentReadingBufferIndex + numBuffersReadable
-                    && bufferIndex >= currentReadingBufferIndex;
+            nextBufferIndex++;
+            numBuffersReadable--;
+            currentFileOffset += bufferSize;
         }
     }
 }

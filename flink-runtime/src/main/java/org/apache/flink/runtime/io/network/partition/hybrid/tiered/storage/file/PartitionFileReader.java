@@ -24,10 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 
 import java.io.IOException;
 
-/**
- * The {@link PartitionFileReader} interface defines the read logic for different types of shuffle
- * files.
- */
+/** {@link PartitionFileReader} defines the read logic for different types of shuffle files. */
 public interface PartitionFileReader {
 
     /**
