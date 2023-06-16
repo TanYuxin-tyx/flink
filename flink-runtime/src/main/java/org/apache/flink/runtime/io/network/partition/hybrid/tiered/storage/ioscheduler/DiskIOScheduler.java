@@ -99,15 +99,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     }
 
     @Override
-    public void run() {
-        synchronized (lock) {
-            int numBuffersRead = readBuffersFromFile();
-            isRunning = false;
-            if (numBuffersRead == 0) {
-                ioExecutor.schedule(this::triggerScheduling, 5, TimeUnit.MILLISECONDS);
-            } else {
-                triggerScheduling();
-            }
+    public synchronized void run() {
+        int numBuffersRead = readBuffersFromFile();
+        isRunning = false;
+        if (numBuffersRead == 0) {
+            ioExecutor.schedule(this::triggerScheduling, 5, TimeUnit.MILLISECONDS);
+        } else {
+            triggerScheduling();
         }
     }
 
