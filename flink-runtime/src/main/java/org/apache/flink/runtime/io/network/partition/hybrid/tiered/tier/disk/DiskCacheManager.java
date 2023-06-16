@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /** This class is responsible for managing cached buffers data before flush to local files. */
-public class DiskCacheManager implements DiskCacheManagerOperation {
+public class DiskCacheManager {
 
     private final int numSubpartitions;
 
@@ -105,13 +105,6 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
         return subpartitionDiskCacheManagers[subpartitionId].getFinishedBufferIndex();
     }
 
-    @Override
-    public int getNumSubpartitions() {
-        return numSubpartitions;
-    }
-
-    // Write lock should be acquired before invoke this method.
-    @Override
     public List<NettyPayload> getBuffersInOrder(int subpartitionId) {
         SubpartitionDiskCacheManager targetSubpartitionDataManager =
                 getSubpartitionCacheDataManager(subpartitionId);
@@ -141,7 +134,7 @@ public class DiskCacheManager implements DiskCacheManagerOperation {
         List<Tuple2<Integer, Tuple3<Integer, List<NettyPayload>, Boolean>>> toWriteBuffers =
                 new ArrayList<>();
         int numToWriteBuffers = 0;
-        for (int subpartitionId = 0; subpartitionId < getNumSubpartitions(); subpartitionId++) {
+        for (int subpartitionId = 0; subpartitionId < numSubpartitions; subpartitionId++) {
             List<NettyPayload> subpartitionNettyPayloads = getBuffersInOrder(subpartitionId);
             toWriteBuffers.add(
                     new Tuple2<>(
