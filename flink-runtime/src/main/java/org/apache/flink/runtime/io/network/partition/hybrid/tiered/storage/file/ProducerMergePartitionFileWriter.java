@@ -1,7 +1,5 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
@@ -68,12 +66,14 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     }
 
     @Override
-    public CompletableFuture<Void> write(
-            List<Tuple2<Integer, Tuple3<Integer, List<NettyPayload>, Boolean>>> toWriteBuffers) {
+    public CompletableFuture<Void> write(List<SubpartitionNettyPayload> toWriteBuffers) {
         List<NettyPayload> buffersToSpill =
                 toWriteBuffers.stream()
-                        .map(subpartitionBuffers -> subpartitionBuffers.f1)
-                        .map(segmentBuffers -> segmentBuffers.f1)
+                        .map(SubpartitionNettyPayload::getSegmentNettyPayloads)
+                        .flatMap(
+                                (Function<List<SegmentNettyPayload>, Stream<SegmentNettyPayload>>)
+                                        Collection::stream)
+                        .map(SegmentNettyPayload::getNettyPayloads)
                         .flatMap(
                                 (Function<List<NettyPayload>, Stream<NettyPayload>>)
                                         Collection::stream)
@@ -104,13 +104,12 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
      * Compute buffer's file offset and create spilled buffers.
      *
      * @param toWrite for create {@link PartitionFileIndex.SpilledBuffer}.
-     * @param spilledBuffers receive the created {@link PartitionFileIndex.SpilledBuffer} by
-     *     this method.
+     * @param spilledBuffers receive the created {@link PartitionFileIndex.SpilledBuffer} by this
+     *     method.
      * @return total bytes(header size + buffer size) of all buffers to write.
      */
     private long createSpilledBuffersAndGetTotalBytes(
-            List<NettyPayload> toWrite,
-            List<PartitionFileIndex.SpilledBuffer> spilledBuffers) {
+            List<NettyPayload> toWrite, List<PartitionFileIndex.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
         for (NettyPayload nettyPayload : toWrite) {
             Buffer buffer = nettyPayload.getBuffer().get();

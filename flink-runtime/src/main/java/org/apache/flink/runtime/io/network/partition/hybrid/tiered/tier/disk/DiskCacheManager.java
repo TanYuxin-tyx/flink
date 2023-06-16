@@ -18,15 +18,16 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.SegmentNettyPayload;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.SubpartitionNettyPayload;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -131,15 +132,16 @@ public class DiskCacheManager {
         if (changeFlushState && !hasFlushCompleted.isDone()) {
             return;
         }
-        List<Tuple2<Integer, Tuple3<Integer, List<NettyPayload>, Boolean>>> toWriteBuffers =
-                new ArrayList<>();
+        List<SubpartitionNettyPayload> toWriteBuffers = new ArrayList<>();
         int numToWriteBuffers = 0;
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; subpartitionId++) {
-            List<NettyPayload> subpartitionNettyPayloads = getBuffersInOrder(subpartitionId);
+            List<NettyPayload> nettyPayloads = getBuffersInOrder(subpartitionId);
             toWriteBuffers.add(
-                    new Tuple2<>(
-                            subpartitionId, new Tuple3<>(-1, subpartitionNettyPayloads, false)));
-            numToWriteBuffers += subpartitionNettyPayloads.size();
+                    new SubpartitionNettyPayload(
+                            subpartitionId,
+                            Collections.singletonList(
+                                    new SegmentNettyPayload(-1, nettyPayloads, false))));
+            numToWriteBuffers += nettyPayloads.size();
         }
 
         if (numToWriteBuffers > 0) {

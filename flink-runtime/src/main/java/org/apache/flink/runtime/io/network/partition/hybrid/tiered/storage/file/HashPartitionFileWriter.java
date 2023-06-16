@@ -1,8 +1,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -66,20 +64,25 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     }
 
     @Override
-    public CompletableFuture<Void> write(
-            List<Tuple2<Integer, Tuple3<Integer, List<NettyPayload>, Boolean>>> toWriteBuffers) {
+    public CompletableFuture<Void> write(List<SubpartitionNettyPayload> toWriteBuffers) {
         List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
         toWriteBuffers.forEach(
                 subpartitionBuffers -> {
-                    int subpartitionId = toWriteBuffers.get(0).f0;
-                    Tuple3<Integer, List<NettyPayload>, Boolean> segmentBuffers =
-                            toWriteBuffers.get(0).f1;
-                    CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
-                    Runnable writeRunnable =
-                            getWriteOrFinisheSegmentRunnable(
-                                    subpartitionId, segmentBuffers, spillSuccessNotifier);
-                    ioExecutor.execute(writeRunnable);
-                    completableFutures.add(spillSuccessNotifier);
+                    int subpartitionId = subpartitionBuffers.getSubpartitionId();
+                    List<SegmentNettyPayload> multiSegmentBuffers =
+                            subpartitionBuffers.getSegmentNettyPayloads();
+                    multiSegmentBuffers.forEach(
+                            segmentBuffers -> {
+                                CompletableFuture<Void> spillSuccessNotifier =
+                                        new CompletableFuture<>();
+                                Runnable writeRunnable =
+                                        getWriteOrFinisheSegmentRunnable(
+                                                subpartitionId,
+                                                segmentBuffers,
+                                                spillSuccessNotifier);
+                                ioExecutor.execute(writeRunnable);
+                                completableFutures.add(spillSuccessNotifier);
+                            });
                 });
         return FutureUtils.waitForAll(completableFutures);
     }
@@ -98,11 +101,11 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
 
     private Runnable getWriteOrFinisheSegmentRunnable(
             int subpartitionId,
-            Tuple3<Integer, List<NettyPayload>, Boolean> segmentBuffers,
+            SegmentNettyPayload segmentBuffers,
             CompletableFuture<Void> spillSuccessNotifier) {
-        int segmentId = segmentBuffers.f0;
-        List<NettyPayload> toWriteBuffers = segmentBuffers.f1;
-        boolean isFinishSegment = segmentBuffers.f2;
+        int segmentId = segmentBuffers.getSegmentId();
+        List<NettyPayload> toWriteBuffers = segmentBuffers.getNettyPayloads();
+        boolean isFinishSegment = segmentBuffers.needFinishSegment();
         checkState(!toWriteBuffers.isEmpty() || isFinishSegment);
 
         Runnable writeRunnable;
