@@ -29,7 +29,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndexImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex.Region;
 
 import java.io.IOException;
 import java.util.Map;
@@ -191,7 +191,7 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
             if (isInCachedRegion(bufferIndex)) {
                 return numBuffersReadable;
             }
-            Optional<PartitionFileIndexImpl.Region> internalRegion = dataIndex.getRegionIndex(
+            Optional<Region> internalRegion = dataIndex.getRegionIndex(
                     subpartitionId,
                     bufferIndex,
                     nettyServiceWriterId);
@@ -200,10 +200,10 @@ public class ScheduledSubpartitionReader implements Comparable<ScheduledSubparti
                 numBuffersReadable = 0;
                 currentFileOffset = -1L;
             } else {
-                PartitionFileIndexImpl.Region region1 = internalRegion.get();
+                Region region = internalRegion.get();
                 currentReadingBufferIndex = bufferIndex;
-                numBuffersReadable = region1.getNumBuffers();
-                currentFileOffset = region1.getRegionFileOffset();
+                numBuffersReadable = region.getNumBuffers();
+                currentFileOffset = region.getRegionFileOffset();
             }
             return numBuffersReadable;
         }

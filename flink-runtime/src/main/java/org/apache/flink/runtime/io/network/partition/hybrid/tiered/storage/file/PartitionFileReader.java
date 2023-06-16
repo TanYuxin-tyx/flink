@@ -22,6 +22,8 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 
+import java.io.IOException;
+
 /**
  * The {@link PartitionFileReader} interface defines the read logic for different types of shuffle
  * files.
@@ -43,7 +45,8 @@ public interface PartitionFileReader {
             int segmentId,
             long fileOffset,
             MemorySegment memorySegment,
-            BufferRecycler recycler);
+            BufferRecycler recycler)
+            throws IOException;
 
     /** Release the {@link PartitionFileReader}. */
     void release();

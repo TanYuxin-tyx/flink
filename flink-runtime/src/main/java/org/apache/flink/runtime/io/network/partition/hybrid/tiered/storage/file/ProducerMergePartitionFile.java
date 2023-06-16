@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+
 import java.nio.file.Path;
 
 public class ProducerMergePartitionFile {
@@ -27,7 +29,8 @@ public class ProducerMergePartitionFile {
         return new ProducerMergePartitionFileWriter(dataFilePath, partitionFileIndex);
     }
 
-    public static ProducerMergePartitionFileReader createPartitionFileReader(Path dataFilePath) {
-        return new ProducerMergePartitionFileReader(dataFilePath);
+    public static ProducerMergePartitionFileReader createPartitionFileReader(
+            Path dataFilePath, TieredStoragePartitionId partitionId) {
+        return new ProducerMergePartitionFileReader(dataFilePath, partitionId);
     }
 }

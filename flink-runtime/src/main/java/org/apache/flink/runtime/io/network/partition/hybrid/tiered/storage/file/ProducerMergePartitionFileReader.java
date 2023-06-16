@@ -22,11 +22,15 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
+import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.IOUtils;
 
 import javax.annotation.Nullable;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -41,10 +45,14 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
     private final Path dataFilePath;
 
+    private final TieredStoragePartitionId partitionId;
+
     @Nullable private FileChannel fileChannel;
 
-    public ProducerMergePartitionFileReader(Path dataFilePath) {
+    public ProducerMergePartitionFileReader(
+            Path dataFilePath, TieredStoragePartitionId partitionId) {
         this.dataFilePath = dataFilePath;
+        this.partitionId = partitionId;
     }
 
     @Override
@@ -53,18 +61,18 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
             int segmentId,
             long fileOffSet,
             MemorySegment segment,
-            BufferRecycler recycler) {
+            BufferRecycler recycler) throws IOException {
         if (fileChannel == null) {
             try {
                 fileChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to open a file channel.", e);
+            } catch (FileNotFoundException e) {
+                throw new PartitionNotFoundException(TieredStorageIdMappingUtils.convertId(partitionId));
             }
         }
         try {
             fileChannel.position(fileOffSet);
         } catch (IOException e) {
-            ExceptionUtils.rethrow(e, "Failed to move file offset to buffer.");
+            ExceptionUtils.rethrow(e, "Failed to position file offset to buffer.");
         }
         Buffer buffer = null;
         try {
