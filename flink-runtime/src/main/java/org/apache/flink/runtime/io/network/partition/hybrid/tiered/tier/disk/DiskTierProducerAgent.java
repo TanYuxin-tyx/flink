@@ -177,14 +177,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     }
 
     @Override
-    public void release() {
-        // TODO, release the resources by the resource registry.
-        if (!isReleased) {
-            diskIOScheduler.release();
-            diskCacheManager.release();
-            isReleased = true;
-        }
-    }
+    public void release() {}
 
     // ------------------------------------------------------------------------
     //  Internal Methods
@@ -205,5 +198,11 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
         diskCacheManager.append(finishedBuffer, subpartition);
     }
 
-    private void releaseResources() {}
+    private void releaseResources() {
+        if (!isReleased) {
+            diskIOScheduler.release();
+            diskCacheManager.release();
+            isReleased = true;
+        }
+    }
 }
