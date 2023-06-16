@@ -23,7 +23,6 @@ import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
@@ -48,10 +47,14 @@ public class DiskTierFactory implements TierFactory {
 
     private final int numBytesPerSegment;
 
+    private final int bufferSizeBytes;
+
     private final float minReservedDiskSpaceFraction;
 
-    public DiskTierFactory(int numBytesPerSegment, float minReservedDiskSpaceFraction) {
+    public DiskTierFactory(
+            int numBytesPerSegment, int bufferSizeBytes, float minReservedDiskSpaceFraction) {
         this.numBytesPerSegment = numBytesPerSegment;
+        this.bufferSizeBytes = bufferSizeBytes;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
     }
 
@@ -81,7 +84,7 @@ public class DiskTierFactory implements TierFactory {
                 partitionID,
                 numSubpartitions,
                 numBytesPerSegment,
-                TieredStorageIdMappingUtils.convertId(partitionID),
+                bufferSizeBytes,
                 dataFileBasePath,
                 minReservedDiskSpaceFraction,
                 isBroadcastOnly,

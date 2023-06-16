@@ -23,8 +23,8 @@ import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
@@ -53,13 +53,14 @@ import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
+import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** The DataManager of LOCAL file. */
 public class DiskTierProducerAgent implements TierProducerAgent, NettyServiceProducer {
 
-    private final int numBytesPerSegment;
+    private final TieredStoragePartitionId partitionId;
 
-    private final ResultPartitionID resultPartitionID;
+    private final int numBytesPerSegment;
 
     private final Path dataFilePath;
 
@@ -67,19 +68,25 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     private final DiskIOScheduler diskIOScheduler;
 
-    private volatile boolean isReleased;
-
-    private final int[] numSubpartitionEmitBytes;
-
     private final DiskCacheManager diskCacheManager;
 
-    private final List<Map<Integer, Integer>> firstBufferContextInSegment;
+    /**
+     * Record the first buffer index in the segment for each subpartition. The index of the list is
+     * responding to the subpartition id. The key in the map is the first buffer index and the value
+     * in the map is the segment id.
+     */
+    private final List<Map<Integer, Integer>> firstBufferIndexInSegment;
+
+    /** Record the number of buffers currently written to each subpartition. */
+    private final int[] currentSubpartitionWriteBytes;
+
+    private volatile boolean isReleased;
 
     public DiskTierProducerAgent(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
             int numBytesPerSegment,
-            ResultPartitionID resultPartitionID,
+            int bufferSizeBytes,
             String dataFileBasePath,
             float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
@@ -92,15 +99,22 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             ScheduledExecutorService batchShuffleReadIOExecutor,
             TieredStorageConfiguration storeConfiguration,
             TieredStorageResourceRegistry resourceRegistry) {
+        checkArgument(
+                numBytesPerSegment >= bufferSizeBytes,
+                "One segment should contain at least one buffer.");
+
+        this.partitionId = partitionId;
         this.numBytesPerSegment = numBytesPerSegment;
-        this.resultPartitionID = resultPartitionID;
         this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
-        this.firstBufferContextInSegment = new ArrayList<>();
-        this.numSubpartitionEmitBytes = new int[numSubpartitions];
+        this.firstBufferIndexInSegment = new ArrayList<>();
+        this.currentSubpartitionWriteBytes = new int[numSubpartitions];
 
         for (int i = 0; i < numSubpartitions; ++i) {
-            firstBufferContextInSegment.add(new ConcurrentHashMap<>());
+            // Each map is used to store the segment ids belonging to a subpartition. The map can be
+            // accessed by the task thread and the reading IO thread, so the concurrent hashmap is
+            // used to ensure the thread safety.
+            firstBufferIndexInSegment.add(new ConcurrentHashMap<>());
         }
         this.diskCacheManager =
                 new DiskCacheManager(
@@ -115,7 +129,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         storeConfiguration.getBufferRequestTimeout(),
                         storeConfiguration.getMaxBuffersReadAhead(),
                         nettyService,
-                        firstBufferContextInSegment,
+                        firstBufferIndexInSegment,
                         partitionFileReader,
                         dataIndex);
         nettyService.registerProducer(partitionId, this);
@@ -132,7 +146,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                 filePath.getUsableSpace()
                         > (long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction);
         if (canStartNewSegment || forceUseCurrentTier) {
-            firstBufferContextInSegment
+            firstBufferIndexInSegment
                     .get(subpartitionId.getSubpartitionId())
                     .put(
                             diskCacheManager.getFinishedBufferIndex(
@@ -143,16 +157,16 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     }
 
     @Override
-    public boolean tryWrite(int consumerId, Buffer finishedBuffer) {
-        if (numSubpartitionEmitBytes[consumerId] != 0
-                && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
+    public boolean tryWrite(int subpartitionId, Buffer finishedBuffer) {
+        if (currentSubpartitionWriteBytes[subpartitionId] != 0
+                && currentSubpartitionWriteBytes[subpartitionId] + finishedBuffer.readableBytes()
                         > numBytesPerSegment) {
-            emitEndOfSegmentEvent(consumerId);
-            numSubpartitionEmitBytes[consumerId] = 0;
+            emitEndOfSegmentEvent(subpartitionId);
+            currentSubpartitionWriteBytes[subpartitionId] = 0;
             return false;
         }
-        numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
-        emitBuffer(finishedBuffer, consumerId);
+        currentSubpartitionWriteBytes[subpartitionId] += finishedBuffer.readableBytes();
+        emitBuffer(finishedBuffer, subpartitionId);
         return true;
     }
 
@@ -161,7 +175,9 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             TieredStorageSubpartitionId subpartitionId,
             NettyConnectionWriter nettyConnectionWriter) {
         if (!Files.isReadable(dataFilePath)) {
-            throw new RuntimeException(new PartitionNotFoundException(resultPartitionID));
+            throw new RuntimeException(
+                    new PartitionNotFoundException(
+                            TieredStorageIdMappingUtils.convertId(partitionId)));
         }
         diskIOScheduler.connectionEstablished(subpartitionId, nettyConnectionWriter);
     }

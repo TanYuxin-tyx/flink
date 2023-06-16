@@ -431,6 +431,7 @@ public class TieredStorageConfiguration {
             case IN_DISK:
                 return new DiskTierFactory(
                         DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
+                        bufferSize,
                         DEFAULT_MIN_RESERVE_SPACE_FRACTION);
             case IN_REMOTE:
                 return new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT);
@@ -445,12 +446,14 @@ public class TieredStorageConfiguration {
                     new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT, bufferSize),
                     new DiskTierFactory(
                             DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
+                            bufferSize,
                             DEFAULT_MIN_RESERVE_SPACE_FRACTION)
                 }
                 : new TierFactory[] {
                     new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT, bufferSize),
                     new DiskTierFactory(
                             DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
+                            bufferSize,
                             DEFAULT_MIN_RESERVE_SPACE_FRACTION),
                     new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT)
                 };

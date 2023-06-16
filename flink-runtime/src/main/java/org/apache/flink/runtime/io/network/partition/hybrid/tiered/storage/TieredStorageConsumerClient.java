@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.function.BiConsumer;
 
 /** {@link TieredStorageConsumerClient} is used to read buffer from tiered store. */
@@ -97,7 +96,7 @@ public class TieredStorageConsumerClient {
     private List<TierFactory> createTierFactories(String baseRemoteStoragePath) {
         List<TierFactory> tierFactories = new ArrayList<>();
         tierFactories.add(new MemoryTierFactory(0, 0));
-        tierFactories.add(new DiskTierFactory(0, 0));
+        tierFactories.add(new DiskTierFactory(0, 0, 0));
         if (baseRemoteStoragePath != null) {
             tierFactories.add(new RemoteTierFactory(0));
         }
