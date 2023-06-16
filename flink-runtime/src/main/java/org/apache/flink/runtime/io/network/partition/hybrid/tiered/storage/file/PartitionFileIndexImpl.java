@@ -23,7 +23,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -73,7 +72,7 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
             if (isReleased) {
                 return Optional.empty();
             }
-            // return the latest region
+
             int currentRegionIndex =
                     subpartitionReaderRegionIndexes
                             .get(subpartitionId)
@@ -92,15 +91,16 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
     }
 
     @Override
-    public void writeRegions(List<SpilledBuffer> spilledBuffers) {
-        final Map<Integer, List<Region>> subpartitionInternalRegions =
-                convertToRegions(spilledBuffers);
+    public void addRegionForBuffers(List<SpilledBuffer> spilledBuffers) {
+        if (spilledBuffers.isEmpty()) {
+            return;
+        }
+
+        Map<Integer, List<Region>> convertedRegions = convertToRegions(spilledBuffers);
         synchronized (lock) {
-            subpartitionInternalRegions.forEach(
-                    (subpartition, internalRegions) -> {
-                        List<Region> regionList = subpartitionRegions.get(subpartition);
-                        regionList.addAll(internalRegions);
-                    });
+            convertedRegions.forEach(
+                    (subpartition, Regions) ->
+                            subpartitionRegions.get(subpartition).addAll(Regions));
         }
     }
 
@@ -118,13 +118,8 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
     // ------------------------------------------------------------------------
 
     private static Map<Integer, List<Region>> convertToRegions(List<SpilledBuffer> spilledBuffers) {
-        if (spilledBuffers.isEmpty()) {
-            return Collections.emptyMap();
-        }
-
-        final Map<Integer, List<Region>> subpartitionRegions = new HashMap<>();
-        final Iterator<SpilledBuffer> iterator = spilledBuffers.iterator();
-        // There's at least one buffer
+        Map<Integer, List<Region>> subpartitionRegionMap = new HashMap<>();
+        Iterator<SpilledBuffer> iterator = spilledBuffers.iterator();
         SpilledBuffer firstBufferInRegion = iterator.next();
         SpilledBuffer lastBufferInRegion = firstBufferInRegion;
 
@@ -134,25 +129,25 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
                     || currentBuffer.getBufferIndex() != lastBufferInRegion.getBufferIndex() + 1) {
                 // the current buffer belongs to a new region, close the previous region
                 addInternalRegionToMap(
-                        firstBufferInRegion, lastBufferInRegion, subpartitionRegions);
+                        firstBufferInRegion, lastBufferInRegion, subpartitionRegionMap);
                 firstBufferInRegion = currentBuffer;
             }
-
             lastBufferInRegion = currentBuffer;
         }
 
-        addInternalRegionToMap(firstBufferInRegion, lastBufferInRegion, subpartitionRegions);
-        return subpartitionRegions;
+        addInternalRegionToMap(firstBufferInRegion, lastBufferInRegion, subpartitionRegionMap);
+        return subpartitionRegionMap;
     }
 
     private static void addInternalRegionToMap(
             SpilledBuffer firstBufferInRegion,
             SpilledBuffer lastBufferInRegion,
-            Map<Integer, List<Region>> internalRegionsBySubpartition) {
+            Map<Integer, List<Region>> subpartitionRegionMap) {
         checkArgument(
                 firstBufferInRegion.getSubpartitionId() == lastBufferInRegion.getSubpartitionId());
         checkArgument(firstBufferInRegion.getBufferIndex() <= lastBufferInRegion.getBufferIndex());
-        internalRegionsBySubpartition
+
+        subpartitionRegionMap
                 .computeIfAbsent(firstBufferInRegion.getSubpartitionId(), ArrayList::new)
                 .add(
                         new Region(

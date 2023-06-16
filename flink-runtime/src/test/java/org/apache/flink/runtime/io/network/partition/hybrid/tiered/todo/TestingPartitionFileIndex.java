@@ -1,4 +1,4 @@
-///*
+/// *
 // * Licensed to the Apache Software Foundation (ASF) under one
 // * or more contributor license agreements.  See the NOTICE file
 // * distributed with this work for additional information
@@ -16,20 +16,22 @@
 // * limitations under the License.
 // */
 //
-//package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
+// package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 //
-//import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
-//import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
-//import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndexImpl;
-//import org.apache.flink.util.function.TriFunction;
+// import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
+// import
+// org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
+// import
+// org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndexImpl;
+// import org.apache.flink.util.function.TriFunction;
 //
-//import java.util.List;
-//import java.util.Optional;
-//import java.util.function.BiConsumer;
-//import java.util.function.Consumer;
+// import java.util.List;
+// import java.util.Optional;
+// import java.util.function.BiConsumer;
+// import java.util.function.Consumer;
 //
-///** Mock {@link PartitionFileIndex} for testing. */
-//public class TestingPartitionFileIndex implements PartitionFileIndex {
+/// ** Mock {@link PartitionFileIndex} for testing. */
+// public class TestingPartitionFileIndex implements PartitionFileIndex {
 //    private final TriFunction<Integer, Integer, Integer, Optional<ReadableRegion>>
 //            getReadableRegionFunction;
 //
@@ -55,7 +57,7 @@
 //    }
 //
 //    @Override
-//    public void writeRegions(List<SpilledBuffer> spilledBuffers) {
+//    public void addRegionForBuffers(List<SpilledBuffer> spilledBuffers) {
 //        addBuffersConsumer.accept(spilledBuffers);
 //    }
 //
@@ -73,7 +75,8 @@
 //
 //        private Consumer<List<SpilledBuffer>> addBuffersConsumer = (ignore) -> {};
 //
-//        private BiConsumer<Integer, Integer> markBufferReadableConsumer = (ignore1, ignore2) -> {};
+//        private BiConsumer<Integer, Integer> markBufferReadableConsumer = (ignore1, ignore2) ->
+// {};
 //
 //        public Builder() {}
 //
@@ -100,4 +103,4 @@
 //                    getReadableRegionFunction, addBuffersConsumer, markBufferReadableConsumer);
 //        }
 //    }
-//}
+// }

@@ -31,10 +31,24 @@ import java.util.Optional;
  */
 public interface PartitionFileIndex {
 
-    void writeRegions(List<SpilledBuffer> spilledBuffers);
+    /**
+     * When writing the buffers to the partition file, the {@link PartitionFileIndex} should record
+     * the {@link Region} info of these written buffers.
+     *
+     * @param spilledBuffers the buffers to be spilled
+     */
+    void addRegionForBuffers(List<SpilledBuffer> spilledBuffers);
 
+    /**
+     * When reading partition file, use the method to get the next {@link Region} for the reader.
+     *
+     * @param subpartitionId the subpartition id
+     * @param nettyServiceWriterId the netty connection which reads the buffers from the partition
+     *     file, then writes the buffers to the netty.
+     */
     Optional<Region> getNextRegion(int subpartitionId, NettyConnectionId nettyServiceWriterId);
 
+    /** Release all the resources belonging to the partition file indexes. */
     void release();
 
     /** Represents a buffer to be spilled. */
