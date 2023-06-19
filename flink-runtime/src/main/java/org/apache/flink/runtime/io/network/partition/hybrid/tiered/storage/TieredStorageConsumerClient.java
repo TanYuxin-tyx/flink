@@ -30,6 +30,11 @@ public class TieredStorageConsumerClient {
 
     private final List<TierConsumerAgent> tierConsumerAgents;
 
+    /**
+     * This map is used to record the consumer agent being used and the id of segent being read for
+     * each data source, which is represented by {@link TieredStoragePartitionId} and {@link
+     * TieredStorageSubpartitionId}.
+     */
     private final Map<
                     TieredStoragePartitionId,
                     Map<TieredStorageSubpartitionId, Tuple2<TierConsumerAgent, Integer>>>
