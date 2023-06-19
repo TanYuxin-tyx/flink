@@ -18,8 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
-
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
@@ -43,14 +41,6 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
     @GuardedBy("lock")
     private final List<List<Region>> subpartitionRegions;
 
-    /**
-     * The region index of a reader is reading for each subpartition. The list index is
-     * corresponding to the subpartition id. The key in the map represents the reader, the value in
-     * the map represents the reading region index.
-     */
-    @GuardedBy("lock")
-    private final List<Map<NettyConnectionId, Integer>> subpartitionReaderRegionIndexes;
-
     @GuardedBy("lock")
     private boolean isReleased;
 
@@ -58,33 +48,20 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
 
     public PartitionFileIndexImpl(int numSubpartitions) {
         this.subpartitionRegions = new ArrayList<>();
-        this.subpartitionReaderRegionIndexes = new ArrayList<>();
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionRegions.add(new ArrayList<>());
-            subpartitionReaderRegionIndexes.add(new HashMap<>());
         }
     }
 
     @Override
-    public Optional<Region> getNextRegion(
-            int subpartitionId, NettyConnectionId nettyServiceWriterId) {
+    public Optional<Region> getRegion(int subpartitionId, int regionIndex) {
         synchronized (lock) {
             if (isReleased) {
                 return Optional.empty();
             }
-
-            int currentRegionIndex =
-                    subpartitionReaderRegionIndexes
-                            .get(subpartitionId)
-                            .getOrDefault(nettyServiceWriterId, 0);
             List<Region> currentRegions = subpartitionRegions.get(subpartitionId);
-            if (currentRegionIndex < currentRegions.size()) {
-                Region region = currentRegions.get(currentRegionIndex);
-                ++currentRegionIndex;
-                subpartitionReaderRegionIndexes
-                        .get(subpartitionId)
-                        .put(nettyServiceWriterId, currentRegionIndex);
-                return Optional.of(region);
+            if (regionIndex < currentRegions.size()) {
+                return Optional.of(currentRegions.get(regionIndex));
             }
             return Optional.empty();
         }
@@ -108,7 +85,6 @@ public class PartitionFileIndexImpl implements PartitionFileIndex {
     public void release() {
         synchronized (lock) {
             subpartitionRegions.clear();
-            subpartitionReaderRegionIndexes.clear();
             isReleased = true;
         }
     }

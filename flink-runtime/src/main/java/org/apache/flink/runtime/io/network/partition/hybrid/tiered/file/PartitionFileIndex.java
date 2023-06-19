@@ -18,8 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -43,10 +41,8 @@ public interface PartitionFileIndex {
      * When reading partition file, use the method to get the next {@link Region} for the reader.
      *
      * @param subpartitionId the subpartition id
-     * @param nettyServiceWriterId the netty connection which reads the buffers from the partition
-     *     file, then writes the buffers to the netty.
      */
-    Optional<Region> getNextRegion(int subpartitionId, NettyConnectionId nettyServiceWriterId);
+    Optional<Region> getRegion(int subpartitionId, int regionIndex);
 
     /** Release all the resources belonging to the partition file indexes. */
     void release();

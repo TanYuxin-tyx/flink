@@ -98,8 +98,7 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
         if (nettyConnectionWriter.numQueuedBuffers() >= maxBufferReadAhead) {
             return;
         }
-        int numRemainingBuffer =
-                subpartitionReaderProgress.getReadableBufferNumber(nettyServiceWriterId);
+        int numRemainingBuffer = subpartitionReaderProgress.getReadableBufferNumber();
         if (numRemainingBuffer == 0) {
             return;
         }
@@ -178,6 +177,8 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
 
         private long currentFileOffset = Long.MAX_VALUE;
 
+        private int regionIndex = 0;
+
         private int numBuffersReadable;
 
         public SubpartitionReaderProgress(int subpartitionId) {
@@ -187,14 +188,13 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
         /**
          * Get the number of readable buffers for a {@link NettyConnectionWriter}.
          *
-         * @param nettyServiceWriterId the id of netty service writer.
          * @return the number of readable buffers.
          */
-        private int getReadableBufferNumber(NettyConnectionId nettyServiceWriterId) {
+        private int getReadableBufferNumber() {
             if (numBuffersReadable == 0) {
-                Optional<Region> region =
-                        dataIndex.getNextRegion(subpartitionId, nettyServiceWriterId);
+                Optional<Region> region = dataIndex.getRegion(subpartitionId, regionIndex);
                 if (region.isPresent()) {
+                    regionIndex++;
                     numBuffersReadable = region.get().getNumBuffers();
                     currentFileOffset = region.get().getRegionFileOffset();
                 }
