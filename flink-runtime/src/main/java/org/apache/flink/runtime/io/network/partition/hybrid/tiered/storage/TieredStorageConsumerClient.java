@@ -3,7 +3,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
@@ -32,9 +31,7 @@ public class TieredStorageConsumerClient {
 
     public TieredStorageConsumerClient(
             int numSubpartitions,
-            List<Integer> subpartitionIds,
             JobID jobID,
-            List<ResultPartitionID> resultPartitionIDs,
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             TieredStorageNettyService nettyService,
@@ -46,9 +43,7 @@ public class TieredStorageConsumerClient {
         this.tierConsumerAgents =
                 createTierConsumerAgents(
                         numSubpartitions,
-                        subpartitionIds,
                         jobID,
-                        resultPartitionIDs,
                         networkBufferPool,
                         baseRemoteStoragePath,
                         tieredPartitionIds,
@@ -105,9 +100,7 @@ public class TieredStorageConsumerClient {
 
     private List<TierConsumerAgent> createTierConsumerAgents(
             int numSubpartitions,
-            List<Integer> subpartitionIds,
             JobID jobID,
-            List<ResultPartitionID> resultPartitionIDs,
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             List<TieredStoragePartitionId> tieredPartitionIds,
@@ -126,15 +119,15 @@ public class TieredStorageConsumerClient {
             tierConsumerAgents.add(
                     tierFactory.createConsumerAgent(
                             numSubpartitions,
-                            subpartitionIds,
                             jobID,
-                            resultPartitionIDs,
                             networkBufferPool,
                             baseRemoteStoragePath,
                             nettyService,
                             isUpstreamBroadcastOnly,
                             queueChannelCallBack,
-                            nettyConnectionReaders));
+                            nettyConnectionReaders,
+                            tieredPartitionIds,
+                            tieredSubpartitionIds));
         }
         return tierConsumerAgents;
     }

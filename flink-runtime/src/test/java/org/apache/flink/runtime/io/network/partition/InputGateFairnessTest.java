@@ -384,10 +384,10 @@ public class InputGateFairnessTest {
                     new ThroughputCalculator(SystemClock.getInstance()),
                     null,
                     false,
+                    null,
+                    null,
+                    null,
                     false,
-                    null,
-                    null,
-                    null,
                     null,
                     null);
 

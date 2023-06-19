@@ -43,7 +43,6 @@ import org.apache.flink.runtime.io.network.partition.PrioritizedDeque;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReaderAvailabilityAndPriorityHelper;
@@ -242,12 +241,12 @@ public class SingleInputGate extends IndexedInputGate {
             ThroughputCalculator throughputCalculator,
             @Nullable BufferDebloater bufferDebloater,
             boolean enableTieredStoreMode,
+            List<TieredStoragePartitionId> tieredStoragePartitionIds,
+            List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds,
+            TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             JobID jobID,
-            List<ResultPartitionID> resultPartitionIds,
-            List<Integer> subpartitionIds,
-            @Nullable String baseRemoteStoragePath,
-            TieredStorageNettyService nettyService) {
+            @Nullable String baseRemoteStoragePath) {
 
         this.owningTaskName = checkNotNull(owningTaskName);
         Preconditions.checkArgument(0 <= gateIndex, "The gate index must be positive.");
@@ -283,31 +282,24 @@ public class SingleInputGate extends IndexedInputGate {
         BiConsumer<Integer, Boolean> queueChannelCallBack =
                 (subpartitionId, priority) ->
                         queueChannel(channels[subpartitionId], null, priority);
-        List<TieredStoragePartitionId> tieredResultPartitionIds =
-                getTieredResultPartitionIds(resultPartitionIds);
-        List<TieredStorageSubpartitionId> tieredSubPartitionIds =
-                getTieredSubPartitionIds(subpartitionIds);
-
         this.tieredStorageConsumerClient =
                 enableTieredStoreMode
                         ? new TieredStorageConsumerClient(
-                        numberOfInputChannels,
-                        subpartitionIds,
-                        jobID,
-                        resultPartitionIds,
-                        (NetworkBufferPool) memorySegmentProvider,
-                        baseRemoteStoragePath,
-                        nettyService,
-                        tieredResultPartitionIds,
-                        tieredSubPartitionIds,
-                        isUpstreamBroadcastOnly,
-                        queueChannelCallBack)
+                                numberOfInputChannels,
+                                jobID,
+                                (NetworkBufferPool) memorySegmentProvider,
+                                baseRemoteStoragePath,
+                                nettyService,
+                                tieredStoragePartitionIds,
+                                tieredStorageSubpartitionIds,
+                                isUpstreamBroadcastOnly,
+                                queueChannelCallBack)
                         : null;
 
         ((TieredStorageNettyServiceImpl) nettyService)
                 .setupInputChannels(
-                        tieredResultPartitionIds,
-                        tieredSubPartitionIds,
+                        tieredStoragePartitionIds,
+                        tieredStorageSubpartitionIds,
                         createInputChannelSuppliers(),
                         new NettyConnectionReaderAvailabilityAndPriorityHelper() {
                             @Override
@@ -322,7 +314,6 @@ public class SingleInputGate extends IndexedInputGate {
                                 lastPrioritySequenceNumber[channelIndex] = sequenceNumber;
                             }
                         });
-
     }
 
     private List<Supplier<InputChannel>> createInputChannelSuppliers() {
@@ -332,23 +323,6 @@ public class SingleInputGate extends IndexedInputGate {
             allSuppliers.add(() -> channels[j]);
         }
         return allSuppliers;
-    }
-
-    private List<TieredStoragePartitionId> getTieredResultPartitionIds(
-            List<ResultPartitionID> resultPartitionIds) {
-        List<TieredStoragePartitionId> tieredStoragePartitionIds = new ArrayList<>();
-        for (ResultPartitionID resultPartitionID : resultPartitionIds) {
-            tieredStoragePartitionIds.add(TieredStorageIdMappingUtils.convertId(resultPartitionID));
-        }
-        return tieredStoragePartitionIds;
-    }
-
-    private List<TieredStorageSubpartitionId> getTieredSubPartitionIds(List<Integer> subpartitionIds) {
-        List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds = new ArrayList<>();
-        for (Integer subpartitionId : subpartitionIds) {
-            tieredStorageSubpartitionIds.add(new TieredStorageSubpartitionId(subpartitionId));
-        }
-        return tieredStorageSubpartitionIds;
     }
 
     protected PrioritizedDeque<InputChannel> getInputChannelsWithData() {

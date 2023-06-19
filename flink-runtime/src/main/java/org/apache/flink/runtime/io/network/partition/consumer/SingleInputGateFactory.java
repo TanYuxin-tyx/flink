@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
@@ -37,6 +38,9 @@ import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvi
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.MetricNames;
@@ -173,14 +177,27 @@ public class SingleInputGateFactory {
         ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
         boolean isUpstreamBroadcastOnly =
                 ((NettyShuffleDescriptor) shuffleDescriptors[0]).isUpstreamBroadcastOnly();
-        List<ResultPartitionID> resultPartitionIds = new ArrayList<>();
-        List<Integer> subpartitionIds = new ArrayList<>();
-        for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
-            for (int subpartitionId = subpartitionIndexRange.getStartIndex();
-                    subpartitionId <= subpartitionIndexRange.getEndIndex();
-                    ++subpartitionId) {
-                resultPartitionIds.add(shuffleDescriptor.getResultPartitionID());
-                subpartitionIds.add(subpartitionId);
+        List<TieredStoragePartitionId> tieredStoragePartitionIds = null;
+        List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds = null;
+        if(enableTieredStore){
+            tieredStoragePartitionIds = new ArrayList<>();
+            tieredStorageSubpartitionIds = new ArrayList<>();
+            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
+                    partitionIdAndSubpartitionIds = new ArrayList<>();
+            for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
+                for (int subpartitionId = subpartitionIndexRange.getStartIndex();
+                     subpartitionId <= subpartitionIndexRange.getEndIndex();
+                     ++subpartitionId) {
+                    TieredStoragePartitionId storagePartitionId =
+                            TieredStorageIdMappingUtils.convertId(
+                                    shuffleDescriptor.getResultPartitionID());
+                    TieredStorageSubpartitionId storageSubpartitionId =
+                            new TieredStorageSubpartitionId(subpartitionId);
+                    tieredStoragePartitionIds.add(storagePartitionId);
+                    tieredStorageSubpartitionIds.add(storageSubpartitionId);
+                    partitionIdAndSubpartitionIds.add(
+                            Tuple2.of(storagePartitionId, storageSubpartitionId));
+                }
             }
         }
 
@@ -200,13 +217,12 @@ public class SingleInputGateFactory {
                         new ThroughputCalculator(SystemClock.getInstance()),
                         maybeCreateBufferDebloater(
                                 owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)),
-                        enableTieredStore,
+                        tieredStoragePartitionIds,
+                        tieredStorageSubpartitionIds,
+                        nettyService,
                         isUpstreamBroadcastOnly,
                         owner.getJobID(),
-                        resultPartitionIds,
-                        subpartitionIds,
-                        baseRemoteStoragePath,
-                        nettyService);
+                        baseRemoteStoragePath);
 
         createInputChannels(
                 owningTaskName, igdd, inputGate, subpartitionIndexRange, gateBuffersSpec, metrics);
@@ -330,13 +346,12 @@ public class SingleInputGateFactory {
             int segmentSize,
             ThroughputCalculator throughputCalculator,
             @Nullable BufferDebloater bufferDebloater,
-            boolean enableTieredStoreMode,
+            List<TieredStoragePartitionId> tieredStoragePartitionIds,
+            List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds,
+            TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             JobID jobID,
-            List<ResultPartitionID> resultPartitionIds,
-            List<Integer> subpartitionIds,
-            @Nullable String baseRemoteStoragePath,
-            TieredStorageNettyService nettyService) {
+            @Nullable String baseRemoteStoragePath) {
 
         return new SingleInputGate(
                 owningTaskName,
@@ -353,12 +368,12 @@ public class SingleInputGateFactory {
                 throughputCalculator,
                 bufferDebloater,
                 enableTieredStore,
+                tieredStoragePartitionIds,
+                tieredStorageSubpartitionIds,
+                nettyService,
                 isUpstreamBroadcastOnly,
                 jobID,
-                resultPartitionIds,
-                subpartitionIds,
-                baseRemoteStoragePath,
-                nettyService);
+                baseRemoteStoragePath);
     }
 
     protected static int calculateNumChannels(

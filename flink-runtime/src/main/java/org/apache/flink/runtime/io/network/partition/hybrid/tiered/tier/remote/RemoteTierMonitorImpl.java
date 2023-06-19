@@ -21,7 +21,9 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
@@ -45,11 +47,11 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
 
     private final JobID jobID;
 
-    private final List<ResultPartitionID> resultPartitionIDs;
+    private final List<TieredStoragePartitionId> resultPartitionIDs;
 
     private final InputStream[] inputStreams;
 
-    private final List<Integer> subpartitionIndexes;
+    private final List<TieredStorageSubpartitionId> subpartitionIds;
 
     private final ScheduledExecutorService monitorExecutor =
             Executors.newSingleThreadScheduledExecutor(
@@ -75,18 +77,18 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
 
     public RemoteTierMonitorImpl(
             JobID jobID,
-            List<ResultPartitionID> resultPartitionIDs,
+            List<TieredStoragePartitionId> resultPartitionIDs,
             String baseRemoteStoragePath,
-            List<Integer> subpartitionIndexes,
+            List<TieredStorageSubpartitionId> subpartitionIdes,
             int numSubpartitions,
             boolean isUpstreamBroadcast,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
-        this.requiredSegmentIds = new int[subpartitionIndexes.size()];
-        this.scanningSegmentIds = new int[subpartitionIndexes.size()];
-        this.readingSegmentIds = new int[subpartitionIndexes.size()];
+        this.requiredSegmentIds = new int[subpartitionIdes.size()];
+        this.scanningSegmentIds = new int[subpartitionIdes.size()];
+        this.readingSegmentIds = new int[subpartitionIdes.size()];
         Arrays.fill(readingSegmentIds, -1);
-        this.inputStreams = new InputStream[subpartitionIndexes.size()];
-        this.subpartitionIndexes = subpartitionIndexes;
+        this.inputStreams = new InputStream[subpartitionIdes.size()];
+        this.subpartitionIds = subpartitionIdes;
         this.jobID = jobID;
         this.resultPartitionIDs = resultPartitionIDs;
         this.baseRemoteStoragePath = baseRemoteStoragePath;
@@ -134,8 +136,8 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
         String baseSubpartitionPath =
                 getBaseSubpartitionPath(
                         jobID,
-                        resultPartitionIDs.get(subpartitionId),
-                        subpartitionIndexes.get(subpartitionId),
+                        TieredStorageIdMappingUtils.convertId(resultPartitionIDs.get(subpartitionId)),
+                        subpartitionIds.get(subpartitionId).getSubpartitionId(),
                         baseRemoteStoragePath,
                         isUpstreamBroadcast);
         Path currentSegmentFinishPath = generateSegmentFinishPath(baseSubpartitionPath, segmentId);
@@ -157,8 +159,8 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
                 String baseSubpartitionPath =
                         getBaseSubpartitionPath(
                                 jobID,
-                                resultPartitionIDs.get(subpartitionId),
-                                subpartitionIndexes.get(subpartitionId),
+                                TieredStorageIdMappingUtils.convertId(resultPartitionIDs.get(subpartitionId)),
+                                subpartitionIds.get(subpartitionId).getSubpartitionId(),
                                 baseRemoteStoragePath,
                                 isUpstreamBroadcast);
                 Path currentSegmentPath = generateNewSegmentPath(baseSubpartitionPath, segmentId);

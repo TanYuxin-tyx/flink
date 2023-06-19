@@ -174,10 +174,10 @@ public class SingleInputGateBuilder {
                         createThroughputCalculator.apply(bufferDebloatConfiguration),
                         maybeCreateBufferDebloater(gateIndex),
                         false,
+                        null,
+                        null,
+                        null,
                         false,
-                        null,
-                        null,
-                        null,
                         null,
                         null);
         if (channelFactory != null) {
