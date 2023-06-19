@@ -34,4 +34,7 @@ public interface Triggerable<K, N> {
 
     /** Invoked when a processing-time timer fires. */
     void onProcessingTime(InternalTimer<K, N> timer) throws Exception;
+
+
+    default void onKeySelected() throws Exception{};
 }

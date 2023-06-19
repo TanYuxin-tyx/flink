@@ -531,6 +531,16 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
         }
     }
 
+    @Override
+    public void onKeySelected() throws Exception {
+        if (trigger.isSupportedKeySelected()) {
+            ACC contents = windowState.get();
+            if (contents != null) {
+                emitWindowContents(triggerContext.window, contents);
+            }
+        }
+    }
+
     /**
      * Drops all state for the given window and calls {@link Trigger#clear(Window,
      * Trigger.TriggerContext)}.

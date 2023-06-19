@@ -119,6 +119,10 @@ public abstract class Trigger<T, W extends Window> implements Serializable {
      */
     public abstract void clear(W window, TriggerContext ctx) throws Exception;
 
+    public boolean isSupportedKeySelected() {
+        return false;
+    }
+
     // ------------------------------------------------------------------------
 
     /**

@@ -306,24 +306,26 @@ public class SingleInputGate extends IndexedInputGate {
         this.tieredStoragePartitionIds = tieredStoragePartitionIds;
         this.tieredStorageSubpartitionIds = tieredStorageSubpartitionIds;
 
-        ((TieredStorageNettyServiceImpl) nettyService)
-                .setupInputChannels(
-                        tieredStoragePartitionIds,
-                        tieredStorageSubpartitionIds,
-                        createInputChannelSuppliers(),
-                        new NettyConnectionReaderAvailabilityAndPriorityHelper() {
-                            @Override
-                            public void notifyReaderAvailableAndPriority(
-                                    int channelIndex, boolean isPriority) {
-                                queueChannelCallBack.accept(channelIndex, isPriority);
-                            }
+        if(tieredStoragePartitionIds != null){
+            ((TieredStorageNettyServiceImpl) nettyService)
+                    .setupInputChannels(
+                            tieredStoragePartitionIds,
+                            tieredStorageSubpartitionIds,
+                            createInputChannelSuppliers(),
+                            new NettyConnectionReaderAvailabilityAndPriorityHelper() {
+                                @Override
+                                public void notifyReaderAvailableAndPriority(
+                                        int channelIndex, boolean isPriority) {
+                                    queueChannelCallBack.accept(channelIndex, isPriority);
+                                }
 
-                            @Override
-                            public void updatePrioritySequenceNumber(
-                                    int channelIndex, int sequenceNumber) {
-                                lastPrioritySequenceNumber[channelIndex] = sequenceNumber;
-                            }
-                        });
+                                @Override
+                                public void updatePrioritySequenceNumber(
+                                        int channelIndex, int sequenceNumber) {
+                                    lastPrioritySequenceNumber[channelIndex] = sequenceNumber;
+                                }
+                            });
+        }
     }
 
     private List<Supplier<InputChannel>> createInputChannelSuppliers() {

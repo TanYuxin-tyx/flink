@@ -138,7 +138,7 @@ public class BatchExecutionInternalTimeService<K, N> implements InternalTimerSer
         if (currentKey != null && currentKey.equals(this.currentKey)) {
             return;
         }
-
+        triggerTarget.onKeySelected();
         currentWatermark = Long.MAX_VALUE;
         InternalTimer<K, N> timer;
         while ((timer = eventTimeTimersQueue.poll()) != null) {
