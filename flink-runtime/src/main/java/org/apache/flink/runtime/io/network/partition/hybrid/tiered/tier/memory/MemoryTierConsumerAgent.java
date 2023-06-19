@@ -19,20 +19,31 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 /** The data client is used to fetch data from memory tier. */
 public class MemoryTierConsumerAgent implements TierConsumerAgent {
-    private final List<CompletableFuture<NettyConnectionReader>> readers;
+    private final Map<
+                    TieredStoragePartitionId,
+                    Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
+            readers;
 
-    public MemoryTierConsumerAgent(List<CompletableFuture<NettyConnectionReader>> readers) {
+    public MemoryTierConsumerAgent(
+            Map<
+                            TieredStoragePartitionId,
+                            Map<
+                                    TieredStorageSubpartitionId,
+                                    CompletableFuture<NettyConnectionReader>>>
+                    readers) {
         this.readers = readers;
     }
 
@@ -42,9 +53,12 @@ public class MemoryTierConsumerAgent implements TierConsumerAgent {
     }
 
     @Override
-    public Optional<Buffer> getNextBuffer(int subpartitionId, int segmentId) {
+    public Optional<Buffer> getNextBuffer(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId) {
         try {
-            return readers.get(subpartitionId).get().readBuffer(segmentId);
+            return readers.get(partitionId).get(subpartitionId).get().readBuffer(segmentId);
         } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
         }

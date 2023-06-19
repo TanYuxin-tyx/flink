@@ -43,6 +43,7 @@ import javax.annotation.Nullable;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiConsumer;
@@ -95,7 +96,12 @@ public class RemoteTierFactory implements TierFactory {
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack,
-            List<CompletableFuture<NettyConnectionReader>> readers) {
+            Map<
+                            TieredStoragePartitionId,
+                            Map<
+                                    TieredStorageSubpartitionId,
+                                    CompletableFuture<NettyConnectionReader>>>
+                    readers) {
 
         TieredStorageMemoryManager storageMemoryManager = null;
         try {
@@ -113,6 +119,9 @@ public class RemoteTierFactory implements TierFactory {
                         queueChannelCallBack,
                         isUpstreamBroadcastOnly);
         return new RemoteTierConsumerAgent(
-                partitionIdAndSubpartitionIds.size(), storageMemoryManager, remoteTierMonitor, queueChannelCallBack);
+                partitionIdAndSubpartitionIds,
+                storageMemoryManager,
+                remoteTierMonitor,
+                queueChannelCallBack);
     }
 }

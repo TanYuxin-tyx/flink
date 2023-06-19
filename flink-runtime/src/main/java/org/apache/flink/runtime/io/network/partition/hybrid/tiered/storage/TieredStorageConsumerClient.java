@@ -16,7 +16,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.R
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
@@ -28,7 +30,10 @@ public class TieredStorageConsumerClient {
 
     private final List<TierConsumerAgent> tierConsumerAgents;
 
-    private final int[] subpartitionNextSegmentIds;
+    private final Map<
+                    TieredStoragePartitionId,
+                    Map<TieredStorageSubpartitionId, Tuple2<TierConsumerAgent, Integer>>>
+            currentConsumerAgentAndSegmentIds = new HashMap<>();
 
     public TieredStorageConsumerClient(
             List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
@@ -49,7 +54,6 @@ public class TieredStorageConsumerClient {
                         nettyService,
                         isUpstreamBroadcast,
                         queueChannelCallBack);
-        this.subpartitionNextSegmentIds = new int[partitionIdAndSubpartitionIds.size()];
     }
 
     public void start() {
@@ -58,24 +62,44 @@ public class TieredStorageConsumerClient {
         }
     }
 
-    public Optional<Buffer> getNextBuffer(int subpartitionId) {
-        Optional<Buffer> bufferAndAvailability = Optional.empty();
-        for (TierConsumerAgent tiereConsumerAgent : tierConsumerAgents) {
-            bufferAndAvailability =
-                    tiereConsumerAgent.getNextBuffer(
-                            subpartitionId, subpartitionNextSegmentIds[subpartitionId]);
-            if (bufferAndAvailability.isPresent()) {
-                break;
+    public Optional<Buffer> getNextBuffer(
+            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
+        Tuple2<TierConsumerAgent, Integer> currentConsumerAgentAndSegmentId =
+                currentConsumerAgentAndSegmentIds
+                        .computeIfAbsent(partitionId, ignore -> new HashMap<>())
+                        .getOrDefault(subpartitionId, Tuple2.of(null, 0));
+        Optional<Buffer> buffer = Optional.empty();
+        if (currentConsumerAgentAndSegmentId.f0 == null) {
+            for (TierConsumerAgent tierConsumerAgent : tierConsumerAgents) {
+                buffer =
+                        tierConsumerAgent.getNextBuffer(
+                                partitionId, subpartitionId, currentConsumerAgentAndSegmentId.f1);
+                if (buffer.isPresent()) {
+                    currentConsumerAgentAndSegmentIds
+                            .get(partitionId)
+                            .put(
+                                    subpartitionId,
+                                    Tuple2.of(
+                                            tierConsumerAgent,
+                                            currentConsumerAgentAndSegmentId.f1));
+                    break;
+                }
             }
+        } else {
+            buffer =
+                    currentConsumerAgentAndSegmentId.f0.getNextBuffer(
+                            partitionId, subpartitionId, currentConsumerAgentAndSegmentId.f1);
         }
-        if (!bufferAndAvailability.isPresent()) {
+        if (!buffer.isPresent()) {
             return Optional.empty();
         }
-        Buffer bufferData = bufferAndAvailability.get();
+        Buffer bufferData = buffer.get();
         if (bufferData.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
-            subpartitionNextSegmentIds[subpartitionId]++;
+            currentConsumerAgentAndSegmentIds
+                    .get(partitionId)
+                    .put(subpartitionId, Tuple2.of(null, currentConsumerAgentAndSegmentId.f1 + 1));
             bufferData.recycleBuffer();
-            return getNextBuffer(subpartitionId);
+            return getNextBuffer(partitionId, subpartitionId);
         }
         return Optional.of(bufferData);
     }
@@ -106,12 +130,15 @@ public class TieredStorageConsumerClient {
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
-        List<CompletableFuture<NettyConnectionReader>> nettyConnectionReaders = new ArrayList<>();
-        for (int index = 0; index < partitionIdAndSubpartitionIds.size(); ++index) {
-            nettyConnectionReaders.add(
-                    nettyService.registerConsumer(
-                            partitionIdAndSubpartitionIds.get(index).f0,
-                            partitionIdAndSubpartitionIds.get(index).f1));
+        Map<
+                        TieredStoragePartitionId,
+                        Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
+                nettyConnectionReaders = new HashMap<>();
+        for (Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId> ids :
+                partitionIdAndSubpartitionIds) {
+            nettyConnectionReaders
+                    .computeIfAbsent(ids.f0, ignore -> new HashMap<>())
+                    .put(ids.f1, nettyService.registerConsumer(ids.f0, ids.f1));
         }
         for (TierFactory tierFactory : tierFactories) {
             tierConsumerAgents.add(

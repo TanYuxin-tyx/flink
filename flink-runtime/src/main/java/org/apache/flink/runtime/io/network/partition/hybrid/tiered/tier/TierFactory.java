@@ -36,6 +36,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.
 import javax.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiConsumer;
@@ -70,5 +71,7 @@ public interface TierFactory {
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack,
-            List<CompletableFuture<NettyConnectionReader>> readers);
+            Map<
+                    TieredStoragePartitionId,
+                    Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>> readers);
 }

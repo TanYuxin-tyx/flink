@@ -225,6 +225,12 @@ public class SingleInputGate extends IndexedInputGate {
 
     private final TieredStorageConsumerClient tieredStorageConsumerClient;
 
+    // The partition ids in tiered storage will be null if the tiered storage is not enabled.
+    @Nullable private final List<TieredStoragePartitionId> tieredStoragePartitionIds;
+
+    // The subpartition ids in tiered storage will be null if the tiered storage is not enabled.
+    @Nullable private final List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds;
+
     private boolean shouldDrainOnEndOfData = true;
 
     public SingleInputGate(
@@ -296,6 +302,9 @@ public class SingleInputGate extends IndexedInputGate {
                                 isUpstreamBroadcastOnly,
                                 queueChannelCallBack)
                         : null;
+
+        this.tieredStoragePartitionIds = tieredStoragePartitionIds;
+        this.tieredStorageSubpartitionIds = tieredStorageSubpartitionIds;
 
         ((TieredStorageNettyServiceImpl) nettyService)
                 .setupInputChannels(
@@ -854,7 +863,7 @@ public class SingleInputGate extends IndexedInputGate {
                 final InputChannel inputChannel = inputChannelOpt.get();
                 Optional<Buffer> buffer;
                 if (enabledTieredStore()) {
-                    buffer = readBufferFromTieredStore(inputChannel.getChannelIndex());
+                    buffer = readBufferFromTieredStore(inputChannel);
                 } else {
                     buffer = readBufferFromInputChannel(inputChannel);
                 }
@@ -899,8 +908,12 @@ public class SingleInputGate extends IndexedInputGate {
         return Optional.of(bufferAndAvailability.buffer());
     }
 
-    private Optional<Buffer> readBufferFromTieredStore(int subpartitionId) {
-        return tieredStorageConsumerClient.getNextBuffer(subpartitionId);
+    private Optional<Buffer> readBufferFromTieredStore(InputChannel inputChannel) {
+        int index = inputChannel.getChannelIndex();
+        return checkNotNull(tieredStorageConsumerClient)
+                .getNextBuffer(
+                        checkNotNull(tieredStoragePartitionIds).get(index),
+                        checkNotNull(tieredStorageSubpartitionIds).get(index));
     }
 
     private boolean enabledTieredStore() {

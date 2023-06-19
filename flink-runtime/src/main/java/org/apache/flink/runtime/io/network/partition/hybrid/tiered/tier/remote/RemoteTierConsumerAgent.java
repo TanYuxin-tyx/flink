@@ -1,5 +1,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -8,6 +9,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.util.ExceptionUtils;
@@ -17,6 +20,9 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
@@ -36,18 +42,29 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
     private final ByteBuffer headerBuffer;
 
+    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
+            subpartitionIndexs = new HashMap<>();
+
     public RemoteTierConsumerAgent(
-            int numInputChannels,
+            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
+                    partitionIdAndSubpartitionIds,
             TieredStorageMemoryManager storageMemoryManager,
             RemoteTierMonitor remoteTierMonitor,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
         this.remoteTierMonitor = remoteTierMonitor;
         this.storageMemoryManager = storageMemoryManager;
         this.queueChannelCallBack = queueChannelCallBack;
-        this.requiredSegmentIds = new int[numInputChannels];
+        this.requiredSegmentIds = new int[partitionIdAndSubpartitionIds.size()];
         Arrays.fill(requiredSegmentIds, -1);
         this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
         headerBuffer.order(ByteOrder.nativeOrder());
+        for (int index = 0; index < partitionIdAndSubpartitionIds.size(); ++index) {
+            Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId> ids =
+                    partitionIdAndSubpartitionIds.get(index);
+            subpartitionIndexs
+                    .computeIfAbsent(ids.f0, ignore -> new HashMap<>())
+                    .put(ids.f1, index);
+        }
     }
 
     @Override
@@ -56,7 +73,11 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     }
 
     @Override
-    public Optional<Buffer> getNextBuffer(int subpartitionId, int segmentId) {
+    public Optional<Buffer> getNextBuffer(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId2,
+            int segmentId) {
+        int subpartitionId = subpartitionIndexs.get(partitionId).get(subpartitionId2);
         if (segmentId != requiredSegmentIds[subpartitionId]) {
             remoteTierMonitor.updateRequiredSegmentId(subpartitionId, segmentId);
             requiredSegmentIds[subpartitionId] = segmentId;
