@@ -25,12 +25,12 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndexImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergePartitionFile;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentNettyPayload;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SubpartitionNettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndexImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFile;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.SegmentNettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.SubpartitionNettyPayload;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

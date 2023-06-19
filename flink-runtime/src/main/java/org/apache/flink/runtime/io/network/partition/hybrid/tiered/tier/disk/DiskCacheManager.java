@@ -19,11 +19,11 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentNettyPayload;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SubpartitionNettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.SegmentNettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.SubpartitionNettyPayload;
 import org.apache.flink.util.concurrent.FutureUtils;
 
 import java.nio.ByteBuffer;

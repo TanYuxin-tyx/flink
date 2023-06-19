@@ -26,9 +26,9 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferSpiller;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.CacheBufferSpiller;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -173,13 +173,12 @@ public class RemoteCacheBufferSpiller implements CacheBufferSpiller {
      * Compute buffer's file offset and create spilled buffers.
      *
      * @param toWrite for create {@link PartitionFileIndex.SpilledBuffer}.
-     * @param spilledBuffers receive the created {@link PartitionFileIndex.SpilledBuffer} by
-     *     this method.
+     * @param spilledBuffers receive the created {@link PartitionFileIndex.SpilledBuffer} by this
+     *     method.
      * @return total bytes(header size + buffer size) of all buffers to write.
      */
     private long createSpilledBuffersAndGetTotalBytes(
-            List<NettyPayload> toWrite,
-            List<PartitionFileIndex.SpilledBuffer> spilledBuffers) {
+            List<NettyPayload> toWrite, List<PartitionFileIndex.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
         for (NettyPayload nettyPayload : toWrite) {
             Buffer buffer = nettyPayload.getBuffer().get();

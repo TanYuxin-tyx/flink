@@ -16,31 +16,14 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file;
-
-import java.util.List;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 /**
- * The wrapper class {@link SubpartitionNettyPayload} for a subpartition, which holds all the {@link
- * SegmentNettyPayload} buffers.
+ * The {@link PartitionFileType} interface defines different types of Shuffle files. These files
+ * have their own read and write logic.
  */
-public class SubpartitionNettyPayload {
-
-    private final int subpartitionId;
-
-    private final List<SegmentNettyPayload> segmentNettyPayloads;
-
-    public SubpartitionNettyPayload(
-            int subpartitionId, List<SegmentNettyPayload> segmentNettyPayloads) {
-        this.subpartitionId = subpartitionId;
-        this.segmentNettyPayloads = segmentNettyPayloads;
-    }
-
-    int getSubpartitionId() {
-        return subpartitionId;
-    }
-
-    List<SegmentNettyPayload> getSegmentNettyPayloads() {
-        return segmentNettyPayloads;
-    }
+public enum PartitionFileType {
+    PRODUCER_MERGE,
+    PRODUCER_HASH,
+    CONSUMER_MERGE // Not Supported
 }

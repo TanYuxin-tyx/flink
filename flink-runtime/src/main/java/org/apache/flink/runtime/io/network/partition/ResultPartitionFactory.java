@@ -32,6 +32,12 @@ import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfigu
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.HashPartitionFile;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndexImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergePartitionFile;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
@@ -42,12 +48,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClientImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.HashPartitionFile;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndex;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileIndexImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.file.ProducerMergePartitionFile;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierFactory;
