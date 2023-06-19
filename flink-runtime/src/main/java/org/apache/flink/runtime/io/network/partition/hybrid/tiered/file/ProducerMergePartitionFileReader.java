@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.IOUtils;
 
@@ -46,18 +47,16 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
     private final Path dataFilePath;
 
-    private final TieredStoragePartitionId partitionId;
-
     @Nullable private FileChannel fileChannel;
 
-    ProducerMergePartitionFileReader(Path dataFilePath, TieredStoragePartitionId partitionId) {
+    ProducerMergePartitionFileReader(Path dataFilePath) {
         this.dataFilePath = dataFilePath;
-        this.partitionId = partitionId;
     }
 
     @Override
     public Buffer readBuffer(
-            int subpartitionId,
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             long fileOffSet,
             MemorySegment segment,

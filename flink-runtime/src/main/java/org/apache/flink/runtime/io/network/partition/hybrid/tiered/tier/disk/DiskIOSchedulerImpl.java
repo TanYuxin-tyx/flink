@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
@@ -58,6 +59,8 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
 
     private final Object lock = new Object();
 
+    private final TieredStoragePartitionId partitionId;
+
     private final ScheduledExecutorService ioExecutor;
 
     private final Duration bufferRequestTimeout;
@@ -90,6 +93,7 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
     private volatile boolean isReleased;
 
     public DiskIOSchedulerImpl(
+            TieredStoragePartitionId partitionId,
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
             int maxRequestedBuffers,
@@ -99,6 +103,7 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
             List<Map<Integer, Integer>> segmentIdRecorder,
             PartitionFileReader partitionFileReader,
             PartitionFileIndex dataIndex) {
+        this.partitionId = partitionId;
         this.bufferPool = checkNotNull(bufferPool);
         this.ioExecutor = checkNotNull(ioExecutor);
         this.maxRequestedBuffers = maxRequestedBuffers;
@@ -132,7 +137,8 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
             checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
             ScheduledSubpartitionReaderImpl scheduledSubpartitionReaderImpl =
                     new ScheduledSubpartitionReaderImpl(
-                            subpartitionId.getSubpartitionId(),
+                            partitionId,
+                            subpartitionId,
                             maxBufferReadAhead,
                             nettyConnectionWriter,
                             nettyService,

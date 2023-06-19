@@ -21,6 +21,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 import java.io.IOException;
 
@@ -30,15 +32,16 @@ public interface PartitionFileReader {
     /**
      * Read a buffer from partition file.
      *
+     * @param partitionId partition id indicates the id of partition.
      * @param subpartitionId subpartition id indicates the id of subpartition.
-     * @param segmentId segment id indicates the id of required segment.
      * @param fileOffset file offset indicates the current reading offset.
      * @param memorySegment memory segment indicates a segment of available buffer.
      * @param recycler recycler indicates the owner of the buffer.
      * @return the buffer.
      */
     Buffer readBuffer(
-            int subpartitionId,
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             long fileOffset,
             MemorySegment memorySegment,

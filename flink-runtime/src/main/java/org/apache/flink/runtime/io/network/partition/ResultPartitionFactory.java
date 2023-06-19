@@ -442,7 +442,7 @@ public class ResultPartitionFactory {
                             partitionFileIndex);
             TieredStoragePartitionId partitionId = TieredStorageIdMappingUtils.convertId(id);
             PartitionFileReader partitionFileReader =
-                    createPartitionFileReader(tierFactory, dataFileBasePath, partitionId);
+                    createPartitionFileReader(tierFactory, dataFileBasePath);
             tierProducerAgents.add(
                     tierFactory.createProducerAgent(
                             subpartitions.length,
@@ -482,11 +482,10 @@ public class ResultPartitionFactory {
 
     private PartitionFileReader createPartitionFileReader(
             TierFactory tierFactory,
-            String dataFileBasePath,
-            TieredStoragePartitionId partitionId) {
+            String dataFileBasePath) {
         if (tierFactory.getClass() == DiskTierFactory.class) {
             return ProducerMergePartitionFile.createPartitionFileReader(
-                    Paths.get(dataFileBasePath + DATA_FILE_SUFFIX), partitionId);
+                    Paths.get(dataFileBasePath + DATA_FILE_SUFFIX));
         } else if (tierFactory.getClass() == RemoteTierFactory.class) {
             return null; // TODO, create hash reader.
         }

@@ -123,6 +123,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         partitionFileWriter);
         this.diskIOSchedulerImpl =
                 new DiskIOSchedulerImpl(
+                        partitionId,
                         batchShuffleReadBufferPool,
                         batchShuffleReadIOExecutor,
                         storeConfiguration.getMaxRequestedBuffers(),

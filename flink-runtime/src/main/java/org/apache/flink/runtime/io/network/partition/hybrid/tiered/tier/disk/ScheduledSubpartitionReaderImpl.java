@@ -22,6 +22,8 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
@@ -43,7 +45,9 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
 
     private final NettyConnectionId nettyServiceWriterId;
 
-    private final int subpartitionId;
+    private final TieredStoragePartitionId partitionId;
+
+    private final TieredStorageSubpartitionId subpartitionId;
 
     private final int maxBufferReadAhead;
 
@@ -64,13 +68,15 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
     private boolean isFailed;
 
     public ScheduledSubpartitionReaderImpl(
-            int subpartitionId,
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
             int maxBufferReadAhead,
             NettyConnectionWriter nettyConnectionWriter,
             TieredStorageNettyService nettyService,
             Map<Integer, Integer> segmentIdRecorder,
             PartitionFileReader partitionFileReader,
             PartitionFileIndex dataIndex) {
+        this.partitionId = partitionId;
         this.subpartitionId = subpartitionId;
         this.nettyServiceWriterId = nettyConnectionWriter.getNettyConnectionId();
         this.maxBufferReadAhead = maxBufferReadAhead;
@@ -79,7 +85,8 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
         this.segmentIdRecorder = segmentIdRecorder;
         this.partitionFileReader = partitionFileReader;
         this.dataIndex = dataIndex;
-        this.subpartitionReaderProgress = new SubpartitionReaderProgress(subpartitionId);
+        this.subpartitionReaderProgress =
+                new SubpartitionReaderProgress(subpartitionId.getSubpartitionId());
     }
 
     @Override
@@ -110,6 +117,7 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
             try {
                 if ((buffer =
                                 partitionFileReader.readBuffer(
+                                        partitionId,
                                         subpartitionId,
                                         -1,
                                         subpartitionReaderProgress.getCurrentFileOffset(),
@@ -126,7 +134,8 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
             subpartitionReaderProgress.advance(
                     buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
             NettyPayload nettyPayload =
-                    NettyPayload.newBuffer(buffer, nextToLoad++, subpartitionId);
+                    NettyPayload.newBuffer(
+                            buffer, nextToLoad++, subpartitionId.getSubpartitionId());
             Integer segmentId = segmentIdRecorder.get(nettyPayload.getBufferIndex());
             if (segmentId != null) {
                 nettyConnectionWriter.writeBuffer(NettyPayload.newSegment(segmentId));
