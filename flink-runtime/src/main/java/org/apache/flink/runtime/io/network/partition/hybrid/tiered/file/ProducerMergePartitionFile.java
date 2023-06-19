@@ -20,6 +20,10 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 import java.nio.file.Path;
 
+/**
+ * The partition file in the producer-merge mode. In this mode, the shuffle data is written in the
+ * producer side, the consumer side need to read multiple producers to get its partition data.
+ */
 public class ProducerMergePartitionFile {
 
     public static ProducerMergePartitionFileWriter createPartitionFileWriter(

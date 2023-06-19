@@ -47,13 +47,20 @@ import java.util.stream.Stream;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateBufferWithHeaders;
 
-/** THe implementation of {@link PartitionFileWriter} with merged logic. */
+/**
+ * The implementation of {@link PartitionFileWriter} with producer-side merge mode. In this mode,
+ * the shuffle data is written in the producer side, the consumer side need to read multiple
+ * producers to get its partition data.
+ *
+ * <p>Note that one partition file written by the {@link ProducerMergePartitionFileWriter} may
+ * contain the data of multiple subpartitions.
+ */
 public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
 
     private static final Logger LOG =
             LoggerFactory.getLogger(ProducerMergePartitionFileWriter.class);
 
-    /** One thread to perform spill operation. */
+    /** One thread to perform the spill operation. */
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadExecutor(
                     new ThreadFactoryBuilder()
@@ -64,10 +71,13 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     /** File channel to write data. */
     private final FileChannel dataFileChannel;
 
+    /**
+     * The partition file index. When spilling buffers, the partition file indexes will be updated.
+     */
+    private final PartitionFileIndex partitionFileIndex;
+
     /** Records the current writing location. */
     private long totalBytesWritten;
-
-    private final PartitionFileIndex partitionFileIndex;
 
     ProducerMergePartitionFileWriter(Path dataFilePath, PartitionFileIndex partitionFileIndex) {
         LOG.info("Creating partition file " + dataFilePath);
@@ -121,9 +131,8 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     /**
      * Compute buffer's file offset and create spilled buffers.
      *
-     * @param toWrite for create {@link PartitionFileIndex.SpilledBuffer}.
-     * @param spilledBuffers receive the created {@link PartitionFileIndex.SpilledBuffer} by this
-     *     method.
+     * @param toWrite all buffers to write to create {@link PartitionFileIndex.SpilledBuffer}s
+     * @param spilledBuffers receive the created {@link PartitionFileIndex.SpilledBuffer}
      * @return total bytes(header size + buffer size) of all buffers to write.
      */
     private long createSpilledBuffersAndGetTotalBytes(
@@ -151,7 +160,6 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
         }
 
         ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(nettyPayloads);
-
         BufferReaderWriterUtil.writeBuffers(dataFileChannel, expectedBytes, bufferWithHeaders);
         totalBytesWritten += expectedBytes;
     }

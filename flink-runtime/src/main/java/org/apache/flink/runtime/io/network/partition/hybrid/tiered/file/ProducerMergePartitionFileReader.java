@@ -40,7 +40,13 @@ import java.nio.file.StandardOpenOption;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
 
-/** THe implementation of {@link PartitionFileReader} with merged logic. */
+/**
+ * The implementation of {@link PartitionFileReader} with producer-merge mode. In this mode, the
+ * shuffle data is written in the producer side, the consumer side need to read multiple producers
+ * to get its partition data.
+ *
+ * <p>Note that one partition file may contain the data of multiple subpartitions.
+ */
 public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
