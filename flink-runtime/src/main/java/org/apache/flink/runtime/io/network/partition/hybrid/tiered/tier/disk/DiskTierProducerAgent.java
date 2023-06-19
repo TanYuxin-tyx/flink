@@ -151,8 +151,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             firstBufferIndexInSegment
                     .get(subpartitionId.getSubpartitionId())
                     .put(
-                            diskCacheManager.getFinishedBufferIndex(
-                                    subpartitionId.getSubpartitionId()),
+                            diskCacheManager.getBufferIndex(subpartitionId.getSubpartitionId()),
                             segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;

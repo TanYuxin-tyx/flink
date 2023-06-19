@@ -41,15 +41,24 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class SubpartitionDiskCacheManager {
 
+    /** The segment id of the {@link SubpartitionDiskCacheManager}. */
     private final int subpartitionId;
-
-    private int finishedBufferIndex;
 
     // Note that this field can be accessed by the task thread or the write IO thread, so the thread
     // safety should be ensured.
     private final Deque<NettyPayload> allBuffers = new LinkedList<>();
 
-    private int currentSegmentId;
+    /**
+     * Record the buffer index in the {@link SubpartitionDiskCacheManager}. Each time a new buffer
+     * is added to the {@code allBuffers}, this field is increased by one.
+     */
+    private int bufferIndex;
+
+    /**
+     * Record the segment id that is writing to. Each time when the segment is finished, this filed
+     * is increased by one.
+     */
+    private int segmentIndex;
 
     public SubpartitionDiskCacheManager(int subpartitionId) {
         this.subpartitionId = subpartitionId;
@@ -60,21 +69,19 @@ public class SubpartitionDiskCacheManager {
     // ------------------------------------------------------------------------
     void appendEndOfSegmentEvent(ByteBuffer record, DataType dataType) {
         writeEvent(record, dataType);
-        currentSegmentId++;
+        segmentIndex++;
     }
 
-    int getFinishedBufferIndex() {
-        return finishedBufferIndex;
+    int getBufferIndex() {
+        return bufferIndex;
     }
 
-    int getCurrentSegmentId() {
-        return currentSegmentId;
+    int getSegmentIndex() {
+        return segmentIndex;
     }
 
     void append(Buffer buffer) {
-        NettyPayload toAddBuffer =
-                NettyPayload.newBuffer(buffer, finishedBufferIndex, subpartitionId);
-        addFinishedBuffer(toAddBuffer);
+        addBuffer(NettyPayload.newBuffer(buffer, bufferIndex, subpartitionId));
     }
 
     // Note that allBuffers can be touched by multiple threads.
@@ -101,15 +108,14 @@ public class SubpartitionDiskCacheManager {
         Buffer buffer =
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
-        NettyPayload nettyPayload =
-                NettyPayload.newBuffer(buffer, finishedBufferIndex, subpartitionId);
-        addFinishedBuffer(nettyPayload);
+        NettyPayload nettyPayload = NettyPayload.newBuffer(buffer, bufferIndex, subpartitionId);
+        addBuffer(nettyPayload);
     }
 
     // Note that allBuffers can be touched by multiple threads.
-    private void addFinishedBuffer(NettyPayload nettyPayload) {
+    private void addBuffer(NettyPayload nettyPayload) {
         synchronized (allBuffers) {
-            finishedBufferIndex++;
+            bufferIndex++;
             allBuffers.add(nettyPayload);
         }
     }

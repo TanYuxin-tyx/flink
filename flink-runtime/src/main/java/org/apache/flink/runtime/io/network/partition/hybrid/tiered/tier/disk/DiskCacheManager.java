@@ -72,6 +72,11 @@ public class DiskCacheManager {
     public void appendEndOfSegmentEvent(
             ByteBuffer record, int subpartitionId, Buffer.DataType dataType) {
         subpartitionCacheManagers[subpartitionId].appendEndOfSegmentEvent(record, dataType);
+
+        // When finishing a segment, the buffers should be flushed because the next segment may be
+        // written to another tier. If the buffers in this tier are not flushed here, then the next
+        // segment in another tier may be stuck by lacking buffers. This flush has a low trigger
+        // frequency, so its impact on performance is relatively small.
         flushAndReleaseCacheBuffers();
     }
 
@@ -86,13 +91,13 @@ public class DiskCacheManager {
     }
 
     /**
-     * Return the finished buffer index.
+     * Return the current buffer index.
      *
      * @param subpartitionId the target subpartition id
      * @return the finished buffer index
      */
-    public int getFinishedBufferIndex(int subpartitionId) {
-        return subpartitionCacheManagers[subpartitionId].getFinishedBufferIndex();
+    public int getBufferIndex(int subpartitionId) {
+        return subpartitionCacheManagers[subpartitionId].getBufferIndex();
     }
 
     /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
@@ -153,7 +158,7 @@ public class DiskCacheManager {
                             Collections.singletonList(
                                     new PartitionFileWriter.SegmentSpilledBufferContext(
                                             subpartitionCacheManagers[subpartitionId]
-                                                    .getCurrentSegmentId(),
+                                                    .getSegmentIndex(),
                                             convertToSpilledBufferContext(nettyPayloads),
                                             false))));
             numToWriteBuffers += nettyPayloads.size();

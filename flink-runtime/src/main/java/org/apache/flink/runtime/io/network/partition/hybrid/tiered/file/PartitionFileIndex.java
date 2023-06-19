@@ -29,7 +29,11 @@ import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
-/** The default implementation of {@link PartitionFileIndex}. */
+/**
+ * The {@link PartitionFileIndex} represents the indexes and the regions of the spilled buffers. The
+ * region indexes are generated when writing the spilled buffers, and these region indexes are used
+ * when reading data from disk.
+ */
 public class PartitionFileIndex {
 
     /**
