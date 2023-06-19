@@ -50,8 +50,7 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
     @Nullable private FileChannel fileChannel;
 
-    public ProducerMergePartitionFileReader(
-            Path dataFilePath, TieredStoragePartitionId partitionId) {
+    ProducerMergePartitionFileReader(Path dataFilePath, TieredStoragePartitionId partitionId) {
         this.dataFilePath = dataFilePath;
         this.partitionId = partitionId;
     }

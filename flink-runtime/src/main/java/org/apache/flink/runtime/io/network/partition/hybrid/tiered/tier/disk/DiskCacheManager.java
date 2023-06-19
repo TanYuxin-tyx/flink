@@ -46,7 +46,7 @@ public class DiskCacheManager {
 
     private CompletableFuture<Void> hasFlushCompleted;
 
-    public DiskCacheManager(
+    DiskCacheManager(
             int numSubpartitions,
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileWriter partitionFileWriter) {

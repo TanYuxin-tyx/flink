@@ -81,9 +81,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     /** Record the number of buffers currently written to each subpartition. */
     private final int[] currentSubpartitionWriteBuffers;
 
-    private volatile boolean isReleased;
-
-    public DiskTierProducerAgent(
+    DiskTierProducerAgent(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
             int numBytesPerSegment,
@@ -93,7 +91,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             boolean isBroadcastOnly,
             PartitionFileWriter partitionFileWriter,
             PartitionFileReader partitionFileReader,
-            PartitionFileIndex dataIndex,
+            PartitionFileIndex partitionFileIndex,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
@@ -133,7 +131,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         nettyService,
                         firstBufferIndexInSegment,
                         partitionFileReader,
-                        dataIndex);
+                        partitionFileIndex);
         nettyService.registerProducer(partitionId, this);
         resourceRegistry.registerResource(partitionId, this::releaseResources);
     }
@@ -215,10 +213,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     }
 
     private void releaseResources() {
-        if (!isReleased) {
-            diskIOSchedulerImpl.release();
-            diskCacheManager.release();
-            isReleased = true;
-        }
+        diskIOSchedulerImpl.release();
+        diskCacheManager.release();
     }
 }

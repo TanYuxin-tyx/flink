@@ -69,8 +69,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
 
     private final PartitionFileIndex partitionFileIndex;
 
-    public ProducerMergePartitionFileWriter(
-            Path dataFilePath, PartitionFileIndex partitionFileIndex) {
+    ProducerMergePartitionFileWriter(Path dataFilePath, PartitionFileIndex partitionFileIndex) {
         LOG.info("Creating partition file " + dataFilePath);
         try {
             this.dataFileChannel =

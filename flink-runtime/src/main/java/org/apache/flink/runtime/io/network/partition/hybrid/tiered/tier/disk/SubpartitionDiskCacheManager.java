@@ -60,7 +60,7 @@ public class SubpartitionDiskCacheManager {
      */
     private int segmentIndex;
 
-    public SubpartitionDiskCacheManager(int subpartitionId) {
+    SubpartitionDiskCacheManager(int subpartitionId) {
         this.subpartitionId = subpartitionId;
     }
 
