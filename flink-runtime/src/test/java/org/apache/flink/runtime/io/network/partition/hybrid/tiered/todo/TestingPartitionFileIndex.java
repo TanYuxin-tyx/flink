@@ -57,7 +57,7 @@
 //    }
 //
 //    @Override
-//    public void addRegionForBuffers(List<SpilledBuffer> spilledBuffers) {
+//    public void generateRegionsOnBuffers(List<SpilledBuffer> spilledBuffers) {
 //        addBuffersConsumer.accept(spilledBuffers);
 //    }
 //

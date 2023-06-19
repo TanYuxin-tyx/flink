@@ -25,7 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndexImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergePartitionFile;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
@@ -169,7 +169,7 @@ class PartitionFileWriterTest {
 
     private PartitionFileWriter createProducerMergePartitionFileWriter() {
         return ProducerMergePartitionFile.createPartitionFileWriter(
-                dataFilePath, new PartitionFileIndexImpl(NUM_SUBPARTITIONS));
+                dataFilePath, new PartitionFileIndex(NUM_SUBPARTITIONS));
     }
 
     private static PartitionFileWriter.SubpartitionSpilledBufferContext

@@ -23,7 +23,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex.Region;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
@@ -177,7 +176,7 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
 
         private long currentFileOffset = Long.MAX_VALUE;
 
-        private int regionIndex = 0;
+        private int regionId = 0;
 
         private int numBuffersReadable;
 
@@ -192,9 +191,10 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
          */
         private int getReadableBufferNumber() {
             if (numBuffersReadable == 0) {
-                Optional<Region> region = dataIndex.getRegion(subpartitionId, regionIndex);
+                Optional<PartitionFileIndex.Region> region =
+                        dataIndex.getRegion(subpartitionId, regionId);
                 if (region.isPresent()) {
-                    regionIndex++;
+                    regionId++;
                     numBuffersReadable = region.get().getNumBuffers();
                     currentFileOffset = region.get().getRegionFileOffset();
                 }

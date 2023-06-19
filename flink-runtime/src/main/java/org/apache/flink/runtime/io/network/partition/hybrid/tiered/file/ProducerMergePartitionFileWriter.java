@@ -111,7 +111,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
             List<PartitionFileIndex.SpilledBuffer> spilledBuffers = new ArrayList<>();
             long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
             writeBuffers(toWrite, expectedBytes);
-            partitionFileIndex.addRegionForBuffers(spilledBuffers);
+            partitionFileIndex.generateRegionsBasedOnBuffers(spilledBuffers);
             toWrite.forEach(spilledBuffer -> spilledBuffer.getBuffer().recycleBuffer());
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {

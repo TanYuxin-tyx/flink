@@ -60,7 +60,7 @@
 //     */
 //    @Test
 //    void testGetReadableRegionBufferNotExist() {
-//        partitionFileIndex.addRegionForBuffers(createSpilledBuffers(0, Arrays.asList(0, 2)));
+//        partitionFileIndex.generateRegionsOnBuffers(createSpilledBuffers(0, Arrays.asList(0, 2)));
 //        // subpartition 0 does not have buffer with index 1
 //        // assertThat(regionBufferIndexTracker.getNextRegion(0, 1, -1,
 //        // NettyServiceViewId.DEFAULT))
@@ -75,7 +75,7 @@
 // */
 //    @Test
 //    void testGetReadableRegionNotReadable() {
-//        partitionFileIndex.addRegionForBuffers(createSpilledBuffers(0,
+//        partitionFileIndex.generateRegionsOnBuffers(createSpilledBuffers(0,
 // Collections.singletonList(0)));
 //        // 0-0 is not readable as consuming offset is bigger than 0.
 //        // assertThat(regionBufferIndexTracker.getNextRegion(0, 0, 1,
@@ -92,7 +92,7 @@
 //    void testGetReadableRegion() {
 //        final int subpartitionId = 0;
 //
-//        partitionFileIndex.addRegionForBuffers(
+//        partitionFileIndex.generateRegionsOnBuffers(
 //                createSpilledBuffers(subpartitionId, Arrays.asList(0, 1, 3, 4, 5)));
 //        // assertThat(
 //        //                regionBufferIndexTracker.getNextRegion(

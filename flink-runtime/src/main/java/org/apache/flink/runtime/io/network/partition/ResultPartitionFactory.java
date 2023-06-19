@@ -34,7 +34,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.HashPartitionFile;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndexImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergePartitionFile;
@@ -430,7 +429,7 @@ public class ResultPartitionFactory {
             TieredStorageResourceRegistry resourceRegistry) {
         List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
         PartitionFileIndex partitionFileIndex =
-                new PartitionFileIndexImpl(isBroadcast ? 1 : subpartitions.length);
+                new PartitionFileIndex(isBroadcast ? 1 : subpartitions.length);
         for (TierFactory tierFactory : storeConfiguration.getTierFactories()) {
             PartitionFileWriter partitionFileWriter =
                     createPartitionFileWriter(
