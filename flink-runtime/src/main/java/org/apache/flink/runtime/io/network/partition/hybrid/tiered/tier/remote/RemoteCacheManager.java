@@ -23,7 +23,6 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskCacheManager;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
@@ -83,7 +82,7 @@ public class RemoteCacheManager {
         getSubpartitionCacheDataManager(targetSubpartition).finishSegment(segmentIndex);
     }
 
-    /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
+    /** Close this {@link RemoteCacheManager}, it means no data can append to memory. */
     public void close() {
         Arrays.stream(subpartitionCacheDataManagers).forEach(SubpartitionRemoteCacheManager::close);
         try {
@@ -97,7 +96,8 @@ public class RemoteCacheManager {
     }
 
     /**
-     * Release this {@link DiskCacheManager}, it means all memory taken by this class will recycle.
+     * Release this {@link RemoteCacheManager}, it means all memory taken by this class will
+     * recycle.
      */
     public void release() {
         for (int i = 0; i < numSubpartitions; i++) {

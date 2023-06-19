@@ -36,7 +36,7 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 /**
  * The {@link DiskCacheManager} is responsible for managing cached buffers before flushing to files.
  */
-public class DiskCacheManager {
+class DiskCacheManager {
 
     private final int numSubpartitions;
 

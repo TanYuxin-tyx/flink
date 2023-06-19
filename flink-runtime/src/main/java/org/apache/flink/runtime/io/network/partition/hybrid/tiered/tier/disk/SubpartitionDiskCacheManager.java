@@ -39,7 +39,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * The {@link SubpartitionDiskCacheManager} is responsible to manage the cached buffers in a single
  * subpartition.
  */
-public class SubpartitionDiskCacheManager {
+class SubpartitionDiskCacheManager {
 
     /** The segment id of the {@link SubpartitionDiskCacheManager}. */
     private final int subpartitionId;
