@@ -24,6 +24,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SpilledBufferContext;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -33,6 +34,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -52,11 +54,11 @@ public class TieredStorageUtils {
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
     };
 
-    public static ByteBuffer[] generateBufferWithHeaders(List<NettyPayload> nettyPayloads) {
+    public static ByteBuffer[] generateBufferWithHeaders(List<SpilledBufferContext> nettyPayloads) {
         ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * nettyPayloads.size()];
 
         for (int i = 0; i < nettyPayloads.size(); i++) {
-            Buffer buffer = nettyPayloads.get(i).getBuffer().get();
+            Buffer buffer = nettyPayloads.get(i).getBuffer();
             setBufferWithHeader(buffer, bufferWithHeaders, 2 * i);
         }
         return bufferWithHeaders;
@@ -69,6 +71,20 @@ public class TieredStorageUtils {
 
         bufferWithHeaders[index] = header;
         bufferWithHeaders[index + 1] = buffer.getNioBufferReadable();
+    }
+
+    public static List<SpilledBufferContext> convertToSpilledBufferContext(
+            List<NettyPayload> nettyPayloads) {
+        return nettyPayloads.stream()
+                .filter(nettyPayload -> nettyPayload.getBuffer().isPresent())
+                .map(
+                        nettyPayload ->
+                                new SpilledBufferContext(
+                                        nettyPayload.getBuffer().get(),
+                                        nettyPayload.getBufferIndex(),
+                                        nettyPayload.getSubpartitionId(),
+                                        nettyPayload.getSegmentId()))
+                .collect(Collectors.toList());
     }
 
     public static void writeDfsBuffers(

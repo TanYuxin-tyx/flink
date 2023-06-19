@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
@@ -84,16 +83,19 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     }
 
     @Override
-    public CompletableFuture<Void> write(List<SubpartitionNettyPayload> toWriteBuffers) {
-        List<NettyPayload> buffersToSpill =
-                toWriteBuffers.stream()
-                        .map(SubpartitionNettyPayload::getSegmentNettyPayloads)
+    public CompletableFuture<Void> write(
+            List<PartitionFileWriter.SubpartitionSpilledBufferContext> spilledBuffers) {
+        List<SpilledBufferContext> buffersToSpill =
+                spilledBuffers.stream()
+                        .map(SubpartitionSpilledBufferContext::getSegmentSpillBufferContexts)
                         .flatMap(
-                                (Function<List<SegmentNettyPayload>, Stream<SegmentNettyPayload>>)
+                                (Function<
+                                                List<SegmentSpilledBufferContext>,
+                                                Stream<SegmentSpilledBufferContext>>)
                                         Collection::stream)
-                        .map(SegmentNettyPayload::getNettyPayloads)
+                        .map(SegmentSpilledBufferContext::getSpillBufferContexts)
                         .flatMap(
-                                (Function<List<NettyPayload>, Stream<NettyPayload>>)
+                                (Function<List<SpilledBufferContext>, Stream<SpilledBufferContext>>)
                                         Collection::stream)
                         .collect(Collectors.toList());
 
@@ -103,15 +105,14 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
-    private void spill(List<NettyPayload> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
+    private void spill(
+            List<SpilledBufferContext> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
         try {
             List<PartitionFileIndex.SpilledBuffer> spilledBuffers = new ArrayList<>();
             long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
             writeBuffers(toWrite, expectedBytes);
             partitionFileIndex.addRegionForBuffers(spilledBuffers);
-            for (NettyPayload nettyPayload : toWrite) {
-                nettyPayload.getBuffer().get().recycleBuffer();
-            }
+            toWrite.forEach(spilledBuffer -> spilledBuffer.getBuffer().recycleBuffer());
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
@@ -127,15 +128,16 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
      * @return total bytes(header size + buffer size) of all buffers to write.
      */
     private long createSpilledBuffersAndGetTotalBytes(
-            List<NettyPayload> toWrite, List<PartitionFileIndex.SpilledBuffer> spilledBuffers) {
+            List<SpilledBufferContext> toWrite,
+            List<PartitionFileIndex.SpilledBuffer> spilledBuffers) {
         long expectedBytes = 0;
-        for (NettyPayload nettyPayload : toWrite) {
-            Buffer buffer = nettyPayload.getBuffer().get();
+        for (SpilledBufferContext spilledBuffer : toWrite) {
+            Buffer buffer = spilledBuffer.getBuffer();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             spilledBuffers.add(
                     new PartitionFileIndex.SpilledBuffer(
-                            nettyPayload.getSubpartitionId(),
-                            nettyPayload.getBufferIndex(),
+                            spilledBuffer.getSubpartitionId(),
+                            spilledBuffer.getBufferIndex(),
                             totalBytesWritten + expectedBytes));
             expectedBytes += numBytes;
         }
@@ -143,7 +145,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     }
 
     /** Write all buffers to disk. */
-    private void writeBuffers(List<NettyPayload> nettyPayloads, long expectedBytes)
+    private void writeBuffers(List<SpilledBufferContext> nettyPayloads, long expectedBytes)
             throws IOException {
         if (nettyPayloads.isEmpty()) {
             return;

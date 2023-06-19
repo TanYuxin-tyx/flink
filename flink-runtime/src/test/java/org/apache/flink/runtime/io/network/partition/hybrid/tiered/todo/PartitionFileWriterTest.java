@@ -28,8 +28,6 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndexImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergePartitionFile;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentNettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SubpartitionNettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +48,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.convertToSpilledBufferContext;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
@@ -88,7 +87,7 @@ class PartitionFileWriterTest {
                         Arrays.asList(Tuple2.of(4, 0), Tuple2.of(5, 1), Tuple2.of(6, 2))));
         CompletableFuture<Void> spillFinishedFuture =
                 partitionFileWriter.write(
-                        Collections.singletonList(getSubpartitionNettyPayload(nettyPayloadList)));
+                        Collections.singletonList(getSubpartitionSpilledBuffers(nettyPayloadList)));
         spillFinishedFuture.get();
         checkData(
                 isCompressed,
@@ -111,7 +110,7 @@ class PartitionFileWriterTest {
                                 Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
         CompletableFuture<Void> spillFinishedFuture =
                 partitionFileWriter.write(
-                        Collections.singletonList(getSubpartitionNettyPayload(nettyPayloadList)));
+                        Collections.singletonList(getSubpartitionSpilledBuffers(nettyPayloadList)));
         spillFinishedFuture.get();
         partitionFileWriter.release();
         checkData(false, Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2)));
@@ -119,7 +118,7 @@ class PartitionFileWriterTest {
                         () ->
                                 partitionFileWriter.write(
                                         Collections.singletonList(
-                                                getSubpartitionNettyPayload(nettyPayloadList))))
+                                                getSubpartitionSpilledBuffers(nettyPayloadList))))
                 .isInstanceOf(RejectedExecutionException.class);
     }
 
@@ -173,9 +172,12 @@ class PartitionFileWriterTest {
                 dataFilePath, new PartitionFileIndexImpl(NUM_SUBPARTITIONS));
     }
 
-    private static SubpartitionNettyPayload getSubpartitionNettyPayload(
-            List<NettyPayload> nettyPayloads) {
-        return new SubpartitionNettyPayload(
-                -1, Collections.singletonList(new SegmentNettyPayload(-1, nettyPayloads, false)));
+    private static PartitionFileWriter.SubpartitionSpilledBufferContext
+            getSubpartitionSpilledBuffers(List<NettyPayload> nettyPayloads) {
+        return new PartitionFileWriter.SubpartitionSpilledBufferContext(
+                -1,
+                Collections.singletonList(
+                        new PartitionFileWriter.SegmentSpilledBufferContext(
+                                -1, convertToSpilledBufferContext(nettyPayloads), false)));
     }
 }

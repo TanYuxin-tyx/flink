@@ -23,8 +23,6 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentNettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SubpartitionNettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.util.ExceptionUtils;
@@ -41,6 +39,7 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.convertToSpilledBufferContext;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** This class is responsible for managing the data in a single subpartition. */
@@ -90,16 +89,16 @@ public class SubpartitionRemoteCacheManager {
         checkState(currentSegmentId.get() == -1 || currentSegmentId.get() == segmentIndex);
         int bufferNumber = flushCachedBuffers();
         if (bufferNumber > 0) {
-            SubpartitionNettyPayload finishSegmentNettyPayload =
-                    new SubpartitionNettyPayload(
+            PartitionFileWriter.SubpartitionSpilledBufferContext finishSegmentBuffer =
+                    new PartitionFileWriter.SubpartitionSpilledBufferContext(
                             targetChannel,
                             Collections.singletonList(
-                                    new SegmentNettyPayload(
+                                    new PartitionFileWriter.SegmentSpilledBufferContext(
                                             currentSegmentId.get(),
                                             Collections.emptyList(),
                                             true)));
             lastSpillFuture =
-                    partitionFileWriter.write(Collections.singletonList(finishSegmentNettyPayload));
+                    partitionFileWriter.write(Collections.singletonList(finishSegmentBuffer));
         }
         checkState(allBuffers.isEmpty(), "Leaking finished buffers.");
     }
@@ -148,15 +147,17 @@ public class SubpartitionRemoteCacheManager {
         List<NettyPayload> nettyPayloads = generateToSpillBuffersWithId();
         if (nettyPayloads.size() > 0) {
             synchronized (currentSegmentId) {
-                SubpartitionNettyPayload subpartitionNettyPayload =
-                        new SubpartitionNettyPayload(
+                PartitionFileWriter.SubpartitionSpilledBufferContext subpartitionSpilledBuffers =
+                        new PartitionFileWriter.SubpartitionSpilledBufferContext(
                                 targetChannel,
                                 Collections.singletonList(
-                                        new SegmentNettyPayload(
-                                                currentSegmentId.get(), nettyPayloads, false)));
+                                        new PartitionFileWriter.SegmentSpilledBufferContext(
+                                                currentSegmentId.get(),
+                                                convertToSpilledBufferContext(nettyPayloads),
+                                                false)));
                 lastSpillFuture =
                         partitionFileWriter.write(
-                                Collections.singletonList(subpartitionNettyPayload));
+                                Collections.singletonList(subpartitionSpilledBuffers));
             }
         }
         return nettyPayloads.size();

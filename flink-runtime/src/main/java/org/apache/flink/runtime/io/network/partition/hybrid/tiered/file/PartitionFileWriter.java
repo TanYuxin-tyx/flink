@@ -28,14 +28,80 @@ import java.util.concurrent.CompletableFuture;
 public interface PartitionFileWriter {
 
     /**
-     * Write the {@link SubpartitionNettyPayload}s to the partition file. The written buffers may
-     * belong to multiple subpartitions.
+     * Write the {@link SpilledBufferContext}s to the partition file. The written buffers may belong
+     * to multiple subpartitions.
      *
      * @return the completable future indicating whether the writing file process has finished. If
      *     the {@link CompletableFuture} is completed, the written process is completed.
      */
-    CompletableFuture<Void> write(List<SubpartitionNettyPayload> toWriteBuffers);
+    CompletableFuture<Void> write(List<SubpartitionSpilledBufferContext> spilledBuffers);
 
     /** Release all the resources of the {@link PartitionFileWriter}. */
     void release();
+
+    /**
+     * The {@link SubpartitionSpilledBufferContext} contains all the buffers that will be spilled in
+     * this subpartition.
+     */
+    class SubpartitionSpilledBufferContext {
+
+        /** The subpartition id. */
+        private final int subpartitionId;
+
+        /** he {@link SegmentSpilledBufferContext}s belonging to this subpartition. */
+        private final List<SegmentSpilledBufferContext> segmentSpilledBufferContexts;
+
+        public SubpartitionSpilledBufferContext(
+                int subpartitionId,
+                List<SegmentSpilledBufferContext> segmentSpilledBufferContexts) {
+            this.subpartitionId = subpartitionId;
+            this.segmentSpilledBufferContexts = segmentSpilledBufferContexts;
+        }
+
+        public int getSubpartitionId() {
+            return subpartitionId;
+        }
+
+        public List<SegmentSpilledBufferContext> getSegmentSpillBufferContexts() {
+            return segmentSpilledBufferContexts;
+        }
+    }
+
+    /**
+     * The wrapper class {@link SegmentSpilledBufferContext} contains all the {@link
+     * SpilledBufferContext}s of the segment. Note that when this indicates the segment need to be
+     * finished, the field {@code spilledBufferContexts} should be empty.
+     */
+    class SegmentSpilledBufferContext {
+
+        /** The segment id. */
+        private final int segmentId;
+
+        /** The {@link SpilledBufferContext}s indicate the buffers to be spilled. */
+        private final List<SpilledBufferContext> spilledBufferContexts;
+
+        /** Whether it is necessary to finish the segment. */
+        private final boolean needFinishSegment;
+
+        public SegmentSpilledBufferContext(
+                int segmentId,
+                List<SpilledBufferContext> spilledBufferContexts,
+                boolean needFinishSegment) {
+            this.segmentId = segmentId;
+            this.spilledBufferContexts = spilledBufferContexts;
+            this.needFinishSegment = needFinishSegment;
+        }
+
+        public int getSegmentId() {
+            return segmentId;
+        }
+
+        public List<SpilledBufferContext> getSpillBufferContexts() {
+            return spilledBufferContexts;
+        }
+
+        public boolean needFinishSegment() {
+            return needFinishSegment;
+        }
+    }
 }

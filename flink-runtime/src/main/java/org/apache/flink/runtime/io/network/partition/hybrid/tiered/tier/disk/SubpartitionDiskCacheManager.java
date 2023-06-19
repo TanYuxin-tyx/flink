@@ -49,6 +49,8 @@ public class SubpartitionDiskCacheManager {
     // safety should be ensured.
     private final Deque<NettyPayload> allBuffers = new LinkedList<>();
 
+    private int currentSegmentId;
+
     public SubpartitionDiskCacheManager(int subpartitionId) {
         this.subpartitionId = subpartitionId;
     }
@@ -58,10 +60,15 @@ public class SubpartitionDiskCacheManager {
     // ------------------------------------------------------------------------
     void appendEndOfSegmentEvent(ByteBuffer record, DataType dataType) {
         writeEvent(record, dataType);
+        currentSegmentId++;
     }
 
     int getFinishedBufferIndex() {
         return finishedBufferIndex;
+    }
+
+    int getCurrentSegmentId() {
+        return currentSegmentId;
     }
 
     void append(Buffer buffer) {
@@ -71,7 +78,7 @@ public class SubpartitionDiskCacheManager {
     }
 
     // Note that allBuffers can be touched by multiple threads.
-    List<NettyPayload> getAllBuffers() {
+    List<NettyPayload> removeAllBuffers() {
         synchronized (allBuffers) {
             List<NettyPayload> targetBuffers = new ArrayList<>(allBuffers);
             allBuffers.clear();

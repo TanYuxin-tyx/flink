@@ -20,8 +20,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentNettyPayload;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SubpartitionNettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.util.concurrent.FutureUtils;
@@ -32,6 +30,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.convertToSpilledBufferContext;
 
 /**
  * The {@link DiskCacheManager} is responsible for managing cached buffers before flushing to files.
@@ -128,28 +128,34 @@ public class DiskCacheManager {
         if (!needForceFlush && !hasFlushCompleted.isDone()) {
             return;
         }
-        List<SubpartitionNettyPayload> toWriteBuffers = new ArrayList<>();
-        int numToWriteBuffers = getSubpartitionBuffersToFlush(toWriteBuffers);
+        List<PartitionFileWriter.SubpartitionSpilledBufferContext> buffersToSpill =
+                new ArrayList<>();
+        int numToWriteBuffers = getSubpartitionSpilledBuffers(buffersToSpill);
 
         if (numToWriteBuffers > 0) {
             CompletableFuture<Void> flushCompletableFuture =
-                    partitionFileWriter.write(toWriteBuffers);
+                    partitionFileWriter.write(buffersToSpill);
             if (!needForceFlush) {
                 hasFlushCompleted = flushCompletableFuture;
             }
         }
     }
 
-    private int getSubpartitionBuffersToFlush(List<SubpartitionNettyPayload> toWriteBuffers) {
+    private int getSubpartitionSpilledBuffers(
+            List<PartitionFileWriter.SubpartitionSpilledBufferContext> buffersToSpill) {
         int numToWriteBuffers = 0;
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; subpartitionId++) {
             List<NettyPayload> nettyPayloads =
-                    subpartitionCacheManagers[subpartitionId].getAllBuffers();
-            toWriteBuffers.add(
-                    new SubpartitionNettyPayload(
+                    subpartitionCacheManagers[subpartitionId].removeAllBuffers();
+            buffersToSpill.add(
+                    new PartitionFileWriter.SubpartitionSpilledBufferContext(
                             subpartitionId,
                             Collections.singletonList(
-                                    new SegmentNettyPayload(-1, nettyPayloads, false))));
+                                    new PartitionFileWriter.SegmentSpilledBufferContext(
+                                            subpartitionCacheManagers[subpartitionId]
+                                                    .getCurrentSegmentId(),
+                                            convertToSpilledBufferContext(nettyPayloads),
+                                            false))));
             numToWriteBuffers += nettyPayloads.size();
         }
         return numToWriteBuffers;

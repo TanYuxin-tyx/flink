@@ -25,7 +25,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.concurrent.FutureUtils;
@@ -82,13 +81,14 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     }
 
     @Override
-    public CompletableFuture<Void> write(List<SubpartitionNettyPayload> toWriteBuffers) {
+    public CompletableFuture<Void> write(
+            List<PartitionFileWriter.SubpartitionSpilledBufferContext> spilledBuffers) {
         List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
-        toWriteBuffers.forEach(
+        spilledBuffers.forEach(
                 subpartitionBuffers -> {
                     int subpartitionId = subpartitionBuffers.getSubpartitionId();
-                    List<SegmentNettyPayload> multiSegmentBuffers =
-                            subpartitionBuffers.getSegmentNettyPayloads();
+                    List<PartitionFileWriter.SegmentSpilledBufferContext> multiSegmentBuffers =
+                            subpartitionBuffers.getSegmentSpillBufferContexts();
                     multiSegmentBuffers.forEach(
                             segmentBuffers -> {
                                 CompletableFuture<Void> spillSuccessNotifier =
@@ -119,17 +119,17 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
 
     private Runnable getWriteOrFinisheSegmentRunnable(
             int subpartitionId,
-            SegmentNettyPayload segmentBuffers,
+            PartitionFileWriter.SegmentSpilledBufferContext segmentBuffers,
             CompletableFuture<Void> spillSuccessNotifier) {
         int segmentId = segmentBuffers.getSegmentId();
-        List<NettyPayload> toWriteBuffers = segmentBuffers.getNettyPayloads();
+        List<SpilledBufferContext> spilledBuffers = segmentBuffers.getSpillBufferContexts();
         boolean isFinishSegment = segmentBuffers.needFinishSegment();
-        checkState(!toWriteBuffers.isEmpty() || isFinishSegment);
+        checkState(!spilledBuffers.isEmpty() || isFinishSegment);
 
         Runnable writeRunnable;
-        if (toWriteBuffers.size() > 0) {
+        if (spilledBuffers.size() > 0) {
             writeRunnable =
-                    () -> spill(subpartitionId, segmentId, toWriteBuffers, spillSuccessNotifier);
+                    () -> spill(subpartitionId, segmentId, spilledBuffers, spillSuccessNotifier);
         } else {
             writeRunnable =
                     () -> writeFinishSegmentFile(subpartitionId, segmentId, spillSuccessNotifier);
@@ -141,26 +141,25 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     private void spill(
             int subpartitionId,
             int segmentId,
-            List<NettyPayload> toWrite,
+            List<SpilledBufferContext> spilledBuffers,
             CompletableFuture<Void> spillSuccessNotifier) {
         try {
             writeBuffers(
                     subpartitionId,
                     segmentId,
-                    toWrite,
-                    createSpilledBuffersAndGetTotalBytes(toWrite));
-            toWrite.forEach(buffer -> buffer.getBuffer().get().recycleBuffer());
+                    spilledBuffers,
+                    createSpilledBuffersAndGetTotalBytes(spilledBuffers));
+            spilledBuffers.forEach(spilledBuffer -> spilledBuffer.getBuffer().recycleBuffer());
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
         }
     }
 
-    private long createSpilledBuffersAndGetTotalBytes(
-            List<NettyPayload> toWriteSubpartitionBuffers) {
+    private long createSpilledBuffersAndGetTotalBytes(List<SpilledBufferContext> spilledBuffers) {
         long expectedBytes = 0;
-        for (NettyPayload nettyPayload : toWriteSubpartitionBuffers) {
-            Buffer buffer = nettyPayload.getBuffer().get();
+        for (SpilledBufferContext spilledBuffer : spilledBuffers) {
+            Buffer buffer = spilledBuffer.getBuffer();
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             expectedBytes += numBytes;
         }
@@ -168,9 +167,12 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     }
 
     private void writeBuffers(
-            int subpartitionId, int segmentId, List<NettyPayload> toWrite, long expectedBytes)
+            int subpartitionId,
+            int segmentId,
+            List<SpilledBufferContext> spilledBuffers,
+            long expectedBytes)
             throws IOException {
-        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(toWrite);
+        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(spilledBuffers);
         WritableByteChannel currentChannel = subpartitionChannels[subpartitionId];
         if (currentChannel == null) {
             String subpartitionPath =
