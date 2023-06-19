@@ -179,15 +179,16 @@ public class SingleInputGateFactory {
                 ((NettyShuffleDescriptor) shuffleDescriptors[0]).isUpstreamBroadcastOnly();
         List<TieredStoragePartitionId> tieredStoragePartitionIds = null;
         List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds = null;
-        if(enableTieredStore){
+        List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
+                partitionIdAndSubpartitionIds = null;
+        if (enableTieredStore) {
             tieredStoragePartitionIds = new ArrayList<>();
             tieredStorageSubpartitionIds = new ArrayList<>();
-            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
-                    partitionIdAndSubpartitionIds = new ArrayList<>();
+            partitionIdAndSubpartitionIds = new ArrayList<>();
             for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
                 for (int subpartitionId = subpartitionIndexRange.getStartIndex();
-                     subpartitionId <= subpartitionIndexRange.getEndIndex();
-                     ++subpartitionId) {
+                        subpartitionId <= subpartitionIndexRange.getEndIndex();
+                        ++subpartitionId) {
                     TieredStoragePartitionId storagePartitionId =
                             TieredStorageIdMappingUtils.convertId(
                                     shuffleDescriptor.getResultPartitionID());
@@ -219,6 +220,7 @@ public class SingleInputGateFactory {
                                 owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)),
                         tieredStoragePartitionIds,
                         tieredStorageSubpartitionIds,
+                        partitionIdAndSubpartitionIds,
                         nettyService,
                         isUpstreamBroadcastOnly,
                         owner.getJobID(),
@@ -348,6 +350,8 @@ public class SingleInputGateFactory {
             @Nullable BufferDebloater bufferDebloater,
             List<TieredStoragePartitionId> tieredStoragePartitionIds,
             List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds,
+            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
+                    partitionIdAndSubpartitionIds,
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             JobID jobID,
@@ -370,6 +374,7 @@ public class SingleInputGateFactory {
                 enableTieredStore,
                 tieredStoragePartitionIds,
                 tieredStorageSubpartitionIds,
+                partitionIdAndSubpartitionIds,
                 nettyService,
                 isUpstreamBroadcastOnly,
                 jobID,

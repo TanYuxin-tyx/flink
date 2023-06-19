@@ -387,6 +387,7 @@ public class InputGateFairnessTest {
                     null,
                     null,
                     null,
+                    null,
                     false,
                     null,
                     null);

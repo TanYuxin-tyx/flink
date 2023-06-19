@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
@@ -69,19 +70,15 @@ public interface RemoteTierMonitor extends Runnable {
     class Factory {
 
         static RemoteTierMonitor createRemoteTierMonitor(
-                int numSubpartitions,
-                List<TieredStorageSubpartitionId> subpartitionIds,
+                List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
+                        partitionIdAndSubpartitionIds,
                 JobID jobID,
-                List<TieredStoragePartitionId> resultPartitionIDs,
                 String baseRemoteStoragePath,
                 BiConsumer<Integer, Boolean> queueChannelCallBack,
                 boolean isUpstreamBroadcastOnly) {
-            return new RemoteTierMonitorImpl(
+            return new RemoteTierMonitorImpl(partitionIdAndSubpartitionIds,
                     jobID,
-                    resultPartitionIDs,
                     baseRemoteStoragePath,
-                    subpartitionIds,
-                    numSubpartitions,
                     isUpstreamBroadcastOnly,
                     queueChannelCallBack);
         }

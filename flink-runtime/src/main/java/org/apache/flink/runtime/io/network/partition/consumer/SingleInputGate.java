@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.core.memory.MemorySegmentProvider;
@@ -243,6 +244,8 @@ public class SingleInputGate extends IndexedInputGate {
             boolean enableTieredStoreMode,
             List<TieredStoragePartitionId> tieredStoragePartitionIds,
             List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds,
+            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
+                    partitionIdAndSubpartitionIds,
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             JobID jobID,
@@ -285,13 +288,11 @@ public class SingleInputGate extends IndexedInputGate {
         this.tieredStorageConsumerClient =
                 enableTieredStoreMode
                         ? new TieredStorageConsumerClient(
-                                numberOfInputChannels,
+                                partitionIdAndSubpartitionIds,
+                                nettyService,
                                 jobID,
                                 (NetworkBufferPool) memorySegmentProvider,
                                 baseRemoteStoragePath,
-                                nettyService,
-                                tieredStoragePartitionIds,
-                                tieredStorageSubpartitionIds,
                                 isUpstreamBroadcastOnly,
                                 queueChannelCallBack)
                         : null;

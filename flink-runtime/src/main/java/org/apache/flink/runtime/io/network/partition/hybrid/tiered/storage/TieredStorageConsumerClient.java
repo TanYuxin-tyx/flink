@@ -1,6 +1,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
@@ -30,28 +31,25 @@ public class TieredStorageConsumerClient {
     private final int[] subpartitionNextSegmentIds;
 
     public TieredStorageConsumerClient(
-            int numSubpartitions,
+            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
+                    partitionIdAndSubpartitionIds,
+            TieredStorageNettyService nettyService,
             JobID jobID,
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
-            TieredStorageNettyService nettyService,
-            List<TieredStoragePartitionId> tieredPartitionIds,
-            List<TieredStorageSubpartitionId> tieredSubpartitionIds,
             boolean isUpstreamBroadcast,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
         this.tierFactories = createTierFactories(baseRemoteStoragePath);
         this.tierConsumerAgents =
                 createTierConsumerAgents(
-                        numSubpartitions,
+                        partitionIdAndSubpartitionIds,
                         jobID,
                         networkBufferPool,
                         baseRemoteStoragePath,
-                        tieredPartitionIds,
-                        tieredSubpartitionIds,
                         nettyService,
                         isUpstreamBroadcast,
                         queueChannelCallBack);
-        this.subpartitionNextSegmentIds = new int[numSubpartitions];
+        this.subpartitionNextSegmentIds = new int[partitionIdAndSubpartitionIds.size()];
     }
 
     public void start() {
@@ -99,35 +97,33 @@ public class TieredStorageConsumerClient {
     }
 
     private List<TierConsumerAgent> createTierConsumerAgents(
-            int numSubpartitions,
+            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
+                    partitionIdAndSubpartitionIds,
             JobID jobID,
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
-            List<TieredStoragePartitionId> tieredPartitionIds,
-            List<TieredStorageSubpartitionId> tieredSubpartitionIds,
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
         List<CompletableFuture<NettyConnectionReader>> nettyConnectionReaders = new ArrayList<>();
-        for (int index = 0; index < numSubpartitions; ++index) {
+        for (int index = 0; index < partitionIdAndSubpartitionIds.size(); ++index) {
             nettyConnectionReaders.add(
                     nettyService.registerConsumer(
-                            tieredPartitionIds.get(index), tieredSubpartitionIds.get(index)));
+                            partitionIdAndSubpartitionIds.get(index).f0,
+                            partitionIdAndSubpartitionIds.get(index).f1));
         }
         for (TierFactory tierFactory : tierFactories) {
             tierConsumerAgents.add(
                     tierFactory.createConsumerAgent(
-                            numSubpartitions,
+                            partitionIdAndSubpartitionIds,
                             jobID,
                             networkBufferPool,
                             baseRemoteStoragePath,
                             nettyService,
                             isUpstreamBroadcastOnly,
                             queueChannelCallBack,
-                            nettyConnectionReaders,
-                            tieredPartitionIds,
-                            tieredSubpartitionIds));
+                            nettyConnectionReaders));
         }
         return tierConsumerAgents;
     }

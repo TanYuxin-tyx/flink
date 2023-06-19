@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
@@ -86,16 +87,15 @@ public class RemoteTierFactory implements TierFactory {
 
     @Override
     public TierConsumerAgent createConsumerAgent(
-            int numSubpartitions,
+            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
+                    partitionIdAndSubpartitionIds,
             JobID jobID,
             NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             BiConsumer<Integer, Boolean> queueChannelCallBack,
-            List<CompletableFuture<NettyConnectionReader>> readers,
-            List<TieredStoragePartitionId> tieredStoragePartitionIds,
-            List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds) {
+            List<CompletableFuture<NettyConnectionReader>> readers) {
 
         TieredStorageMemoryManager storageMemoryManager = null;
         try {
@@ -107,14 +107,12 @@ public class RemoteTierFactory implements TierFactory {
         }
         RemoteTierMonitor remoteTierMonitor =
                 RemoteTierMonitor.Factory.createRemoteTierMonitor(
-                        numSubpartitions,
-                        tieredStorageSubpartitionIds,
+                        partitionIdAndSubpartitionIds,
                         jobID,
-                        tieredStoragePartitionIds,
                         baseRemoteStoragePath,
                         queueChannelCallBack,
                         isUpstreamBroadcastOnly);
         return new RemoteTierConsumerAgent(
-                numSubpartitions, storageMemoryManager, remoteTierMonitor, queueChannelCallBack);
+                partitionIdAndSubpartitionIds.size(), storageMemoryManager, remoteTierMonitor, queueChannelCallBack);
     }
 }
