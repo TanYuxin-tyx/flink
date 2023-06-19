@@ -83,7 +83,7 @@ public class PartitionFileIndex {
     }
 
     /**
-     * Get the {@link Region} of the specific supbpartition.
+     * Get the {@link Region} of the specific subpartition.
      *
      * @param subpartitionId the specific subpartition id
      * @param regionId the region id to get from the {@link PartitionFileIndex}
