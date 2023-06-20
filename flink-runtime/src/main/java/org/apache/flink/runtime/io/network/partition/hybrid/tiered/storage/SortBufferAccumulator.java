@@ -130,13 +130,9 @@ public class SortBufferAccumulator implements BufferAccumulator {
         releaseDataBuffer(broadcastDataBuffer);
     }
 
-    public void release() {
-        releaseFreeBuffers();
-        // the close method will always be called by the task thread, so there is need to make
-        // the sort buffer fields volatile and visible to the cancel thread intermediately
-        releaseDataBuffer(unicastDataBuffer);
-        releaseDataBuffer(broadcastDataBuffer);
-    }
+    // ------------------------------------------------------------------------
+    //  Internal Methods
+    // ------------------------------------------------------------------------
 
     private SortBufferContainer getUnicastDataBuffer() {
         flushBroadcastDataBuffer();

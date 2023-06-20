@@ -130,6 +130,10 @@ public class SortBufferContainer {
         Arrays.fill(subpartitionLastBufferIndexEntries, -1L);
     }
 
+    // ------------------------------------------------------------------------
+    //  Called by SortBufferAccumulator
+    // ------------------------------------------------------------------------
+
     /**
      * No partial record will be written to this {@link SortBasedDataBuffer}, which means that
      * either all data of target record will be written or nothing will be written.
@@ -221,6 +225,46 @@ public class SortBufferContainer {
                 new NetworkBuffer(
                         readMemorySegment, bufferRecycler, bufferDataType, numBytesCopied));
     }
+
+    long numTotalRecords() {
+        return numTotalRecords;
+    }
+
+    long numTotalBytes() {
+        return numTotalBytes;
+    }
+
+    boolean hasRemaining() {
+        return numTotalBytesRead < numTotalBytes;
+    }
+
+    void finish() {
+        checkState(!isFinished, "DataBuffer is already finished.");
+        isFinished = true;
+
+        // prepare for reading
+        updateReadChannelAndIndexEntryAddress();
+    }
+
+    boolean isFinished() {
+        return isFinished;
+    }
+
+    void release() {
+        if (isReleased) {
+            return;
+        }
+        isReleased = true;
+        clearSegments();
+    }
+
+    boolean isReleased() {
+        return isReleased;
+    }
+
+    // ------------------------------------------------------------------------
+    //  Internal Methods
+    // ------------------------------------------------------------------------
 
     private void writeIndex(int subpartitionId, int numRecordBytes, Buffer.DataType dataType) {
         MemorySegment segment = dataSegments.get(writeBufferId);
@@ -375,43 +419,6 @@ public class SortBufferContainer {
 
     private int getOffsetInBufferFromBufferIndexEntry(long value) {
         return (int) (value);
-    }
-
-    public long numTotalRecords() {
-        return numTotalRecords;
-    }
-
-    public long numTotalBytes() {
-        return numTotalBytes;
-    }
-
-    public boolean hasRemaining() {
-        return numTotalBytesRead < numTotalBytes;
-    }
-
-    public void finish() {
-        checkState(!isFinished, "DataBuffer is already finished.");
-
-        isFinished = true;
-
-        // prepare for reading
-        updateReadChannelAndIndexEntryAddress();
-    }
-
-    public boolean isFinished() {
-        return isFinished;
-    }
-
-    public void release() {
-        if (isReleased) {
-            return;
-        }
-        isReleased = true;
-        clearSegments();
-    }
-
-    public boolean isReleased() {
-        return isReleased;
     }
 
     private void clearSegments() {

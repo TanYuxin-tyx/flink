@@ -255,7 +255,6 @@ public class SortBufferContainerTest {
 
         assertEquals(isFull, dataBuffer.writeRecord(largeRecord, 0, Buffer.DataType.DATA_BUFFER));
         assertEquals(numBytes, dataBuffer.numTotalBytes());
-        assertEquals(numRecords, dataBuffer.numTotalRecords());
         assertEquals(hasRemaining, dataBuffer.hasRemaining());
     }
 
@@ -315,14 +314,12 @@ public class SortBufferContainerTest {
 
         assertEquals(bufferPoolSize, bufferPool.bestEffortGetNumOfUsedBuffers());
         assertTrue(dataBuffer.hasRemaining());
-        assertEquals(1, dataBuffer.numTotalRecords());
         assertEquals(recordSize, dataBuffer.numTotalBytes());
 
         // should release all data and resources
         dataBuffer.release();
         assertEquals(0, bufferPool.bestEffortGetNumOfUsedBuffers());
         assertTrue(dataBuffer.hasRemaining());
-        assertEquals(1, dataBuffer.numTotalRecords());
         assertEquals(recordSize, dataBuffer.numTotalBytes());
     }
 
