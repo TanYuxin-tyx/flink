@@ -23,7 +23,6 @@ import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.SortBasedDataBuffer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -36,6 +35,10 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
+/**
+ * The buffer container for accumulating the records into {@link Buffer}s. After accumulating, the
+ * {@link SortBufferAccumulator} will read the sorted buffers.
+ */
 public class SortBufferContainer {
 
     /**
@@ -65,9 +68,9 @@ public class SortBufferContainer {
     /** Number of guaranteed buffers can be allocated from the buffer pool for data sort. */
     private final int numBuffersForSort;
 
-    // ---------------------------------------------------------------------------------------------
-    // Statistics and states
-    // ---------------------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------
+    // The statistics and states
+    // ------------------------------------------------------------------------
 
     /** Total number of bytes already appended to this sort buffer. */
     private long numTotalBytes;
@@ -81,9 +84,9 @@ public class SortBufferContainer {
     /** Whether this sort buffer is released. A released sort buffer can not be used. */
     private boolean isReleased;
 
-    // ---------------------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------
     // For writing
-    // ---------------------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------
 
     /** Array index in the segment list of the current available buffer for writing. */
     private int writeBufferIndex;
@@ -91,17 +94,20 @@ public class SortBufferContainer {
     /** Next position in the current available buffer for writing. */
     private int writeOffsetInCurrentBuffer;
 
-    // ---------------------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------
     // For reading
-    // ---------------------------------------------------------------------------------------------
+    // ------------------------------------------------------------------------
 
     /** Index entry address of the current record or event to be read. */
     private long readBufferIndexEntry;
 
-    /** Record bytes remaining after last copy, which must be read first in next copy. */
-    private int remainingBytesToRead;
+    /**
+     * Record the bytes remaining after the last read, which must be initialized before reading a
+     * new record.
+     */
+    private int recordRemainingBytesToRead;
 
-    /** Used to index the current available channel to read data from. */
+    /** The subpartition that is reading data from. */
     private int readingSubpartitionId = -1;
 
     SortBufferContainer(
@@ -112,6 +118,7 @@ public class SortBufferContainer {
             int numBuffersForSort) {
         checkArgument(bufferSizeBytes > INDEX_ENTRY_SIZE, "Buffer size is too small.");
         checkArgument(numBuffersForSort > 0, "No guaranteed buffers for sort.");
+        checkState(numBuffersForSort <= freeSegments.size(), "Wrong number of free segments.");
 
         this.freeSegments = checkNotNull(freeSegments);
         this.bufferRecycler = checkNotNull(bufferRecycler);
@@ -120,8 +127,6 @@ public class SortBufferContainer {
         this.dataSegments = new ArrayList<>();
         this.subpartitionFirstBufferIndexEntries = new long[numSubpartitions];
         this.subpartitionLastBufferIndexEntries = new long[numSubpartitions];
-
-        checkState(numBuffersForSort <= freeSegments.size(), "Wrong number of free segments.");
 
         Arrays.fill(subpartitionFirstBufferIndexEntries, -1L);
         Arrays.fill(subpartitionLastBufferIndexEntries, -1L);
@@ -132,31 +137,42 @@ public class SortBufferContainer {
     // ------------------------------------------------------------------------
 
     /**
-     * No partial record will be written to this {@link SortBasedDataBuffer}, which means that
-     * either all data of target record will be written or nothing will be written.
+     * Note that no partial records will be written to this {@link SortBufferContainer}, which means
+     * that either all data of target record will be written or nothing will be written.
+     *
+     * @param record the record to be written
+     * @param subpartitionId the subpartition id
+     * @param dataType the data type of the record
+     * @return true if the {@link SortBufferContainer} is full, or return false if the contianer is
+     *     not full
      */
-    boolean writeRecord(ByteBuffer record, int targetChannel, Buffer.DataType dataType) {
+    boolean writeRecord(ByteBuffer record, int subpartitionId, Buffer.DataType dataType) {
         checkArgument(record.hasRemaining(), "Cannot writeRecord empty data.");
         checkState(!isFinished, "Sort buffer is already finished.");
         checkState(!isReleased, "Sort buffer is already released.");
 
         int totalBytes = record.remaining();
 
-        // return true directly if it can not allocate enough buffers for the given record
+        // Return false directly if it can not allocate enough buffers for the given record
         if (!allocateBuffersForRecord(totalBytes)) {
-            //            clearSegments();
             return true;
         }
 
-        // writeRecord the index entry and record or event data
-        writeIndex(targetChannel, totalBytes, dataType);
+        // WriteRecord the index entry and record or event data
+        writeIndex(subpartitionId, totalBytes, dataType);
         writeRecord(record);
 
         numTotalBytes += totalBytes;
-
         return false;
     }
 
+    /**
+     * Read the sorted buffers.
+     *
+     * @param readMemorySegment the buffer to store the data to be read
+     * @return null iff all the data has been read from the container, or return the pair of
+     *     subpartition id and the read buffer
+     */
     Pair<Integer, Buffer> readBuffer(MemorySegment readMemorySegment) {
         checkState(isFinished, "Sort buffer is not ready to be read.");
         checkState(!isReleased, "Sort buffer is already released.");
@@ -179,7 +195,7 @@ public class SortBufferContainer {
 
             // From the lengthAndDataType buffer, read and get the length and the data type
             long lengthAndDataType = toReadBuffer.getLong(toReadOffsetInBuffer);
-            int length = getBufferIdFromBufferIndexEntry(lengthAndDataType);
+            int recordLength = getRecordLength(lengthAndDataType);
             Buffer.DataType dataType = getBufferDataType(lengthAndDataType);
 
             // If the buffer is an event and some data has been read, return it directly to ensure
@@ -194,9 +210,9 @@ public class SortBufferContainer {
             toReadOffsetInBuffer += INDEX_ENTRY_SIZE;
 
             // Allocate a temp buffer for the event, recycle the original buffer
-            if (bufferDataType.isEvent() && readMemorySegment.size() < length) {
+            if (bufferDataType.isEvent() && readMemorySegment.size() < recordLength) {
                 bufferRecycler.recycle(readMemorySegment);
-                readMemorySegment = MemorySegmentFactory.allocateUnpooledSegment(length);
+                readMemorySegment = MemorySegmentFactory.allocateUnpooledSegment(recordLength);
             }
 
             // Start reading data from the data buffer
@@ -206,7 +222,7 @@ public class SortBufferContainer {
                             numBytesRead,
                             toReadBufferIndex,
                             toReadOffsetInBuffer,
-                            length);
+                            recordLength);
 
             if (shouldReadNextBuffer(currentReadingSubpartitionId, nextReadBufferIndexEntry)) {
                 break;
@@ -261,11 +277,13 @@ public class SortBufferContainer {
         // Buffer index takes the high 32 bits and segment offset takes the low 32 bits
         long bufferIndexEntry = ((long) writeBufferIndex << 32) | writeOffsetInCurrentBuffer;
 
+        // Get the previous buffer index entry
         long lastBufferIndexEntry = subpartitionLastBufferIndexEntries[subpartitionId];
         subpartitionLastBufferIndexEntries[subpartitionId] = bufferIndexEntry;
 
         if (lastBufferIndexEntry >= 0) {
-            // link the previous index entry of the given channel to the new index entry
+            // Link the previous index entry of the given subpartition to the new index entry, then
+            // the current index entry can be got by the pointer when reading data
             segment = dataSegments.get(getBufferIdFromBufferIndexEntry(lastBufferIndexEntry));
             segment.putLong(
                     getOffsetInBufferFromBufferIndexEntry(lastBufferIndexEntry) + 8,
@@ -274,8 +292,8 @@ public class SortBufferContainer {
             subpartitionFirstBufferIndexEntries[subpartitionId] = bufferIndexEntry;
         }
 
-        // move the writeRecord position forward so as to writeRecord the corresponding record
-        updateWriteSegmentIndexAndOffset(INDEX_ENTRY_SIZE);
+        // After writing record, update the buffer index and the offset
+        updateWriteBufferIndexAndOffset(INDEX_ENTRY_SIZE);
     }
 
     private void writeRecord(ByteBuffer record) {
@@ -284,7 +302,7 @@ public class SortBufferContainer {
             int toCopy = Math.min(bufferSizeBytes - writeOffsetInCurrentBuffer, record.remaining());
             segment.put(writeOffsetInCurrentBuffer, record, toCopy);
 
-            updateWriteSegmentIndexAndOffset(toCopy);
+            updateWriteBufferIndexAndOffset(toCopy);
         }
     }
 
@@ -302,7 +320,7 @@ public class SortBufferContainer {
 
         // Skip the remaining free space if the available bytes is not enough for an index entry
         if (availableBytes < INDEX_ENTRY_SIZE) {
-            updateWriteSegmentIndexAndOffset(availableBytes);
+            updateWriteBufferIndexAndOffset(availableBytes);
             availableBytes = 0;
         }
 
@@ -323,7 +341,7 @@ public class SortBufferContainer {
 
     private boolean shouldReadNextBuffer(
             int currentReadingSubpartitionId, long nextReadBufferIndexEntry) {
-        if (remainingBytesToRead == 0) {
+        if (recordRemainingBytesToRead == 0) {
             // If this buffer is the last buffer of the subpartition, start reading the next
             // subpartition.
             if (readBufferIndexEntry
@@ -351,10 +369,10 @@ public class SortBufferContainer {
         dataSegments.add(segment);
     }
 
-    private void updateWriteSegmentIndexAndOffset(int numBytes) {
+    private void updateWriteBufferIndexAndOffset(int numBytes) {
         writeOffsetInCurrentBuffer += numBytes;
 
-        // using the next available free buffer if the current is full
+        // Use the next available free buffer if the current buffer is full
         if (writeOffsetInCurrentBuffer == bufferSizeBytes) {
             ++writeBufferIndex;
             writeOffsetInCurrentBuffer = 0;
@@ -367,17 +385,18 @@ public class SortBufferContainer {
             int sourceBufferIndex,
             int sourceBufferOffset,
             int recordLength) {
-        if (remainingBytesToRead > 0) {
+        if (recordRemainingBytesToRead > 0) {
             // Skip the partial record from the last read
-            long position = (long) sourceBufferOffset + (recordLength - remainingBytesToRead);
+            long position = (long) sourceBufferOffset + (recordLength - recordRemainingBytesToRead);
             sourceBufferIndex += (position / bufferSizeBytes);
             sourceBufferOffset = (int) (position % bufferSizeBytes);
         } else {
-            remainingBytesToRead = recordLength;
+            recordRemainingBytesToRead = recordLength;
         }
 
         int targetSegmentSize = targetBuffer.size();
-        int numBytesToRead = Math.min(targetSegmentSize - targetBufferOffset, remainingBytesToRead);
+        int numBytesToRead =
+                Math.min(targetSegmentSize - targetBufferOffset, recordRemainingBytesToRead);
         MemorySegment sourceSegment;
         do {
             // Read the next data buffer if all data of the current buffer has been copied
@@ -387,15 +406,15 @@ public class SortBufferContainer {
             }
 
             int sourceRemainingBytes =
-                    Math.min(bufferSizeBytes - sourceBufferOffset, remainingBytesToRead);
+                    Math.min(bufferSizeBytes - sourceBufferOffset, recordRemainingBytesToRead);
             int numBytes = Math.min(targetSegmentSize - targetBufferOffset, sourceRemainingBytes);
             sourceSegment = dataSegments.get(sourceBufferIndex);
             sourceSegment.copyTo(sourceBufferOffset, targetBuffer, targetBufferOffset, numBytes);
 
-            remainingBytesToRead -= numBytes;
+            recordRemainingBytesToRead -= numBytes;
             targetBufferOffset += numBytes;
             sourceBufferOffset += numBytes;
-        } while ((remainingBytesToRead > 0 && targetBufferOffset < targetSegmentSize));
+        } while ((recordRemainingBytesToRead > 0 && targetBufferOffset < targetSegmentSize));
 
         return numBytesToRead;
     }
@@ -412,6 +431,10 @@ public class SortBufferContainer {
 
     private Buffer.DataType getBufferDataType(long lengthAndDataType) {
         return Buffer.DataType.values()[getOffsetInBufferFromBufferIndexEntry(lengthAndDataType)];
+    }
+
+    private int getRecordLength(long value) {
+        return (int) (value >>> 32);
     }
 
     private int getBufferIdFromBufferIndexEntry(long value) {

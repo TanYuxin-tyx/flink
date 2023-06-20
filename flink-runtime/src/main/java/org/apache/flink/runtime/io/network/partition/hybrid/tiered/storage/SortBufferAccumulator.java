@@ -45,31 +45,53 @@ import static org.apache.flink.util.Preconditions.checkState;
  * transform to finished buffers. The accumulated buffers will be transferred to the corresponding
  * tier dynamically.
  *
- * <p>The {@link BufferAccumulator} can help use less buffers to accumulate data.
+ * <p>The {@link BufferAccumulator} can help use less buffers to accumulate data, which decouples
+ * the buffer usage with the number of parallelism. The number of buffers used by the {@link
+ * SortBufferAccumulator} will be numBuffers at most. Once the {@link SortBufferContainer} is full,
+ * or receiving a different type of buffer, or receiving the end-of-partition event, the buffer in
+ * the sort buffer container will be flushed to the tiers.
  *
  * <p>Note that this class need not be thread-safe, because it should only be accessed from the main
  * thread.
  */
 public class SortBufferAccumulator implements BufferAccumulator {
-    private static final int NUM_WRITE_BUFFER_BYTES = 4 * 1024 * 1024;
 
+    /** The number of the subpartitions. */
     private final int numSubpartitions;
 
+    /** The total number of the buffers used by the {@link SortBufferAccumulator}. */
     private final int numBuffers;
 
+    /** The byte size of one single buffer. */
     private final int bufferSizeBytes;
 
+    /** The empty buffers without storing data. */
     private final LinkedList<MemorySegment> freeSegments = new LinkedList<>();
 
+    /** The memory manager of the tiered storage. */
     private final TieredStorageMemoryManager storeMemoryManager;
 
+    /** The number of buffers for sorting used in the {@link SortBufferContainer}. */
     private int numBuffersForSort;
 
-    private SortBufferContainer broadcastDataBuffer;
+    /**
+     * The {@link SortBufferContainer} for accumulating broadcast data. Note that this can be null
+     * before using it to store records, and this buffer container will be released once flushed.
+     */
+    @Nullable private SortBufferContainer broadcastDataBuffer;
 
-    private SortBufferContainer unicastDataBuffer;
+    /**
+     * The {@link SortBufferContainer} for accumulating non-broadcast data. Note that this can be
+     * null before using it to store records, and this buffer container will be released once
+     * flushed.
+     */
+    @Nullable private SortBufferContainer unicastDataBuffer;
 
-    private BufferRecycler bufferRecycler;
+    /**
+     * The buffer recycler. Note that this can be null before requesting buffers from the memory
+     * manager.
+     */
+    @Nullable private BufferRecycler bufferRecycler;
 
     /**
      * The {@link SortBufferAccumulator}'s accumulated buffer flusher is not prepared during
@@ -189,6 +211,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
     private void requestNetworkBuffers() {
         requestGuaranteedBuffers();
 
+        // Use the half of the buffers for writing, and the other half for reading
         numBuffersForSort = freeSegments.size() / 2;
     }
 
