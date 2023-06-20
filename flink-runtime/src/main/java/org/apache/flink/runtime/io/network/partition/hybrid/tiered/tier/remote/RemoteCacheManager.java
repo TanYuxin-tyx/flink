@@ -18,8 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
-import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -111,10 +109,5 @@ public class RemoteCacheManager {
 
     private SubpartitionRemoteCacheManager getSubpartitionCacheDataManager(int targetChannel) {
         return subpartitionCacheDataManagers[targetChannel];
-    }
-
-    @VisibleForTesting
-    public Path getBaseSubpartitionPath(int subpartitionId) {
-        return subpartitionCacheDataManagers[subpartitionId].getBaseSubpartitionPath();
     }
 }

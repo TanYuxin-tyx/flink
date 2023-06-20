@@ -18,8 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
-import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
@@ -182,10 +180,5 @@ public class SubpartitionRemoteCacheManager {
         while (!unfinishedBuffers.isEmpty()) {
             unfinishedBuffers.poll().close();
         }
-    }
-
-    @VisibleForTesting
-    public Path getBaseSubpartitionPath() {
-        return null;
     }
 }
