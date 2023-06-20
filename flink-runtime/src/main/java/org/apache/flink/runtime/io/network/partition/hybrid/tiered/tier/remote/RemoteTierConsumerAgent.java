@@ -11,7 +11,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierCons
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,14 +22,15 @@ import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_
 /** The data client is used to fetch data from DFS tier. */
 public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
-    private final int[] requiredSegmentIds;
-
     private final RemoteTierMonitor remoteTierMonitor;
 
     private final BiConsumer<Integer, Boolean> queueChannelCallBack;
 
     private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
-            subpartitionIndexs = new HashMap<>();
+            requiredSegmentIds;
+
+    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
+            channelIndexes;
 
     private final PartitionFileReader partitionFileReader;
 
@@ -44,17 +44,15 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
         this.remoteTierMonitor = remoteTierMonitor;
         this.queueChannelCallBack = queueChannelCallBack;
-        this.requiredSegmentIds = new int[partitionIdAndSubpartitionIds.size()];
-        Arrays.fill(requiredSegmentIds, -1);
+        this.requiredSegmentIds = new HashMap<>();
+        this.channelIndexes = new HashMap<>();
+        this.partitionFileReader =
+                new HashPartitionFileReader(baseRemoteStoragePath, jobID, isUpStreamBroadCastOnly);
         for (int index = 0; index < partitionIdAndSubpartitionIds.size(); ++index) {
             Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId> ids =
                     partitionIdAndSubpartitionIds.get(index);
-            subpartitionIndexs
-                    .computeIfAbsent(ids.f0, ignore -> new HashMap<>())
-                    .put(ids.f1, index);
+            channelIndexes.computeIfAbsent(ids.f0, ignore -> new HashMap<>()).put(ids.f1, index);
         }
-        this.partitionFileReader =
-                new HashPartitionFileReader(baseRemoteStoragePath, jobID, isUpStreamBroadCastOnly);
     }
 
     @Override
@@ -65,24 +63,26 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     @Override
     public Optional<Buffer> getNextBuffer(
             TieredStoragePartitionId partitionId,
-            TieredStorageSubpartitionId subpartitionId2,
+            TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
-        int subpartitionId = subpartitionIndexs.get(partitionId).get(subpartitionId2);
-        if (segmentId != requiredSegmentIds[subpartitionId]) {
-            remoteTierMonitor.monitorSegmentFile(partitionId, subpartitionId2, segmentId);
-            requiredSegmentIds[subpartitionId] = segmentId;
+        if (segmentId
+                != requiredSegmentIds
+                        .computeIfAbsent(partitionId, ignore -> new HashMap<>())
+                        .getOrDefault(subpartitionId, -1)) {
+            remoteTierMonitor.monitorSegmentFile(partitionId, subpartitionId, segmentId);
+            requiredSegmentIds.get(partitionId).put(subpartitionId, segmentId);
             return Optional.empty();
         }
         Buffer buffer = null;
         try {
             buffer =
                     partitionFileReader.readBuffer(
-                            partitionId, subpartitionId2, segmentId, -1, null, null);
+                            partitionId, subpartitionId, segmentId, -1, null, null);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }
         if (buffer != null && buffer.getDataType() != END_OF_SEGMENT) {
-            queueChannelCallBack.accept(subpartitionId, false);
+            queueChannelCallBack.accept(channelIndexes.get(partitionId).get(subpartitionId), false);
         }
         return buffer == null ? Optional.empty() : Optional.of(buffer);
     }
