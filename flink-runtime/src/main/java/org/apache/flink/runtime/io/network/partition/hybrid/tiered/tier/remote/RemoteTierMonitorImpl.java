@@ -104,7 +104,7 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
                     int scanningSegmentId = scanningSegmentIds[subpartitionId];
                     int requiredSegmentId = requiredSegmentIds[subpartitionId];
                     if (scanningSegmentId <= requiredSegmentId
-                            && isExist(subpartitionId, scanningSegmentId)) {
+                            && checkFileExist(subpartitionId, scanningSegmentId)) {
                         scanningSegmentIds[subpartitionId] = scanningSegmentId + 1;
                         isEnqueue = true;
                     }
@@ -120,6 +120,24 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
 
     @Override
     public boolean isExist(int subpartitionId, int segmentId) {
+        synchronized (this) {
+            return scanningSegmentIds[subpartitionId] == (segmentId + 1);
+        }
+    }
+
+    @Override
+    public void updateRequiredSegmentId(int subpartitionId, int segmentId) {
+        synchronized (this) {
+            requiredSegmentIds[subpartitionId] = segmentId;
+        }
+    }
+
+    @Override
+    public void close() {
+        monitorExecutor.shutdownNow();
+    }
+
+    private boolean checkFileExist(int subpartitionId, int segmentId) {
         String baseSubpartitionPath =
                 getBaseSubpartitionPath(
                         jobID,
@@ -137,17 +155,5 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
                             + currentSegmentFinishPath,
                     e);
         }
-    }
-
-    @Override
-    public void updateRequiredSegmentId(int subpartitionId, int segmentId) {
-        synchronized (this) {
-            requiredSegmentIds[subpartitionId] = segmentId;
-        }
-    }
-
-    @Override
-    public void close() {
-        monitorExecutor.shutdownNow();
     }
 }
