@@ -3,7 +3,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
@@ -45,7 +44,6 @@ public class TieredStorageConsumerClient {
                     partitionIdAndSubpartitionIds,
             TieredStorageNettyService nettyService,
             JobID jobID,
-            NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             boolean isUpstreamBroadcast,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
@@ -54,7 +52,6 @@ public class TieredStorageConsumerClient {
                 createTierConsumerAgents(
                         partitionIdAndSubpartitionIds,
                         jobID,
-                        networkBufferPool,
                         baseRemoteStoragePath,
                         nettyService,
                         isUpstreamBroadcast,
@@ -129,7 +126,6 @@ public class TieredStorageConsumerClient {
             List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
                     partitionIdAndSubpartitionIds,
             JobID jobID,
-            NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,

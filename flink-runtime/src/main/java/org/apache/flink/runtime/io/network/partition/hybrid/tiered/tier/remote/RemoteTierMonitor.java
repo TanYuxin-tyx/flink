@@ -51,16 +51,6 @@ public interface RemoteTierMonitor extends Runnable {
      * @param segmentId segment id that indicates the id of segment.
      */
     void updateRequiredSegmentId(int subpartitionId, int segmentId);
-
-    /**
-     * Get the input stream of segment file.
-     *
-     * @param subpartitionId subpartition id that indicates the id of subpartition.
-     * @param segmentId segment id that indicates the id of segment.
-     * @return the input stream of segment file.
-     */
-    void getSegmentFileInputStream(int subpartitionId, int segmentId);
-
     /** Close the remote tier monitor */
     void close();
 

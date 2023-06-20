@@ -31,8 +31,6 @@ import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -46,8 +44,6 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 public class RemoteTierMonitorImpl implements RemoteTierMonitor {
 
     private final JobID jobID;
-
-    private final InputStream[] inputStreams;
 
     private final ScheduledExecutorService monitorExecutor =
             Executors.newSingleThreadScheduledExecutor(
@@ -65,8 +61,6 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
 
     private final int[] scanningSegmentIds;
 
-    private final int[] readingSegmentIds;
-
     private final List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
             partitionIdAndSubpartitionIds;
 
@@ -81,9 +75,6 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
         this.requiredSegmentIds = new int[partitionIdAndSubpartitionIds.size()];
         this.scanningSegmentIds = new int[partitionIdAndSubpartitionIds.size()];
-        this.readingSegmentIds = new int[partitionIdAndSubpartitionIds.size()];
-        Arrays.fill(readingSegmentIds, -1);
-        this.inputStreams = new InputStream[partitionIdAndSubpartitionIds.size()];
         this.jobID = jobID;
         this.baseRemoteStoragePath = baseRemoteStoragePath;
         this.isUpstreamBroadcast = isUpstreamBroadcast;
@@ -145,15 +136,6 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
                     "Failed to check the existing state of segment path: "
                             + currentSegmentFinishPath,
                     e);
-        }
-    }
-
-    @Override
-    public void getSegmentFileInputStream(int subpartitionId, int segmentId) {
-        synchronized (this) {
-            if (readingSegmentIds[subpartitionId] != segmentId) {
-                readingSegmentIds[subpartitionId] = segmentId;
-            }
         }
     }
 
