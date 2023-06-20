@@ -18,13 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
-import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-
-import java.util.List;
-import java.util.function.BiConsumer;
 
 /**
  * The {@link RemoteTierMonitor} is the monitor to scan the existing status of shuffle data stored
@@ -41,27 +36,11 @@ public interface RemoteTierMonitor extends Runnable {
      * @param subpartitionId subpartition id that indicates the id of subpartition.
      * @param segmentId segment id that indicates the id of segment.
      */
-    void monitorSegmentFile(int subpartitionId, int segmentId);
+    void monitorSegmentFile(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId);
 
     /** Close the remote tier monitor */
     void close();
-
-    /** Factory to create {@link RemoteTierMonitor}. */
-    class Factory {
-
-        static RemoteTierMonitor createRemoteTierMonitor(
-                List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
-                        partitionIdAndSubpartitionIds,
-                JobID jobID,
-                String baseRemoteStoragePath,
-                BiConsumer<Integer, Boolean> queueChannelCallBack,
-                boolean isUpstreamBroadcastOnly) {
-            return new RemoteTierMonitorImpl(
-                    partitionIdAndSubpartitionIds,
-                    jobID,
-                    baseRemoteStoragePath,
-                    isUpstreamBroadcastOnly,
-                    queueChannelCallBack);
-        }
-    }
 }

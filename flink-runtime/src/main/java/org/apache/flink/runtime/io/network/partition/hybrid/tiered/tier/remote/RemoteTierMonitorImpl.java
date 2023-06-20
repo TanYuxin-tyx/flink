@@ -20,18 +20,21 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
-import org.apache.flink.util.FatalExitExceptionHandler;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -57,12 +60,11 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
 
     private final boolean isUpstreamBroadcast;
 
-    private final int[] requiredSegmentIds;
+    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
+            requiredSegmentIds;
 
-    private final int[] scanningSegmentIds;
-
-    private final List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
-            partitionIdAndSubpartitionIds;
+    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
+            channelIndexes;
 
     private FileSystem remoteFileSystem;
 
@@ -73,13 +75,18 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
             String baseRemoteStoragePath,
             boolean isUpstreamBroadcast,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
-        this.requiredSegmentIds = new int[partitionIdAndSubpartitionIds.size()];
-        this.scanningSegmentIds = new int[partitionIdAndSubpartitionIds.size()];
+
+        this.channelIndexes = new HashMap<>();
+        for (int index = 0; index < partitionIdAndSubpartitionIds.size(); index++) {
+            Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId> ids =
+                    partitionIdAndSubpartitionIds.get(index);
+            channelIndexes.computeIfAbsent(ids.f0, ignore -> new HashMap<>()).put(ids.f1, index);
+        }
+        this.requiredSegmentIds = new HashMap<>();
         this.jobID = jobID;
         this.baseRemoteStoragePath = baseRemoteStoragePath;
         this.isUpstreamBroadcast = isUpstreamBroadcast;
         this.queueChannelCallBack = queueChannelCallBack;
-        this.partitionIdAndSubpartitionIds = partitionIdAndSubpartitionIds;
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
@@ -95,33 +102,45 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
 
     @Override
     public void run() {
-        try {
-            for (int subpartitionId = 0;
-                    subpartitionId < partitionIdAndSubpartitionIds.size();
-                    subpartitionId++) {
-                boolean isEnqueue = false;
-                synchronized (this) {
-                    int scanningSegmentId = scanningSegmentIds[subpartitionId];
-                    int requiredSegmentId = requiredSegmentIds[subpartitionId];
-                    if (scanningSegmentId <= requiredSegmentId
-                            && checkFileExist(subpartitionId, scanningSegmentId)) {
-                        scanningSegmentIds[subpartitionId] = scanningSegmentId + 1;
-                        isEnqueue = true;
+        List<Integer> availableFiles = new ArrayList<>();
+        List<Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>> existFiles =
+                new ArrayList<>();
+        synchronized (this) {
+            for (TieredStoragePartitionId partitionId : requiredSegmentIds.keySet()) {
+                Map<TieredStorageSubpartitionId, Integer> subpartitionIdAndSegmentId =
+                        requiredSegmentIds.get(partitionId);
+                for (Map.Entry<TieredStorageSubpartitionId, Integer> entry :
+                        subpartitionIdAndSegmentId.entrySet()) {
+                    if (checkFileExist(partitionId, entry.getKey(), entry.getValue())) {
+                        availableFiles.add(channelIndexes.get(partitionId).get(entry.getKey()));
+                        existFiles.add(Tuple3.of(partitionId, entry.getKey(), entry.getValue()));
                     }
                 }
-                if (isEnqueue) {
-                    queueChannelCallBack.accept(subpartitionId, false);
+            }
+            for (Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer> existFile :
+                    existFiles) {
+                Map<TieredStorageSubpartitionId, Integer> subpartitionIdAndSegmentId =
+                        requiredSegmentIds.get(existFile.f0);
+                subpartitionIdAndSegmentId.remove(existFile.f1);
+                if (subpartitionIdAndSegmentId.size() == 0) {
+                    requiredSegmentIds.remove(existFile.f0);
                 }
             }
-        } catch (Exception e) {
-            FatalExitExceptionHandler.INSTANCE.uncaughtException(Thread.currentThread(), e);
+        }
+        for (int index : availableFiles) {
+            queueChannelCallBack.accept(index, false);
         }
     }
 
     @Override
-    public void monitorSegmentFile(int subpartitionId, int segmentId) {
+    public void monitorSegmentFile(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId) {
         synchronized (this) {
-            requiredSegmentIds[subpartitionId] = segmentId;
+            requiredSegmentIds
+                    .computeIfAbsent(partitionId, ignore -> new HashMap<>())
+                    .put(subpartitionId, segmentId);
         }
     }
 
@@ -130,13 +149,15 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
         monitorExecutor.shutdownNow();
     }
 
-    private boolean checkFileExist(int subpartitionId, int segmentId) {
+    private boolean checkFileExist(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId) {
         String baseSubpartitionPath =
                 getBaseSubpartitionPath(
                         jobID,
-                        TieredStorageIdMappingUtils.convertId(
-                                partitionIdAndSubpartitionIds.get(subpartitionId).f0),
-                        partitionIdAndSubpartitionIds.get(subpartitionId).f1.getSubpartitionId(),
+                        TieredStorageIdMappingUtils.convertId(partitionId),
+                        subpartitionId.getSubpartitionId(),
                         baseRemoteStoragePath,
                         isUpstreamBroadcast);
         Path currentSegmentFinishPath = generateSegmentFinishPath(baseSubpartitionPath, segmentId);

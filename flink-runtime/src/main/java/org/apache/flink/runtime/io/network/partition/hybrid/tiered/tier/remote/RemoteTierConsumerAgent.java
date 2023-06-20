@@ -69,7 +69,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             int segmentId) {
         int subpartitionId = subpartitionIndexs.get(partitionId).get(subpartitionId2);
         if (segmentId != requiredSegmentIds[subpartitionId]) {
-            remoteTierMonitor.monitorSegmentFile(subpartitionId, segmentId);
+            remoteTierMonitor.monitorSegmentFile(partitionId, subpartitionId2, segmentId);
             requiredSegmentIds[subpartitionId] = segmentId;
             return Optional.empty();
         }
