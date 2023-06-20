@@ -313,7 +313,7 @@ public class SingleInputGate extends IndexedInputGate {
                             });
             if (remoteStorageFileScanner != null) {
                 ((RemoteStorageFileScannerImpl) remoteStorageFileScanner)
-                        .setupInputChannelQueueCallBack(queueChannelCallBack);
+                        .setupQueueChannelCallBack(queueChannelCallBack);
             }
         }
     }

@@ -52,10 +52,10 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
 
     private final JobID jobID;
 
-    private final ScheduledExecutorService monitorExecutor =
+    private final ScheduledExecutorService scannerExecutor =
             Executors.newSingleThreadScheduledExecutor(
                     new ThreadFactoryBuilder()
-                            .setNameFormat("tiered store remote tier monitor")
+                            .setNameFormat("remote storage file scanner")
                             .build());
 
     private final String baseRemoteStoragePath;
@@ -102,7 +102,7 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
 
     @Override
     public void start() {
-        monitorExecutor.scheduleAtFixedRate(this, 0, 10, TimeUnit.MILLISECONDS);
+        scannerExecutor.scheduleAtFixedRate(this, 0, 10, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -133,13 +133,13 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
                 }
             }
         }
-        for (int index : availableInputChannelIndexes) {
-            queueChannelCallBack.accept(index, false);
+        for (int channelIndex : availableInputChannelIndexes) {
+            queueChannelCallBack.accept(channelIndex, false);
         }
     }
 
     @Override
-    public void requireSegment(
+    public void registerSegmentId(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
@@ -171,10 +171,10 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
 
     @Override
     public void close() {
-        monitorExecutor.shutdownNow();
+        scannerExecutor.shutdownNow();
     }
 
-    public void setupInputChannelQueueCallBack(BiConsumer<Integer, Boolean> queueChannelCallBack) {
+    public void setupQueueChannelCallBack(BiConsumer<Integer, Boolean> queueChannelCallBack) {
         this.queueChannelCallBack = queueChannelCallBack;
     }
 

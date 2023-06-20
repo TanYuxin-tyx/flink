@@ -37,7 +37,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                 != requiredSegmentIds
                         .computeIfAbsent(partitionId, ignore -> new HashMap<>())
                         .getOrDefault(subpartitionId, -1)) {
-            remoteStorageFileScanner.requireSegment(partitionId, subpartitionId, segmentId);
+            remoteStorageFileScanner.registerSegmentId(partitionId, subpartitionId, segmentId);
             requiredSegmentIds.get(partitionId).put(subpartitionId, segmentId);
             return Optional.empty();
         }

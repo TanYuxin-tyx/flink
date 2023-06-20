@@ -34,14 +34,14 @@ public interface RemoteStorageFileScanner extends Runnable {
     void start();
 
     /**
-     * Let the {@link RemoteStorageFileScanner} remember the required segment id. If the scanner
-     * discovered the segment file exists, it will trigger the next round of reading.
+     * Register a segment id to the {@link RemoteStorageFileScanner}. If the scanner discovers the
+     * segment file exists, it will trigger the next round of reading.
      *
      * @param partitionId partition id indicates the id of partition.
      * @param subpartitionId subpartition id indicates the id of subpartition.
      * @param segmentId segment id indicates the id of segment.
      */
-    void requireSegment(
+    void registerSegmentId(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId);
