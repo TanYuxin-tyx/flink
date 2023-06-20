@@ -72,9 +72,6 @@ public class SortBufferContainer {
     /** Total number of bytes already appended to this sort buffer. */
     private long numTotalBytes;
 
-    /** Total number of records already appended to this sort buffer. */
-    private long numTotalRecords;
-
     /** Total number of bytes already read from this sort buffer. */
     private long numTotalBytesRead;
 
@@ -155,7 +152,6 @@ public class SortBufferContainer {
         writeIndex(targetChannel, totalBytes, dataType);
         writeRecord(source);
 
-        ++numTotalRecords;
         numTotalBytes += totalBytes;
 
         return false;
@@ -226,14 +222,6 @@ public class SortBufferContainer {
                         readMemorySegment, bufferRecycler, bufferDataType, numBytesCopied));
     }
 
-    long numTotalRecords() {
-        return numTotalRecords;
-    }
-
-    long numTotalBytes() {
-        return numTotalBytes;
-    }
-
     boolean hasRemaining() {
         return numTotalBytesRead < numTotalBytes;
     }
@@ -246,16 +234,16 @@ public class SortBufferContainer {
         updateReadChannelAndIndexEntryAddress();
     }
 
-    boolean isFinished() {
-        return isFinished;
-    }
-
     void release() {
         if (isReleased) {
             return;
         }
         isReleased = true;
         clearSegments();
+    }
+
+    boolean isFinished() {
+        return isFinished;
     }
 
     boolean isReleased() {

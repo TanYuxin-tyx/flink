@@ -118,7 +118,6 @@ public class SortBufferContainerTest {
             }
         }
 
-        assertEquals(0, dataBuffer.numTotalBytes());
         checkWriteReadResult(
                 numSubpartitions, numBytesWritten, numBytesRead, dataWritten, buffersRead);
     }
@@ -254,7 +253,6 @@ public class SortBufferContainerTest {
         ByteBuffer largeRecord = ByteBuffer.allocate(recordSize);
 
         assertEquals(isFull, dataBuffer.writeRecord(largeRecord, 0, Buffer.DataType.DATA_BUFFER));
-        assertEquals(numBytes, dataBuffer.numTotalBytes());
         assertEquals(hasRemaining, dataBuffer.hasRemaining());
     }
 
@@ -314,13 +312,11 @@ public class SortBufferContainerTest {
 
         assertEquals(bufferPoolSize, bufferPool.bestEffortGetNumOfUsedBuffers());
         assertTrue(dataBuffer.hasRemaining());
-        assertEquals(recordSize, dataBuffer.numTotalBytes());
 
         // should release all data and resources
         dataBuffer.release();
         assertEquals(0, bufferPool.bestEffortGetNumOfUsedBuffers());
         assertTrue(dataBuffer.hasRemaining());
-        assertEquals(recordSize, dataBuffer.numTotalBytes());
     }
 
     private SortBufferContainer createDataBuffer(
