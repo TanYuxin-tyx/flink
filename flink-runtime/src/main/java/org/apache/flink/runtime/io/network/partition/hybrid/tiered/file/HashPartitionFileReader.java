@@ -23,8 +23,12 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
@@ -38,6 +42,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.parseBufferHeader;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateNewSegmentPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getBaseSubpartitionPath;
 
@@ -91,7 +96,30 @@ public class HashPartitionFileReader implements PartitionFileReader {
             channel = openNewChannel(partitionId, subpartitionId, segmentId);
             openedChannels.get(partitionId).put(subpartitionId, Tuple2.of(channel, segmentId));
         }
-        return null;
+
+        reusedHeaderBuffer.clear();
+        int bufferHeaderResult = channel.read(reusedHeaderBuffer);
+        if (bufferHeaderResult == -1) {
+            return new NetworkBuffer(
+                    MemorySegmentFactory.allocateUnpooledSegment(0),
+                    FreeingBufferRecycler.INSTANCE,
+                    Buffer.DataType.END_OF_SEGMENT,
+                    0);
+        }
+        reusedHeaderBuffer.rewind();
+        BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
+        ByteBuffer dataBuffer = ByteBuffer.allocateDirect(header.getLength());
+        int dataBufferResult = channel.read(dataBuffer);
+        if (dataBufferResult == -1) {
+            throw new IOException("An empty data buffer is read.");
+        }
+        Buffer.DataType dataType = header.getDataType();
+        return new NetworkBuffer(
+                MemorySegmentFactory.wrapOffHeapMemory(dataBuffer),
+                FreeingBufferRecycler.INSTANCE,
+                dataType,
+                header.isCompressed(),
+                header.getLength());
     }
 
     private ReadableByteChannel openNewChannel(
