@@ -23,9 +23,12 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.HashPartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -40,11 +43,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
+import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateSegmentFinishPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getBaseSubpartitionPath;
 
-/** Default implementation of {@link RemoteTierMonitor}. */
-public class RemoteTierMonitorImpl implements RemoteTierMonitor {
+/** Default implementation of {@link RemoteStorageFileScanner}. */
+public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
 
     private final JobID jobID;
 
@@ -53,8 +57,6 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
                     new ThreadFactoryBuilder()
                             .setNameFormat("tiered store remote tier monitor")
                             .build());
-
-    private final BiConsumer<Integer, Boolean> queueChannelCallBack;
 
     private final String baseRemoteStoragePath;
 
@@ -66,15 +68,18 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
     private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
             channelIndexes;
 
+    private final PartitionFileReader partitionFileReader;
+
     private FileSystem remoteFileSystem;
 
-    public RemoteTierMonitorImpl(
+    private BiConsumer<Integer, Boolean> queueChannelCallBack;
+
+    public RemoteStorageFileScannerImpl(
             List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
                     partitionIdAndSubpartitionIds,
             JobID jobID,
             String baseRemoteStoragePath,
-            boolean isUpstreamBroadcast,
-            BiConsumer<Integer, Boolean> queueChannelCallBack) {
+            boolean isUpstreamBroadcastOnly) {
 
         this.channelIndexes = new HashMap<>();
         for (int index = 0; index < partitionIdAndSubpartitionIds.size(); index++) {
@@ -85,14 +90,16 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
         this.requiredSegmentIds = new HashMap<>();
         this.jobID = jobID;
         this.baseRemoteStoragePath = baseRemoteStoragePath;
-        this.isUpstreamBroadcast = isUpstreamBroadcast;
-        this.queueChannelCallBack = queueChannelCallBack;
+        this.isUpstreamBroadcast = isUpstreamBroadcastOnly;
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
             ExceptionUtils.rethrow(
                     e, "Failed to initialize fileSystem on the path: " + baseRemoteStoragePath);
         }
+
+        this.partitionFileReader =
+                new HashPartitionFileReader(baseRemoteStoragePath, jobID, isUpstreamBroadcastOnly);
     }
 
     @Override
@@ -145,8 +152,31 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
     }
 
     @Override
+    public Buffer readBuffer(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId) {
+        Buffer buffer = null;
+        try {
+            buffer =
+                    partitionFileReader.readBuffer(
+                            partitionId, subpartitionId, segmentId, -1, null, null);
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
+        }
+        if (buffer != null && buffer.getDataType() != END_OF_SEGMENT) {
+            queueChannelCallBack.accept(channelIndexes.get(partitionId).get(subpartitionId), false);
+        }
+        return buffer;
+    }
+
+    @Override
     public void close() {
         monitorExecutor.shutdownNow();
+    }
+
+    public void setupInputChannelQueueCallBack(BiConsumer<Integer, Boolean> queueChannelCallBack) {
+        this.queueChannelCallBack = queueChannelCallBack;
     }
 
     private boolean checkFileExist(

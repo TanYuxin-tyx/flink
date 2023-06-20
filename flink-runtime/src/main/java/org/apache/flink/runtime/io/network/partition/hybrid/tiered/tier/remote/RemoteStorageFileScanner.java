@@ -18,14 +18,15 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 /**
- * The {@link RemoteTierMonitor} is the monitor to scan the existing status of shuffle data stored
- * in Remote Tier.
+ * The {@link RemoteStorageFileScanner} is the monitor to scan the existing status of shuffle data
+ * stored in Remote Tier.
  */
-public interface RemoteTierMonitor extends Runnable {
+public interface RemoteStorageFileScanner extends Runnable {
 
     /** Start the remote tier monitor. */
     void start();
@@ -37,6 +38,19 @@ public interface RemoteTierMonitor extends Runnable {
      * @param segmentId segment id that indicates the id of segment.
      */
     void monitorSegmentFile(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId);
+
+    /**
+     * Read buffer from remote storage.
+     *
+     * @param partitionId the id of partition.
+     * @param subpartitionId the id of subpartition.
+     * @param segmentId the id of segment.
+     * @return buffer.
+     */
+    Buffer readBuffer(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId);

@@ -180,6 +180,7 @@ public class SingleInputGateBuilder {
                         null,
                         false,
                         null,
+                        null,
                         null);
         if (channelFactory != null) {
             gate.setInputChannels(

@@ -42,6 +42,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScanner;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScannerImpl;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
@@ -181,6 +183,7 @@ public class SingleInputGateFactory {
         List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds = null;
         List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
                 partitionIdAndSubpartitionIds = null;
+        RemoteStorageFileScanner remoteStorageFileScanner = null;
         if (enableTieredStore) {
             tieredStoragePartitionIds = new ArrayList<>();
             tieredStorageSubpartitionIds = new ArrayList<>();
@@ -199,6 +202,14 @@ public class SingleInputGateFactory {
                     partitionIdAndSubpartitionIds.add(
                             Tuple2.of(storagePartitionId, storageSubpartitionId));
                 }
+            }
+            if (baseRemoteStoragePath != null) {
+                remoteStorageFileScanner =
+                        new RemoteStorageFileScannerImpl(
+                                partitionIdAndSubpartitionIds,
+                                owner.getJobID(),
+                                baseRemoteStoragePath,
+                                isUpstreamBroadcastOnly);
             }
         }
 
@@ -224,7 +235,8 @@ public class SingleInputGateFactory {
                         nettyService,
                         isUpstreamBroadcastOnly,
                         owner.getJobID(),
-                        baseRemoteStoragePath);
+                        baseRemoteStoragePath,
+                        remoteStorageFileScanner);
 
         createInputChannels(
                 owningTaskName, igdd, inputGate, subpartitionIndexRange, gateBuffersSpec, metrics);
@@ -355,7 +367,8 @@ public class SingleInputGateFactory {
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             JobID jobID,
-            @Nullable String baseRemoteStoragePath) {
+            @Nullable String baseRemoteStoragePath,
+            @Nullable RemoteStorageFileScanner remoteStorageFileScanner) {
 
         return new SingleInputGate(
                 owningTaskName,
@@ -378,7 +391,8 @@ public class SingleInputGateFactory {
                 nettyService,
                 isUpstreamBroadcastOnly,
                 jobID,
-                baseRemoteStoragePath);
+                baseRemoteStoragePath,
+                remoteStorageFileScanner);
     }
 
     protected static int calculateNumChannels(

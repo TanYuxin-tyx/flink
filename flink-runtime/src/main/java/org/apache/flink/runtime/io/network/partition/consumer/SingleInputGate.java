@@ -49,6 +49,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScanner;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScannerImpl;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -254,7 +256,8 @@ public class SingleInputGate extends IndexedInputGate {
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
             JobID jobID,
-            @Nullable String baseRemoteStoragePath) {
+            @Nullable String baseRemoteStoragePath,
+            @Nullable RemoteStorageFileScanner remoteStorageFileScanner) {
 
         this.owningTaskName = checkNotNull(owningTaskName);
         Preconditions.checkArgument(0 <= gateIndex, "The gate index must be positive.");
@@ -295,16 +298,14 @@ public class SingleInputGate extends IndexedInputGate {
                         ? new TieredStorageConsumerClient(
                                 partitionIdAndSubpartitionIds,
                                 nettyService,
-                                jobID,
                                 baseRemoteStoragePath,
-                                isUpstreamBroadcastOnly,
-                                queueChannelCallBack)
+                                remoteStorageFileScanner)
                         : null;
 
         this.tieredStoragePartitionIds = tieredStoragePartitionIds;
         this.tieredStorageSubpartitionIds = tieredStorageSubpartitionIds;
 
-        if(tieredStoragePartitionIds != null){
+        if (tieredStoragePartitionIds != null) {
             ((TieredStorageNettyServiceImpl) nettyService)
                     .setupInputChannels(
                             tieredStoragePartitionIds,
@@ -323,6 +324,10 @@ public class SingleInputGate extends IndexedInputGate {
                                     lastPrioritySequenceNumber[channelIndex] = sequenceNumber;
                                 }
                             });
+            if (remoteStorageFileScanner != null) {
+                ((RemoteStorageFileScannerImpl) remoteStorageFileScanner)
+                        .setupInputChannelQueueCallBack(queueChannelCallBack);
+            }
         }
     }
 

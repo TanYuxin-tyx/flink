@@ -390,6 +390,7 @@ public class InputGateFairnessTest {
                     null,
                     false,
                     null,
+                    null,
                     null);
 
             channelsWithData = getInputChannelsWithData();

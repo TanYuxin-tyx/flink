@@ -18,8 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory;
 
-import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
@@ -37,14 +35,13 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierCons
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScanner;
 
 import javax.annotation.Nullable;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.BiConsumer;
 
 /** The memory tier factory. */
 public class MemoryTierFactory implements TierFactory {
@@ -96,19 +93,13 @@ public class MemoryTierFactory implements TierFactory {
 
     @Override
     public TierConsumerAgent createConsumerAgent(
-            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
-                    partitionIdAndSubpartitionIds,
-            JobID jobID,
-            String baseRemoteStoragePath,
-            TieredStorageNettyService nettyService,
-            boolean isUpstreamBroadcastOnly,
-            BiConsumer<Integer, Boolean> queueChannelCallBack,
             Map<
                             TieredStoragePartitionId,
                             Map<
                                     TieredStorageSubpartitionId,
                                     CompletableFuture<NettyConnectionReader>>>
-                    readers) {
+                    readers,
+            RemoteStorageFileScanner remoteStorageFileScanner) {
         return new MemoryTierConsumerAgent(readers);
     }
 }

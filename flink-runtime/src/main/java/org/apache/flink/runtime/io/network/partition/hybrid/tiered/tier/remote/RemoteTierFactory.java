@@ -18,8 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
-import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
@@ -40,11 +38,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProd
 
 import javax.annotation.Nullable;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.function.BiConsumer;
 
 public class RemoteTierFactory implements TierFactory {
 
@@ -88,31 +84,14 @@ public class RemoteTierFactory implements TierFactory {
 
     @Override
     public TierConsumerAgent createConsumerAgent(
-            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
-                    partitionIdAndSubpartitionIds,
-            JobID jobID,
-            String baseRemoteStoragePath,
-            TieredStorageNettyService nettyService,
-            boolean isUpstreamBroadcastOnly,
-            BiConsumer<Integer, Boolean> queueChannelCallBack,
             Map<
                             TieredStoragePartitionId,
                             Map<
                                     TieredStorageSubpartitionId,
                                     CompletableFuture<NettyConnectionReader>>>
-                    readers) {
-        RemoteTierMonitor remoteTierMonitor = new RemoteTierMonitorImpl(
-                partitionIdAndSubpartitionIds,
-                jobID,
-                baseRemoteStoragePath,
-                isUpstreamBroadcastOnly,
-                queueChannelCallBack);
-        return new RemoteTierConsumerAgent(
-                baseRemoteStoragePath,
-                jobID,
-                isUpstreamBroadcastOnly,
-                partitionIdAndSubpartitionIds,
-                remoteTierMonitor,
-                queueChannelCallBack);
+                    readers,
+            RemoteStorageFileScanner remoteStorageFileScanner) {
+
+        return new RemoteTierConsumerAgent(remoteStorageFileScanner);
     }
 }

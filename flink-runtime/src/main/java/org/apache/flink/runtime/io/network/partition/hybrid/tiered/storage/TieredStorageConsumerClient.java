@@ -1,6 +1,5 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
@@ -11,6 +10,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierCons
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory.MemoryTierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScanner;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierFactory;
 
 import java.io.IOException;
@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 
 /** {@link TieredStorageConsumerClient} is used to read buffer from tiered store. */
 public class TieredStorageConsumerClient {
@@ -43,19 +42,14 @@ public class TieredStorageConsumerClient {
             List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
                     partitionIdAndSubpartitionIds,
             TieredStorageNettyService nettyService,
-            JobID jobID,
             String baseRemoteStoragePath,
-            boolean isUpstreamBroadcast,
-            BiConsumer<Integer, Boolean> queueChannelCallBack) {
+            RemoteStorageFileScanner remoteStorageFileScanner) {
         this.tierFactories = createTierFactories(baseRemoteStoragePath);
         this.tierConsumerAgents =
                 createTierConsumerAgents(
                         partitionIdAndSubpartitionIds,
-                        jobID,
-                        baseRemoteStoragePath,
                         nettyService,
-                        isUpstreamBroadcast,
-                        queueChannelCallBack);
+                        remoteStorageFileScanner);
     }
 
     public void start() {
@@ -125,11 +119,8 @@ public class TieredStorageConsumerClient {
     private List<TierConsumerAgent> createTierConsumerAgents(
             List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
                     partitionIdAndSubpartitionIds,
-            JobID jobID,
-            String baseRemoteStoragePath,
             TieredStorageNettyService nettyService,
-            boolean isUpstreamBroadcastOnly,
-            BiConsumer<Integer, Boolean> queueChannelCallBack) {
+            RemoteStorageFileScanner remoteStorageFileScanner) {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
         Map<
                         TieredStoragePartitionId,
@@ -141,16 +132,11 @@ public class TieredStorageConsumerClient {
                     .computeIfAbsent(ids.f0, ignore -> new HashMap<>())
                     .put(ids.f1, nettyService.registerConsumer(ids.f0, ids.f1));
         }
+
         for (TierFactory tierFactory : tierFactories) {
             tierConsumerAgents.add(
                     tierFactory.createConsumerAgent(
-                            partitionIdAndSubpartitionIds,
-                            jobID,
-                            baseRemoteStoragePath,
-                            nettyService,
-                            isUpstreamBroadcastOnly,
-                            queueChannelCallBack,
-                            nettyConnectionReaders));
+                            nettyConnectionReaders, remoteStorageFileScanner));
         }
         return tierConsumerAgents;
     }

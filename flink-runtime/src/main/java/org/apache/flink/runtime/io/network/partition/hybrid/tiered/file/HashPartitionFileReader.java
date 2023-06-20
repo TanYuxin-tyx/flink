@@ -94,6 +94,9 @@ public class HashPartitionFileReader implements PartitionFileReader {
                 channel.close();
             }
             channel = openNewChannel(partitionId, subpartitionId, segmentId);
+            if(channel == null){
+                return null;
+            }
             openedChannels.get(partitionId).put(subpartitionId, Tuple2.of(channel, segmentId));
         }
 
@@ -127,7 +130,7 @@ public class HashPartitionFileReader implements PartitionFileReader {
     private ReadableByteChannel openNewChannel(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
-            int segmentId) {
+            int segmentId) throws IOException {
         String baseSubpartitionPath =
                 getBaseSubpartitionPath(
                         jobID,
@@ -137,11 +140,10 @@ public class HashPartitionFileReader implements PartitionFileReader {
                         isUpstreamBroadcast);
         Path currentSegmentPath = generateNewSegmentPath(baseSubpartitionPath, segmentId);
         ReadableByteChannel channel = null;
-        try {
-            channel = Channels.newChannel(fileSystem.open(currentSegmentPath));
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e, "Failed to create file channel.");
+        if(!fileSystem.exists(currentSegmentPath)){
+            return channel;
         }
+        channel = Channels.newChannel(fileSystem.open(currentSegmentPath));
         return channel;
     }
 
