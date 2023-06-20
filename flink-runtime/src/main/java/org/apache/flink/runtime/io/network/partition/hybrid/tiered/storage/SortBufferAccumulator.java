@@ -275,7 +275,8 @@ public class SortBufferAccumulator implements BufferAccumulator {
             addFinishedBuffer(
                     Pair.of(
                             targetSubpartition,
-                            new NetworkBuffer(writeBuffer, bufferRecycler, dataType, toCopy)));
+                            new NetworkBuffer(
+                                    writeBuffer, checkNotNull(bufferRecycler), dataType, toCopy)));
         }
 
         releaseFreeBuffers();
@@ -316,6 +317,6 @@ public class SortBufferAccumulator implements BufferAccumulator {
     }
 
     private void recycleBuffer(MemorySegment memorySegment) {
-        bufferRecycler.recycle(memorySegment);
+        checkNotNull(bufferRecycler).recycle(memorySegment);
     }
 }
