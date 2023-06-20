@@ -187,7 +187,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     public void connectionEstablished(
             TieredStorageSubpartitionId subpartitionId,
             NettyConnectionWriter nettyConnectionWriter) {
-        if (!Files.isReadable(dataFilePath)) {
+        if (!Files.exists(dataFilePath)) {
             throw new RuntimeException(
                     new PartitionNotFoundException(
                             TieredStorageIdMappingUtils.convertId(partitionId)));

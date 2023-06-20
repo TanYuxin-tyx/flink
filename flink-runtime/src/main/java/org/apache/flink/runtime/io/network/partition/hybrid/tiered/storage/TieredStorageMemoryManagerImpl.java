@@ -225,6 +225,11 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     @Override
     public void release() {
         checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
+        numOwnerRequestedBuffers.forEach(
+                (owner, numOwnerRequestedBuffer) ->
+                        checkState(
+                                numOwnerRequestedBuffer.get() == 0,
+                                "Leaking buffers for " + owner.getClass()));
         if (executor != null) {
             executor.shutdown();
             try {
@@ -246,11 +251,9 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     }
 
     private void decNumRequestedBuffer(Object owner) {
-        AtomicInteger numOwnerRequestedBuffer = numOwnerRequestedBuffers.get(owner);
-        if (numOwnerRequestedBuffer == null) {
-            LOG.error("Failed to decrease the number for " + owner.getClass());
-        }
-        checkNotNull(numOwnerRequestedBuffer).decrementAndGet();
+        numOwnerRequestedBuffers
+                .computeIfAbsent(owner, ignore -> new AtomicInteger(0))
+                .decrementAndGet();
         numRequestedBuffers.decrementAndGet();
     }
 
