@@ -93,26 +93,18 @@ public class SortBufferAccumulator implements BufferAccumulator {
             boolean isBroadcast,
             boolean isEndOfPartition)
             throws IOException {
-        if (isEndOfPartition) {
-            flushUnicastDataBuffer();
-            flushBroadcastDataBuffer();
-        }
         int targetSubpartition = subpartitionId.getSubpartitionId();
         SortBufferContainer sortBufferContainer =
                 isBroadcast ? getBroadcastDataBuffer() : getUnicastDataBuffer();
         if (!sortBufferContainer.writeRecord(record, targetSubpartition, dataType)) {
-            if (isEndOfPartition) {
-                flushDataBuffer(sortBufferContainer);
-            }
+            flushContainerWhenEndOfPartition(isEndOfPartition, sortBufferContainer);
             return;
         }
 
         if (!sortBufferContainer.hasRemaining()) {
             sortBufferContainer.release();
             writeLargeRecord(record, targetSubpartition, dataType);
-            if (isEndOfPartition) {
-                flushDataBuffer(sortBufferContainer);
-            }
+            flushContainerWhenEndOfPartition(isEndOfPartition, sortBufferContainer);
             return;
         }
 
@@ -238,6 +230,13 @@ public class SortBufferAccumulator implements BufferAccumulator {
             flushDataBuffer(unicastDataBuffer);
             unicastDataBuffer.release();
             unicastDataBuffer = null;
+        }
+    }
+
+    private void flushContainerWhenEndOfPartition(
+            boolean isEndOfPartition, SortBufferContainer sortBufferContainer) {
+        if (isEndOfPartition) {
+            flushDataBuffer(sortBufferContainer);
         }
     }
 
