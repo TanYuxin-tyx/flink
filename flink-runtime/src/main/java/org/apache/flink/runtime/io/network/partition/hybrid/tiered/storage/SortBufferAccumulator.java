@@ -45,9 +45,11 @@ public class SortBufferAccumulator implements BufferAccumulator {
 
     private final int numSubpartitions;
 
-    private final int numBuffersOfSortAccumulatorThreshold;
+    private final int numBuffers;
 
-    private final int bufferSize;
+    private final int bufferSizeBytes;
+
+    private final LinkedList<MemorySegment> freeSegments = new LinkedList<>();
 
     private final TieredStorageMemoryManager storeMemoryManager;
 
@@ -57,12 +59,10 @@ public class SortBufferAccumulator implements BufferAccumulator {
 
     private SortBufferContainer unicastDataBuffer;
 
-    private final LinkedList<MemorySegment> freeSegments = new LinkedList<>();
-
     private BufferRecycler bufferRecycler;
 
     /**
-     * The {@link HashBufferAccumulator}'s accumulated buffer flusher is not prepared during
+     * The {@link SortBufferAccumulator}'s accumulated buffer flusher is not prepared during
      * construction, requiring the field to be initialized during setup. Therefore, it is necessary
      * to verify whether this field is null before using it.
      */
@@ -71,12 +71,12 @@ public class SortBufferAccumulator implements BufferAccumulator {
 
     public SortBufferAccumulator(
             int numSubpartitions,
-            int numBuffersOfSortAccumulatorThreshold,
-            int bufferSize,
+            int numBuffers,
+            int bufferSizeBytes,
             TieredStorageMemoryManager storeMemoryManager) {
         this.numSubpartitions = numSubpartitions;
-        this.bufferSize = bufferSize;
-        this.numBuffersOfSortAccumulatorThreshold = numBuffersOfSortAccumulatorThreshold;
+        this.bufferSizeBytes = bufferSizeBytes;
+        this.numBuffers = numBuffers;
         this.storeMemoryManager = storeMemoryManager;
     }
 
@@ -164,7 +164,11 @@ public class SortBufferAccumulator implements BufferAccumulator {
         requestNetworkBuffers();
 
         return new SortBufferContainer(
-                freeSegments, this::recycleBuffer, numSubpartitions, bufferSize, numBuffersForSort);
+                freeSegments,
+                this::recycleBuffer,
+                numSubpartitions,
+                bufferSizeBytes,
+                numBuffersForSort);
     }
 
     private void requestGuaranteedBuffers() {
@@ -184,11 +188,13 @@ public class SortBufferAccumulator implements BufferAccumulator {
         requestGuaranteedBuffers();
 
         int numWriteBuffers;
-        if (bufferSize >= NUM_WRITE_BUFFER_BYTES) {
+        if (bufferSizeBytes >= NUM_WRITE_BUFFER_BYTES) {
             numWriteBuffers = 1;
         } else {
             numWriteBuffers =
-                    Math.min(effectiveRequestedBuffers() / 2, NUM_WRITE_BUFFER_BYTES / bufferSize);
+                    Math.min(
+                            effectiveRequestedBuffers() / 2,
+                            NUM_WRITE_BUFFER_BYTES / bufferSizeBytes);
         }
         numWriteBuffers = Math.min(freeSegments.size() / 2, numWriteBuffers);
         numBuffersForSort = freeSegments.size() - numWriteBuffers;
@@ -240,7 +246,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
 
         checkState(dataType != Buffer.DataType.EVENT_BUFFER);
         while (record.hasRemaining()) {
-            int toCopy = Math.min(record.remaining(), bufferSize);
+            int toCopy = Math.min(record.remaining(), bufferSizeBytes);
             MemorySegment writeBuffer = checkNotNull(getFreeSegment());
             writeBuffer.put(0, record, toCopy);
 
@@ -264,7 +270,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
     }
 
     private int effectiveRequestedBuffers() {
-        return Math.min(numSubpartitions + 1, numBuffersOfSortAccumulatorThreshold);
+        return Math.min(numSubpartitions + 1, numBuffers);
     }
 
     private void releaseDataBuffer(SortBufferContainer sortBufferContainer) {
