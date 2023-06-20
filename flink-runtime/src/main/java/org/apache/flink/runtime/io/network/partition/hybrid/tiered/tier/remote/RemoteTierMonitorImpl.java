@@ -119,14 +119,7 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
     }
 
     @Override
-    public boolean isExist(int subpartitionId, int segmentId) {
-        synchronized (this) {
-            return scanningSegmentIds[subpartitionId] == (segmentId + 1);
-        }
-    }
-
-    @Override
-    public void updateRequiredSegmentId(int subpartitionId, int segmentId) {
+    public void monitorSegmentFile(int subpartitionId, int segmentId) {
         synchronized (this) {
             requiredSegmentIds[subpartitionId] = segmentId;
         }

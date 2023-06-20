@@ -36,21 +36,13 @@ public interface RemoteTierMonitor extends Runnable {
     void start();
 
     /**
-     * Return the existence status of the segment file.
-     *
-     * @param subpartitionId subpartition id that indicates the id of subpartition.
-     * @param segmentId segment id that indicates the id of segment.
-     * @return whether the segment file exists.
-     */
-    boolean isExist(int subpartitionId, int segmentId);
-
-    /**
      * Update the required segment id.
      *
      * @param subpartitionId subpartition id that indicates the id of subpartition.
      * @param segmentId segment id that indicates the id of segment.
      */
-    void updateRequiredSegmentId(int subpartitionId, int segmentId);
+    void monitorSegmentFile(int subpartitionId, int segmentId);
+
     /** Close the remote tier monitor */
     void close();
 
@@ -64,7 +56,8 @@ public interface RemoteTierMonitor extends Runnable {
                 String baseRemoteStoragePath,
                 BiConsumer<Integer, Boolean> queueChannelCallBack,
                 boolean isUpstreamBroadcastOnly) {
-            return new RemoteTierMonitorImpl(partitionIdAndSubpartitionIds,
+            return new RemoteTierMonitorImpl(
+                    partitionIdAndSubpartitionIds,
                     jobID,
                     baseRemoteStoragePath,
                     isUpstreamBroadcastOnly,

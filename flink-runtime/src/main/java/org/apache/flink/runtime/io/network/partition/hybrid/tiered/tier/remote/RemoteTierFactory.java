@@ -101,13 +101,12 @@ public class RemoteTierFactory implements TierFactory {
                                     TieredStorageSubpartitionId,
                                     CompletableFuture<NettyConnectionReader>>>
                     readers) {
-        RemoteTierMonitor remoteTierMonitor =
-                RemoteTierMonitor.Factory.createRemoteTierMonitor(
-                        partitionIdAndSubpartitionIds,
-                        jobID,
-                        baseRemoteStoragePath,
-                        queueChannelCallBack,
-                        isUpstreamBroadcastOnly);
+        RemoteTierMonitor remoteTierMonitor = new RemoteTierMonitorImpl(
+                partitionIdAndSubpartitionIds,
+                jobID,
+                baseRemoteStoragePath,
+                isUpstreamBroadcastOnly,
+                queueChannelCallBack);
         return new RemoteTierConsumerAgent(
                 baseRemoteStoragePath,
                 jobID,

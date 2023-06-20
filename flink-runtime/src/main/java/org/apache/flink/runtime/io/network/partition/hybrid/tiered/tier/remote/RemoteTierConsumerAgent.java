@@ -19,7 +19,6 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The data client is used to fetch data from DFS tier. */
 public class RemoteTierConsumerAgent implements TierConsumerAgent {
@@ -70,10 +69,8 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             int segmentId) {
         int subpartitionId = subpartitionIndexs.get(partitionId).get(subpartitionId2);
         if (segmentId != requiredSegmentIds[subpartitionId]) {
-            remoteTierMonitor.updateRequiredSegmentId(subpartitionId, segmentId);
+            remoteTierMonitor.monitorSegmentFile(subpartitionId, segmentId);
             requiredSegmentIds[subpartitionId] = segmentId;
-        }
-        if (!remoteTierMonitor.isExist(subpartitionId, segmentId)) {
             return Optional.empty();
         }
         Buffer buffer = null;
@@ -84,10 +81,10 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }
-        if (checkNotNull(buffer).getDataType() != END_OF_SEGMENT) {
+        if (buffer != null && buffer.getDataType() != END_OF_SEGMENT) {
             queueChannelCallBack.accept(subpartitionId, false);
         }
-        return Optional.of(buffer);
+        return buffer == null ? Optional.empty() : Optional.of(buffer);
     }
 
     @Override
