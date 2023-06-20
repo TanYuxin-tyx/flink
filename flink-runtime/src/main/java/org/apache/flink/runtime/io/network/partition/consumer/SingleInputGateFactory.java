@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.metrics.MetricGroup;
@@ -42,6 +41,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScanner;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScannerImpl;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
@@ -184,29 +184,26 @@ public class SingleInputGateFactory {
         List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
                 partitionIdAndSubpartitionIds = null;
         RemoteStorageFileScanner remoteStorageFileScanner = null;
+        List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs = null;
         if (enableTieredStore) {
-            tieredStoragePartitionIds = new ArrayList<>();
-            tieredStorageSubpartitionIds = new ArrayList<>();
-            partitionIdAndSubpartitionIds = new ArrayList<>();
+            tieredStorageConsumerSpecs = new ArrayList<>();
             for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
-                for (int subpartitionId = subpartitionIndexRange.getStartIndex();
-                        subpartitionId <= subpartitionIndexRange.getEndIndex();
-                        ++subpartitionId) {
-                    TieredStoragePartitionId storagePartitionId =
-                            TieredStorageIdMappingUtils.convertId(
-                                    shuffleDescriptor.getResultPartitionID());
-                    TieredStorageSubpartitionId storageSubpartitionId =
-                            new TieredStorageSubpartitionId(subpartitionId);
-                    tieredStoragePartitionIds.add(storagePartitionId);
-                    tieredStorageSubpartitionIds.add(storageSubpartitionId);
-                    partitionIdAndSubpartitionIds.add(
-                            Tuple2.of(storagePartitionId, storageSubpartitionId));
+                TieredStoragePartitionId partitionId =
+                        TieredStorageIdMappingUtils.convertId(
+                                shuffleDescriptor.getResultPartitionID());
+                for (int index = subpartitionIndexRange.getStartIndex();
+                        index <= subpartitionIndexRange.getEndIndex();
+                        ++index) {
+                    TieredStorageSubpartitionId subpartitionId =
+                            new TieredStorageSubpartitionId(index);
+                    tieredStorageConsumerSpecs.add(
+                            new TieredStorageConsumerSpec(partitionId, subpartitionId));
                 }
             }
             if (baseRemoteStoragePath != null) {
                 remoteStorageFileScanner =
                         new RemoteStorageFileScannerImpl(
-                                partitionIdAndSubpartitionIds,
+                                tieredStorageConsumerSpecs,
                                 owner.getJobID(),
                                 baseRemoteStoragePath,
                                 isUpstreamBroadcastOnly);
@@ -229,12 +226,8 @@ public class SingleInputGateFactory {
                         new ThroughputCalculator(SystemClock.getInstance()),
                         maybeCreateBufferDebloater(
                                 owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)),
-                        tieredStoragePartitionIds,
-                        tieredStorageSubpartitionIds,
-                        partitionIdAndSubpartitionIds,
+                        tieredStorageConsumerSpecs,
                         nettyService,
-                        isUpstreamBroadcastOnly,
-                        owner.getJobID(),
                         baseRemoteStoragePath,
                         remoteStorageFileScanner);
 
@@ -360,13 +353,8 @@ public class SingleInputGateFactory {
             int segmentSize,
             ThroughputCalculator throughputCalculator,
             @Nullable BufferDebloater bufferDebloater,
-            List<TieredStoragePartitionId> tieredStoragePartitionIds,
-            List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds,
-            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
-                    partitionIdAndSubpartitionIds,
+            List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
-            boolean isUpstreamBroadcastOnly,
-            JobID jobID,
             @Nullable String baseRemoteStoragePath,
             @Nullable RemoteStorageFileScanner remoteStorageFileScanner) {
 
@@ -385,12 +373,8 @@ public class SingleInputGateFactory {
                 throughputCalculator,
                 bufferDebloater,
                 enableTieredStore,
-                tieredStoragePartitionIds,
-                tieredStorageSubpartitionIds,
-                partitionIdAndSubpartitionIds,
+                tieredStorageConsumerSpecs,
                 nettyService,
-                isUpstreamBroadcastOnly,
-                jobID,
                 baseRemoteStoragePath,
                 remoteStorageFileScanner);
     }

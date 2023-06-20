@@ -21,10 +21,10 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
-import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,8 +56,8 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     // ------------------------------------
 
     private final Map<
-            TieredStoragePartitionId,
-            Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
+                    TieredStoragePartitionId,
+                    Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
             registeredNettyConnectionReaders = new HashMap<>();
 
     @Override
@@ -123,26 +123,15 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
         }
     }
 
-    /**
-     * Set up input channels in {@link SingleInputGate}. The method will be invoked by the akka rpc
-     * thread at first, and then the method {@link
-     * TieredStorageNettyService#registerConsumer(TieredStoragePartitionId,
-     * TieredStorageSubpartitionId)} will be invoked by the same thread sequentially, which ensures
-     * thread safety.
-     *
-     * @param partitionIds partition ids indicates the ids of {@link TieredResultPartition}.
-     * @param subpartitionIds subpartition ids indicates the ids of subpartition.
-     */
     public void setupInputChannels(
-            List<TieredStoragePartitionId> partitionIds,
-            List<TieredStorageSubpartitionId> subpartitionIds,
+            List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             List<Supplier<InputChannel>> inputChannelProviders,
             NettyConnectionReaderAvailabilityAndPriorityHelper helper) {
-        checkState(partitionIds.size() == subpartitionIds.size());
-        checkState(subpartitionIds.size() == inputChannelProviders.size());
-        for (int index = 0; index < partitionIds.size(); ++index) {
-            TieredStoragePartitionId partitionId = partitionIds.get(index);
-            TieredStorageSubpartitionId subpartitionId = subpartitionIds.get(index);
+        checkState(tieredStorageConsumerSpecs.size() == inputChannelProviders.size());
+        for (int index = 0; index < tieredStorageConsumerSpecs.size(); ++index) {
+            TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
+            TieredStoragePartitionId partitionId = spec.getPartitionId();
+            TieredStorageSubpartitionId subpartitionId = spec.getSubpartitionId();
             registeredNettyConnectionReaders
                     .remove(partitionId)
                     .remove(subpartitionId)

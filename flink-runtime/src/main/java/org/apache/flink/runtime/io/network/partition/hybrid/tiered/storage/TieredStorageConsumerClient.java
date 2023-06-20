@@ -29,7 +29,7 @@ public class TieredStorageConsumerClient {
     private final List<TierConsumerAgent> tierConsumerAgents;
 
     /**
-     * This map is used to record the consumer agent being used and the id of segent being read for
+     * This map is used to record the consumer agent being used and the id of segment being read for
      * each data source, which is represented by {@link TieredStoragePartitionId} and {@link
      * TieredStorageSubpartitionId}.
      */
@@ -39,17 +39,14 @@ public class TieredStorageConsumerClient {
             currentConsumerAgentAndSegmentIds = new HashMap<>();
 
     public TieredStorageConsumerClient(
-            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
-                    partitionIdAndSubpartitionIds,
+            List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
             String baseRemoteStoragePath,
             RemoteStorageFileScanner remoteStorageFileScanner) {
         this.tierFactories = createTierFactories(baseRemoteStoragePath);
         this.tierConsumerAgents =
                 createTierConsumerAgents(
-                        partitionIdAndSubpartitionIds,
-                        nettyService,
-                        remoteStorageFileScanner);
+                        tieredStorageConsumerSpecs, nettyService, remoteStorageFileScanner);
     }
 
     public void start() {
@@ -117,8 +114,7 @@ public class TieredStorageConsumerClient {
     }
 
     private List<TierConsumerAgent> createTierConsumerAgents(
-            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
-                    partitionIdAndSubpartitionIds,
+            List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
             RemoteStorageFileScanner remoteStorageFileScanner) {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
@@ -126,11 +122,14 @@ public class TieredStorageConsumerClient {
                         TieredStoragePartitionId,
                         Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
                 nettyConnectionReaders = new HashMap<>();
-        for (Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId> ids :
-                partitionIdAndSubpartitionIds) {
+        for (TieredStorageConsumerSpec spec : tieredStorageConsumerSpecs) {
+            TieredStoragePartitionId partitionId = spec.getPartitionId();
+            TieredStorageSubpartitionId subpartitionId = spec.getSubpartitionId();
             nettyConnectionReaders
-                    .computeIfAbsent(ids.f0, ignore -> new HashMap<>())
-                    .put(ids.f1, nettyService.registerConsumer(ids.f0, ids.f1));
+                    .computeIfAbsent(partitionId, ignore -> new HashMap<>())
+                    .put(
+                            subpartitionId,
+                            nettyService.registerConsumer(partitionId, subpartitionId));
         }
 
         for (TierFactory tierFactory : tierFactories) {

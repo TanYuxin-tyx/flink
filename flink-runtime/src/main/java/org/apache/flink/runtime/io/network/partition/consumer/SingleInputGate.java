@@ -19,8 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.core.memory.MemorySegmentProvider;
@@ -43,12 +41,11 @@ import org.apache.flink.runtime.io.network.partition.PrioritizedDeque;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReaderAvailabilityAndPriorityHelper;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScanner;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScannerImpl;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
@@ -226,11 +223,8 @@ public class SingleInputGate extends IndexedInputGate {
 
     private final TieredStorageConsumerClient tieredStorageConsumerClient;
 
-    // The partition ids in tiered storage will be null if the tiered storage is not enabled.
-    @Nullable private final List<TieredStoragePartitionId> tieredStoragePartitionIds;
-
     // The subpartition ids in tiered storage will be null if the tiered storage is not enabled.
-    @Nullable private final List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds;
+    @Nullable private final List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs;
 
     private boolean shouldDrainOnEndOfData = true;
 
@@ -249,13 +243,8 @@ public class SingleInputGate extends IndexedInputGate {
             ThroughputCalculator throughputCalculator,
             @Nullable BufferDebloater bufferDebloater,
             boolean enableTieredStoreMode,
-            List<TieredStoragePartitionId> tieredStoragePartitionIds,
-            List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds,
-            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
-                    partitionIdAndSubpartitionIds,
+            List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
-            boolean isUpstreamBroadcastOnly,
-            JobID jobID,
             @Nullable String baseRemoteStoragePath,
             @Nullable RemoteStorageFileScanner remoteStorageFileScanner) {
 
@@ -296,20 +285,18 @@ public class SingleInputGate extends IndexedInputGate {
         this.tieredStorageConsumerClient =
                 enableTieredStoreMode
                         ? new TieredStorageConsumerClient(
-                                partitionIdAndSubpartitionIds,
+                                tieredStorageConsumerSpecs,
                                 nettyService,
                                 baseRemoteStoragePath,
                                 remoteStorageFileScanner)
                         : null;
 
-        this.tieredStoragePartitionIds = tieredStoragePartitionIds;
-        this.tieredStorageSubpartitionIds = tieredStorageSubpartitionIds;
+        this.tieredStorageConsumerSpecs = tieredStorageConsumerSpecs;
 
-        if (tieredStoragePartitionIds != null) {
+        if (tieredStorageConsumerSpecs != null) {
             ((TieredStorageNettyServiceImpl) nettyService)
                     .setupInputChannels(
-                            tieredStoragePartitionIds,
-                            tieredStorageSubpartitionIds,
+                            tieredStorageConsumerSpecs,
                             createInputChannelSuppliers(),
                             new NettyConnectionReaderAvailabilityAndPriorityHelper() {
                                 @Override
@@ -914,11 +901,10 @@ public class SingleInputGate extends IndexedInputGate {
     }
 
     private Optional<Buffer> readBufferFromTieredStore(InputChannel inputChannel) {
-        int index = inputChannel.getChannelIndex();
+        TieredStorageConsumerSpec spec =
+                checkNotNull(tieredStorageConsumerSpecs).get(inputChannel.getChannelIndex());
         return checkNotNull(tieredStorageConsumerClient)
-                .getNextBuffer(
-                        checkNotNull(tieredStoragePartitionIds).get(index),
-                        checkNotNull(tieredStorageSubpartitionIds).get(index));
+                .getNextBuffer(spec.getPartitionId(), spec.getSubpartitionId());
     }
 
     private boolean enabledTieredStore() {

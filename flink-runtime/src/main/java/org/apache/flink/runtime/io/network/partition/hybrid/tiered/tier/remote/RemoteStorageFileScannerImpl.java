@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.api.common.JobID;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -29,6 +28,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.HashPartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -75,17 +75,17 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
     private BiConsumer<Integer, Boolean> queueChannelCallBack;
 
     public RemoteStorageFileScannerImpl(
-            List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
-                    partitionIdAndSubpartitionIds,
+            List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             JobID jobID,
             String baseRemoteStoragePath,
             boolean isUpstreamBroadcastOnly) {
 
         this.channelIndexes = new HashMap<>();
-        for (int index = 0; index < partitionIdAndSubpartitionIds.size(); index++) {
-            Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId> ids =
-                    partitionIdAndSubpartitionIds.get(index);
-            channelIndexes.computeIfAbsent(ids.f0, ignore -> new HashMap<>()).put(ids.f1, index);
+        for (int index = 0; index < tieredStorageConsumerSpecs.size(); index++) {
+            TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
+            channelIndexes
+                    .computeIfAbsent(spec.getPartitionId(), ignore -> new HashMap<>())
+                    .put(spec.getSubpartitionId(), index);
         }
         this.requiredSegmentIds = new HashMap<>();
         this.jobID = jobID;
