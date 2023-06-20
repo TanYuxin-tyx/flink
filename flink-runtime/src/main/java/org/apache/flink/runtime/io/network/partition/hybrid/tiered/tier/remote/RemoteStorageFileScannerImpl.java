@@ -79,7 +79,9 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
             JobID jobID,
             String baseRemoteStoragePath,
             boolean isUpstreamBroadcastOnly) {
-
+        this.jobID = jobID;
+        this.baseRemoteStoragePath = baseRemoteStoragePath;
+        this.isUpstreamBroadcast = isUpstreamBroadcastOnly;
         this.channelIndexes = new HashMap<>();
         for (int index = 0; index < tieredStorageConsumerSpecs.size(); index++) {
             TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
@@ -88,18 +90,14 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
                     .put(spec.getSubpartitionId(), index);
         }
         this.requiredSegmentIds = new HashMap<>();
-        this.jobID = jobID;
-        this.baseRemoteStoragePath = baseRemoteStoragePath;
-        this.isUpstreamBroadcast = isUpstreamBroadcastOnly;
+        this.partitionFileReader =
+                new HashPartitionFileReader(baseRemoteStoragePath, jobID, isUpstreamBroadcastOnly);
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
             ExceptionUtils.rethrow(
                     e, "Failed to initialize fileSystem on the path: " + baseRemoteStoragePath);
         }
-
-        this.partitionFileReader =
-                new HashPartitionFileReader(baseRemoteStoragePath, jobID, isUpstreamBroadcastOnly);
     }
 
     @Override
@@ -109,7 +107,7 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
 
     @Override
     public void run() {
-        List<Integer> availableFiles = new ArrayList<>();
+        List<Integer> availableInputChannelIndexes = new ArrayList<>();
         List<Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>> existFiles =
                 new ArrayList<>();
         synchronized (this) {
@@ -119,7 +117,8 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
                 for (Map.Entry<TieredStorageSubpartitionId, Integer> entry :
                         subpartitionIdAndSegmentId.entrySet()) {
                     if (checkFileExist(partitionId, entry.getKey(), entry.getValue())) {
-                        availableFiles.add(channelIndexes.get(partitionId).get(entry.getKey()));
+                        availableInputChannelIndexes.add(
+                                channelIndexes.get(partitionId).get(entry.getKey()));
                         existFiles.add(Tuple3.of(partitionId, entry.getKey(), entry.getValue()));
                     }
                 }
@@ -134,13 +133,13 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
                 }
             }
         }
-        for (int index : availableFiles) {
+        for (int index : availableInputChannelIndexes) {
             queueChannelCallBack.accept(index, false);
         }
     }
 
     @Override
-    public void monitorSegmentFile(
+    public void requireSegment(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {

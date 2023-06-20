@@ -24,20 +24,24 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 
 /**
  * The {@link RemoteStorageFileScanner} is the monitor to scan the existing status of shuffle data
- * stored in Remote Tier.
+ * stored in remote storage. It will be invoked by {@link RemoteTierConsumerAgent} to register the
+ * required segment id and trigger the reading of {@link RemoteTierConsumerAgent}, and it also
+ * provides a method to read buffer from remote storage.
  */
 public interface RemoteStorageFileScanner extends Runnable {
 
-    /** Start the remote tier monitor. */
+    /** Start the {@link RemoteStorageFileScanner}. */
     void start();
 
     /**
-     * Update the required segment id.
+     * Let the {@link RemoteStorageFileScanner} remember the required segment id. If the scanner
+     * discovered the segment file exists, it will trigger the next round of reading.
      *
-     * @param subpartitionId subpartition id that indicates the id of subpartition.
-     * @param segmentId segment id that indicates the id of segment.
+     * @param partitionId partition id indicates the id of partition.
+     * @param subpartitionId subpartition id indicates the id of subpartition.
+     * @param segmentId segment id indicates the id of segment.
      */
-    void monitorSegmentFile(
+    void requireSegment(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId);
@@ -45,9 +49,9 @@ public interface RemoteStorageFileScanner extends Runnable {
     /**
      * Read buffer from remote storage.
      *
-     * @param partitionId the id of partition.
-     * @param subpartitionId the id of subpartition.
-     * @param segmentId the id of segment.
+     * @param partitionId partition id indicates the id of partition.
+     * @param subpartitionId subpartition id indicates the id of subpartition.
+     * @param segmentId segment id indicates the id of segment.
      * @return buffer.
      */
     Buffer readBuffer(
@@ -55,6 +59,6 @@ public interface RemoteStorageFileScanner extends Runnable {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId);
 
-    /** Close the remote tier monitor */
+    /** Close the {@link RemoteStorageFileScanner} */
     void close();
 }
