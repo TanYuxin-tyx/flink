@@ -827,7 +827,8 @@ public class RemoteInputChannel extends InputChannel {
     }
 
     @Override
-    public void notifyRequiredSegmentId(int segmentId) {
+    public void notifyRequiredSegmentId(int segmentId) throws IOException {
+        checkPartitionRequestQueueInitialized();
         partitionRequestClient.notifyRequiredSegmentId(segmentId, this);
     }
 

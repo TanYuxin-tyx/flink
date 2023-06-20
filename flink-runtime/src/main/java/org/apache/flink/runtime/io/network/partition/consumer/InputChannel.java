@@ -319,7 +319,7 @@ public abstract class InputChannel {
         return false;
     }
 
-    public void notifyRequiredSegmentId(int segmentId) {}
+    public void notifyRequiredSegmentId(int segmentId) throws IOException {}
 
     // ------------------------------------------------------------------------
 
