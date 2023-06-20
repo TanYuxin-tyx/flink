@@ -20,11 +20,9 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
-import java.io.InputStream;
 import java.util.List;
 import java.util.function.BiConsumer;
 
@@ -61,7 +59,7 @@ public interface RemoteTierMonitor extends Runnable {
      * @param segmentId segment id that indicates the id of segment.
      * @return the input stream of segment file.
      */
-    InputStream getSegmentFileInputStream(int subpartitionId, int segmentId);
+    void getSegmentFileInputStream(int subpartitionId, int segmentId);
 
     /** Close the remote tier monitor */
     void close();

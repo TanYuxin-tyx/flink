@@ -32,17 +32,14 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.Partitio
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
-import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -94,7 +91,6 @@ public class RemoteTierFactory implements TierFactory {
             List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
                     partitionIdAndSubpartitionIds,
             JobID jobID,
-            NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
@@ -105,15 +101,6 @@ public class RemoteTierFactory implements TierFactory {
                                     TieredStorageSubpartitionId,
                                     CompletableFuture<NettyConnectionReader>>>
                     readers) {
-
-        TieredStorageMemoryManager storageMemoryManager = null;
-        try {
-            storageMemoryManager = new TieredStorageMemoryManagerImpl(1, false);
-            storageMemoryManager.setup(
-                    networkBufferPool.createBufferPool(1, 1), Collections.emptyList());
-        } catch (Exception e) {
-            ExceptionUtils.rethrow(e, "Failed to create TieredStorageMemoryManger.");
-        }
         RemoteTierMonitor remoteTierMonitor =
                 RemoteTierMonitor.Factory.createRemoteTierMonitor(
                         partitionIdAndSubpartitionIds,
@@ -122,8 +109,10 @@ public class RemoteTierFactory implements TierFactory {
                         queueChannelCallBack,
                         isUpstreamBroadcastOnly);
         return new RemoteTierConsumerAgent(
+                baseRemoteStoragePath,
+                jobID,
+                isUpstreamBroadcastOnly,
                 partitionIdAndSubpartitionIds,
-                storageMemoryManager,
                 remoteTierMonitor,
                 queueChannelCallBack);
     }

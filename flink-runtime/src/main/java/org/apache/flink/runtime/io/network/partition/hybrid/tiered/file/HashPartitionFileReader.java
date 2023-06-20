@@ -64,10 +64,10 @@ public class HashPartitionFileReader implements PartitionFileReader {
 
     private FileSystem fileSystem;
 
-    HashPartitionFileReader(String basePath, JobID jobID, Boolean isUpstreamBroadCast) {
+    public HashPartitionFileReader(String basePath, JobID jobID, Boolean isUpstreamBroadCastOnly) {
         this.basePath = basePath;
         this.jobID = jobID;
-        this.isUpstreamBroadcast = isUpstreamBroadCast;
+        this.isUpstreamBroadcast = isUpstreamBroadCastOnly;
         try {
             this.fileSystem = new Path(basePath).getFileSystem();
         } catch (IOException e) {
@@ -100,6 +100,8 @@ public class HashPartitionFileReader implements PartitionFileReader {
         reusedHeaderBuffer.clear();
         int bufferHeaderResult = channel.read(reusedHeaderBuffer);
         if (bufferHeaderResult == -1) {
+            channel = null;
+            openedChannels.get(partitionId).put(subpartitionId, Tuple2.of(channel, segmentId));
             return new NetworkBuffer(
                     MemorySegmentFactory.allocateUnpooledSegment(0),
                     FreeingBufferRecycler.INSTANCE,

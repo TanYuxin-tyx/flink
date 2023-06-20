@@ -150,7 +150,6 @@ public class TieredStorageConsumerClient {
                     tierFactory.createConsumerAgent(
                             partitionIdAndSubpartitionIds,
                             jobID,
-                            networkBufferPool,
                             baseRemoteStoragePath,
                             nettyService,
                             isUpstreamBroadcastOnly,

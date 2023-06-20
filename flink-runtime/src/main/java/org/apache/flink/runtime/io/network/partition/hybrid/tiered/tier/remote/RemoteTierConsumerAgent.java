@@ -1,23 +1,16 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
+import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferHeader;
-import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.HashPartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -25,8 +18,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 
-import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.HEADER_LENGTH;
-import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.parseBufferHeader;
+import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The data client is used to fetch data from DFS tier. */
 public class RemoteTierConsumerAgent implements TierConsumerAgent {
@@ -35,28 +28,25 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
     private final RemoteTierMonitor remoteTierMonitor;
 
-    private final TieredStorageMemoryManager storageMemoryManager;
-
     private final BiConsumer<Integer, Boolean> queueChannelCallBack;
-
-    private final ByteBuffer headerBuffer;
 
     private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
             subpartitionIndexs = new HashMap<>();
 
+    private final PartitionFileReader partitionFileReader;
+
     public RemoteTierConsumerAgent(
+            String baseRemoteStoragePath,
+            JobID jobID,
+            Boolean isUpStreamBroadCastOnly,
             List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
                     partitionIdAndSubpartitionIds,
-            TieredStorageMemoryManager storageMemoryManager,
             RemoteTierMonitor remoteTierMonitor,
             BiConsumer<Integer, Boolean> queueChannelCallBack) {
         this.remoteTierMonitor = remoteTierMonitor;
-        this.storageMemoryManager = storageMemoryManager;
         this.queueChannelCallBack = queueChannelCallBack;
         this.requiredSegmentIds = new int[partitionIdAndSubpartitionIds.size()];
         Arrays.fill(requiredSegmentIds, -1);
-        this.headerBuffer = ByteBuffer.wrap(new byte[HEADER_LENGTH]);
-        headerBuffer.order(ByteOrder.nativeOrder());
         for (int index = 0; index < partitionIdAndSubpartitionIds.size(); ++index) {
             Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId> ids =
                     partitionIdAndSubpartitionIds.get(index);
@@ -64,6 +54,8 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                     .computeIfAbsent(ids.f0, ignore -> new HashMap<>())
                     .put(ids.f1, index);
         }
+        this.partitionFileReader =
+                new HashPartitionFileReader(baseRemoteStoragePath, jobID, isUpStreamBroadCastOnly);
     }
 
     @Override
@@ -84,59 +76,23 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         if (!remoteTierMonitor.isExist(subpartitionId, segmentId)) {
             return Optional.empty();
         }
-        InputStream currentInputStream =
-                remoteTierMonitor.getSegmentFileInputStream(subpartitionId, segmentId);
+        remoteTierMonitor.getSegmentFileInputStream(subpartitionId, segmentId);
+        Buffer buffer = null;
         try {
-            if (currentInputStream.available() == 0) {
-                currentInputStream.close();
-                return Optional.of(
-                        new NetworkBuffer(
-                                MemorySegmentFactory.allocateUnpooledSegment(0),
-                                FreeingBufferRecycler.INSTANCE,
-                                Buffer.DataType.END_OF_SEGMENT,
-                                0));
-            } else {
-                queueChannelCallBack.accept(subpartitionId, false);
-                return Optional.of(readBuffer(currentInputStream));
-            }
+            buffer =
+                    partitionFileReader.readBuffer(
+                            partitionId, subpartitionId2, segmentId, -1, null, null);
         } catch (IOException e) {
-            ExceptionUtils.rethrow(e, "Failed to get next buffer in remote consumer agent");
+            ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }
-        return Optional.empty();
+        if (checkNotNull(buffer).getDataType() != END_OF_SEGMENT) {
+            queueChannelCallBack.accept(subpartitionId, false);
+        }
+        return Optional.of(buffer);
     }
 
     @Override
     public void close() throws IOException {
         remoteTierMonitor.close();
-    }
-
-    // ------------------------------------
-    //           Internal Method
-    // ------------------------------------
-
-    private Buffer readBuffer(InputStream inputStream) throws IOException {
-        ReadableByteChannel channel = Channels.newChannel(inputStream);
-
-        //
-
-        headerBuffer.clear();
-        int bufferHeaderResult = channel.read(headerBuffer);
-        if (bufferHeaderResult == -1) {
-            throw new IOException("Empty header buffer is read from dfs.");
-        }
-        headerBuffer.rewind();
-        BufferHeader header = parseBufferHeader(headerBuffer);
-        ByteBuffer dataBuffer = ByteBuffer.allocateDirect(header.getLength());
-        int dataBufferResult = channel.read(dataBuffer);
-        if (dataBufferResult == -1) {
-            throw new IOException("Empty data buffer is read from dfs.");
-        }
-        Buffer.DataType dataType = header.getDataType();
-        return new NetworkBuffer(
-                MemorySegmentFactory.wrapOffHeapMemory(dataBuffer),
-                FreeingBufferRecycler.INSTANCE,
-                dataType,
-                header.isCompressed(),
-                header.getLength());
     }
 }

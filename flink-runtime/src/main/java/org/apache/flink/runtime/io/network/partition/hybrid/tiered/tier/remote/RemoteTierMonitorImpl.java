@@ -39,7 +39,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateNewSegmentPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateSegmentFinishPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getBaseSubpartitionPath;
 
@@ -106,7 +105,9 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
     @Override
     public void run() {
         try {
-            for (int subpartitionId = 0; subpartitionId < partitionIdAndSubpartitionIds.size(); subpartitionId++) {
+            for (int subpartitionId = 0;
+                    subpartitionId < partitionIdAndSubpartitionIds.size();
+                    subpartitionId++) {
                 boolean isEnqueue = false;
                 synchronized (this) {
                     int scanningSegmentId = scanningSegmentIds[subpartitionId];
@@ -148,31 +149,10 @@ public class RemoteTierMonitorImpl implements RemoteTierMonitor {
     }
 
     @Override
-    public InputStream getSegmentFileInputStream(int subpartitionId, int segmentId) {
+    public void getSegmentFileInputStream(int subpartitionId, int segmentId) {
         synchronized (this) {
-            InputStream requiredInputStream = inputStreams[subpartitionId];
-            if (requiredInputStream == null || readingSegmentIds[subpartitionId] != segmentId) {
-                String baseSubpartitionPath =
-                        getBaseSubpartitionPath(
-                                jobID,
-                                TieredStorageIdMappingUtils.convertId(
-                                        partitionIdAndSubpartitionIds.get(subpartitionId).f0),
-                                partitionIdAndSubpartitionIds.get(subpartitionId).f1.getSubpartitionId(),
-                                baseRemoteStoragePath,
-                                isUpstreamBroadcast);
-                Path currentSegmentPath = generateNewSegmentPath(baseSubpartitionPath, segmentId);
-                InputStream inputStream = null;
-                try {
-                    inputStream = remoteFileSystem.open(currentSegmentPath);
-                } catch (IOException e) {
-                    ExceptionUtils.rethrow(
-                            e, "Failed to open the segment path: " + currentSegmentPath);
-                }
-                inputStreams[subpartitionId] = inputStream;
+            if (readingSegmentIds[subpartitionId] != segmentId) {
                 readingSegmentIds[subpartitionId] = segmentId;
-                return inputStream;
-            } else {
-                return inputStreams[subpartitionId];
             }
         }
     }

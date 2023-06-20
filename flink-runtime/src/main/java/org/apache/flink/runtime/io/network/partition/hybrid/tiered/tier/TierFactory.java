@@ -68,7 +68,6 @@ public interface TierFactory {
             List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
                     partitionIdAndSubpartitionIds,
             JobID jobID,
-            NetworkBufferPool networkBufferPool,
             String baseRemoteStoragePath,
             TieredStorageNettyService nettyService,
             boolean isUpstreamBroadcastOnly,
