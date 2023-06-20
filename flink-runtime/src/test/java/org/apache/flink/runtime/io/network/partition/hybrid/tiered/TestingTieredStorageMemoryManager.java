@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
+import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemorySpec;
 
@@ -90,6 +91,11 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
 
     @Override
     public void transferBufferOwnership(Object oldOwner, Object newOwner) {}
+
+    @Override
+    public BufferRecycler getOwnerBufferRecycler(Object owner) {
+        return null;
+    }
 
     /** Builder for {@link TestingTieredStorageMemoryManager}. */
     public static class Builder {

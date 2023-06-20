@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
@@ -27,6 +28,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
 import java.util.Arrays;
+
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.useNewBufferRecyclerAndCompressBuffer;
 
 /** The DataManager of DFS. */
 public class RemoteTierProducerAgent implements TierProducerAgent {
@@ -40,15 +43,22 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     private final RemoteCacheManager cacheDataManager;
 
+    private final BufferCompressor bufferCompressor;
+
+    private final TieredStorageMemoryManager storageMemoryManager;
+
     private final int[] subpartitionLastestSegmentId;
 
     public RemoteTierProducerAgent(
             int numSubpartitions,
             int numBytesPerSegment,
             boolean isBroadcastOnly,
+            BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileWriter partitionFileWriter) {
         this.numBytesPerSegment = numBytesPerSegment;
+        this.storageMemoryManager = storageMemoryManager;
+        this.bufferCompressor = bufferCompressor;
         this.segmentIndexTracker =
                 new SubpartitionSegmentIdTrackerImpl(numSubpartitions, isBroadcastOnly);
         this.cacheDataManager =
@@ -91,7 +101,12 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
             return false;
         }
         numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
-        emitBuffer(finishedBuffer, consumerId);
+        emitBuffer(
+                useNewBufferRecyclerAndCompressBuffer(
+                        bufferCompressor,
+                        finishedBuffer,
+                        storageMemoryManager.getOwnerBufferRecycler(this)),
+                consumerId);
         return true;
     }
 

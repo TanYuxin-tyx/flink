@@ -22,6 +22,9 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SpilledBufferContext;
@@ -37,6 +40,7 @@ import java.util.Random;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** Utils for reading or writing to tiered store. */
@@ -212,5 +216,36 @@ public class TieredStorageUtils {
         }
 
         return new String(chars);
+    }
+
+    public static Buffer useNewBufferRecyclerAndCompressBuffer(
+            BufferCompressor bufferCompressor, Buffer originalBuffer, BufferRecycler newRecycler) {
+        if (!originalBuffer.isBuffer()) {
+            return compressBufferIfPossible(bufferCompressor, originalBuffer);
+        }
+        NetworkBuffer buffer =
+                new NetworkBuffer(
+                        originalBuffer.getMemorySegment(),
+                        newRecycler,
+                        originalBuffer.getDataType(),
+                        originalBuffer.getSize());
+        return compressBufferIfPossible(bufferCompressor, buffer);
+    }
+
+    public static Buffer compressBufferIfPossible(
+            BufferCompressor bufferCompressor, Buffer buffer) {
+        if (!canBeCompressed(bufferCompressor, buffer)) {
+            return buffer;
+        }
+
+        return checkNotNull(bufferCompressor).compressToOriginalBuffer(buffer);
+    }
+
+    /**
+     * Whether the buffer can be compressed or not. Note that event is not compressed because it is
+     * usually small and the size can become even larger after compression.
+     */
+    public static boolean canBeCompressed(BufferCompressor bufferCompressor, Buffer buffer) {
+        return bufferCompressor != null && buffer.isBuffer() && buffer.readableBytes() > 0;
     }
 }

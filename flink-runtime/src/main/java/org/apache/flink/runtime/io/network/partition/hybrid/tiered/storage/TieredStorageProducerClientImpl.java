@@ -190,23 +190,25 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
     private void writeAccumulatedBuffer(
             TieredStorageSubpartitionId subpartitionId, Buffer accumulatedBuffer)
             throws IOException {
-        Buffer compressedBuffer = compressBufferIfPossible(accumulatedBuffer);
+        //        Buffer compressedBuffer = compressBufferIfPossible(accumulatedBuffer);
 
         if (currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()] == null) {
             chooseStorageTierToStartSegment(subpartitionId);
         }
 
         if (!currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].tryWrite(
-                subpartitionId.getSubpartitionId(), compressedBuffer)) {
+                subpartitionId.getSubpartitionId(), accumulatedBuffer)) {
             chooseStorageTierToStartSegment(subpartitionId);
             checkState(
                     currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].tryWrite(
-                            subpartitionId.getSubpartitionId(), compressedBuffer),
+                            subpartitionId.getSubpartitionId(), accumulatedBuffer),
                     "Failed to writeRecord the first buffer to the new segment");
         }
-        memoryManager.transferBufferOwnership(
-                bufferAccumulator,
-                currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()]);
+        if (accumulatedBuffer.isBuffer()) {
+            memoryManager.transferBufferOwnership(
+                    bufferAccumulator,
+                    currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()]);
+        }
     }
 
     private void chooseStorageTierToStartSegment(TieredStorageSubpartitionId subpartitionId)

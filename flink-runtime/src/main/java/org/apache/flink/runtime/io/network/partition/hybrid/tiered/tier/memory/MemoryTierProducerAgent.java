@@ -23,6 +23,7 @@ import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.api.EndOfSegmentEvent;
 import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
@@ -40,12 +41,15 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.useNewBufferRecyclerAndCompressBuffer;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** The DataManager of LOCAL file. */
 public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceProducer {
 
     private final int numBuffersPerSegment;
+
+    private final BufferCompressor bufferCompressor;
 
     private final TieredStorageMemoryManager storageMemoryManager;
 
@@ -65,6 +69,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             int numSubpartitions,
             int bufferSize,
             int numBytesPerSegment,
+            BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             boolean isBroadcastOnly,
             TieredStorageNettyService nettyService,
@@ -76,6 +81,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
                 "Broadcast only partition is not allowed to use the memory tier.");
 
         this.numBuffersPerSegment = numBytesPerSegment / bufferSize;
+        this.bufferCompressor = bufferCompressor;
         this.storageMemoryManager = storageMemoryManager;
         this.currentSubpartitionWriteBuffers = new int[numSubpartitions];
         this.nettyServiceRegistered = new boolean[numSubpartitions];
@@ -119,7 +125,12 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             return false;
         }
         currentSubpartitionWriteBuffers[subpartitionIndex]++;
-        addFinishedBuffer(finishedBuffer, subpartitionIndex);
+        addFinishedBuffer(
+                useNewBufferRecyclerAndCompressBuffer(
+                        bufferCompressor,
+                        finishedBuffer,
+                        storageMemoryManager.getOwnerBufferRecycler(this)),
+                subpartitionIndex);
         return true;
     }
 

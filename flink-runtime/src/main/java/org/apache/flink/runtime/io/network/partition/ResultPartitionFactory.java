@@ -293,6 +293,7 @@ public class ResultPartitionFactory {
                                 id,
                                 isBroadcast,
                                 subpartitions,
+                                bufferCompressor,
                                 storageConfiguration,
                                 storageMemoryManager,
                                 nettyService,
@@ -398,6 +399,7 @@ public class ResultPartitionFactory {
             ResultPartitionID id,
             boolean isBroadcast,
             ResultSubpartition[] subpartitions,
+            BufferCompressor bufferCompressor,
             TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyServiceImpl nettyService,
@@ -409,6 +411,7 @@ public class ResultPartitionFactory {
                 isBroadcast,
                 subpartitions,
                 storeConfiguration,
+                bufferCompressor,
                 storageMemoryManager,
                 dataFileBasePath,
                 storeConfiguration.getBaseDfsHomePath(),
@@ -422,6 +425,7 @@ public class ResultPartitionFactory {
             boolean isBroadcast,
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
+            BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             String dataFileBasePath,
             String remoteStorageShuffleHomePath,
@@ -452,6 +456,7 @@ public class ResultPartitionFactory {
                             partitionFileWriter,
                             partitionFileReader,
                             partitionFileIndex,
+                            bufferCompressor,
                             storageMemoryManager,
                             nettyService,
                             batchShuffleReadBufferPool,
@@ -481,8 +486,7 @@ public class ResultPartitionFactory {
     }
 
     private PartitionFileReader createPartitionFileReader(
-            TierFactory tierFactory,
-            String dataFileBasePath) {
+            TierFactory tierFactory, String dataFileBasePath) {
         if (tierFactory.getClass() == DiskTierFactory.class) {
             return ProducerMergePartitionFile.createPartitionFileReader(
                     Paths.get(dataFileBasePath + DATA_FILE_SUFFIX));

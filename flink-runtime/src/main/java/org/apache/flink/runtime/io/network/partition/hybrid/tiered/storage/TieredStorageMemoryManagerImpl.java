@@ -21,11 +21,15 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
+import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -53,6 +57,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  * request buffers from this manager.
  */
 public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManager {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TieredStorageMemoryManagerImpl.class);
 
     /** Time to wait for requesting new buffers before triggering buffer reclaiming. */
     private static final int INITIAL_REQUEST_BUFFER_TIMEOUT_FOR_RECLAIMING_MS = 50;
@@ -202,10 +208,18 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
         if (numOldOwnerRequested == null) {
             throw new RuntimeException("Failed to transfer buffer ownership for " + oldOwner);
         }
-        numOldOwnerRequested.decrementAndGet();
+        checkState(numOldOwnerRequested.decrementAndGet() >= 0);
         numOwnerRequestedBuffers
                 .computeIfAbsent(newOwner, ignore -> new AtomicInteger(0))
                 .incrementAndGet();
+    }
+
+    @Override
+    public BufferRecycler getOwnerBufferRecycler(Object owner) {
+        return memorySegment -> {
+            bufferPool.recycle(memorySegment);
+            decNumRequestedBuffer(owner);
+        };
     }
 
     @Override
@@ -233,6 +247,9 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
 
     private void decNumRequestedBuffer(Object owner) {
         AtomicInteger numOwnerRequestedBuffer = numOwnerRequestedBuffers.get(owner);
+        if (numOwnerRequestedBuffer == null) {
+            LOG.error("Failed to decrease the number for " + owner.getClass());
+        }
         checkNotNull(numOwnerRequestedBuffer).decrementAndGet();
         numRequestedBuffers.decrementAndGet();
     }

@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
+import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
@@ -76,6 +77,7 @@ public class DiskTierFactory implements TierFactory {
             PartitionFileWriter partitionFileWriter,
             PartitionFileReader partitionFileReader,
             PartitionFileIndex partitionFileIndex,
+            BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
@@ -93,6 +95,7 @@ public class DiskTierFactory implements TierFactory {
                 partitionFileWriter,
                 partitionFileReader,
                 partitionFileIndex,
+                bufferCompressor,
                 storageMemoryManager,
                 nettyService,
                 batchShuffleReadBufferPool,

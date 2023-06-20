@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
+import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 
 import java.util.List;
@@ -107,4 +108,6 @@ public interface TieredStorageMemoryManager {
     void release();
 
     void transferBufferOwnership(Object oldOwner, Object newOwner);
+
+    BufferRecycler getOwnerBufferRecycler(Object owner);
 }
