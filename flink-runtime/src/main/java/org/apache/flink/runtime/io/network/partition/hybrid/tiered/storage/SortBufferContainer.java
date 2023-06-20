@@ -122,7 +122,7 @@ public class SortBufferContainer {
         this.subpartitionLastBufferIndexEntries = new long[numSubpartitions];
 
         checkState(numBuffersForSort <= freeSegments.size(), "Wrong number of free segments.");
-        // initialized with -1 means the corresponding channel has no data
+
         Arrays.fill(subpartitionFirstBufferIndexEntries, -1L);
         Arrays.fill(subpartitionLastBufferIndexEntries, -1L);
     }
@@ -201,7 +201,7 @@ public class SortBufferContainer {
 
             // Start reading data from the data buffer
             numBytesRead +=
-                    readRecordOrEvent(
+                    readRecordOrEventToTargetBuffer(
                             readMemorySegment,
                             numBytesRead,
                             toReadBufferIndex,
@@ -295,12 +295,12 @@ public class SortBufferContainer {
                         ? 0
                         : bufferSizeBytes - writeOffsetInCurrentBuffer;
 
-        // return directly if current available bytes is adequate
+        // Return directly if current available bytes is enough
         if (availableBytes >= numBytesRequired) {
             return true;
         }
 
-        // skip the remaining free space if the available bytes is not enough for an index entry
+        // Skip the remaining free space if the available bytes is not enough for an index entry
         if (availableBytes < INDEX_ENTRY_SIZE) {
             updateWriteSegmentIndexAndOffset(availableBytes);
             availableBytes = 0;
@@ -311,7 +311,7 @@ public class SortBufferContainer {
             return false;
         }
 
-        // allocate exactly enough buffers for the appended record
+        // Allocate exactly enough buffers for the appended record
         do {
             MemorySegment segment = freeSegments.poll();
             availableBytes += bufferSizeBytes;
@@ -361,43 +361,41 @@ public class SortBufferContainer {
         }
     }
 
-    private int readRecordOrEvent(
-            MemorySegment targetSegment,
-            int targetSegmentOffset,
-            int sourceSegmentIndex,
-            int sourceSegmentOffset,
+    private int readRecordOrEventToTargetBuffer(
+            MemorySegment targetBuffer,
+            int targetBufferOffset,
+            int sourceBufferIndex,
+            int sourceBufferOffset,
             int recordLength) {
         if (remainingBytesToRead > 0) {
-            // skip the data already read if there is remaining partial record after the previous
-            // copy
-            long position = (long) sourceSegmentOffset + (recordLength - remainingBytesToRead);
-            sourceSegmentIndex += (position / bufferSizeBytes);
-            sourceSegmentOffset = (int) (position % bufferSizeBytes);
+            // Skip the partial record from the last read
+            long position = (long) sourceBufferOffset + (recordLength - remainingBytesToRead);
+            sourceBufferIndex += (position / bufferSizeBytes);
+            sourceBufferOffset = (int) (position % bufferSizeBytes);
         } else {
             remainingBytesToRead = recordLength;
         }
 
-        int targetSegmentSize = targetSegment.size();
-        int numBytesToRead =
-                Math.min(targetSegmentSize - targetSegmentOffset, remainingBytesToRead);
+        int targetSegmentSize = targetBuffer.size();
+        int numBytesToRead = Math.min(targetSegmentSize - targetBufferOffset, remainingBytesToRead);
         MemorySegment sourceSegment;
         do {
-            // move to next data buffer if all data of the current buffer has been copied
-            if (sourceSegmentOffset == bufferSizeBytes) {
-                ++sourceSegmentIndex;
-                sourceSegmentOffset = 0;
+            // Read the next data buffer if all data of the current buffer has been copied
+            if (sourceBufferOffset == bufferSizeBytes) {
+                ++sourceBufferIndex;
+                sourceBufferOffset = 0;
             }
 
             int sourceRemainingBytes =
-                    Math.min(bufferSizeBytes - sourceSegmentOffset, remainingBytesToRead);
-            int numBytes = Math.min(targetSegmentSize - targetSegmentOffset, sourceRemainingBytes);
-            sourceSegment = dataSegments.get(sourceSegmentIndex);
-            sourceSegment.copyTo(sourceSegmentOffset, targetSegment, targetSegmentOffset, numBytes);
+                    Math.min(bufferSizeBytes - sourceBufferOffset, remainingBytesToRead);
+            int numBytes = Math.min(targetSegmentSize - targetBufferOffset, sourceRemainingBytes);
+            sourceSegment = dataSegments.get(sourceBufferIndex);
+            sourceSegment.copyTo(sourceBufferOffset, targetBuffer, targetBufferOffset, numBytes);
 
             remainingBytesToRead -= numBytes;
-            targetSegmentOffset += numBytes;
-            sourceSegmentOffset += numBytes;
-        } while ((remainingBytesToRead > 0 && targetSegmentOffset < targetSegmentSize));
+            targetBufferOffset += numBytes;
+            sourceBufferOffset += numBytes;
+        } while ((remainingBytesToRead > 0 && targetBufferOffset < targetSegmentSize));
 
         return numBytesToRead;
     }

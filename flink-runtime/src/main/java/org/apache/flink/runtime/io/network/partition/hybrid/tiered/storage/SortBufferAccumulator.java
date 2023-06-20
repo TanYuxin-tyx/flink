@@ -39,7 +39,17 @@ import java.util.function.BiConsumer;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** . */
+/**
+ * The sort-based implementation of the {@link BufferAccumulator}. The {@link BufferAccumulator}
+ * receives the records from {@link TieredStorageProducerClient} and the records will accumulate and
+ * transform to finished buffers. The accumulated buffers will be transferred to the corresponding
+ * tier dynamically.
+ *
+ * <p>The {@link BufferAccumulator} can help use less buffers to accumulate data.
+ *
+ * <p>Note that this class need not be thread-safe, because it should only be accessed from the main
+ * thread.
+ */
 public class SortBufferAccumulator implements BufferAccumulator {
     private static final int NUM_WRITE_BUFFER_BYTES = 4 * 1024 * 1024;
 
@@ -164,7 +174,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
     }
 
     private void requestGuaranteedBuffers() {
-        int effectiveRequiredBuffers = effectiveRequestedBuffers();
+        int effectiveRequiredBuffers = effectiveNumRequestedBuffers();
 
         while (freeSegments.size() < effectiveRequiredBuffers) {
             BufferBuilder bufferBuilder = storeMemoryManager.requestBufferBlocking(this);
@@ -179,17 +189,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
     private void requestNetworkBuffers() {
         requestGuaranteedBuffers();
 
-        int numWriteBuffers;
-        if (bufferSizeBytes >= NUM_WRITE_BUFFER_BYTES) {
-            numWriteBuffers = 1;
-        } else {
-            numWriteBuffers =
-                    Math.min(
-                            effectiveRequestedBuffers() / 2,
-                            NUM_WRITE_BUFFER_BYTES / bufferSizeBytes);
-        }
-        numWriteBuffers = Math.min(freeSegments.size() / 2, numWriteBuffers);
-        numBuffersForSort = freeSegments.size() - numWriteBuffers;
+        numBuffersForSort = freeSegments.size() / 2;
     }
 
     private void flushDataBuffer(SortBufferContainer sortBufferContainer) {
@@ -268,7 +268,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         return freeSegment;
     }
 
-    private int effectiveRequestedBuffers() {
+    private int effectiveNumRequestedBuffers() {
         return Math.min(numSubpartitions + 1, numBuffers);
     }
 
@@ -278,11 +278,11 @@ public class SortBufferAccumulator implements BufferAccumulator {
         }
     }
 
-    private void addFinishedBuffer(Pair<Integer, Buffer> bufferAndChannel) {
+    private void addFinishedBuffer(Pair<Integer, Buffer> bufferAndSubpartitionId) {
         checkNotNull(accumulatedBufferFlusher)
                 .accept(
-                        new TieredStorageSubpartitionId(bufferAndChannel.getLeft()),
-                        Collections.singletonList(bufferAndChannel.getRight()));
+                        new TieredStorageSubpartitionId(bufferAndSubpartitionId.getLeft()),
+                        Collections.singletonList(bufferAndSubpartitionId.getRight()));
     }
 
     private void releaseFreeBuffers() {
