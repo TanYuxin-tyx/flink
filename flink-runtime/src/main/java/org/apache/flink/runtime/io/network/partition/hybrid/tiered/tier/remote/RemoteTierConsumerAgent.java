@@ -18,7 +18,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
             requiredSegmentIds;
 
-    public RemoteTierConsumerAgent(RemoteStorageFileScanner remoteStorageFileScanner) {
+    RemoteTierConsumerAgent(RemoteStorageFileScanner remoteStorageFileScanner) {
         this.remoteStorageFileScanner = remoteStorageFileScanner;
         this.requiredSegmentIds = new HashMap<>();
     }

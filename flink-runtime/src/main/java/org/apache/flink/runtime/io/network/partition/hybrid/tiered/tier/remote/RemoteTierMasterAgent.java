@@ -30,10 +30,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.deletePath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.findPathContainsPartition;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateToReleaseJobPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateToReleasePartitionPath;
 
@@ -45,30 +44,33 @@ public class RemoteTierMasterAgent implements TierMasterAgent {
 
     private final String remoteStorageBaseHomePath;
 
-    private final Map<ResultPartitionID, JobID> resultPartitionIdToJobIds;
-
-    public RemoteTierMasterAgent(
+    RemoteTierMasterAgent(
             TieredStorageResourceRegistry resourceRegistry, String remoteStorageBaseHomePath) {
         this.resourceRegistry = resourceRegistry;
         this.remoteStorageBaseHomePath = remoteStorageBaseHomePath;
-        this.resultPartitionIdToJobIds = new HashMap<>();
     }
 
     @Override
-    public void addPartition(JobID jobID, ResultPartitionID resultPartitionID) {
+    public void addPartition(ResultPartitionID resultPartitionID) {
         resourceRegistry.registerResource(
                 TieredStorageIdMappingUtils.convertId(resultPartitionID),
-                createResourceOfReleasePartitionFiles(jobID, resultPartitionID));
-        resultPartitionIdToJobIds.putIfAbsent(resultPartitionID, jobID);
+                createResourceOfReleasePartitionFiles(resultPartitionID));
     }
 
     @Override
     public void releasePartition(ResultPartitionID resultPartitionID) {
-        JobID jobID = resultPartitionIdToJobIds.remove(resultPartitionID);
-        if (jobID != null) {
-            resourceRegistry.clearResourceFor(
-                    TieredStorageIdMappingUtils.convertId(resultPartitionID));
+        try {
+            Path partitionDir =
+                    findPathContainsPartition(
+                            new Path(remoteStorageBaseHomePath), resultPartitionID);
+            if (partitionDir != null) {
+                deletePathQuietly(partitionDir.getPath());
+            }
+        } catch (IOException e) {
+            LOG.error("Failed to release the partition file for {}", resultPartitionID);
         }
+
+        resourceRegistry.clearResourceFor(TieredStorageIdMappingUtils.convertId(resultPartitionID));
     }
 
     @Override
@@ -78,11 +80,10 @@ public class RemoteTierMasterAgent implements TierMasterAgent {
     }
 
     private TieredStorageResource createResourceOfReleasePartitionFiles(
-            JobID jobID, ResultPartitionID resultPartitionID) {
+            ResultPartitionID resultPartitionID) {
         return () -> {
             String toReleasePath =
-                    generateToReleasePartitionPath(
-                            jobID, resultPartitionID, remoteStorageBaseHomePath);
+                    generateToReleasePartitionPath(resultPartitionID, remoteStorageBaseHomePath);
             deletePathQuietly(toReleasePath);
         };
     }
@@ -95,7 +96,7 @@ public class RemoteTierMasterAgent implements TierMasterAgent {
         try {
             deletePath(new Path(toReleasePath));
         } catch (IOException e) {
-            LOG.error("Failed to delete files.", e);
+            LOG.error("Failed to delete files for {} ", toReleasePath, e);
         }
     }
 }

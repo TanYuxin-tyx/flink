@@ -149,7 +149,7 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                         resultPartitionID,
                         partitionDescriptor.isBroadcast());
 
-        tieredStorageMasterClient.register(jobID, resultPartitionID);
+        tieredStorageMasterClient.register(resultPartitionID);
 
         return CompletableFuture.completedFuture(shuffleDeploymentDescriptor);
     }

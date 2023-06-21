@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -197,6 +198,19 @@ public class TieredStorageUtils {
         return String.format("%s/%s/%s/%s", baseDfsPath, TIER_STORE_DIR, jobID, resultPartitionID);
     }
 
+    public static String generateToReleasePartitionPath(
+            ResultPartitionID resultPartitionID, String baseRemoteStoragePath) {
+        if (baseRemoteStoragePath == null) {
+            return null;
+        }
+
+        while (baseRemoteStoragePath.endsWith("/") && baseRemoteStoragePath.length() > 1) {
+            baseRemoteStoragePath =
+                    baseRemoteStoragePath.substring(0, baseRemoteStoragePath.length() - 1);
+        }
+        return String.format("%s/%s", baseRemoteStoragePath, resultPartitionID);
+    }
+
     public static void deletePath(Path path) throws IOException {
         if (path == null) {
             return;
@@ -205,6 +219,34 @@ public class TieredStorageUtils {
         if (fs.exists(path)) {
             fs.delete(path, true);
         }
+    }
+
+    public static FileStatus[] listStatus(Path path) throws IOException {
+        if (path == null) {
+            return null;
+        }
+        FileSystem fs = path.getFileSystem();
+        return fs.listStatus(path);
+    }
+
+    public static Path findPathContainsPartition(Path path, ResultPartitionID resultPartitionID)
+            throws IOException {
+        if (path == null || resultPartitionID == null) {
+            return null;
+        }
+        FileStatus[] jobDirs = listStatus(path);
+        for (FileStatus jobDir : jobDirs) {
+            if (!jobDir.isDir()) {
+                continue;
+            }
+            FileStatus[] partitionDirs = listStatus(jobDir.getPath());
+            for (FileStatus partitionDir : partitionDirs) {
+                if (partitionDir.getPath().toString().endsWith(resultPartitionID.toString())) {
+                    return partitionDir.getPath();
+                }
+            }
+        }
+        return null;
     }
 
     public static Path generateNewSegmentPath(

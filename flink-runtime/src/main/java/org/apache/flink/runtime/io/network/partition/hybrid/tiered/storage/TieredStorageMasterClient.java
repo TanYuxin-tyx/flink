@@ -32,8 +32,8 @@ public class TieredStorageMasterClient {
         this.tiers = tiers;
     }
 
-    public void register(JobID jobID, ResultPartitionID resultPartitionID) {
-        tiers.forEach(tierMasterAgent -> tierMasterAgent.addPartition(jobID, resultPartitionID));
+    public void register(ResultPartitionID resultPartitionID) {
+        tiers.forEach(tierMasterAgent -> tierMasterAgent.addPartition(resultPartitionID));
     }
 
     public void release(ResultPartitionID resultPartitionID) {

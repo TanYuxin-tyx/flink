@@ -47,7 +47,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     private final int[] currentSubpartitionWriteBuffers;
 
-    public RemoteTierProducerAgent(
+    RemoteTierProducerAgent(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
             int numBytesPerSegment,

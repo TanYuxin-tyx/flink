@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMast
 
 public class MemoryTierMasterAgent implements TierMasterAgent {
     @Override
-    public void addPartition(JobID jobID, ResultPartitionID resultPartitionID) {}
+    public void addPartition(ResultPartitionID resultPartitionID) {}
 
     @Override
     public void releasePartition(ResultPartitionID resultPartitionID) {}
