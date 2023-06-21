@@ -226,13 +226,12 @@ public class TieredResultPartition extends ResultPartition {
 
     @Override
     public void close() {
-        // close is called when task is finished or failed.
-        super.close();
-
         // first close the writer
         if (tieredStorageProducerClient != null) {
             tieredStorageProducerClient.close();
         }
+        // close is called when task is finished or failed.
+        super.close();
     }
 
     @Override
