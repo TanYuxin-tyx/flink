@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
@@ -53,6 +54,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     private final int[] subpartitionSegmentIds;
 
     public RemoteTierProducerAgent(
+            TieredStoragePartitionId partitionId,
             int numSubpartitions,
             int numBytesPerSegment,
             boolean isBroadcastOnly,
@@ -72,6 +74,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
         this.subpartitionSegmentIds = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
+        resourceRegistry.registerResource(partitionId, this::releaseAllResources);
     }
 
     @Override
@@ -89,10 +92,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     }
 
     @Override
-    public void release() {
-        cacheDataManager.release();
-        segmentIndexTracker.release();
-    }
+    public void release() {}
 
     @Override
     public boolean tryWrite(int subpartitionId, Buffer buffer) {
@@ -117,6 +117,15 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
             cacheDataManager.finishSegment(subpartitionId, subpartitionSegmentIds[subpartitionId]);
         }
         cacheDataManager.close();
+    }
+
+    // ------------------------------------------------------------------------
+    //  Internal Methods
+    // ------------------------------------------------------------------------
+
+    private void releaseAllResources() {
+        cacheDataManager.release();
+        segmentIndexTracker.release();
     }
 
     private void emitBuffer(Buffer finishedBuffer, int subpartitionId) {

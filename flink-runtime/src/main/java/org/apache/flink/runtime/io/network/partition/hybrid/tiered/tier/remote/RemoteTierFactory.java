@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
-import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
@@ -74,12 +73,14 @@ public class RemoteTierFactory implements TierFactory {
             TieredStorageConfiguration tieredStorageConfiguration,
             TieredStorageResourceRegistry resourceRegistry) {
         return new RemoteTierProducerAgent(
+                partitionID,
                 numSubpartitions,
                 numBytesPerSegment,
                 isBroadcastOnly,
                 bufferCompressor,
+                partitionFileWriter,
                 storageMemoryManager,
-                partitionFileWriter);
+                resourceRegistry);
     }
 
     @Override
