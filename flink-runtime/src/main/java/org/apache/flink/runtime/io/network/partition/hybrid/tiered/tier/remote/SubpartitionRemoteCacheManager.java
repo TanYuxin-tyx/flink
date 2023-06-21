@@ -49,7 +49,7 @@ public class SubpartitionRemoteCacheManager {
 
     private final Deque<NettyPayload> allBuffers = new LinkedList<>();
 
-    private CompletableFuture<Void> hasFlushCompleted = FutureUtils.completedVoidFuture();
+    private CompletableFuture<Void> hasSpillCompleted = FutureUtils.completedVoidFuture();
 
     private int bufferIndex;
 
@@ -61,7 +61,7 @@ public class SubpartitionRemoteCacheManager {
             PartitionFileWriter partitionFileWriter) {
         this.subpartitionId = subpartitionId;
         this.partitionFileWriter = partitionFileWriter;
-        storageMemoryManager.listenBufferReclaimRequest(this::flushBuffers);
+        storageMemoryManager.listenBufferReclaimRequest(this::spillBuffers);
     }
 
     // ------------------------------------------------------------------------
@@ -81,8 +81,8 @@ public class SubpartitionRemoteCacheManager {
     }
 
     void finishSegment(int segmentIndex) {
-        checkState(this.segmentIndex == segmentIndex);
-        int bufferNumber = flushBuffers();
+        checkState(this.segmentIndex == segmentIndex, "Wrong segment index.");
+        int bufferNumber = spillBuffers();
         if (bufferNumber > 0) {
             PartitionFileWriter.SubpartitionSpilledBufferContext finishSegmentBuffer =
                     new PartitionFileWriter.SubpartitionSpilledBufferContext(
@@ -90,7 +90,7 @@ public class SubpartitionRemoteCacheManager {
                             Collections.singletonList(
                                     new PartitionFileWriter.SegmentSpilledBufferContext(
                                             segmentIndex, Collections.emptyList(), true)));
-            hasFlushCompleted =
+            hasSpillCompleted =
                     partitionFileWriter.write(Collections.singletonList(finishSegmentBuffer));
         }
         checkState(allBuffers.isEmpty(), "Leaking buffers.");
@@ -98,21 +98,21 @@ public class SubpartitionRemoteCacheManager {
 
     void close() {
         try {
-            hasFlushCompleted.get();
+            hasSpillCompleted.get();
         } catch (Exception e) {
             LOG.error("Failed to finish the spilling process.", e);
             ExceptionUtils.rethrow(e);
         }
-        flushBuffers();
+        spillBuffers();
     }
 
     /** Release all buffers. */
     void release() {
-        // Wait the flushing buffers to be completed before released
+        // Wait the spilling buffers to be completed before released
         try {
-            hasFlushCompleted.get();
+            hasSpillCompleted.get();
         } catch (Exception e) {
-            LOG.error("Failed to flush the buffers.", e);
+            LOG.error("Failed to spill the buffers.", e);
             ExceptionUtils.rethrow(e);
         }
 
@@ -123,7 +123,7 @@ public class SubpartitionRemoteCacheManager {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private int flushBuffers() {
+    private int spillBuffers() {
         synchronized (allBuffers) {
             List<NettyPayload> allBuffersToFlush = new ArrayList<>(allBuffers);
             allBuffers.clear();
@@ -139,7 +139,7 @@ public class SubpartitionRemoteCacheManager {
                                             segmentIndex,
                                             convertToSpilledBufferContext(allBuffersToFlush),
                                             false)));
-            hasFlushCompleted =
+            hasSpillCompleted =
                     partitionFileWriter.write(
                             Collections.singletonList(subpartitionSpilledBuffers));
             return allBuffersToFlush.size();
