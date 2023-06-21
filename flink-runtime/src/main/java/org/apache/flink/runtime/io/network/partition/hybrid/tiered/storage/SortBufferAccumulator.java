@@ -122,33 +122,32 @@ public class SortBufferAccumulator implements BufferAccumulator {
             ByteBuffer record,
             TieredStorageSubpartitionId subpartitionId,
             Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
+            boolean isBroadcast)
             throws IOException {
         int targetSubpartition = subpartitionId.getSubpartitionId();
         SortBufferContainer sortBufferContainer =
                 isBroadcast ? getBroadcastDataBuffer() : getUnicastDataBuffer();
         if (!sortBufferContainer.writeRecord(record, targetSubpartition, dataType)) {
-            flushContainerWhenEndOfPartition(isEndOfPartition, sortBufferContainer);
             return;
         }
 
         if (!sortBufferContainer.hasRemaining()) {
             sortBufferContainer.release();
             writeLargeRecord(record, targetSubpartition, dataType);
-            flushContainerWhenEndOfPartition(isEndOfPartition, sortBufferContainer);
             return;
         }
 
         flushDataBuffer(sortBufferContainer);
         sortBufferContainer.release();
         if (record.hasRemaining()) {
-            receive(record, subpartitionId, dataType, isBroadcast, isEndOfPartition);
+            receive(record, subpartitionId, dataType, isBroadcast);
         }
     }
 
     @Override
     public void close() {
+        flushUnicastDataBuffer();
+        flushBroadcastDataBuffer();
         releaseFreeBuffers();
         releaseDataBuffer(unicastDataBuffer);
         releaseDataBuffer(broadcastDataBuffer);

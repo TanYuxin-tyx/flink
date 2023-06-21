@@ -159,13 +159,13 @@ public class TieredResultPartition extends ResultPartition {
     @Override
     public void emitRecord(ByteBuffer record, int consumerId) throws IOException {
         resultPartitionBytes.inc(consumerId, record.remaining());
-        emit(record, consumerId, Buffer.DataType.DATA_BUFFER, false, false);
+        emit(record, consumerId, Buffer.DataType.DATA_BUFFER, false);
     }
 
     @Override
     public void broadcastRecord(ByteBuffer record) throws IOException {
         resultPartitionBytes.incAll(record.remaining());
-        broadcast(record, Buffer.DataType.DATA_BUFFER, false);
+        broadcast(record, Buffer.DataType.DATA_BUFFER);
     }
 
     @Override
@@ -173,32 +173,22 @@ public class TieredResultPartition extends ResultPartition {
         Buffer buffer = EventSerializer.toBuffer(event, isPriorityEvent);
         try {
             ByteBuffer serializedEvent = buffer.getNioBufferReadable();
-            broadcast(serializedEvent, buffer.getDataType(), false);
+            broadcast(serializedEvent, buffer.getDataType());
         } finally {
             buffer.recycleBuffer();
         }
     }
 
-    private void broadcast(ByteBuffer record, Buffer.DataType dataType, boolean isEndOfPartition)
-            throws IOException {
+    private void broadcast(ByteBuffer record, Buffer.DataType dataType) throws IOException {
         checkInProduceState();
-        emit(record, 0, dataType, true, isEndOfPartition);
+        emit(record, 0, dataType, true);
     }
 
     private void emit(
-            ByteBuffer record,
-            int consumerId,
-            Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
+            ByteBuffer record, int consumerId, Buffer.DataType dataType, boolean isBroadcast)
             throws IOException {
         checkNotNull(tieredStorageProducerClient)
-                .write(
-                        record,
-                        new TieredStorageSubpartitionId(consumerId),
-                        dataType,
-                        isBroadcast,
-                        isEndOfPartition);
+                .write(record, new TieredStorageSubpartitionId(consumerId), dataType, isBroadcast);
     }
 
     private void updateProducerMetricStatistics(
@@ -226,7 +216,7 @@ public class TieredResultPartition extends ResultPartition {
         Buffer buffer = EventSerializer.toBuffer(event, false);
         try {
             ByteBuffer serializedEvent = buffer.getNioBufferReadable();
-            broadcast(serializedEvent, buffer.getDataType(), true);
+            broadcast(serializedEvent, buffer.getDataType());
         } finally {
             buffer.recycleBuffer();
         }
@@ -238,6 +228,7 @@ public class TieredResultPartition extends ResultPartition {
     public void close() {
         // close is called when task is finished or failed.
         super.close();
+
         // first close the writer
         if (tieredStorageProducerClient != null) {
             tieredStorageProducerClient.close();
