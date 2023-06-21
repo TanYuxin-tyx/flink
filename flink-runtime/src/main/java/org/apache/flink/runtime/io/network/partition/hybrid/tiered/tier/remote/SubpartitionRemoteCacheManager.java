@@ -97,10 +97,11 @@ public class SubpartitionRemoteCacheManager {
     }
 
     void close() {
+        // Wait the spilling buffers to be completed before closed
         try {
             hasSpillCompleted.get();
         } catch (Exception e) {
-            LOG.error("Failed to finish the spilling process.", e);
+            LOG.error("Failed to spill the buffers.", e);
             ExceptionUtils.rethrow(e);
         }
         spillBuffers();
@@ -108,14 +109,9 @@ public class SubpartitionRemoteCacheManager {
 
     /** Release all buffers. */
     void release() {
-        // Wait the spilling buffers to be completed before released
-        try {
-            hasSpillCompleted.get();
-        } catch (Exception e) {
-            LOG.error("Failed to spill the buffers.", e);
-            ExceptionUtils.rethrow(e);
-        }
-
+        checkState(
+                hasSpillCompleted.isDone() || hasSpillCompleted.isCancelled(),
+                "Uncompleted spilling buffers.");
         checkState(allBuffers.isEmpty(), "Leaking buffers.");
     }
 
