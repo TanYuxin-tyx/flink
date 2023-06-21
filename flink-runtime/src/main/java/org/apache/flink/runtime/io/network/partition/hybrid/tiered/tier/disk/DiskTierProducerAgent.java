@@ -140,8 +140,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         storeConfiguration.getMaxBuffersReadAhead(),
                         nettyService,
                         firstBufferIndexInSegment,
-                        partitionFileReader,
-                        partitionFileIndex);
+                        partitionFileReader
+                );
         nettyService.registerProducer(partitionId, this);
         resourceRegistry.registerResource(partitionId, this::releaseResources);
     }
