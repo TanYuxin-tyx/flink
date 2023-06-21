@@ -126,6 +126,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
             Buffer.DataType dataType,
             boolean isBroadcast)
             throws IOException {
+        checkState(!isClosed, "Buffer accumulator has been closed.");
         int targetSubpartition = subpartitionId.getSubpartitionId();
         SortBufferContainer sortBufferContainer =
                 isBroadcast ? getBroadcastDataBuffer() : getUnicastDataBuffer();
