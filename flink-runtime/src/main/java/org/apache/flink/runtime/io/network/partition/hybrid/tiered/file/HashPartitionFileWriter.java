@@ -23,6 +23,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
@@ -75,6 +76,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
 
     @Override
     public CompletableFuture<Void> write(
+            TieredStoragePartitionId partitionId,
             List<PartitionFileWriter.SubpartitionSpilledBufferContext> spilledBuffers) {
         List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
         spilledBuffers.forEach(

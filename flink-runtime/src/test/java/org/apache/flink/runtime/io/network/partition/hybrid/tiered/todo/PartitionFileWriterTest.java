@@ -25,6 +25,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergePartitionFile;
@@ -87,6 +89,7 @@ class PartitionFileWriterTest {
                         Arrays.asList(Tuple2.of(4, 0), Tuple2.of(5, 1), Tuple2.of(6, 2))));
         CompletableFuture<Void> spillFinishedFuture =
                 partitionFileWriter.write(
+                        TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
                         Collections.singletonList(getSubpartitionSpilledBuffers(nettyPayloadList)));
         spillFinishedFuture.get();
         checkData(
@@ -110,6 +113,7 @@ class PartitionFileWriterTest {
                                 Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
         CompletableFuture<Void> spillFinishedFuture =
                 partitionFileWriter.write(
+                        TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
                         Collections.singletonList(getSubpartitionSpilledBuffers(nettyPayloadList)));
         spillFinishedFuture.get();
         partitionFileWriter.release();
@@ -117,6 +121,8 @@ class PartitionFileWriterTest {
         assertThatThrownBy(
                         () ->
                                 partitionFileWriter.write(
+                                        TieredStorageIdMappingUtils.convertId(
+                                                new ResultPartitionID()),
                                         Collections.singletonList(
                                                 getSubpartitionSpilledBuffers(nettyPayloadList))))
                 .isInstanceOf(RejectedExecutionException.class);

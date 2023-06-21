@@ -127,6 +127,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
         }
         this.diskCacheManager =
                 new DiskCacheManager(
+                        partitionId,
                         isBroadcastOnly ? 1 : numSubpartitions,
                         storageMemoryManager,
                         partitionFileWriter);
@@ -140,8 +141,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         storeConfiguration.getMaxBuffersReadAhead(),
                         nettyService,
                         firstBufferIndexInSegment,
-                        partitionFileReader
-                );
+                        partitionFileReader);
         nettyService.registerProducer(partitionId, this);
         resourceRegistry.registerResource(partitionId, this::releaseResources);
     }

@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -44,6 +45,8 @@ public class SubpartitionRemoteCacheManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(SubpartitionRemoteCacheManager.class);
 
+    private final TieredStoragePartitionId partitionId;
+
     private final int subpartitionId;
 
     private final PartitionFileWriter partitionFileWriter;
@@ -57,9 +60,11 @@ public class SubpartitionRemoteCacheManager {
     private int segmentIndex = -1;
 
     public SubpartitionRemoteCacheManager(
+            TieredStoragePartitionId partitionId,
             int subpartitionId,
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileWriter partitionFileWriter) {
+        this.partitionId = partitionId;
         this.subpartitionId = subpartitionId;
         this.partitionFileWriter = partitionFileWriter;
         storageMemoryManager.listenBufferReclaimRequest(this::spillBuffers);
@@ -92,7 +97,8 @@ public class SubpartitionRemoteCacheManager {
                                     new PartitionFileWriter.SegmentSpilledBufferContext(
                                             segmentIndex, Collections.emptyList(), true)));
             hasSpillCompleted =
-                    partitionFileWriter.write(Collections.singletonList(finishSegmentBuffer));
+                    partitionFileWriter.write(
+                            partitionId, Collections.singletonList(finishSegmentBuffer));
         }
         checkState(allBuffers.isEmpty(), "Leaking buffers.");
     }
@@ -139,7 +145,7 @@ public class SubpartitionRemoteCacheManager {
                                             false)));
             hasSpillCompleted =
                     partitionFileWriter.write(
-                            Collections.singletonList(subpartitionSpilledBuffers));
+                            partitionId, Collections.singletonList(subpartitionSpilledBuffers));
             return allBuffersToFlush.size();
         }
     }

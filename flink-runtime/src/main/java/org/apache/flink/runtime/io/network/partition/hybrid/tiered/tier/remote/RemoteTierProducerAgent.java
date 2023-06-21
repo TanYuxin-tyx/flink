@@ -67,7 +67,10 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
         this.bufferCompressor = bufferCompressor;
         this.cacheDataManager =
                 new RemoteCacheManager(
-                        isBroadcastOnly ? 1 : numSubpartitions, memoryManager, partitionFileWriter);
+                        partitionId,
+                        isBroadcastOnly ? 1 : numSubpartitions,
+                        memoryManager,
+                        partitionFileWriter);
         this.currentSubpartitionWriteBuffers = new int[numSubpartitions];
         Arrays.fill(currentSubpartitionWriteBuffers, 0);
         resourceRegistry.registerResource(partitionId, this::releaseAllResources);

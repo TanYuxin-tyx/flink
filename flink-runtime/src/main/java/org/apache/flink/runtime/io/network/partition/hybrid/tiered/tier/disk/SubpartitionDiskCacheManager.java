@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 
 import java.nio.ByteBuffer;
@@ -42,7 +43,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 class SubpartitionDiskCacheManager {
 
-    /** The segment id of the {@link SubpartitionDiskCacheManager}. */
+    private final TieredStoragePartitionId partitionId;
+
     private final int subpartitionId;
 
     // Note that this field can be accessed by the task thread or the write IO thread, so the thread
@@ -61,7 +63,8 @@ class SubpartitionDiskCacheManager {
      */
     private int segmentIndex;
 
-    SubpartitionDiskCacheManager(int subpartitionId) {
+    SubpartitionDiskCacheManager(TieredStoragePartitionId partitionId, int subpartitionId) {
+        this.partitionId = partitionId;
         this.subpartitionId = subpartitionId;
     }
 

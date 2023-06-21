@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -38,6 +39,8 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
  */
 class DiskCacheManager {
 
+    private final TieredStoragePartitionId partitionId;
+
     private final int numSubpartitions;
 
     private final PartitionFileWriter partitionFileWriter;
@@ -47,9 +50,11 @@ class DiskCacheManager {
     private CompletableFuture<Void> hasFlushCompleted;
 
     DiskCacheManager(
+            TieredStoragePartitionId partitionId,
             int numSubpartitions,
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileWriter partitionFileWriter) {
+        this.partitionId = partitionId;
         this.numSubpartitions = numSubpartitions;
         this.partitionFileWriter = partitionFileWriter;
         this.subpartitionCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
@@ -57,7 +62,7 @@ class DiskCacheManager {
 
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionCacheManagers[subpartitionId] =
-                    new SubpartitionDiskCacheManager(subpartitionId);
+                    new SubpartitionDiskCacheManager(partitionId, subpartitionId);
         }
         storageMemoryManager.listenBufferReclaimRequest(this::notifyFlushCachedBuffers);
     }
@@ -139,7 +144,7 @@ class DiskCacheManager {
 
         if (numToWriteBuffers > 0) {
             CompletableFuture<Void> flushCompletableFuture =
-                    partitionFileWriter.write(buffersToSpill);
+                    partitionFileWriter.write(partitionId, buffersToSpill);
             if (!needForceFlush) {
                 hasFlushCompleted = flushCompletableFuture;
             }

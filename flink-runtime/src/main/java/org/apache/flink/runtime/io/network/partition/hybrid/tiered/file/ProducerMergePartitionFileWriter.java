@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
@@ -93,6 +94,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
 
     @Override
     public CompletableFuture<Void> write(
+            TieredStoragePartitionId partitionId,
             List<PartitionFileWriter.SubpartitionSpilledBufferContext> spilledBuffers) {
         List<SpilledBufferContext> buffersToSpill =
                 spilledBuffers.stream()

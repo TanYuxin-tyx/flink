@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -31,10 +33,14 @@ public interface PartitionFileWriter {
      * Write the {@link SpilledBufferContext}s to the partition file. The written buffers may belong
      * to multiple subpartitions.
      *
+     * @param partitionId the partition id
+     * @param spilledBuffers the buffers to be flushed
      * @return the completable future indicating whether the writing file process has finished. If
      *     the {@link CompletableFuture} is completed, the written process is completed.
      */
-    CompletableFuture<Void> write(List<SubpartitionSpilledBufferContext> spilledBuffers);
+    CompletableFuture<Void> write(
+            TieredStoragePartitionId partitionId,
+            List<SubpartitionSpilledBufferContext> spilledBuffers);
 
     /** Release all the resources of the {@link PartitionFileWriter}. */
     void release();
