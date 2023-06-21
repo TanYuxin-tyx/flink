@@ -94,6 +94,7 @@ class SubpartitionDiskCacheManager {
     }
 
     public void release() {
+        recycleBuffers();
         checkState(allBuffers.isEmpty(), "Leaking buffers.");
     }
 
@@ -118,5 +119,15 @@ class SubpartitionDiskCacheManager {
             bufferIndex++;
             allBuffers.add(nettyPayload);
         }
+    }
+
+    private void recycleBuffers() {
+        for (NettyPayload nettyPayload : allBuffers) {
+            Buffer buffer = nettyPayload.getBuffer().get();
+            if (!buffer.isRecycled()) {
+                buffer.recycleBuffer();
+            }
+        }
+        allBuffers.clear();
     }
 }
