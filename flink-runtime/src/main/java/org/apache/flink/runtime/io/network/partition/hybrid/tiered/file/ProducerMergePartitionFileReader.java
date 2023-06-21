@@ -37,8 +37,15 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
+import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * The implementation of {@link PartitionFileReader} with producer-merge mode. In this mode, the
@@ -49,14 +56,21 @@ import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUt
  */
 public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
+    private final Map<TieredStorageSubpartitionId, List<SubpartitionFileReadProgress>>
+            subpartitionReadCache;
+
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
     private final Path dataFilePath;
 
     @Nullable private FileChannel fileChannel;
 
-    ProducerMergePartitionFileReader(Path dataFilePath) {
+    private final PartitionFileIndex dataIndex;
+
+    ProducerMergePartitionFileReader(Path dataFilePath, PartitionFileIndex dataIndex) {
         this.dataFilePath = dataFilePath;
+        this.dataIndex = dataIndex;
+        this.subpartitionReadCache = new HashMap<>();
     }
 
     @Override
@@ -64,10 +78,25 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            long fileOffSet,
+            int bufferIndex,
             MemorySegment segment,
             BufferRecycler recycler)
             throws IOException {
+        List<SubpartitionFileReadProgress> progresses =
+                subpartitionReadCache.computeIfAbsent(subpartitionId, ignore -> new ArrayList<>());
+
+        SubpartitionFileReadProgress matchedReadProgress =
+                getMatchedReadProgress(progresses, bufferIndex);
+        if (matchedReadProgress == null) {
+            checkState(bufferIndex == 0);
+            matchedReadProgress = new SubpartitionFileReadProgress(subpartitionId);
+            progresses.add(matchedReadProgress);
+        }
+
+        if (!matchedReadProgress.hasBuffer()) {
+            return null;
+        }
+        long fileOffSet = matchedReadProgress.getCurrentFileOffset();
         if (fileChannel == null) {
             try {
                 fileChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
@@ -87,12 +116,100 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to read buffer.");
         }
+        matchedReadProgress.advance(
+                checkNotNull(buffer).readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
         return buffer;
+    }
+
+    @Override
+    public long getReadingFileOffset(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId,
+            int bufferIndex) {
+        List<SubpartitionFileReadProgress> progresses =
+                subpartitionReadCache.computeIfAbsent(subpartitionId, ignore -> new ArrayList<>());
+        for (SubpartitionFileReadProgress progress : progresses) {
+            if (progress.getCurrentBufferIndex() == bufferIndex) {
+                return progress.currentFileOffset;
+            }
+        }
+        return 0;
     }
 
     @Override
     public void release() {
         fileChannel = null;
         IOUtils.deleteFileQuietly(dataFilePath);
+    }
+
+    private SubpartitionFileReadProgress getMatchedReadProgress(
+            List<SubpartitionFileReadProgress> progresses, int bufferIndex) {
+        for (SubpartitionFileReadProgress progress : progresses) {
+            if (progress.getCurrentBufferIndex() == bufferIndex) {
+                return progress;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * {@link SubpartitionFileReadProgress} is used to record the necessary information of reading
+     * progress of a subpartition reader, which includes the id of subpartition, current file
+     * offset, and the number of available buffers in the subpartition.
+     */
+    private class SubpartitionFileReadProgress {
+
+        private final TieredStorageSubpartitionId subpartitionId;
+
+        private long currentFileOffset = Long.MAX_VALUE;
+
+        private int regionId = 0;
+
+        private int numBuffersReadable;
+
+        private int bufferIndex = 0;
+
+        public SubpartitionFileReadProgress(TieredStorageSubpartitionId subpartitionId) {
+            this.subpartitionId = subpartitionId;
+        }
+
+        public int getCurrentBufferIndex() {
+            return bufferIndex;
+        }
+
+        private boolean hasBuffer() {
+            if (numBuffersReadable == 0) {
+                Optional<PartitionFileIndex.Region> region =
+                        dataIndex.getRegion(subpartitionId.getSubpartitionId(), regionId);
+                if (region.isPresent()) {
+                    regionId++;
+                    numBuffersReadable = region.get().getNumBuffers();
+                    currentFileOffset = region.get().getRegionFileOffset();
+                }
+            }
+            return numBuffersReadable != 0;
+        }
+
+        /**
+         * Get the current file offset.
+         *
+         * @return the file offset.
+         */
+        private long getCurrentFileOffset() {
+            return currentFileOffset;
+        }
+
+        /**
+         * Update the progress.
+         *
+         * @param bufferSize is the size of buffer.
+         */
+        private void advance(long bufferSize) {
+            bufferIndex++;
+            numBuffersReadable--;
+            currentFileOffset += bufferSize;
+            checkState(numBuffersReadable >= 0);
+        }
     }
 }

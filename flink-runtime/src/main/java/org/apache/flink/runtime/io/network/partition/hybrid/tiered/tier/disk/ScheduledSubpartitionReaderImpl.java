@@ -21,7 +21,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
-import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex;
@@ -34,11 +33,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /** The implementation of {@link ScheduledSubpartitionReaderImpl}. */
 public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionReader {
@@ -59,11 +56,7 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
 
     private final PartitionFileReader partitionFileReader;
 
-    private final PartitionFileIndex dataIndex;
-
-    private final SubpartitionReaderProgress subpartitionReaderProgress;
-
-    private int nextToLoad = 0;
+    private int nextBufferIndex = 0;
 
     private boolean isFailed;
 
@@ -84,9 +77,6 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
         this.nettyConnectionWriter = nettyConnectionWriter;
         this.segmentIdRecorder = segmentIdRecorder;
         this.partitionFileReader = partitionFileReader;
-        this.dataIndex = dataIndex;
-        this.subpartitionReaderProgress =
-                new SubpartitionReaderProgress(subpartitionId.getSubpartitionId());
     }
 
     @Override
@@ -104,14 +94,9 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
         if (nettyConnectionWriter.numQueuedBuffers() >= maxBufferReadAhead) {
             return;
         }
-        int numRemainingBuffer = subpartitionReaderProgress.getReadableBufferNumber();
-        if (numRemainingBuffer == 0) {
-            return;
-        }
         int numLoaded = 0;
         while (!buffers.isEmpty()
-                && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead
-                && numRemainingBuffer-- > 0) {
+                && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead) {
             MemorySegment memorySegment = buffers.poll();
             Buffer buffer;
             try {
@@ -120,7 +105,7 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
                                         partitionId,
                                         subpartitionId,
                                         -1,
-                                        subpartitionReaderProgress.getCurrentFileOffset(),
+                                        nextBufferIndex,
                                         memorySegment,
                                         recycler))
                         == null) {
@@ -131,11 +116,9 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
                 buffers.add(memorySegment);
                 throw throwable;
             }
-            subpartitionReaderProgress.advance(
-                    buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
             NettyPayload nettyPayload =
                     NettyPayload.newBuffer(
-                            buffer, nextToLoad++, subpartitionId.getSubpartitionId());
+                            buffer, nextBufferIndex++, subpartitionId.getSubpartitionId());
             Integer segmentId = segmentIdRecorder.get(nettyPayload.getBufferIndex());
             if (segmentId != null) {
                 nettyConnectionWriter.writeBuffer(NettyPayload.newSegment(segmentId));
@@ -160,7 +143,8 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
 
     @Override
     public long getReadingFileOffset() {
-        return subpartitionReaderProgress.getCurrentFileOffset();
+        return partitionFileReader.getReadingFileOffset(
+                partitionId, subpartitionId, -1, nextBufferIndex);
     }
 
     @Override
@@ -172,63 +156,5 @@ public class ScheduledSubpartitionReaderImpl implements ScheduledSubpartitionRea
         nettyConnectionWriter.close(failureCause);
         ((TieredStorageNettyServiceImpl) nettyService)
                 .notifyResultSubpartitionViewSendBuffer(nettyServiceWriterId);
-    }
-
-    /**
-     * {@link SubpartitionReaderProgress} is used to record the necessary information of reading
-     * progress of a subpartition reader, which includes the id of subpartition, current file
-     * offset, and the number of available buffers in the subpartition.
-     */
-    private class SubpartitionReaderProgress {
-
-        private final int subpartitionId;
-
-        private long currentFileOffset = Long.MAX_VALUE;
-
-        private int regionId = 0;
-
-        private int numBuffersReadable;
-
-        public SubpartitionReaderProgress(int subpartitionId) {
-            this.subpartitionId = subpartitionId;
-        }
-
-        /**
-         * Get the number of readable buffers for a {@link NettyConnectionWriter}.
-         *
-         * @return the number of readable buffers.
-         */
-        private int getReadableBufferNumber() {
-            if (numBuffersReadable == 0) {
-                Optional<PartitionFileIndex.Region> region =
-                        dataIndex.getRegion(subpartitionId, regionId);
-                if (region.isPresent()) {
-                    regionId++;
-                    numBuffersReadable = region.get().getNumBuffers();
-                    currentFileOffset = region.get().getRegionFileOffset();
-                }
-            }
-            return numBuffersReadable;
-        }
-
-        /**
-         * Get the current file offset.
-         *
-         * @return the file offset.
-         */
-        private long getCurrentFileOffset() {
-            return currentFileOffset;
-        }
-
-        /**
-         * Update the progress.
-         *
-         * @param bufferSize is the size of buffer.
-         */
-        private void advance(long bufferSize) {
-            numBuffersReadable--;
-            currentFileOffset += bufferSize;
-            checkState(numBuffersReadable >= 0);
-        }
     }
 }
