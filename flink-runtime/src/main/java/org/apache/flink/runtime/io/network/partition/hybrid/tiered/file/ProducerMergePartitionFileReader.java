@@ -37,11 +37,11 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -49,14 +49,11 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * The implementation of {@link PartitionFileReader} with producer-merge mode. In this mode, the
- * shuffle data is written in the producer side, the consumer side need to read multiple producers
- * to get its partition data.
- *
- * <p>Note that one partition file may contain the data of multiple subpartitions.
+ * shuffle data is written in the producer side with a single file.
  */
 public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
-    private final Map<TieredStorageSubpartitionId, List<SubpartitionFileReadProgress>>
+    private final Map<TieredStorageSubpartitionId, Map<Integer, Queue<SubpartitionReadCache>>>
             subpartitionReadCache;
 
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
@@ -82,21 +79,23 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
             MemorySegment segment,
             BufferRecycler recycler)
             throws IOException {
-        List<SubpartitionFileReadProgress> progresses =
-                subpartitionReadCache.computeIfAbsent(subpartitionId, ignore -> new ArrayList<>());
-
-        SubpartitionFileReadProgress matchedReadProgress =
-                getMatchedReadProgress(progresses, bufferIndex);
-        if (matchedReadProgress == null) {
+        Map<Integer, Queue<SubpartitionReadCache>> progresses =
+                subpartitionReadCache.computeIfAbsent(subpartitionId, ignore -> new HashMap<>());
+        Queue<SubpartitionReadCache> subpartitionProgresses =
+                progresses.computeIfAbsent(bufferIndex, ignore -> new LinkedList<>());
+        SubpartitionReadCache currentProgress =
+                subpartitionProgresses.isEmpty() ? null : subpartitionProgresses.peek();
+        if (currentProgress == null) {
             checkState(bufferIndex == 0);
-            matchedReadProgress = new SubpartitionFileReadProgress(subpartitionId);
-            progresses.add(matchedReadProgress);
+            currentProgress = new SubpartitionReadCache(subpartitionId);
+            subpartitionProgresses.add(currentProgress);
+            progresses.put(0, subpartitionProgresses);
         }
 
-        if (!matchedReadProgress.hasBuffer()) {
+        if (!currentProgress.hasBuffer()) {
             return null;
         }
-        long fileOffSet = matchedReadProgress.getCurrentFileOffset();
+        long fileOffSet = currentProgress.getCurrentFileOffset();
         if (fileChannel == null) {
             try {
                 fileChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
@@ -116,8 +115,16 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to read buffer.");
         }
-        matchedReadProgress.advance(
+        currentProgress.advance(
                 checkNotNull(buffer).readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH);
+        subpartitionProgresses.poll();
+        if (subpartitionProgresses.isEmpty()) {
+            progresses.remove(bufferIndex);
+        }
+        progresses
+                .computeIfAbsent(
+                        currentProgress.getCurrentBufferIndex(), ignore -> new LinkedList<>())
+                .add(currentProgress);
         return buffer;
     }
 
@@ -127,14 +134,11 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex) {
-        List<SubpartitionFileReadProgress> progresses =
-                subpartitionReadCache.computeIfAbsent(subpartitionId, ignore -> new ArrayList<>());
-        for (SubpartitionFileReadProgress progress : progresses) {
-            if (progress.getCurrentBufferIndex() == bufferIndex) {
-                return progress.currentFileOffset;
-            }
-        }
-        return 0;
+        Queue<SubpartitionReadCache> progress =
+                subpartitionReadCache
+                        .computeIfAbsent(subpartitionId, ignore -> new HashMap<>())
+                        .computeIfAbsent(bufferIndex, ignore -> new LinkedList<>());
+        return progress.isEmpty() ? 0 : progress.peek().getCurrentBufferIndex();
     }
 
     @Override
@@ -143,22 +147,11 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
         IOUtils.deleteFileQuietly(dataFilePath);
     }
 
-    private SubpartitionFileReadProgress getMatchedReadProgress(
-            List<SubpartitionFileReadProgress> progresses, int bufferIndex) {
-        for (SubpartitionFileReadProgress progress : progresses) {
-            if (progress.getCurrentBufferIndex() == bufferIndex) {
-                return progress;
-            }
-        }
-        return null;
-    }
-
     /**
-     * {@link SubpartitionFileReadProgress} is used to record the necessary information of reading
-     * progress of a subpartition reader, which includes the id of subpartition, current file
-     * offset, and the number of available buffers in the subpartition.
+     * {@link SubpartitionReadCache} is the cache to record the reading progress for a consumer of a
+     * subpartition.
      */
-    private class SubpartitionFileReadProgress {
+    private class SubpartitionReadCache {
 
         private final TieredStorageSubpartitionId subpartitionId;
 
@@ -170,7 +163,7 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
         private int bufferIndex = 0;
 
-        public SubpartitionFileReadProgress(TieredStorageSubpartitionId subpartitionId) {
+        public SubpartitionReadCache(TieredStorageSubpartitionId subpartitionId) {
             this.subpartitionId = subpartitionId;
         }
 
@@ -201,7 +194,7 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
         }
 
         /**
-         * Update the progress.
+         * Update the cache.
          *
          * @param bufferSize is the size of buffer.
          */
