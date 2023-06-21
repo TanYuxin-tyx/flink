@@ -34,6 +34,7 @@ public interface PartitionFileReader {
      *
      * @param partitionId partition id indicates the id of partition.
      * @param subpartitionId subpartition id indicates the id of subpartition.
+     * @param segmentId segment id indicates the id of segment.
      * @param bufferIndex the index of buffer.
      * @param memorySegment memory segment indicates an empty buffer.
      * @param recycler recycler indicates the owner of the buffer.
@@ -48,7 +49,16 @@ public interface PartitionFileReader {
             BufferRecycler recycler)
             throws IOException;
 
-    long getReadingFileOffset(
+    /**
+     * Get the file offset of a reader.
+     *
+     * @param partitionId partition id indicates the id of partition.
+     * @param subpartitionId subpartition id indicates the id of subpartition.
+     * @param segmentId segment id indicates the id of segment.
+     * @param bufferIndex the index of buffer.
+     * @return the file offset.
+     */
+    long getFileOffset(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,

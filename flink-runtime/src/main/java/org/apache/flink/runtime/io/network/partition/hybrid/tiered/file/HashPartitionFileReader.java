@@ -124,7 +124,7 @@ public class HashPartitionFileReader implements PartitionFileReader {
     }
 
     @Override
-    public long getReadingFileOffset(
+    public long getFileOffset(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,

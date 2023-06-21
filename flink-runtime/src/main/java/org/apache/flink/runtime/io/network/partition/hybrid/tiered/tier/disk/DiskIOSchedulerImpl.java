@@ -159,6 +159,7 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
         }
     }
 
+    @Override
     public void release() {
         synchronized (lock) {
             if (isReleased) {
@@ -298,6 +299,10 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
         return bufferPool.getLastBufferOperationTimestamp() + bufferRequestTimeout.toMillis();
     }
 
+    /**
+     * {@link ScheduledSubpartitionReader} is the reader of a subpartition, which is scheduled by
+     * {@link DiskIOScheduler} and read data from disk.
+     */
     private class ScheduledSubpartitionReader implements Comparable<ScheduledSubpartitionReader> {
 
         private final TieredStorageSubpartitionId subpartitionId;
@@ -382,12 +387,12 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
             return Long.compare(getReadingFileOffset(), reader.getReadingFileOffset());
         }
 
-        public long getReadingFileOffset() {
-            return partitionFileReader.getReadingFileOffset(
+        private long getReadingFileOffset() {
+            return partitionFileReader.getFileOffset(
                     partitionId, subpartitionId, -1, nextBufferIndex);
         }
 
-        public void failReader(Throwable failureCause) {
+        private void failReader(Throwable failureCause) {
             if (isFailed) {
                 return;
             }
