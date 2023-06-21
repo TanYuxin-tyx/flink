@@ -45,8 +45,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     private final TieredStorageMemoryManager memoryManager;
 
-    private final int[] currentSubpartitionSegmentIds;
-
     private final int[] currentSubpartitionWriteBuffers;
 
     public RemoteTierProducerAgent(
@@ -70,7 +68,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
         this.cacheDataManager =
                 new RemoteCacheManager(
                         isBroadcastOnly ? 1 : numSubpartitions, memoryManager, partitionFileWriter);
-        this.currentSubpartitionSegmentIds = new int[numSubpartitions];
         this.currentSubpartitionWriteBuffers = new int[numSubpartitions];
         Arrays.fill(currentSubpartitionWriteBuffers, 0);
         resourceRegistry.registerResource(partitionId, this::releaseAllResources);
@@ -82,7 +79,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
             int segmentId,
             boolean forceUseCurrentTier) {
         cacheDataManager.startSegment(subpartitionId.getSubpartitionId(), segmentId);
-        currentSubpartitionSegmentIds[subpartitionId.getSubpartitionId()] = segmentId;
         // The remote storage tier should always be able to start a new segment.
         return true;
     }
@@ -94,8 +90,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     public boolean tryWrite(int subpartitionId, Buffer buffer) {
         if (currentSubpartitionWriteBuffers[subpartitionId] != 0
                 && currentSubpartitionWriteBuffers[subpartitionId] + 1 > numBuffersPerSegment) {
-            cacheDataManager.finishSegment(
-                    subpartitionId, currentSubpartitionSegmentIds[subpartitionId]);
+            cacheDataManager.finishSegment(subpartitionId);
             currentSubpartitionWriteBuffers[subpartitionId] = 0;
             return false;
         }
@@ -110,8 +105,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     @Override
     public void close() {
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; subpartitionId++) {
-            cacheDataManager.finishSegment(
-                    subpartitionId, currentSubpartitionSegmentIds[subpartitionId]);
+            cacheDataManager.finishSegment(subpartitionId);
         }
         cacheDataManager.close();
     }

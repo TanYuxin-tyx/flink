@@ -34,7 +34,6 @@ import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.convertToSpilledBufferContext;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -48,15 +47,13 @@ public class SubpartitionRemoteCacheManager {
 
     private final PartitionFileWriter partitionFileWriter;
 
-    private final AtomicInteger currentSegmentId = new AtomicInteger(-1);
-
     private final Deque<NettyPayload> allBuffers = new LinkedList<>();
 
     private CompletableFuture<Void> hasFlushCompleted = FutureUtils.completedVoidFuture();
 
     private int bufferIndex;
 
-    private volatile boolean isReleased;
+    private int segmentIndex = -1;
 
     public SubpartitionRemoteCacheManager(
             int subpartitionId,
@@ -72,10 +69,7 @@ public class SubpartitionRemoteCacheManager {
     // ------------------------------------------------------------------------
 
     void startSegment(int segmentIndex) {
-        checkState(currentSegmentId.get() != segmentIndex);
-        synchronized (allBuffers) {
-            currentSegmentId.set(segmentIndex);
-        }
+        this.segmentIndex = segmentIndex;
     }
 
     void addBuffer(Buffer buffer) {
@@ -87,7 +81,7 @@ public class SubpartitionRemoteCacheManager {
     }
 
     void finishSegment(int segmentIndex) {
-        checkState(currentSegmentId.get() == -1 || currentSegmentId.get() == segmentIndex);
+        checkState(this.segmentIndex == segmentIndex);
         int bufferNumber = flushBuffers();
         if (bufferNumber > 0) {
             PartitionFileWriter.SubpartitionSpilledBufferContext finishSegmentBuffer =
@@ -95,9 +89,7 @@ public class SubpartitionRemoteCacheManager {
                             subpartitionId,
                             Collections.singletonList(
                                     new PartitionFileWriter.SegmentSpilledBufferContext(
-                                            currentSegmentId.get(),
-                                            Collections.emptyList(),
-                                            true)));
+                                            segmentIndex, Collections.emptyList(), true)));
             hasFlushCompleted =
                     partitionFileWriter.write(Collections.singletonList(finishSegmentBuffer));
         }
@@ -123,16 +115,8 @@ public class SubpartitionRemoteCacheManager {
             LOG.error("Failed to flush the buffers.", e);
             ExceptionUtils.rethrow(e);
         }
-        if (!isReleased) {
-            for (NettyPayload nettyPayload : allBuffers) {
-                Buffer buffer = nettyPayload.getBuffer().get();
-                if (!buffer.isRecycled()) {
-                    buffer.recycleBuffer();
-                }
-            }
-            allBuffers.clear();
-            isReleased = true;
-        }
+
+        checkState(allBuffers.isEmpty(), "Leaking buffers.");
     }
 
     // ------------------------------------------------------------------------
@@ -152,7 +136,7 @@ public class SubpartitionRemoteCacheManager {
                             subpartitionId,
                             Collections.singletonList(
                                     new PartitionFileWriter.SegmentSpilledBufferContext(
-                                            currentSegmentId.get(),
+                                            segmentIndex,
                                             convertToSpilledBufferContext(allBuffersToFlush),
                                             false)));
             hasFlushCompleted =

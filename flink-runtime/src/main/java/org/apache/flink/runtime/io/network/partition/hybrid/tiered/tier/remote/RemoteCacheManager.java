@@ -37,6 +37,8 @@ public class RemoteCacheManager {
 
     private final SubpartitionRemoteCacheManager[] subpartitionCacheDataManagers;
 
+    private final int[] subpartitionSegmentIndexes;
+
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadScheduledExecutor(
                     new ThreadFactoryBuilder()
@@ -54,11 +56,14 @@ public class RemoteCacheManager {
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileWriter partitionFileWriter) {
         this.subpartitionCacheDataManagers = new SubpartitionRemoteCacheManager[numSubpartitions];
+        this.subpartitionSegmentIndexes = new int[numSubpartitions];
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionCacheDataManagers[subpartitionId] =
                     new SubpartitionRemoteCacheManager(
                             subpartitionId, storageMemoryManager, partitionFileWriter);
         }
+
+        Arrays.fill(subpartitionSegmentIndexes, -1);
     }
 
     // ------------------------------------
@@ -71,13 +76,14 @@ public class RemoteCacheManager {
 
     void startSegment(int subpartitionId, int segmentIndex) {
         subpartitionCacheDataManagers[subpartitionId].startSegment(segmentIndex);
+        subpartitionSegmentIndexes[subpartitionId] = segmentIndex;
     }
 
-    void finishSegment(int subpartitionId, int segmentIndex) {
-        subpartitionCacheDataManagers[subpartitionId].finishSegment(segmentIndex);
+    void finishSegment(int subpartitionId) {
+        subpartitionCacheDataManagers[subpartitionId].finishSegment(
+                subpartitionSegmentIndexes[subpartitionId]);
     }
 
-    /** Close this {@link RemoteCacheManager}, it means no data can append to memory. */
     void close() {
         Arrays.stream(subpartitionCacheDataManagers).forEach(SubpartitionRemoteCacheManager::close);
         try {
