@@ -34,8 +34,9 @@ public interface PartitionFileReader {
      *
      * @param partitionId partition id indicates the id of partition.
      * @param subpartitionId subpartition id indicates the id of subpartition.
-     * @param fileOffset file offset indicates the current reading offset.
-     * @param memorySegment memory segment indicates a segment of available buffer.
+     * @param segmentId segment id indicates the id of segment.
+     * @param bufferIndex the index of buffer.
+     * @param memorySegment memory segment indicates an empty buffer.
      * @param recycler recycler indicates the owner of the buffer.
      * @return the buffer.
      */
@@ -43,10 +44,27 @@ public interface PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            long fileOffset,
+            int bufferIndex,
             MemorySegment memorySegment,
             BufferRecycler recycler)
             throws IOException;
+
+    /**
+     * Get the priority when reading a specific partition and subpartition. The priority can be the
+     * file offset to achieve sequential disk reads, and the priority can be the same number if
+     * there is no priority read requirement.
+     *
+     * @param partitionId partition id indicates the id of partition.
+     * @param subpartitionId subpartition id indicates the id of subpartition.
+     * @param segmentId segment id indicates the id of segment.
+     * @param bufferIndex the index of buffer.
+     * @return the priority.
+     */
+    long getPriority(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId,
+            int bufferIndex);
 
     /** Release the {@link PartitionFileReader}. */
     void release();

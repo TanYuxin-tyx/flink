@@ -31,7 +31,8 @@ public class ProducerMergePartitionFile {
         return new ProducerMergePartitionFileWriter(dataFilePath, partitionFileIndex);
     }
 
-    public static ProducerMergePartitionFileReader createPartitionFileReader(Path dataFilePath) {
-        return new ProducerMergePartitionFileReader(dataFilePath);
+    public static ProducerMergePartitionFileReader createPartitionFileReader(
+            Path dataFilePath, PartitionFileIndex partitionFileIndex) {
+        return new ProducerMergePartitionFileReader(dataFilePath, partitionFileIndex);
     }
 }

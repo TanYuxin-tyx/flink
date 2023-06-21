@@ -21,13 +21,16 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
 import org.apache.flink.shaded.guava30.com.google.common.collect.HashBiMap;
@@ -49,6 +52,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -77,8 +81,6 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
 
     private final PartitionFileReader partitionFileReader;
 
-    private final PartitionFileIndex dataIndex;
-
     @GuardedBy("lock")
     private final HashBiMap<NettyConnectionId, ScheduledSubpartitionReader> allScheduledReaders =
             HashBiMap.create();
@@ -101,8 +103,7 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
             int maxBufferReadAhead,
             TieredStorageNettyService nettyService,
             List<Map<Integer, Integer>> segmentIdRecorder,
-            PartitionFileReader partitionFileReader,
-            PartitionFileIndex dataIndex) {
+            PartitionFileReader partitionFileReader) {
         this.partitionId = partitionId;
         this.bufferPool = checkNotNull(bufferPool);
         this.ioExecutor = checkNotNull(ioExecutor);
@@ -112,7 +113,6 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
         this.nettyService = nettyService;
         this.segmentIdRecorder = segmentIdRecorder;
         this.partitionFileReader = partitionFileReader;
-        this.dataIndex = dataIndex;
         bufferPool.registerRequester(this);
     }
 
@@ -135,18 +135,10 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
             NettyConnectionWriter nettyConnectionWriter) {
         synchronized (lock) {
             checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
-            ScheduledSubpartitionReaderImpl scheduledSubpartitionReaderImpl =
-                    new ScheduledSubpartitionReaderImpl(
-                            partitionId,
-                            subpartitionId,
-                            maxBufferReadAhead,
-                            nettyConnectionWriter,
-                            nettyService,
-                            segmentIdRecorder.get(subpartitionId.getSubpartitionId()),
-                            partitionFileReader,
-                            dataIndex);
+            ScheduledSubpartitionReader scheduledSubpartitionReader =
+                    new ScheduledSubpartitionReader(subpartitionId, nettyConnectionWriter);
             allScheduledReaders.put(
-                    nettyConnectionWriter.getNettyConnectionId(), scheduledSubpartitionReaderImpl);
+                    nettyConnectionWriter.getNettyConnectionId(), scheduledSubpartitionReader);
             triggerScheduling();
         }
     }
@@ -167,6 +159,7 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
         }
     }
 
+    @Override
     public void release() {
         synchronized (lock) {
             if (isReleased) {
@@ -304,5 +297,110 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
 
     private long getBufferRequestTimeoutTime() {
         return bufferPool.getLastBufferOperationTimestamp() + bufferRequestTimeout.toMillis();
+    }
+
+    /**
+     * {@link ScheduledSubpartitionReader} is the reader of a subpartition, which is scheduled by
+     * {@link DiskIOScheduler} and read data from disk.
+     */
+    private class ScheduledSubpartitionReader implements Comparable<ScheduledSubpartitionReader> {
+
+        private final TieredStorageSubpartitionId subpartitionId;
+
+        private final NettyConnectionWriter nettyConnectionWriter;
+
+        private int nextBufferIndex = 0;
+
+        private boolean isFailed;
+
+        public ScheduledSubpartitionReader(
+                TieredStorageSubpartitionId subpartitionId,
+                NettyConnectionWriter nettyConnectionWriter) {
+            this.subpartitionId = subpartitionId;
+            this.nettyConnectionWriter = nettyConnectionWriter;
+        }
+
+        public void loadDiskDataToBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
+                throws IOException {
+
+            if (isFailed) {
+                throw new IOException(
+                        "The scheduled subpartition reader for "
+                                + subpartitionId
+                                + " has already been failed.");
+            }
+
+            // If the number of written but unsent buffers achieves the limited value, skip this
+            // time.
+            if (nettyConnectionWriter.numQueuedBuffers() >= maxBufferReadAhead) {
+                return;
+            }
+            int numLoaded = 0;
+            while (!buffers.isEmpty()
+                    && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead) {
+                MemorySegment memorySegment = buffers.poll();
+                Buffer buffer;
+                try {
+                    if ((buffer =
+                                    partitionFileReader.readBuffer(
+                                            partitionId,
+                                            subpartitionId,
+                                            -1,
+                                            nextBufferIndex,
+                                            memorySegment,
+                                            recycler))
+                            == null) {
+                        buffers.add(memorySegment);
+                        break;
+                    }
+                } catch (Throwable throwable) {
+                    buffers.add(memorySegment);
+                    throw throwable;
+                }
+                NettyPayload nettyPayload =
+                        NettyPayload.newBuffer(
+                                buffer, nextBufferIndex++, subpartitionId.getSubpartitionId());
+                Integer segmentId =
+                        segmentIdRecorder
+                                .get(subpartitionId.getSubpartitionId())
+                                .get(nettyPayload.getBufferIndex());
+                if (segmentId != null) {
+                    nettyConnectionWriter.writeBuffer(NettyPayload.newSegment(segmentId));
+                    ((TieredStorageNettyServiceImpl) nettyService)
+                            .notifyResultSubpartitionViewSendBuffer(
+                                    nettyConnectionWriter.getNettyConnectionId());
+                    ++numLoaded;
+                }
+                nettyConnectionWriter.writeBuffer(nettyPayload);
+                ++numLoaded;
+            }
+            if (nettyConnectionWriter.numQueuedBuffers() <= numLoaded) {
+                ((TieredStorageNettyServiceImpl) nettyService)
+                        .notifyResultSubpartitionViewSendBuffer(
+                                nettyConnectionWriter.getNettyConnectionId());
+            }
+        }
+
+        @Override
+        public int compareTo(ScheduledSubpartitionReader reader) {
+            checkArgument(reader != null);
+            return Long.compare(getPriority(), reader.getPriority());
+        }
+
+        private long getPriority() {
+            return partitionFileReader.getPriority(
+                    partitionId, subpartitionId, -1, nextBufferIndex);
+        }
+
+        private void failReader(Throwable failureCause) {
+            if (isFailed) {
+                return;
+            }
+            isFailed = true;
+            nettyConnectionWriter.close(failureCause);
+            ((TieredStorageNettyServiceImpl) nettyService)
+                    .notifyResultSubpartitionViewSendBuffer(
+                            nettyConnectionWriter.getNettyConnectionId());
+        }
     }
 }

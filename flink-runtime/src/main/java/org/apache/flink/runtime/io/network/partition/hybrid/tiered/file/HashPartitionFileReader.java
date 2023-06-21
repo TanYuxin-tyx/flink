@@ -76,7 +76,7 @@ public class HashPartitionFileReader implements PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            long fileOffSet,
+            int bufferIndex,
             MemorySegment segment,
             BufferRecycler recycler)
             throws IOException {
@@ -121,6 +121,16 @@ public class HashPartitionFileReader implements PartitionFileReader {
                 dataType,
                 header.isCompressed(),
                 header.getLength());
+    }
+
+    @Override
+    public long getPriority(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId,
+            int bufferIndex) {
+        // noop
+        return -1;
     }
 
     private ReadableByteChannel openNewChannel(
