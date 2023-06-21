@@ -89,7 +89,7 @@ public class SortBufferAccumulatorTest {
             Buffer.DataType dataType =
                     isBuffer ? Buffer.DataType.DATA_BUFFER : Buffer.DataType.EVENT_BUFFER;
             sortBufferAccumulator.receive(
-                    record, new TieredStorageSubpartitionId(subpartition), dataType, false, false);
+                    record, new TieredStorageSubpartitionId(subpartition), dataType, false);
             numDataBuffers--;
         }
 

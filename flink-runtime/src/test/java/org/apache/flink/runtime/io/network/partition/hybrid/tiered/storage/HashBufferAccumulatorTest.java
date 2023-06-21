@@ -107,7 +107,7 @@ class HashBufferAccumulatorTest {
                     numExpectBuffers++;
                     numRecordBytesSinceLastEvent = 0;
                 }
-                bufferAccumulator.receive(record, subpartitionId, dataType, false, false);
+                bufferAccumulator.receive(record, subpartitionId, dataType, false);
             }
 
             assertThat(numReceivedFinishedBuffer.get()).isEqualTo(numExpectBuffers);
@@ -135,7 +135,6 @@ class HashBufferAccumulatorTest {
                     endEvent,
                     new TieredStorageSubpartitionId(0),
                     Buffer.DataType.EVENT_BUFFER,
-                    false,
                     false);
 
             assertThat(tieredStorageMemoryManager.numOwnerRequestedBuffer(bufferAccumulator))
@@ -166,7 +165,6 @@ class HashBufferAccumulatorTest {
                                         generateRandomData(1, new Random()),
                                         new TieredStorageSubpartitionId(0),
                                         Buffer.DataType.DATA_BUFFER,
-                                        false,
                                         false);
                             }
                         })

@@ -93,8 +93,7 @@ public class HashBufferAccumulator
             ByteBuffer record,
             TieredStorageSubpartitionId subpartitionId,
             Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
+            boolean isBroadcast)
             throws IOException {
         getSubpartitionAccumulator(subpartitionId).append(record, dataType);
     }

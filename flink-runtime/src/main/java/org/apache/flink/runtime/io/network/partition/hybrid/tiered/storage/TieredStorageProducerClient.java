@@ -32,8 +32,7 @@ public interface TieredStorageProducerClient {
             ByteBuffer record,
             TieredStorageSubpartitionId subpartitionId,
             Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
+            boolean isBroadcast)
             throws IOException;
 
     void setMetricStatisticsUpdater(

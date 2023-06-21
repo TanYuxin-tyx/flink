@@ -113,22 +113,16 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
             ByteBuffer record,
             TieredStorageSubpartitionId subpartitionId,
             Buffer.DataType dataType,
-            boolean isBroadcast,
-            boolean isEndOfPartition)
+            boolean isBroadcast)
             throws IOException {
 
         if (isBroadcast && !isBroadcastOnly) {
             for (int i = 0; i < numSubpartitions; ++i) {
                 bufferAccumulator.receive(
-                        record.duplicate(),
-                        new TieredStorageSubpartitionId(i),
-                        dataType,
-                        true,
-                        isEndOfPartition);
+                        record.duplicate(), new TieredStorageSubpartitionId(i), dataType, true);
             }
         } else {
-            bufferAccumulator.receive(
-                    record, subpartitionId, dataType, isBroadcast, isEndOfPartition);
+            bufferAccumulator.receive(record, subpartitionId, dataType, isBroadcast);
         }
     }
 
