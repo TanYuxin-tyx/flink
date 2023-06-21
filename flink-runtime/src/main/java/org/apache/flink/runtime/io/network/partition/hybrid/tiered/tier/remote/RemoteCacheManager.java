@@ -35,8 +35,6 @@ import java.util.concurrent.TimeoutException;
 /** This class is responsible for managing cached buffers data before flush to remote storage. */
 public class RemoteCacheManager {
 
-    private final int numSubpartitions;
-
     private final SubpartitionRemoteCacheManager[] subpartitionCacheDataManagers;
 
     private final ExecutorService ioExecutor =
@@ -55,7 +53,6 @@ public class RemoteCacheManager {
             int numSubpartitions,
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileWriter partitionFileWriter) {
-        this.numSubpartitions = numSubpartitions;
         this.subpartitionCacheDataManagers = new SubpartitionRemoteCacheManager[numSubpartitions];
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionCacheDataManagers[subpartitionId] =
@@ -68,20 +65,20 @@ public class RemoteCacheManager {
     //          For DfsDataManager
     // ------------------------------------
 
-    public void appendBuffer(Buffer finishedBuffer, int targetChannel) {
-        getSubpartitionCacheDataManager(targetChannel).addFinishedBuffer(finishedBuffer);
+    void appendBuffer(Buffer finishedBuffer, int subpartitionId) {
+        subpartitionCacheDataManagers[subpartitionId].addBuffer(finishedBuffer);
     }
 
-    public void startSegment(int targetSubpartition, int segmentIndex) {
-        getSubpartitionCacheDataManager(targetSubpartition).startSegment(segmentIndex);
+    void startSegment(int subpartitionId, int segmentIndex) {
+        subpartitionCacheDataManagers[subpartitionId].startSegment(segmentIndex);
     }
 
-    public void finishSegment(int targetSubpartition, int segmentIndex) {
-        getSubpartitionCacheDataManager(targetSubpartition).finishSegment(segmentIndex);
+    void finishSegment(int subpartitionId, int segmentIndex) {
+        subpartitionCacheDataManagers[subpartitionId].finishSegment(segmentIndex);
     }
 
     /** Close this {@link RemoteCacheManager}, it means no data can append to memory. */
-    public void close() {
+    void close() {
         Arrays.stream(subpartitionCacheDataManagers).forEach(SubpartitionRemoteCacheManager::close);
         try {
             ioExecutor.shutdown();
@@ -97,17 +94,8 @@ public class RemoteCacheManager {
      * Release this {@link RemoteCacheManager}, it means all memory taken by this class will
      * recycle.
      */
-    public void release() {
-        for (int i = 0; i < numSubpartitions; i++) {
-            getSubpartitionCacheDataManager(i).release();
-        }
-    }
-
-    // ------------------------------------
-    //           Internal Method
-    // ------------------------------------
-
-    private SubpartitionRemoteCacheManager getSubpartitionCacheDataManager(int targetChannel) {
-        return subpartitionCacheDataManagers[targetChannel];
+    void release() {
+        Arrays.stream(subpartitionCacheDataManagers)
+                .forEach(SubpartitionRemoteCacheManager::release);
     }
 }

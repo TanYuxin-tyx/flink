@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.Partitio
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
 import java.util.Arrays;
@@ -33,6 +34,8 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 
 /** The DataManager of DFS. */
 public class RemoteTierProducerAgent implements TierProducerAgent {
+
+    private final int numSubpartitions;
 
     private final int numBytesPerSegment;
 
@@ -45,29 +48,29 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     private final BufferCompressor bufferCompressor;
 
-    private final TieredStorageMemoryManager storageMemoryManager;
+    private final TieredStorageMemoryManager memoryManager;
 
-    private final int[] subpartitionLastestSegmentId;
+    private final int[] subpartitionSegmentIds;
 
     public RemoteTierProducerAgent(
             int numSubpartitions,
             int numBytesPerSegment,
             boolean isBroadcastOnly,
             BufferCompressor bufferCompressor,
-            TieredStorageMemoryManager storageMemoryManager,
-            PartitionFileWriter partitionFileWriter) {
+            PartitionFileWriter partitionFileWriter,
+            TieredStorageMemoryManager memoryManager,
+            TieredStorageResourceRegistry resourceRegistry) {
+        this.numSubpartitions = numSubpartitions;
         this.numBytesPerSegment = numBytesPerSegment;
-        this.storageMemoryManager = storageMemoryManager;
+        this.memoryManager = memoryManager;
         this.bufferCompressor = bufferCompressor;
         this.segmentIndexTracker =
                 new SubpartitionSegmentIdTrackerImpl(numSubpartitions, isBroadcastOnly);
         this.cacheDataManager =
                 new RemoteCacheManager(
-                        isBroadcastOnly ? 1 : numSubpartitions,
-                        storageMemoryManager,
-                        partitionFileWriter);
+                        isBroadcastOnly ? 1 : numSubpartitions, memoryManager, partitionFileWriter);
         this.numSubpartitionEmitBytes = new int[numSubpartitions];
-        this.subpartitionLastestSegmentId = new int[numSubpartitions];
+        this.subpartitionSegmentIds = new int[numSubpartitions];
         Arrays.fill(numSubpartitionEmitBytes, 0);
     }
 
@@ -80,53 +83,43 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
             segmentIndexTracker.addSegmentIndex(subpartitionId, segmentId);
             cacheDataManager.startSegment(subpartitionId.getSubpartitionId(), segmentId);
         }
-        subpartitionLastestSegmentId[subpartitionId.getSubpartitionId()] = segmentId;
+        subpartitionSegmentIds[subpartitionId.getSubpartitionId()] = segmentId;
         // The remote storage tier should always be able to start a new segment.
         return true;
     }
 
     @Override
     public void release() {
-        getRemoteCacheManager().release();
-        getSegmentIndexTracker().release();
+        cacheDataManager.release();
+        segmentIndexTracker.release();
     }
 
     @Override
-    public boolean tryWrite(int consumerId, Buffer finishedBuffer) {
-        if (numSubpartitionEmitBytes[consumerId] != 0
-                && numSubpartitionEmitBytes[consumerId] + finishedBuffer.readableBytes()
+    public boolean tryWrite(int subpartitionId, Buffer buffer) {
+        if (numSubpartitionEmitBytes[subpartitionId] != 0
+                && numSubpartitionEmitBytes[subpartitionId] + buffer.readableBytes()
                         > numBytesPerSegment) {
-            cacheDataManager.finishSegment(consumerId, subpartitionLastestSegmentId[consumerId]);
-            numSubpartitionEmitBytes[consumerId] = 0;
+            cacheDataManager.finishSegment(subpartitionId, subpartitionSegmentIds[subpartitionId]);
+            numSubpartitionEmitBytes[subpartitionId] = 0;
             return false;
         }
-        numSubpartitionEmitBytes[consumerId] += finishedBuffer.readableBytes();
+        numSubpartitionEmitBytes[subpartitionId] += buffer.readableBytes();
         emitBuffer(
                 useNewBufferRecyclerAndCompressBuffer(
-                        bufferCompressor,
-                        finishedBuffer,
-                        storageMemoryManager.getOwnerBufferRecycler(this)),
-                consumerId);
+                        bufferCompressor, buffer, memoryManager.getOwnerBufferRecycler(this)),
+                subpartitionId);
         return true;
-    }
-
-    private void emitBuffer(Buffer finishedBuffer, int targetSubpartition) {
-        cacheDataManager.appendBuffer(finishedBuffer, targetSubpartition);
     }
 
     @Override
     public void close() {
-        for (int index = 0; index < subpartitionLastestSegmentId.length; ++index) {
-            cacheDataManager.finishSegment(index, subpartitionLastestSegmentId[index]);
+        for (int subpartitionId = 0; subpartitionId < numSubpartitions; subpartitionId++) {
+            cacheDataManager.finishSegment(subpartitionId, subpartitionSegmentIds[subpartitionId]);
         }
         cacheDataManager.close();
     }
 
-    public RemoteCacheManager getRemoteCacheManager() {
-        return cacheDataManager;
-    }
-
-    public SubpartitionSegmentIdTracker getSegmentIndexTracker() {
-        return segmentIndexTracker;
+    private void emitBuffer(Buffer finishedBuffer, int subpartitionId) {
+        cacheDataManager.appendBuffer(finishedBuffer, subpartitionId);
     }
 }
