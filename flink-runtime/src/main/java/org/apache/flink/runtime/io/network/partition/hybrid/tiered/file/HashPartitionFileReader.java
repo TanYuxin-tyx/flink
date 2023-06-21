@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -58,15 +57,12 @@ public class HashPartitionFileReader implements PartitionFileReader {
 
     private final String basePath;
 
-    private final JobID jobID;
-
     private final Boolean isBroadcast;
 
     private FileSystem fileSystem;
 
-    public HashPartitionFileReader(String basePath, JobID jobID, Boolean isBroadcast) {
+    public HashPartitionFileReader(String basePath, Boolean isBroadcast) {
         this.basePath = basePath;
-        this.jobID = jobID;
         this.isBroadcast = isBroadcast;
         try {
             this.fileSystem = new Path(basePath).getFileSystem();
@@ -134,10 +130,9 @@ public class HashPartitionFileReader implements PartitionFileReader {
             throws IOException {
         String baseSubpartitionPath =
                 getBaseSubpartitionPath(
-                        jobID,
+                        basePath,
                         TieredStorageIdMappingUtils.convertId(partitionId),
                         subpartitionId.getSubpartitionId(),
-                        basePath,
                         isBroadcast);
         Path currentSegmentPath = generateNewSegmentPath(baseSubpartitionPath, segmentId);
         ReadableByteChannel channel = null;

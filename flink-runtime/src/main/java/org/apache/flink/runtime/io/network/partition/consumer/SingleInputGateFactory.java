@@ -71,6 +71,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.partition.consumer.InputGateSpecUtils.createGateBuffersSpec;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.createJobRemoteStorageBasePath;
 import static org.apache.flink.runtime.shuffle.ShuffleUtils.applyWithShuffleTypeCheck;
 
 /** Factory for {@link SingleInputGate} to use in {@link NettyShuffleEnvironment}. */
@@ -204,8 +205,8 @@ public class SingleInputGateFactory {
                 remoteStorageFileScanner =
                         new RemoteStorageFileScannerImpl(
                                 tieredStorageConsumerSpecs,
-                                owner.getJobID(),
-                                baseRemoteStoragePath,
+                                createJobRemoteStorageBasePath(
+                                        owner.getJobID(), baseRemoteStoragePath),
                                 isUpstreamBroadcastOnly);
             }
         }

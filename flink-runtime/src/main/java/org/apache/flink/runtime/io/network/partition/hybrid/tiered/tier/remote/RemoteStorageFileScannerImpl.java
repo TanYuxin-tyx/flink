@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -50,8 +49,6 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 /** Default implementation of {@link RemoteStorageFileScanner}. */
 public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
 
-    private final JobID jobID;
-
     private final ScheduledExecutorService scannerExecutor =
             Executors.newSingleThreadScheduledExecutor(
                     new ThreadFactoryBuilder()
@@ -76,10 +73,8 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
 
     public RemoteStorageFileScannerImpl(
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
-            JobID jobID,
             String baseRemoteStoragePath,
             boolean isBroadcast) {
-        this.jobID = jobID;
         this.baseRemoteStoragePath = baseRemoteStoragePath;
         this.isBroadcast = isBroadcast;
         this.channelIndexes = new HashMap<>();
@@ -91,8 +86,7 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
         }
         this.requiredSegmentIds = new HashMap<>();
         this.partitionFileReader =
-                HashPartitionFile.createPartitionFileReader(
-                        baseRemoteStoragePath, jobID, isBroadcast);
+                HashPartitionFile.createPartitionFileReader(baseRemoteStoragePath, isBroadcast);
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
@@ -185,10 +179,9 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
             int segmentId) {
         String baseSubpartitionPath =
                 getBaseSubpartitionPath(
-                        jobID,
+                        baseRemoteStoragePath,
                         TieredStorageIdMappingUtils.convertId(partitionId),
                         subpartitionId.getSubpartitionId(),
-                        baseRemoteStoragePath,
                         isBroadcast);
         Path currentSegmentFinishPath = generateSegmentFinishPath(baseSubpartitionPath, segmentId);
         try {

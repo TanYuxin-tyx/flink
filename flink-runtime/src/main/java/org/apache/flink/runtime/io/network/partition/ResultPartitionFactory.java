@@ -69,6 +69,7 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.createJobRemoteStorageBasePath;
 
 /** Factory for {@link ResultPartition} to use in {@link NettyShuffleEnvironment}. */
 public class ResultPartitionFactory {
@@ -480,7 +481,9 @@ public class ResultPartitionFactory {
                     Paths.get(dataFileBasePath + DATA_FILE_SUFFIX), regionBufferIndexTracker);
         } else if (tierFactory.getClass() == RemoteTierFactory.class) {
             return HashPartitionFile.createPartitionFileWriter(
-                    jobID, numSubpartitions, id, remoteStorageShuffleHomePath);
+                    numSubpartitions,
+                    id,
+                    createJobRemoteStorageBasePath(jobID, remoteStorageShuffleHomePath));
         }
         return null;
     }

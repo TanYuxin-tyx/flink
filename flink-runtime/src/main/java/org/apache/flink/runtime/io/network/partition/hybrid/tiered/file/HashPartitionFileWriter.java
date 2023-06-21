@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -60,8 +59,6 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
                             .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
                             .build());
 
-    private final JobID jobID;
-
     private final ResultPartitionID resultPartitionID;
 
     private final String baseShuffleDataPath;
@@ -69,11 +66,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     private final WritableByteChannel[] subpartitionChannels;
 
     public HashPartitionFileWriter(
-            JobID jobID,
-            int numSubpartitions,
-            ResultPartitionID resultPartitionID,
-            String baseShuffleDataPath) {
-        this.jobID = jobID;
+            int numSubpartitions, ResultPartitionID resultPartitionID, String baseShuffleDataPath) {
         this.resultPartitionID = resultPartitionID;
         this.baseShuffleDataPath = baseShuffleDataPath;
         this.subpartitionChannels = new WritableByteChannel[numSubpartitions];
@@ -177,7 +170,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         if (currentChannel == null) {
             String subpartitionPath =
                     createBaseSubpartitionPath(
-                            jobID, resultPartitionID, subpartitionId, baseShuffleDataPath, false);
+                            baseShuffleDataPath, resultPartitionID, subpartitionId, false);
             Path writingSegmentPath = generateNewSegmentPath(subpartitionPath, segmentId);
             FileSystem fs = writingSegmentPath.getFileSystem();
             currentChannel =
@@ -196,7 +189,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         try {
             subpartitionPath =
                     createBaseSubpartitionPath(
-                            jobID, resultPartitionID, subpartitionId, baseShuffleDataPath, false);
+                            baseShuffleDataPath, resultPartitionID, subpartitionId, false);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
         }

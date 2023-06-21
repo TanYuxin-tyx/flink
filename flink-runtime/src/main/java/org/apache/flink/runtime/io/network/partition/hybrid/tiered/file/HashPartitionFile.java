@@ -18,22 +18,20 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 
 public class HashPartitionFile {
 
     public static HashPartitionFileWriter createPartitionFileWriter(
-            JobID jobID,
             int numSubpartitions,
             ResultPartitionID resultPartitionID,
             String remoteStorageShuffleHomePath) {
         return new HashPartitionFileWriter(
-                jobID, numSubpartitions, resultPartitionID, remoteStorageShuffleHomePath);
+                numSubpartitions, resultPartitionID, remoteStorageShuffleHomePath);
     }
 
     public static HashPartitionFileReader createPartitionFileReader(
-            String basePath, JobID jobID, Boolean isUpstreamBroadCastOnly) {
-        return new HashPartitionFileReader(basePath, jobID, isUpstreamBroadCastOnly);
+            String remoteStorageShuffleHomePath, Boolean isUpstreamBroadCastOnly) {
+        return new HashPartitionFileReader(remoteStorageShuffleHomePath, isUpstreamBroadCastOnly);
     }
 }

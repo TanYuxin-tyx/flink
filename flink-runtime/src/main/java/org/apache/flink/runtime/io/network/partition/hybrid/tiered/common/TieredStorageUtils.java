@@ -136,6 +136,44 @@ public class TieredStorageUtils {
                 baseDfsPath, TIER_STORE_DIR, jobID, resultPartitionID, subpartitionId);
     }
 
+    public static String createJobRemoteStorageBasePath(
+            JobID jobID, String remoteStorageShuffleHomePath) {
+        return String.format(
+                "%s/%s/%s", remoteStorageShuffleHomePath, TieredStorageUtils.TIER_STORE_DIR, jobID);
+    }
+
+    public static String createBaseSubpartitionPath(
+            String baseRemoteStoragePath,
+            ResultPartitionID resultPartitionID,
+            int subpartitionId,
+            boolean isBroadcastOnly)
+            throws IOException {
+        String basePathStr =
+                getBaseSubpartitionPath(
+                        baseRemoteStoragePath, resultPartitionID, subpartitionId, isBroadcastOnly);
+        Path basePath = new Path(basePathStr);
+        FileSystem fs = basePath.getFileSystem();
+        if (!fs.exists(basePath)) {
+            fs.mkdirs(basePath);
+        }
+        return basePathStr;
+    }
+
+    public static String getBaseSubpartitionPath(
+            String baseRemoteStoragePath,
+            ResultPartitionID resultPartitionID,
+            int subpartitionId,
+            boolean isBroadcastOnly) {
+        while (baseRemoteStoragePath.endsWith("/") && baseRemoteStoragePath.length() > 1) {
+            baseRemoteStoragePath =
+                    baseRemoteStoragePath.substring(0, baseRemoteStoragePath.length() - 1);
+        }
+        if (isBroadcastOnly) {
+            subpartitionId = 0;
+        }
+        return String.format("%s/%s/%s", baseRemoteStoragePath, resultPartitionID, subpartitionId);
+    }
+
     public static String generateToReleaseJobPath(JobID jobID, String baseDfsPath) {
         if (jobID == null || baseDfsPath == null) {
             return null;
