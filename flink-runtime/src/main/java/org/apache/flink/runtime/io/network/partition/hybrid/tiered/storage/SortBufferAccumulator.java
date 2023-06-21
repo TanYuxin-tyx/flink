@@ -101,6 +101,8 @@ public class SortBufferAccumulator implements BufferAccumulator {
     @Nullable
     private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher;
 
+    private boolean isClosed = false;
+
     public SortBufferAccumulator(
             int numSubpartitions,
             int numBuffers,
@@ -146,6 +148,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
 
     @Override
     public void close() {
+        isClosed = true;
         flushUnicastDataBuffer();
         flushBroadcastDataBuffer();
         releaseFreeBuffers();
