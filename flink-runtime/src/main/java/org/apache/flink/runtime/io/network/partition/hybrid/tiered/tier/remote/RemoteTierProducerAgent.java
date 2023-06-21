@@ -23,8 +23,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTracker;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SubpartitionSegmentIdTrackerImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
@@ -40,8 +38,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     private final int numSubpartitions;
 
     private final int numBuffersPerSegment;
-
-    private final SubpartitionSegmentIdTracker segmentIndexTracker;
 
     private final RemoteCacheManager cacheDataManager;
 
@@ -71,8 +67,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
         this.numBuffersPerSegment = numBytesPerSegment / bufferSizeBytes;
         this.memoryManager = memoryManager;
         this.bufferCompressor = bufferCompressor;
-        this.segmentIndexTracker =
-                new SubpartitionSegmentIdTrackerImpl(numSubpartitions, isBroadcastOnly);
         this.cacheDataManager =
                 new RemoteCacheManager(
                         isBroadcastOnly ? 1 : numSubpartitions, memoryManager, partitionFileWriter);
@@ -87,10 +81,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             boolean forceUseCurrentTier) {
-        if (!segmentIndexTracker.hasCurrentSegment(subpartitionId, segmentId)) {
-            segmentIndexTracker.addSegmentIndex(subpartitionId, segmentId);
-            cacheDataManager.startSegment(subpartitionId.getSubpartitionId(), segmentId);
-        }
+        cacheDataManager.startSegment(subpartitionId.getSubpartitionId(), segmentId);
         currentSubpartitionSegmentIds[subpartitionId.getSubpartitionId()] = segmentId;
         // The remote storage tier should always be able to start a new segment.
         return true;
@@ -131,7 +122,6 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     private void releaseAllResources() {
         cacheDataManager.release();
-        segmentIndexTracker.release();
     }
 
     private void emitBuffer(Buffer finishedBuffer, int subpartitionId) {
