@@ -45,8 +45,11 @@ public class RemoteTierFactory implements TierFactory {
 
     private final int numBytesPerSegment;
 
-    public RemoteTierFactory(int numBytesPerSegment) {
+    private final int bufferSizeBytes;
+
+    public RemoteTierFactory(int numBytesPerSegment, int bufferSizeBytes) {
         this.numBytesPerSegment = numBytesPerSegment;
+        this.bufferSizeBytes = bufferSizeBytes;
     }
 
     @Override
@@ -76,6 +79,7 @@ public class RemoteTierFactory implements TierFactory {
                 partitionID,
                 numSubpartitions,
                 numBytesPerSegment,
+                bufferSizeBytes,
                 isBroadcastOnly,
                 bufferCompressor,
                 partitionFileWriter,

@@ -108,7 +108,7 @@ public class TieredStorageConsumerClient {
         tierFactories.add(new MemoryTierFactory(0, 0));
         tierFactories.add(new DiskTierFactory(0, 0, 0));
         if (baseRemoteStoragePath != null) {
-            tierFactories.add(new RemoteTierFactory(0));
+            tierFactories.add(new RemoteTierFactory(0, 0));
         }
         return tierFactories;
     }

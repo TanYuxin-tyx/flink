@@ -434,7 +434,7 @@ public class TieredStorageConfiguration {
                         bufferSize,
                         DEFAULT_MIN_RESERVE_SPACE_FRACTION);
             case IN_REMOTE:
-                return new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT);
+                return new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT, bufferSize);
             default:
                 throw new IllegalArgumentException("Illegal tier type " + tierType);
         }
@@ -455,7 +455,7 @@ public class TieredStorageConfiguration {
                             DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
                             bufferSize,
                             DEFAULT_MIN_RESERVE_SPACE_FRACTION),
-                    new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT)
+                    new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT, bufferSize)
                 };
     }
 
