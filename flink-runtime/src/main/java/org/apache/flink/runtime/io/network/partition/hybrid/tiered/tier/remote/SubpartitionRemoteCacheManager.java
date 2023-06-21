@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.convertToSpilledBufferContext;
@@ -112,6 +113,7 @@ public class SubpartitionRemoteCacheManager {
         checkState(
                 hasSpillCompleted.isDone() || hasSpillCompleted.isCancelled(),
                 "Uncompleted spilling buffers.");
+        recycleBuffers();
         checkState(allBuffers.isEmpty(), "Leaking buffers.");
     }
 
@@ -139,6 +141,18 @@ public class SubpartitionRemoteCacheManager {
                     partitionFileWriter.write(
                             Collections.singletonList(subpartitionSpilledBuffers));
             return allBuffersToFlush.size();
+        }
+    }
+
+    private void recycleBuffers() {
+        synchronized (allBuffers) {
+            for (NettyPayload nettyPayload : allBuffers) {
+                Optional<Buffer> buffer = nettyPayload.getBuffer();
+                if (buffer.isPresent() && buffer.get().isRecycled()) {
+                    buffer.get().recycleBuffer();
+                }
+            }
+            allBuffers.clear();
         }
     }
 }

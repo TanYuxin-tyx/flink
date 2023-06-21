@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -122,12 +123,14 @@ class SubpartitionDiskCacheManager {
     }
 
     private void recycleBuffers() {
-        for (NettyPayload nettyPayload : allBuffers) {
-            Buffer buffer = nettyPayload.getBuffer().get();
-            if (!buffer.isRecycled()) {
-                buffer.recycleBuffer();
+        synchronized (allBuffers) {
+            for (NettyPayload nettyPayload : allBuffers) {
+                Optional<Buffer> buffer = nettyPayload.getBuffer();
+                if (buffer.isPresent() && buffer.get().isRecycled()) {
+                    buffer.get().recycleBuffer();
+                }
             }
+            allBuffers.clear();
         }
-        allBuffers.clear();
     }
 }
