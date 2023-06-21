@@ -212,14 +212,7 @@ public class TieredResultPartition extends ResultPartition {
 
     @Override
     public void finish() throws IOException {
-        EndOfPartitionEvent event = EndOfPartitionEvent.INSTANCE;
-        Buffer buffer = EventSerializer.toBuffer(event, false);
-        try {
-            ByteBuffer serializedEvent = buffer.getNioBufferReadable();
-            broadcast(serializedEvent, buffer.getDataType());
-        } finally {
-            buffer.recycleBuffer();
-        }
+        broadcastEvent(EndOfPartitionEvent.INSTANCE, false);
         checkState(!isReleased(), "Result partition is already released.");
         super.finish();
     }
