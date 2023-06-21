@@ -26,7 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.HashPartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.HashPartitionFile;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.util.ExceptionUtils;
@@ -60,7 +60,7 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
 
     private final String baseRemoteStoragePath;
 
-    private final boolean isUpstreamBroadcast;
+    private final boolean isBroadcast;
 
     private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
             requiredSegmentIds;
@@ -78,10 +78,10 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             JobID jobID,
             String baseRemoteStoragePath,
-            boolean isUpstreamBroadcastOnly) {
+            boolean isBroadcast) {
         this.jobID = jobID;
         this.baseRemoteStoragePath = baseRemoteStoragePath;
-        this.isUpstreamBroadcast = isUpstreamBroadcastOnly;
+        this.isBroadcast = isBroadcast;
         this.channelIndexes = new HashMap<>();
         for (int index = 0; index < tieredStorageConsumerSpecs.size(); index++) {
             TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
@@ -91,7 +91,8 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
         }
         this.requiredSegmentIds = new HashMap<>();
         this.partitionFileReader =
-                new HashPartitionFileReader(baseRemoteStoragePath, jobID, isUpstreamBroadcastOnly);
+                HashPartitionFile.createPartitionFileReader(
+                        baseRemoteStoragePath, jobID, isBroadcast);
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
@@ -188,7 +189,7 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
                         TieredStorageIdMappingUtils.convertId(partitionId),
                         subpartitionId.getSubpartitionId(),
                         baseRemoteStoragePath,
-                        isUpstreamBroadcast);
+                        isBroadcast);
         Path currentSegmentFinishPath = generateSegmentFinishPath(baseSubpartitionPath, segmentId);
         try {
             return remoteFileSystem.exists(currentSegmentFinishPath);

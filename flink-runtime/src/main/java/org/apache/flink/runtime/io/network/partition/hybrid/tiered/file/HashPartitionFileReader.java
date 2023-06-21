@@ -60,14 +60,14 @@ public class HashPartitionFileReader implements PartitionFileReader {
 
     private final JobID jobID;
 
-    private final Boolean isUpstreamBroadcast;
+    private final Boolean isBroadcast;
 
     private FileSystem fileSystem;
 
-    public HashPartitionFileReader(String basePath, JobID jobID, Boolean isUpstreamBroadCastOnly) {
+    public HashPartitionFileReader(String basePath, JobID jobID, Boolean isBroadcast) {
         this.basePath = basePath;
         this.jobID = jobID;
-        this.isUpstreamBroadcast = isUpstreamBroadCastOnly;
+        this.isBroadcast = isBroadcast;
         try {
             this.fileSystem = new Path(basePath).getFileSystem();
         } catch (IOException e) {
@@ -94,7 +94,7 @@ public class HashPartitionFileReader implements PartitionFileReader {
                 channel.close();
             }
             channel = openNewChannel(partitionId, subpartitionId, segmentId);
-            if(channel == null){
+            if (channel == null) {
                 return null;
             }
             openedChannels.get(partitionId).put(subpartitionId, Tuple2.of(channel, segmentId));
@@ -130,17 +130,18 @@ public class HashPartitionFileReader implements PartitionFileReader {
     private ReadableByteChannel openNewChannel(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
-            int segmentId) throws IOException {
+            int segmentId)
+            throws IOException {
         String baseSubpartitionPath =
                 getBaseSubpartitionPath(
                         jobID,
                         TieredStorageIdMappingUtils.convertId(partitionId),
                         subpartitionId.getSubpartitionId(),
                         basePath,
-                        isUpstreamBroadcast);
+                        isBroadcast);
         Path currentSegmentPath = generateNewSegmentPath(baseSubpartitionPath, segmentId);
         ReadableByteChannel channel = null;
-        if(!fileSystem.exists(currentSegmentPath)){
+        if (!fileSystem.exists(currentSegmentPath)) {
             return channel;
         }
         channel = Channels.newChannel(fileSystem.open(currentSegmentPath));

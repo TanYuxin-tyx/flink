@@ -32,5 +32,8 @@ public class HashPartitionFile {
                 jobID, numSubpartitions, resultPartitionID, remoteStorageShuffleHomePath);
     }
 
-    //    public static HashPartitionFileReader createPartitionFileReader() {return null;}
+    public static HashPartitionFileReader createPartitionFileReader(
+            String basePath, JobID jobID, Boolean isUpstreamBroadCastOnly) {
+        return new HashPartitionFileReader(basePath, jobID, isUpstreamBroadCastOnly);
+    }
 }
