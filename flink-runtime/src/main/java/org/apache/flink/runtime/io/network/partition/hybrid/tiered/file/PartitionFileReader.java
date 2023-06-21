@@ -50,15 +50,17 @@ public interface PartitionFileReader {
             throws IOException;
 
     /**
-     * Get the file offset of a reader.
+     * Get the priority when reading a specific partition and subpartition. The priority can be the
+     * file offset to achieve sequential disk reads, and the priority can be the same number if
+     * there is no priority read requirement.
      *
      * @param partitionId partition id indicates the id of partition.
      * @param subpartitionId subpartition id indicates the id of subpartition.
      * @param segmentId segment id indicates the id of segment.
      * @param bufferIndex the index of buffer.
-     * @return the file offset.
+     * @return the priority.
      */
-    long getFileOffset(
+    long getPriority(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,

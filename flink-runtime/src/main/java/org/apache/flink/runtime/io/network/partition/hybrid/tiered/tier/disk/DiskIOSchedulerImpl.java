@@ -384,11 +384,11 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
         @Override
         public int compareTo(ScheduledSubpartitionReader reader) {
             checkArgument(reader != null);
-            return Long.compare(getReadingFileOffset(), reader.getReadingFileOffset());
+            return Long.compare(getPriority(), reader.getPriority());
         }
 
-        private long getReadingFileOffset() {
-            return partitionFileReader.getFileOffset(
+        private long getPriority() {
+            return partitionFileReader.getPriority(
                     partitionId, subpartitionId, -1, nextBufferIndex);
         }
 
