@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -29,7 +30,6 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SpilledBufferContext;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
@@ -59,11 +59,12 @@ public class TieredStorageUtils {
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
     };
 
-    public static ByteBuffer[] generateBufferWithHeaders(List<SpilledBufferContext> nettyPayloads) {
-        ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * nettyPayloads.size()];
+    public static ByteBuffer[] generateBufferWithHeaders(
+            List<Tuple2<Buffer, Integer>> bufferWithIndexes) {
+        ByteBuffer[] bufferWithHeaders = new ByteBuffer[2 * bufferWithIndexes.size()];
 
-        for (int i = 0; i < nettyPayloads.size(); i++) {
-            Buffer buffer = nettyPayloads.get(i).getBuffer();
+        for (int i = 0; i < bufferWithIndexes.size(); i++) {
+            Buffer buffer = bufferWithIndexes.get(i).f0;
             setBufferWithHeader(buffer, bufferWithHeaders, 2 * i);
         }
         return bufferWithHeaders;
@@ -79,16 +80,12 @@ public class TieredStorageUtils {
     }
 
     public static List<SpilledBufferContext> convertToSpilledBufferContext(
-            List<NettyPayload> nettyPayloads) {
-        return nettyPayloads.stream()
-                .filter(nettyPayload -> nettyPayload.getBuffer().isPresent())
+            List<Tuple2<Buffer, Integer>> buffers) {
+        return buffers.stream()
                 .map(
-                        nettyPayload ->
+                        bufferAndIndex ->
                                 new SpilledBufferContext(
-                                        nettyPayload.getBuffer().get(),
-                                        nettyPayload.getBufferIndex(),
-                                        nettyPayload.getSubpartitionId(),
-                                        nettyPayload.getSegmentId()))
+                                        bufferAndIndex.f0, bufferAndIndex.f1, -1, -1))
                 .collect(Collectors.toList());
     }
 

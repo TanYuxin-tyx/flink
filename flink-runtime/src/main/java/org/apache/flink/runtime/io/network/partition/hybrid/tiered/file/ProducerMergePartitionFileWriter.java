@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
@@ -96,7 +97,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     public CompletableFuture<Void> write(
             TieredStoragePartitionId partitionId,
             List<PartitionFileWriter.SubpartitionSpilledBufferContext> spilledBuffers) {
-        List<SpilledBufferContext> buffersToSpill =
+        List<Tuple2<Buffer, Integer>> buffersToSpill =
                 spilledBuffers.stream()
                         .map(SubpartitionSpilledBufferContext::getSegmentSpillBufferContexts)
                         .flatMap(
@@ -104,26 +105,27 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
                                                 List<SegmentSpilledBufferContext>,
                                                 Stream<SegmentSpilledBufferContext>>)
                                         Collection::stream)
-                        .map(SegmentSpilledBufferContext::getSpillBufferContexts)
+                        .map(SegmentSpilledBufferContext::getBufferWithIndexes)
                         .flatMap(
-                                (Function<List<SpilledBufferContext>, Stream<SpilledBufferContext>>)
+                                (Function<
+                                                List<Tuple2<Buffer, Integer>>,
+                                                Stream<Tuple2<Buffer, Integer>>>)
                                         Collection::stream)
                         .collect(Collectors.toList());
 
         CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
-        ioExecutor.execute(() -> spill(buffersToSpill, spillSuccessNotifier));
+        ioExecutor.execute(() -> spill(spilledBuffers, spillSuccessNotifier));
         return spillSuccessNotifier;
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void spill(
-            List<SpilledBufferContext> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
+            List<PartitionFileWriter.SubpartitionSpilledBufferContext> toWrite,
+            CompletableFuture<Void> spillSuccessNotifier) {
         try {
             List<PartitionFileIndex.SpilledBuffer> spilledBuffers = new ArrayList<>();
-            long expectedBytes = createSpilledBuffersAndGetTotalBytes(toWrite, spilledBuffers);
-            writeBuffers(toWrite, expectedBytes);
+            calculateSizeAndWriteBuffers(toWrite, spilledBuffers);
             partitionFileIndex.generateRegionsBasedOnBuffers(spilledBuffers);
-            toWrite.forEach(spilledBuffer -> spilledBuffer.getBuffer().recycleBuffer());
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
@@ -135,33 +137,45 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
      *
      * @param toWrite all buffers to write to create {@link PartitionFileIndex.SpilledBuffer}s
      * @param spilledBuffers receive the created {@link PartitionFileIndex.SpilledBuffer}
-     * @return total bytes(header size + buffer size) of all buffers to write.
      */
-    private long createSpilledBuffersAndGetTotalBytes(
-            List<SpilledBufferContext> toWrite,
-            List<PartitionFileIndex.SpilledBuffer> spilledBuffers) {
+    private void calculateSizeAndWriteBuffers(
+            List<PartitionFileWriter.SubpartitionSpilledBufferContext> toWrite,
+            List<PartitionFileIndex.SpilledBuffer> spilledBuffers)
+            throws IOException {
+        List<Tuple2<Buffer, Integer>> buffersToFlush = new ArrayList<>();
         long expectedBytes = 0;
-        for (SpilledBufferContext spilledBuffer : toWrite) {
-            Buffer buffer = spilledBuffer.getBuffer();
-            int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
-            spilledBuffers.add(
-                    new PartitionFileIndex.SpilledBuffer(
-                            spilledBuffer.getSubpartitionId(),
-                            spilledBuffer.getBufferIndex(),
-                            totalBytesWritten + expectedBytes));
-            expectedBytes += numBytes;
+        for (PartitionFileWriter.SubpartitionSpilledBufferContext subpartitionSpilledBufferContext :
+                toWrite) {
+            int subpartitionId = subpartitionSpilledBufferContext.getSubpartitionId();
+            for (PartitionFileWriter.SegmentSpilledBufferContext segmentSpilledBufferContext :
+                    subpartitionSpilledBufferContext.getSegmentSpillBufferContexts()) {
+                List<Tuple2<Buffer, Integer>> bufferWithIndexes =
+                        segmentSpilledBufferContext.getBufferWithIndexes();
+                buffersToFlush.addAll(bufferWithIndexes);
+                for (Tuple2<Buffer, Integer> bufferWithIndex :
+                        segmentSpilledBufferContext.getBufferWithIndexes()) {
+                    Buffer buffer = bufferWithIndex.f0;
+                    spilledBuffers.add(
+                            new PartitionFileIndex.SpilledBuffer(
+                                    subpartitionId,
+                                    bufferWithIndex.f1,
+                                    totalBytesWritten + expectedBytes));
+                    expectedBytes += buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
+                }
+            }
         }
-        return expectedBytes;
+        writeBuffers(buffersToFlush, expectedBytes);
+        buffersToFlush.forEach(bufferWithIndex -> bufferWithIndex.f0.recycleBuffer());
     }
 
     /** Write all buffers to disk. */
-    private void writeBuffers(List<SpilledBufferContext> nettyPayloads, long expectedBytes)
+    private void writeBuffers(List<Tuple2<Buffer, Integer>> bufferWithIndexes, long expectedBytes)
             throws IOException {
-        if (nettyPayloads.isEmpty()) {
+        if (bufferWithIndexes.isEmpty()) {
             return;
         }
 
-        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(nettyPayloads);
+        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferWithIndexes);
         BufferReaderWriterUtil.writeBuffers(dataFileChannel, expectedBytes, bufferWithHeaders);
         totalBytesWritten += expectedBytes;
     }

@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -117,7 +118,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
             PartitionFileWriter.SegmentSpilledBufferContext segmentBuffers,
             CompletableFuture<Void> spillSuccessNotifier) {
         int segmentId = segmentBuffers.getSegmentId();
-        List<SpilledBufferContext> spilledBuffers = segmentBuffers.getSpillBufferContexts();
+        List<Tuple2<Buffer, Integer>> spilledBuffers = segmentBuffers.getBufferWithIndexes();
         boolean isFinishSegment = segmentBuffers.needFinishSegment();
         checkState(!spilledBuffers.isEmpty() || isFinishSegment);
 
@@ -136,7 +137,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     private void spill(
             int subpartitionId,
             int segmentId,
-            List<SpilledBufferContext> spilledBuffers,
+            List<Tuple2<Buffer, Integer>> spilledBuffers,
             CompletableFuture<Void> spillSuccessNotifier) {
         try {
             writeBuffers(
@@ -144,17 +145,18 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
                     segmentId,
                     spilledBuffers,
                     createSpilledBuffersAndGetTotalBytes(spilledBuffers));
-            spilledBuffers.forEach(spilledBuffer -> spilledBuffer.getBuffer().recycleBuffer());
+            spilledBuffers.forEach(spilledBuffer -> spilledBuffer.f0.recycleBuffer());
             spillSuccessNotifier.complete(null);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
         }
     }
 
-    private long createSpilledBuffersAndGetTotalBytes(List<SpilledBufferContext> spilledBuffers) {
+    private long createSpilledBuffersAndGetTotalBytes(
+            List<Tuple2<Buffer, Integer>> spilledBuffers) {
         long expectedBytes = 0;
-        for (SpilledBufferContext spilledBuffer : spilledBuffers) {
-            Buffer buffer = spilledBuffer.getBuffer();
+        for (Tuple2<Buffer, Integer> spilledBuffer : spilledBuffers) {
+            Buffer buffer = spilledBuffer.f0;
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             expectedBytes += numBytes;
         }
@@ -164,7 +166,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     private void writeBuffers(
             int subpartitionId,
             int segmentId,
-            List<SpilledBufferContext> spilledBuffers,
+            List<Tuple2<Buffer, Integer>> spilledBuffers,
             long expectedBytes)
             throws IOException {
         ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(spilledBuffers);

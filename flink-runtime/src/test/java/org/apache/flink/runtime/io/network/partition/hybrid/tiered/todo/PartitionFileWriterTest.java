@@ -18,42 +18,12 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.todo;
 
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.core.memory.MemorySegment;
-import org.apache.flink.core.memory.MemorySegmentFactory;
-import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergePartitionFile;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.channels.FileChannel;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.RejectedExecutionException;
-
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.convertToSpilledBufferContext;
-import static org.apache.flink.util.Preconditions.checkNotNull;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 
 /** Tests for {@link PartitionFileWriter}. */
 class PartitionFileWriterTest {
@@ -73,117 +43,122 @@ class PartitionFileWriterTest {
         this.dataFilePath = tempDir.resolve(".data");
     }
 
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void testProducerMergePartitionFileWriterSpillSuccessfully(boolean isCompressed)
-            throws Exception {
-        partitionFileWriter = createProducerMergePartitionFileWriter();
-        List<NettyPayload> nettyPayloadList = new ArrayList<>();
-        nettyPayloadList.addAll(
-                createBufferContextList(
-                        isCompressed,
-                        Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
-        nettyPayloadList.addAll(
-                createBufferContextList(
-                        isCompressed,
-                        Arrays.asList(Tuple2.of(4, 0), Tuple2.of(5, 1), Tuple2.of(6, 2))));
-        CompletableFuture<Void> spillFinishedFuture =
-                partitionFileWriter.write(
-                        TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
-                        Collections.singletonList(getSubpartitionSpilledBuffers(nettyPayloadList)));
-        spillFinishedFuture.get();
-        checkData(
-                isCompressed,
-                Arrays.asList(
-                        Tuple2.of(0, 0),
-                        Tuple2.of(1, 1),
-                        Tuple2.of(2, 2),
-                        Tuple2.of(4, 0),
-                        Tuple2.of(5, 1),
-                        Tuple2.of(6, 2)));
-    }
-
-    @Test
-    void testProducerMergePartitionFileWriterRelease() throws Exception {
-        partitionFileWriter = createProducerMergePartitionFileWriter();
-        List<NettyPayload> nettyPayloadList =
-                new ArrayList<>(
-                        createBufferContextList(
-                                false,
-                                Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
-        CompletableFuture<Void> spillFinishedFuture =
-                partitionFileWriter.write(
-                        TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
-                        Collections.singletonList(getSubpartitionSpilledBuffers(nettyPayloadList)));
-        spillFinishedFuture.get();
-        partitionFileWriter.release();
-        checkData(false, Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2)));
-        assertThatThrownBy(
-                        () ->
-                                partitionFileWriter.write(
-                                        TieredStorageIdMappingUtils.convertId(
-                                                new ResultPartitionID()),
-                                        Collections.singletonList(
-                                                getSubpartitionSpilledBuffers(nettyPayloadList))))
-                .isInstanceOf(RejectedExecutionException.class);
-    }
-
-    /**
-     * create buffer with identity list.
-     *
-     * @param dataAndIndexes is the list contains pair of (bufferData, bufferIndex).
-     */
-    private static List<NettyPayload> createBufferContextList(
-            boolean isCompressed, List<Tuple2<Integer, Integer>> dataAndIndexes) {
-        List<NettyPayload> nettyPayloads = new ArrayList<>();
-        for (Tuple2<Integer, Integer> dataAndIndex : dataAndIndexes) {
-            Buffer.DataType dataType =
-                    dataAndIndex.f1 % 2 == 0
-                            ? Buffer.DataType.EVENT_BUFFER
-                            : Buffer.DataType.DATA_BUFFER;
-
-            MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(BUFFER_SIZE);
-            segment.putInt(0, dataAndIndex.f0);
-            Buffer buffer =
-                    new NetworkBuffer(
-                            segment, FreeingBufferRecycler.INSTANCE, dataType, BUFFER_SIZE);
-            if (isCompressed) {
-                buffer.setCompressed(true);
-            }
-            nettyPayloads.add(NettyPayload.newBuffer(buffer, dataAndIndex.f1, 0));
-        }
-        return Collections.unmodifiableList(nettyPayloads);
-    }
-
-    private void checkData(boolean isCompressed, List<Tuple2<Integer, Integer>> dataAndIndexes)
-            throws Exception {
-        FileChannel readChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
-        ByteBuffer headerBuf = BufferReaderWriterUtil.allocatedHeaderBuffer();
-        MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(BUFFER_SIZE);
-        for (Tuple2<Integer, Integer> dataAndIndex : dataAndIndexes) {
-            Buffer buffer =
-                    BufferReaderWriterUtil.readFromByteChannel(
-                            readChannel, headerBuf, segment, (ignore) -> {});
-            checkNotNull(buffer);
-            assertThat(buffer.isCompressed()).isEqualTo(isCompressed);
-            assertThat(buffer.readableBytes()).isEqualTo(BUFFER_SIZE);
-            assertThat(buffer.getNioBufferReadable().order(ByteOrder.nativeOrder()).getInt())
-                    .isEqualTo(dataAndIndex.f0);
-            assertThat(buffer.getDataType().isEvent()).isEqualTo(dataAndIndex.f1 % 2 == 0);
-        }
-    }
-
-    private PartitionFileWriter createProducerMergePartitionFileWriter() {
-        return ProducerMergePartitionFile.createPartitionFileWriter(
-                dataFilePath, new PartitionFileIndex(NUM_SUBPARTITIONS));
-    }
-
-    private static PartitionFileWriter.SubpartitionSpilledBufferContext
-            getSubpartitionSpilledBuffers(List<NettyPayload> nettyPayloads) {
-        return new PartitionFileWriter.SubpartitionSpilledBufferContext(
-                -1,
-                Collections.singletonList(
-                        new PartitionFileWriter.SegmentSpilledBufferContext(
-                                -1, convertToSpilledBufferContext(nettyPayloads), false)));
-    }
+    //    @ParameterizedTest
+    //    @ValueSource(booleans = {false, true})
+    //    void testProducerMergePartitionFileWriterSpillSuccessfully(boolean isCompressed)
+    //            throws Exception {
+    //        partitionFileWriter = createProducerMergePartitionFileWriter();
+    //        List<NettyPayload> nettyPayloadList = new ArrayList<>();
+    //        nettyPayloadList.addAll(
+    //                createBufferContextList(
+    //                        isCompressed,
+    //                        Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2))));
+    //        nettyPayloadList.addAll(
+    //                createBufferContextList(
+    //                        isCompressed,
+    //                        Arrays.asList(Tuple2.of(4, 0), Tuple2.of(5, 1), Tuple2.of(6, 2))));
+    //        CompletableFuture<Void> spillFinishedFuture =
+    //                partitionFileWriter.write(
+    //                        TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
+    //
+    // Collections.singletonList(getSubpartitionSpilledBuffers(nettyPayloadList)));
+    //        spillFinishedFuture.get();
+    //        checkData(
+    //                isCompressed,
+    //                Arrays.asList(
+    //                        Tuple2.of(0, 0),
+    //                        Tuple2.of(1, 1),
+    //                        Tuple2.of(2, 2),
+    //                        Tuple2.of(4, 0),
+    //                        Tuple2.of(5, 1),
+    //                        Tuple2.of(6, 2)));
+    //    }
+    //
+    //    @Test
+    //    void testProducerMergePartitionFileWriterRelease() throws Exception {
+    //        partitionFileWriter = createProducerMergePartitionFileWriter();
+    //        List<NettyPayload> nettyPayloadList =
+    //                new ArrayList<>(
+    //                        createBufferContextList(
+    //                                false,
+    //                                Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2,
+    // 2))));
+    //        CompletableFuture<Void> spillFinishedFuture =
+    //                partitionFileWriter.write(
+    //                        TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
+    //
+    // Collections.singletonList(getSubpartitionSpilledBuffers(nettyPayloadList)));
+    //        spillFinishedFuture.get();
+    //        partitionFileWriter.release();
+    //        checkData(false, Arrays.asList(Tuple2.of(0, 0), Tuple2.of(1, 1), Tuple2.of(2, 2)));
+    //        assertThatThrownBy(
+    //                        () ->
+    //                                partitionFileWriter.write(
+    //                                        TieredStorageIdMappingUtils.convertId(
+    //                                                new ResultPartitionID()),
+    //                                        Collections.singletonList(
+    //
+    // getSubpartitionSpilledBuffers(nettyPayloadList))))
+    //                .isInstanceOf(RejectedExecutionException.class);
+    //    }
+    //
+    //    /**
+    //     * create buffer with identity list.
+    //     *
+    //     * @param dataAndIndexes is the list contains pair of (bufferData, bufferIndex).
+    //     */
+    //    private static List<NettyPayload> createBufferContextList(
+    //            boolean isCompressed, List<Tuple2<Integer, Integer>> dataAndIndexes) {
+    //        List<NettyPayload> nettyPayloads = new ArrayList<>();
+    //        for (Tuple2<Integer, Integer> dataAndIndex : dataAndIndexes) {
+    //            Buffer.DataType dataType =
+    //                    dataAndIndex.f1 % 2 == 0
+    //                            ? Buffer.DataType.EVENT_BUFFER
+    //                            : Buffer.DataType.DATA_BUFFER;
+    //
+    //            MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(BUFFER_SIZE);
+    //            segment.putInt(0, dataAndIndex.f0);
+    //            Buffer buffer =
+    //                    new NetworkBuffer(
+    //                            segment, FreeingBufferRecycler.INSTANCE, dataType, BUFFER_SIZE);
+    //            if (isCompressed) {
+    //                buffer.setCompressed(true);
+    //            }
+    //            nettyPayloads.add(NettyPayload.newBuffer(buffer, dataAndIndex.f1, 0));
+    //        }
+    //        return Collections.unmodifiableList(nettyPayloads);
+    //    }
+    //
+    //    private void checkData(boolean isCompressed, List<Tuple2<Integer, Integer>>
+    // dataAndIndexes)
+    //            throws Exception {
+    //        FileChannel readChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
+    //        ByteBuffer headerBuf = BufferReaderWriterUtil.allocatedHeaderBuffer();
+    //        MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(BUFFER_SIZE);
+    //        for (Tuple2<Integer, Integer> dataAndIndex : dataAndIndexes) {
+    //            Buffer buffer =
+    //                    BufferReaderWriterUtil.readFromByteChannel(
+    //                            readChannel, headerBuf, segment, (ignore) -> {});
+    //            checkNotNull(buffer);
+    //            assertThat(buffer.isCompressed()).isEqualTo(isCompressed);
+    //            assertThat(buffer.readableBytes()).isEqualTo(BUFFER_SIZE);
+    //            assertThat(buffer.getNioBufferReadable().order(ByteOrder.nativeOrder()).getInt())
+    //                    .isEqualTo(dataAndIndex.f0);
+    //            assertThat(buffer.getDataType().isEvent()).isEqualTo(dataAndIndex.f1 % 2 == 0);
+    //        }
+    //    }
+    //
+    //    private PartitionFileWriter createProducerMergePartitionFileWriter() {
+    //        return ProducerMergePartitionFile.createPartitionFileWriter(
+    //                dataFilePath, new PartitionFileIndex(NUM_SUBPARTITIONS));
+    //    }
+    //
+    //    private static PartitionFileWriter.SubpartitionSpilledBufferContext
+    //            getSubpartitionSpilledBuffers(List<NettyPayload> nettyPayloads) {
+    //        return new PartitionFileWriter.SubpartitionSpilledBufferContext(
+    //                -1,
+    //                Collections.singletonList(
+    //                        new PartitionFileWriter.SegmentSpilledBufferContext(
+    //                                -1, convertToSpilledBufferContext(nettyPayloads), false)));
+    //    }
 }

@@ -18,10 +18,10 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.util.concurrent.FutureUtils;
 
@@ -31,8 +31,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.convertToSpilledBufferContext;
 
 /**
  * The {@link DiskCacheManager} is responsible for managing cached buffers before flushing to files.
@@ -155,7 +153,7 @@ class DiskCacheManager {
             List<PartitionFileWriter.SubpartitionSpilledBufferContext> buffersToSpill) {
         int numToWriteBuffers = 0;
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; subpartitionId++) {
-            List<NettyPayload> nettyPayloads =
+            List<Tuple2<Buffer, Integer>> bufferWithIndexes =
                     subpartitionCacheManagers[subpartitionId].removeAllBuffers();
             buffersToSpill.add(
                     new PartitionFileWriter.SubpartitionSpilledBufferContext(
@@ -164,9 +162,9 @@ class DiskCacheManager {
                                     new PartitionFileWriter.SegmentSpilledBufferContext(
                                             subpartitionCacheManagers[subpartitionId]
                                                     .getSegmentIndex(),
-                                            convertToSpilledBufferContext(nettyPayloads),
+                                            bufferWithIndexes,
                                             false))));
-            numToWriteBuffers += nettyPayloads.size();
+            numToWriteBuffers += bufferWithIndexes.size();
         }
         return numToWriteBuffers;
     }

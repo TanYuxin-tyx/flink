@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -25,14 +26,12 @@ import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -47,9 +46,14 @@ class SubpartitionDiskCacheManager {
 
     private final int subpartitionId;
 
-    // Note that this field can be accessed by the task thread or the write IO thread, so the thread
-    // safety should be ensured.
-    private final Deque<NettyPayload> allBuffers = new LinkedList<>();
+    /**
+     * All the buffers. The first field of the tuple is the buffer, while the second field of the
+     * buffer is the buffer index.
+     *
+     * <p>Note that this field can be accessed by the task thread or the write IO thread, so the
+     * thread safety should be ensured.
+     */
+    private final Deque<Tuple2<Buffer, Integer>> allBuffers = new LinkedList<>();
 
     /**
      * Record the buffer index in the {@link SubpartitionDiskCacheManager}. Each time a new buffer
@@ -85,13 +89,13 @@ class SubpartitionDiskCacheManager {
     }
 
     void append(Buffer buffer) {
-        addBuffer(NettyPayload.newBuffer(buffer, bufferIndex, subpartitionId));
+        addBuffer(new Tuple2<>(buffer, bufferIndex));
     }
 
-    // Note that allBuffers can be touched by multiple threads.
-    List<NettyPayload> removeAllBuffers() {
+    /** Note that allBuffers can be touched by multiple threads. */
+    List<Tuple2<Buffer, Integer>> removeAllBuffers() {
         synchronized (allBuffers) {
-            List<NettyPayload> targetBuffers = new ArrayList<>(allBuffers);
+            List<Tuple2<Buffer, Integer>> targetBuffers = new ArrayList<>(allBuffers);
             allBuffers.clear();
             return targetBuffers;
         }
@@ -113,12 +117,11 @@ class SubpartitionDiskCacheManager {
         Buffer buffer =
                 new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
 
-        NettyPayload nettyPayload = NettyPayload.newBuffer(buffer, bufferIndex, subpartitionId);
-        addBuffer(nettyPayload);
+        addBuffer(new Tuple2<>(buffer, bufferIndex));
     }
 
-    // Note that allBuffers can be touched by multiple threads.
-    private void addBuffer(NettyPayload nettyPayload) {
+    /** Note that allBuffers can be touched by multiple threads. */
+    private void addBuffer(Tuple2<Buffer, Integer> nettyPayload) {
         synchronized (allBuffers) {
             bufferIndex++;
             allBuffers.add(nettyPayload);
@@ -127,10 +130,10 @@ class SubpartitionDiskCacheManager {
 
     private void recycleBuffers() {
         synchronized (allBuffers) {
-            for (NettyPayload nettyPayload : allBuffers) {
-                Optional<Buffer> buffer = nettyPayload.getBuffer();
-                if (buffer.isPresent() && buffer.get().isRecycled()) {
-                    buffer.get().recycleBuffer();
+            for (Tuple2<Buffer, Integer> bufferAndIndex : allBuffers) {
+                Buffer buffer = bufferAndIndex.f0;
+                if (buffer.isRecycled()) {
+                    buffer.recycleBuffer();
                 }
             }
             allBuffers.clear();

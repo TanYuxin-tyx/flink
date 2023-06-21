@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 
 import java.util.List;
@@ -84,17 +86,17 @@ public interface PartitionFileWriter {
         private final int segmentId;
 
         /** The {@link SpilledBufferContext}s indicate the buffers to be spilled. */
-        private final List<SpilledBufferContext> spilledBufferContexts;
+        private final List<Tuple2<Buffer, Integer>> bufferWithIndexes;
 
         /** Whether it is necessary to finish the segment. */
         private final boolean needFinishSegment;
 
         public SegmentSpilledBufferContext(
                 int segmentId,
-                List<SpilledBufferContext> spilledBufferContexts,
+                List<Tuple2<Buffer, Integer>> bufferWithIndexes,
                 boolean needFinishSegment) {
             this.segmentId = segmentId;
-            this.spilledBufferContexts = spilledBufferContexts;
+            this.bufferWithIndexes = bufferWithIndexes;
             this.needFinishSegment = needFinishSegment;
         }
 
@@ -102,8 +104,8 @@ public interface PartitionFileWriter {
             return segmentId;
         }
 
-        public List<SpilledBufferContext> getSpillBufferContexts() {
-            return spilledBufferContexts;
+        public List<Tuple2<Buffer, Integer>> getBufferWithIndexes() {
+            return bufferWithIndexes;
         }
 
         public boolean needFinishSegment() {

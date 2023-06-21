@@ -18,10 +18,10 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.concurrent.FutureUtils;
@@ -34,10 +34,8 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.convertToSpilledBufferContext;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** This class is responsible for managing the data in a single subpartition. */
@@ -51,7 +49,7 @@ public class SubpartitionRemoteCacheManager {
 
     private final PartitionFileWriter partitionFileWriter;
 
-    private final Deque<NettyPayload> allBuffers = new LinkedList<>();
+    private final Deque<Tuple2<Buffer, Integer>> allBuffers = new LinkedList<>();
 
     private CompletableFuture<Void> hasSpillCompleted = FutureUtils.completedVoidFuture();
 
@@ -79,7 +77,7 @@ public class SubpartitionRemoteCacheManager {
     }
 
     void addBuffer(Buffer buffer) {
-        NettyPayload toAddBuffer = NettyPayload.newBuffer(buffer, bufferIndex, subpartitionId);
+        Tuple2<Buffer, Integer> toAddBuffer = new Tuple2<>(buffer, bufferIndex);
         synchronized (allBuffers) {
             bufferIndex++;
             allBuffers.add(toAddBuffer);
@@ -129,7 +127,7 @@ public class SubpartitionRemoteCacheManager {
 
     private int spillBuffers() {
         synchronized (allBuffers) {
-            List<NettyPayload> allBuffersToFlush = new ArrayList<>(allBuffers);
+            List<Tuple2<Buffer, Integer>> allBuffersToFlush = new ArrayList<>(allBuffers);
             allBuffers.clear();
             if (allBuffersToFlush.isEmpty()) {
                 return 0;
@@ -140,9 +138,7 @@ public class SubpartitionRemoteCacheManager {
                             subpartitionId,
                             Collections.singletonList(
                                     new PartitionFileWriter.SegmentSpilledBufferContext(
-                                            segmentIndex,
-                                            convertToSpilledBufferContext(allBuffersToFlush),
-                                            false)));
+                                            segmentIndex, allBuffersToFlush, false)));
             hasSpillCompleted =
                     partitionFileWriter.write(
                             partitionId, Collections.singletonList(subpartitionSpilledBuffers));
@@ -152,10 +148,10 @@ public class SubpartitionRemoteCacheManager {
 
     private void recycleBuffers() {
         synchronized (allBuffers) {
-            for (NettyPayload nettyPayload : allBuffers) {
-                Optional<Buffer> buffer = nettyPayload.getBuffer();
-                if (buffer.isPresent() && buffer.get().isRecycled()) {
-                    buffer.get().recycleBuffer();
+            for (Tuple2<Buffer, Integer> bufferAndIndex : allBuffers) {
+                Buffer buffer = bufferAndIndex.f0;
+                if (buffer.isRecycled()) {
+                    buffer.recycleBuffer();
                 }
             }
             allBuffers.clear();
