@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.IOUtils;
 
@@ -37,7 +38,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +56,9 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class ProducerMergePartitionFileReader implements PartitionFileReader {
 
-    private final Map<TieredStorageSubpartitionId, List<SubpartitionFileReadProgress>>
+    private final Map<
+                    TieredStorageSubpartitionId,
+                    Map<NettyConnectionId, SubpartitionFileReadProgress>>
             subpartitionReadCache;
 
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
@@ -80,17 +82,16 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
             int segmentId,
             int bufferIndex,
             MemorySegment segment,
-            BufferRecycler recycler)
+            BufferRecycler recycler,
+            NettyConnectionId nettyConnectionId)
             throws IOException {
-        List<SubpartitionFileReadProgress> progresses =
-                subpartitionReadCache.computeIfAbsent(subpartitionId, ignore -> new ArrayList<>());
-
-        SubpartitionFileReadProgress matchedReadProgress =
-                getMatchedReadProgress(progresses, bufferIndex);
+        Map<NettyConnectionId, SubpartitionFileReadProgress> progresses =
+                subpartitionReadCache.computeIfAbsent(subpartitionId, ignore -> new HashMap<>());
+        SubpartitionFileReadProgress matchedReadProgress = progresses.get(nettyConnectionId);
         if (matchedReadProgress == null) {
             checkState(bufferIndex == 0);
             matchedReadProgress = new SubpartitionFileReadProgress(subpartitionId);
-            progresses.add(matchedReadProgress);
+            progresses.put(nettyConnectionId, matchedReadProgress);
         }
 
         if (!matchedReadProgress.hasBuffer()) {
@@ -126,15 +127,12 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            int bufferIndex) {
-        List<SubpartitionFileReadProgress> progresses =
-                subpartitionReadCache.computeIfAbsent(subpartitionId, ignore -> new ArrayList<>());
-        for (SubpartitionFileReadProgress progress : progresses) {
-            if (progress.getCurrentBufferIndex() == bufferIndex) {
-                return progress.currentFileOffset;
-            }
-        }
-        return 0;
+            int bufferIndex,
+            NettyConnectionId nettyConnectionId) {
+        Map<NettyConnectionId, SubpartitionFileReadProgress> progresses =
+                subpartitionReadCache.computeIfAbsent(subpartitionId, ignore -> new HashMap<>());
+        SubpartitionFileReadProgress progress = progresses.get(nettyConnectionId);
+        return progress == null ? 0 : progress.getCurrentFileOffset();
     }
 
     @Override

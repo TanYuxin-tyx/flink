@@ -154,7 +154,7 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
         try {
             buffer =
                     partitionFileReader.readBuffer(
-                            partitionId, subpartitionId, segmentId, -1, null, null);
+                            partitionId, subpartitionId, segmentId, -1, null, null, null);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }

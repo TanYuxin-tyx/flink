@@ -23,6 +23,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 
 import java.io.IOException;
 
@@ -46,7 +47,8 @@ public interface PartitionFileReader {
             int segmentId,
             int bufferIndex,
             MemorySegment memorySegment,
-            BufferRecycler recycler)
+            BufferRecycler recycler,
+            NettyConnectionId nettyConnectionId)
             throws IOException;
 
     /**
@@ -64,7 +66,8 @@ public interface PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            int bufferIndex);
+            int bufferIndex,
+            NettyConnectionId nettyConnectionId);
 
     /** Release the {@link PartitionFileReader}. */
     void release();

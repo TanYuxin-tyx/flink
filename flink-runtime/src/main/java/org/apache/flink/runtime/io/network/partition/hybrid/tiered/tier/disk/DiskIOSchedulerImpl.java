@@ -348,7 +348,8 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
                                             -1,
                                             nextBufferIndex,
                                             memorySegment,
-                                            recycler))
+                                            recycler,
+                                            nettyConnectionWriter.getNettyConnectionId()))
                             == null) {
                         buffers.add(memorySegment);
                         break;
@@ -389,7 +390,11 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
 
         private long getPriority() {
             return partitionFileReader.getPriority(
-                    partitionId, subpartitionId, -1, nextBufferIndex);
+                    partitionId,
+                    subpartitionId,
+                    -1,
+                    nextBufferIndex,
+                    nettyConnectionWriter.getNettyConnectionId());
         }
 
         private void failReader(Throwable failureCause) {

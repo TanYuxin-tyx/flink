@@ -32,6 +32,7 @@ import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
@@ -78,7 +79,8 @@ public class HashPartitionFileReader implements PartitionFileReader {
             int segmentId,
             int bufferIndex,
             MemorySegment segment,
-            BufferRecycler recycler)
+            BufferRecycler recycler,
+            NettyConnectionId nettyConnectionId)
             throws IOException {
         Tuple2<ReadableByteChannel, Integer> fileChannelAndSegmentId =
                 openedChannels
@@ -128,7 +130,8 @@ public class HashPartitionFileReader implements PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            int bufferIndex) {
+            int bufferIndex,
+            NettyConnectionId nettyConnectionId) {
         // noop
         return -1;
     }
