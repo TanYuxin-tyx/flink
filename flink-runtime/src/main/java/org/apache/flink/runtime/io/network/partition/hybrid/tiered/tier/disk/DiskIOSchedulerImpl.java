@@ -335,7 +335,6 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
             if (nettyConnectionWriter.numQueuedBuffers() >= maxBufferReadAhead) {
                 return;
             }
-            int numLoaded = 0;
             while (!buffers.isEmpty()
                     && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead) {
                 MemorySegment memorySegment = buffers.poll();
@@ -367,18 +366,14 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
                                 .get(nettyPayload.getBufferIndex());
                 if (segmentId != null) {
                     nettyConnectionWriter.writeBuffer(NettyPayload.newSegment(segmentId));
-                    ((TieredStorageNettyServiceImpl) nettyService)
-                            .notifyResultSubpartitionViewSendBuffer(
-                                    nettyConnectionWriter.getNettyConnectionId());
-                    ++numLoaded;
+                    if(nettyConnectionWriter.numQueuedBuffers() <= 1){
+                        notifyAvailable();
+                    }
                 }
                 nettyConnectionWriter.writeBuffer(nettyPayload);
-                ++numLoaded;
-            }
-            if (nettyConnectionWriter.numQueuedBuffers() <= numLoaded) {
-                ((TieredStorageNettyServiceImpl) nettyService)
-                        .notifyResultSubpartitionViewSendBuffer(
-                                nettyConnectionWriter.getNettyConnectionId());
+                if(nettyConnectionWriter.numQueuedBuffers() <= 1){
+                    notifyAvailable();
+                }
             }
         }
 
@@ -395,6 +390,12 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
                     -1,
                     nextBufferIndex,
                     nettyConnectionWriter.getNettyConnectionId());
+        }
+
+        private void notifyAvailable() {
+            ((TieredStorageNettyServiceImpl) nettyService)
+                    .notifyResultSubpartitionViewSendBuffer(
+                            nettyConnectionWriter.getNettyConnectionId());
         }
 
         private void failReader(Throwable failureCause) {
