@@ -30,15 +30,15 @@ import java.io.IOException;
 public interface PartitionFileReader {
 
     /**
-     * Read a buffer from partition file.
+     * Read a buffer from the partition file.
      *
-     * @param partitionId partition id indicates the id of partition.
-     * @param subpartitionId subpartition id indicates the id of subpartition.
-     * @param segmentId segment id indicates the id of segment.
-     * @param bufferIndex the index of buffer.
-     * @param memorySegment memory segment indicates an empty buffer.
-     * @param recycler recycler indicates the owner of the buffer.
-     * @return the buffer.
+     * @param partitionId the partition id of the buffer
+     * @param subpartitionId the subpartition id of the buffer
+     * @param segmentId the segment id of the buffer
+     * @param bufferIndex the index of buffer
+     * @param memorySegment the empty buffer to store the read buffer
+     * @param recycler the buffer recycler
+     * @return the read buffer
      */
     Buffer readBuffer(
             TieredStoragePartitionId partitionId,
@@ -50,15 +50,17 @@ public interface PartitionFileReader {
             throws IOException;
 
     /**
-     * Get the priority when reading a specific partition and subpartition. The priority can be the
-     * file offset to achieve sequential disk reads, and the priority can be the same number if
-     * there is no priority read requirement.
+     * Get the priority when reading partition file data. The priority may improve the read
+     * efficiency or the read performance. For example, use the file offset of the reader as the
+     * priority to achieve better disk sequential reading to improve the read performance. Note that
+     * the reader priority is not a guaranteed ability for a reader, and all the readers will return
+     * the same priority value if the readers have no the priorities.
      *
-     * @param partitionId partition id indicates the id of partition.
-     * @param subpartitionId subpartition id indicates the id of subpartition.
-     * @param segmentId segment id indicates the id of segment.
-     * @param bufferIndex the index of buffer.
-     * @return the priority.
+     * @param partitionId the partition id of the buffer
+     * @param subpartitionId the subpartition id of the buffer
+     * @param segmentId the segment id of the buffer
+     * @param bufferIndex the index of buffer
+     * @return the priority of the {@link PartitionFileReader}.
      */
     long getPriority(
             TieredStoragePartitionId partitionId,
