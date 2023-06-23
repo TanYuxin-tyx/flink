@@ -77,14 +77,13 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
 
     @Override
     public CompletableFuture<Void> write(
-            TieredStoragePartitionId partitionId,
-            List<PartitionFileWriter.SubpartitionSpilledBufferContext> spilledBuffers) {
+            TieredStoragePartitionId partitionId, List<SubpartitionBufferContext> buffersToWrite) {
         List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
-        spilledBuffers.forEach(
+        buffersToWrite.forEach(
                 subpartitionBuffers -> {
                     int subpartitionId = subpartitionBuffers.getSubpartitionId();
-                    List<PartitionFileWriter.SegmentSpilledBufferContext> multiSegmentBuffers =
-                            subpartitionBuffers.getSegmentSpillBufferContexts();
+                    List<SegmentBufferContext> multiSegmentBuffers =
+                            subpartitionBuffers.getSegmentBufferContexts();
                     multiSegmentBuffers.forEach(
                             segmentBuffers -> {
                                 CompletableFuture<Void> spillSuccessNotifier =
@@ -115,11 +114,11 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
 
     private Runnable getWriteOrFinisheSegmentRunnable(
             int subpartitionId,
-            PartitionFileWriter.SegmentSpilledBufferContext segmentBuffers,
+            SegmentBufferContext segmentBuffers,
             CompletableFuture<Void> spillSuccessNotifier) {
         int segmentId = segmentBuffers.getSegmentId();
         List<Tuple2<Buffer, Integer>> spilledBuffers = segmentBuffers.getBufferWithIndexes();
-        boolean isFinishSegment = segmentBuffers.needFinishSegment();
+        boolean isFinishSegment = segmentBuffers.isSegmentFinished();
         checkState(!spilledBuffers.isEmpty() || isFinishSegment);
 
         Runnable writeRunnable;

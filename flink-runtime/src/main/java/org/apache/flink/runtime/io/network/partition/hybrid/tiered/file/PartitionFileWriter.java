@@ -32,72 +32,69 @@ import java.util.concurrent.CompletableFuture;
 public interface PartitionFileWriter {
 
     /**
-     * Write the {@link SpilledBufferContext}s to the partition file. The written buffers may belong
-     * to multiple subpartitions.
+     * Write the buffers to the partition file. The written buffers may belong to multiple
+     * subpartitions.
      *
      * @param partitionId the partition id
-     * @param spilledBuffers the buffers to be flushed
+     * @param buffersToWrite the buffers to be written to the partition file
      * @return the completable future indicating whether the writing file process has finished. If
      *     the {@link CompletableFuture} is completed, the written process is completed.
      */
     CompletableFuture<Void> write(
-            TieredStoragePartitionId partitionId,
-            List<SubpartitionSpilledBufferContext> spilledBuffers);
+            TieredStoragePartitionId partitionId, List<SubpartitionBufferContext> buffersToWrite);
 
     /** Release all the resources of the {@link PartitionFileWriter}. */
     void release();
 
     /**
-     * The {@link SubpartitionSpilledBufferContext} contains all the buffers that will be spilled in
-     * this subpartition.
+     * The {@link SubpartitionBufferContext} contains all the buffers belonging to one subpartition.
      */
-    class SubpartitionSpilledBufferContext {
+    class SubpartitionBufferContext {
 
         /** The subpartition id. */
         private final int subpartitionId;
 
-        /** he {@link SegmentSpilledBufferContext}s belonging to this subpartition. */
-        private final List<SegmentSpilledBufferContext> segmentSpilledBufferContexts;
+        /** The {@link SegmentBufferContext}s belonging to the subpartition. */
+        private final List<SegmentBufferContext> segmentBufferContexts;
 
-        public SubpartitionSpilledBufferContext(
-                int subpartitionId,
-                List<SegmentSpilledBufferContext> segmentSpilledBufferContexts) {
+        public SubpartitionBufferContext(
+                int subpartitionId, List<SegmentBufferContext> segmentBufferContexts) {
             this.subpartitionId = subpartitionId;
-            this.segmentSpilledBufferContexts = segmentSpilledBufferContexts;
+            this.segmentBufferContexts = segmentBufferContexts;
         }
 
         public int getSubpartitionId() {
             return subpartitionId;
         }
 
-        public List<SegmentSpilledBufferContext> getSegmentSpillBufferContexts() {
-            return segmentSpilledBufferContexts;
+        public List<SegmentBufferContext> getSegmentBufferContexts() {
+            return segmentBufferContexts;
         }
     }
 
     /**
-     * The wrapper class {@link SegmentSpilledBufferContext} contains all the {@link
-     * SpilledBufferContext}s of the segment. Note that when this indicates the segment need to be
-     * finished, the field {@code spilledBufferContexts} should be empty.
+     * The {@link SegmentBufferContext} contains all the buffers belonging to the segment. Note that
+     * when this indicates whether the segment is finished, the field {@code bufferWithIndexes}
+     * should be empty.
      */
-    class SegmentSpilledBufferContext {
+    class SegmentBufferContext {
 
         /** The segment id. */
         private final int segmentId;
 
-        /** The {@link SpilledBufferContext}s indicate the buffers to be spilled. */
+        /** All the buffers belonging to the segment. */
         private final List<Tuple2<Buffer, Integer>> bufferWithIndexes;
 
         /** Whether it is necessary to finish the segment. */
-        private final boolean needFinishSegment;
+        private final boolean segmentFinished;
 
-        public SegmentSpilledBufferContext(
+        public SegmentBufferContext(
                 int segmentId,
                 List<Tuple2<Buffer, Integer>> bufferWithIndexes,
-                boolean needFinishSegment) {
+                boolean segmentFinished) {
             this.segmentId = segmentId;
             this.bufferWithIndexes = bufferWithIndexes;
-            this.needFinishSegment = needFinishSegment;
+            this.segmentFinished = segmentFinished;
         }
 
         public int getSegmentId() {
@@ -108,8 +105,8 @@ public interface PartitionFileWriter {
             return bufferWithIndexes;
         }
 
-        public boolean needFinishSegment() {
-            return needFinishSegment;
+        public boolean isSegmentFinished() {
+            return segmentFinished;
         }
     }
 }

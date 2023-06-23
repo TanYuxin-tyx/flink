@@ -88,11 +88,11 @@ public class SubpartitionRemoteCacheManager {
         checkState(this.segmentIndex == segmentIndex, "Wrong segment index.");
         int bufferNumber = spillBuffers();
         if (bufferNumber > 0) {
-            PartitionFileWriter.SubpartitionSpilledBufferContext finishSegmentBuffer =
-                    new PartitionFileWriter.SubpartitionSpilledBufferContext(
+            PartitionFileWriter.SubpartitionBufferContext finishSegmentBuffer =
+                    new PartitionFileWriter.SubpartitionBufferContext(
                             subpartitionId,
                             Collections.singletonList(
-                                    new PartitionFileWriter.SegmentSpilledBufferContext(
+                                    new PartitionFileWriter.SegmentBufferContext(
                                             segmentIndex, Collections.emptyList(), true)));
             hasSpillCompleted =
                     partitionFileWriter.write(
@@ -133,11 +133,11 @@ public class SubpartitionRemoteCacheManager {
                 return 0;
             }
 
-            PartitionFileWriter.SubpartitionSpilledBufferContext subpartitionSpilledBuffers =
-                    new PartitionFileWriter.SubpartitionSpilledBufferContext(
+            PartitionFileWriter.SubpartitionBufferContext subpartitionSpilledBuffers =
+                    new PartitionFileWriter.SubpartitionBufferContext(
                             subpartitionId,
                             Collections.singletonList(
-                                    new PartitionFileWriter.SegmentSpilledBufferContext(
+                                    new PartitionFileWriter.SegmentBufferContext(
                                             segmentIndex, allBuffersToFlush, false)));
             hasSpillCompleted =
                     partitionFileWriter.write(

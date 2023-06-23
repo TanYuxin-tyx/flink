@@ -95,17 +95,14 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
 
     @Override
     public CompletableFuture<Void> write(
-            TieredStoragePartitionId partitionId,
-            List<PartitionFileWriter.SubpartitionSpilledBufferContext> spilledBuffers) {
+            TieredStoragePartitionId partitionId, List<SubpartitionBufferContext> buffersToWrite) {
         List<Tuple2<Buffer, Integer>> buffersToSpill =
-                spilledBuffers.stream()
-                        .map(SubpartitionSpilledBufferContext::getSegmentSpillBufferContexts)
+                buffersToWrite.stream()
+                        .map(SubpartitionBufferContext::getSegmentBufferContexts)
                         .flatMap(
-                                (Function<
-                                                List<SegmentSpilledBufferContext>,
-                                                Stream<SegmentSpilledBufferContext>>)
+                                (Function<List<SegmentBufferContext>, Stream<SegmentBufferContext>>)
                                         Collection::stream)
-                        .map(SegmentSpilledBufferContext::getBufferWithIndexes)
+                        .map(SegmentBufferContext::getBufferWithIndexes)
                         .flatMap(
                                 (Function<
                                                 List<Tuple2<Buffer, Integer>>,
@@ -114,14 +111,13 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
                         .collect(Collectors.toList());
 
         CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
-        ioExecutor.execute(() -> spill(spilledBuffers, spillSuccessNotifier));
+        ioExecutor.execute(() -> spill(buffersToWrite, spillSuccessNotifier));
         return spillSuccessNotifier;
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void spill(
-            List<PartitionFileWriter.SubpartitionSpilledBufferContext> toWrite,
-            CompletableFuture<Void> spillSuccessNotifier) {
+            List<SubpartitionBufferContext> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
         try {
             List<PartitionFileIndex.SpilledBuffer> spilledBuffers = new ArrayList<>();
             calculateSizeAndWriteBuffers(toWrite, spilledBuffers);
@@ -139,21 +135,20 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
      * @param spilledBuffers receive the created {@link PartitionFileIndex.SpilledBuffer}
      */
     private void calculateSizeAndWriteBuffers(
-            List<PartitionFileWriter.SubpartitionSpilledBufferContext> toWrite,
+            List<SubpartitionBufferContext> toWrite,
             List<PartitionFileIndex.SpilledBuffer> spilledBuffers)
             throws IOException {
         List<Tuple2<Buffer, Integer>> buffersToFlush = new ArrayList<>();
         long expectedBytes = 0;
-        for (PartitionFileWriter.SubpartitionSpilledBufferContext subpartitionSpilledBufferContext :
-                toWrite) {
-            int subpartitionId = subpartitionSpilledBufferContext.getSubpartitionId();
-            for (PartitionFileWriter.SegmentSpilledBufferContext segmentSpilledBufferContext :
-                    subpartitionSpilledBufferContext.getSegmentSpillBufferContexts()) {
+        for (SubpartitionBufferContext subpartitionBufferContext : toWrite) {
+            int subpartitionId = subpartitionBufferContext.getSubpartitionId();
+            for (SegmentBufferContext segmentBufferContext :
+                    subpartitionBufferContext.getSegmentBufferContexts()) {
                 List<Tuple2<Buffer, Integer>> bufferWithIndexes =
-                        segmentSpilledBufferContext.getBufferWithIndexes();
+                        segmentBufferContext.getBufferWithIndexes();
                 buffersToFlush.addAll(bufferWithIndexes);
                 for (Tuple2<Buffer, Integer> bufferWithIndex :
-                        segmentSpilledBufferContext.getBufferWithIndexes()) {
+                        segmentBufferContext.getBufferWithIndexes()) {
                     Buffer buffer = bufferWithIndex.f0;
                     spilledBuffers.add(
                             new PartitionFileIndex.SpilledBuffer(

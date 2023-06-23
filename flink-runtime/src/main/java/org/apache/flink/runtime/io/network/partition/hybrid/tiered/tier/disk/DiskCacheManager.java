@@ -135,8 +135,7 @@ class DiskCacheManager {
         if (!needForceFlush && !hasFlushCompleted.isDone()) {
             return;
         }
-        List<PartitionFileWriter.SubpartitionSpilledBufferContext> buffersToSpill =
-                new ArrayList<>();
+        List<PartitionFileWriter.SubpartitionBufferContext> buffersToSpill = new ArrayList<>();
         int numToWriteBuffers = getSubpartitionSpilledBuffers(buffersToSpill);
 
         if (numToWriteBuffers > 0) {
@@ -149,16 +148,16 @@ class DiskCacheManager {
     }
 
     private int getSubpartitionSpilledBuffers(
-            List<PartitionFileWriter.SubpartitionSpilledBufferContext> buffersToSpill) {
+            List<PartitionFileWriter.SubpartitionBufferContext> buffersToSpill) {
         int numToWriteBuffers = 0;
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; subpartitionId++) {
             List<Tuple2<Buffer, Integer>> bufferWithIndexes =
                     subpartitionCacheManagers[subpartitionId].removeAllBuffers();
             buffersToSpill.add(
-                    new PartitionFileWriter.SubpartitionSpilledBufferContext(
+                    new PartitionFileWriter.SubpartitionBufferContext(
                             subpartitionId,
                             Collections.singletonList(
-                                    new PartitionFileWriter.SegmentSpilledBufferContext(
+                                    new PartitionFileWriter.SegmentBufferContext(
                                             subpartitionCacheManagers[subpartitionId]
                                                     .getSegmentIndex(),
                                             bufferWithIndexes,
