@@ -59,8 +59,7 @@ class DiskCacheManager {
         this.hasFlushCompleted = FutureUtils.completedVoidFuture();
 
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
-            subpartitionCacheManagers[subpartitionId] =
-                    new SubpartitionDiskCacheManager(partitionId, subpartitionId);
+            subpartitionCacheManagers[subpartitionId] = new SubpartitionDiskCacheManager();
         }
         storageMemoryManager.listenBufferReclaimRequest(this::notifyFlushCachedBuffers);
     }

@@ -25,7 +25,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -41,10 +40,6 @@ import static org.apache.flink.util.Preconditions.checkState;
  * subpartition.
  */
 class SubpartitionDiskCacheManager {
-
-    private final TieredStoragePartitionId partitionId;
-
-    private final int subpartitionId;
 
     /**
      * All the buffers. The first field of the tuple is the buffer, while the second field of the
@@ -67,10 +62,7 @@ class SubpartitionDiskCacheManager {
      */
     private int segmentIndex;
 
-    SubpartitionDiskCacheManager(TieredStoragePartitionId partitionId, int subpartitionId) {
-        this.partitionId = partitionId;
-        this.subpartitionId = subpartitionId;
-    }
+    SubpartitionDiskCacheManager() {}
 
     // ------------------------------------------------------------------------
     //  Called by DiskCacheManager
