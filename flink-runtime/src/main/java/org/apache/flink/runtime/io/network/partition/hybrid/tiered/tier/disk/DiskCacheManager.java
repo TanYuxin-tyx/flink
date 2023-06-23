@@ -135,25 +135,25 @@ class DiskCacheManager {
         if (!needForceFlush && !hasFlushCompleted.isDone()) {
             return;
         }
-        List<PartitionFileWriter.SubpartitionBufferContext> buffersToSpill = new ArrayList<>();
-        int numToWriteBuffers = getSubpartitionSpilledBuffers(buffersToSpill);
+        List<PartitionFileWriter.SubpartitionBufferContext> buffersToFlush = new ArrayList<>();
+        int numToWriteBuffers = getSubpartitionToFlushBuffers(buffersToFlush);
 
         if (numToWriteBuffers > 0) {
             CompletableFuture<Void> flushCompletableFuture =
-                    partitionFileWriter.write(partitionId, buffersToSpill);
+                    partitionFileWriter.write(partitionId, buffersToFlush);
             if (!needForceFlush) {
                 hasFlushCompleted = flushCompletableFuture;
             }
         }
     }
 
-    private int getSubpartitionSpilledBuffers(
-            List<PartitionFileWriter.SubpartitionBufferContext> buffersToSpill) {
+    private int getSubpartitionToFlushBuffers(
+            List<PartitionFileWriter.SubpartitionBufferContext> buffersToFlush) {
         int numToWriteBuffers = 0;
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; subpartitionId++) {
             List<Tuple2<Buffer, Integer>> bufferWithIndexes =
                     subpartitionCacheManagers[subpartitionId].removeAllBuffers();
-            buffersToSpill.add(
+            buffersToFlush.add(
                     new PartitionFileWriter.SubpartitionBufferContext(
                             subpartitionId,
                             Collections.singletonList(

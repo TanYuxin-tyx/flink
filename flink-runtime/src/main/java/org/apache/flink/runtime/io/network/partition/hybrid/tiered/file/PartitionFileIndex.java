@@ -104,7 +104,7 @@ public class PartitionFileIndex {
         }
     }
 
-    public void release() {
+    void release() {
         synchronized (lock) {
             subpartitionRegions.clear();
             isReleased = true;
