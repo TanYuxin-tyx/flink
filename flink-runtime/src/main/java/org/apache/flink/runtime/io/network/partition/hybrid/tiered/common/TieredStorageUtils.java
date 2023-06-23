@@ -86,41 +86,6 @@ public class TieredStorageUtils {
         checkState(writeSize == expectedBytes);
     }
 
-    public static String createBaseSubpartitionPath(
-            JobID jobID,
-            ResultPartitionID resultPartitionID,
-            int subpartitionId,
-            String baseDfsPath,
-            boolean isBroadcastOnly)
-            throws IOException {
-        String basePathStr =
-                getBaseSubpartitionPath(
-                        jobID, resultPartitionID, subpartitionId, baseDfsPath, isBroadcastOnly);
-        Path basePath = new Path(basePathStr);
-        FileSystem fs = basePath.getFileSystem();
-        if (!fs.exists(basePath)) {
-            fs.mkdirs(basePath);
-        }
-        return basePathStr;
-    }
-
-    public static String getBaseSubpartitionPath(
-            JobID jobID,
-            ResultPartitionID resultPartitionID,
-            int subpartitionId,
-            String baseDfsPath,
-            boolean isBroadcastOnly) {
-        while (baseDfsPath.endsWith("/") && baseDfsPath.length() > 1) {
-            baseDfsPath = baseDfsPath.substring(0, baseDfsPath.length() - 1);
-        }
-        if (isBroadcastOnly) {
-            subpartitionId = 0;
-        }
-        return String.format(
-                "%s/%s/%s/%s/%s",
-                baseDfsPath, TIER_STORE_DIR, jobID, resultPartitionID, subpartitionId);
-    }
-
     public static String createJobBasePath(JobID jobID, String basePath) {
         return String.format("%s/%s/%s", basePath, TieredStorageUtils.TIER_STORE_DIR, jobID);
     }
@@ -132,7 +97,7 @@ public class TieredStorageUtils {
             boolean isBroadcastOnly)
             throws IOException {
         String subpartitionPathStr =
-                getBaseSubpartitionPath(
+                generateSubpartitionPath(
                         basePath, resultPartitionID, subpartitionId, isBroadcastOnly);
         Path subpartitionPath = new Path(subpartitionPathStr);
         FileSystem fs = subpartitionPath.getFileSystem();
@@ -140,20 +105,6 @@ public class TieredStorageUtils {
             fs.mkdirs(subpartitionPath);
         }
         return subpartitionPathStr;
-    }
-
-    public static String getBaseSubpartitionPath(
-            String basePath,
-            ResultPartitionID resultPartitionID,
-            int subpartitionId,
-            boolean isBroadcastOnly) {
-        while (basePath.endsWith("/") && basePath.length() > 1) {
-            basePath = basePath.substring(0, basePath.length() - 1);
-        }
-        if (isBroadcastOnly) {
-            subpartitionId = 0;
-        }
-        return String.format("%s/%s/%s", basePath, resultPartitionID, subpartitionId);
     }
 
     public static String generateToReleaseJobPath(JobID jobID, String baseDfsPath) {
@@ -229,16 +180,58 @@ public class TieredStorageUtils {
         return null;
     }
 
-    public static Path generateNewSegmentPath(
-            String baseSubpartitionPath, long currentSegmentIndex) {
-        return new Path(baseSubpartitionPath, "/" + SEGMENT_FILE_PREFIX + currentSegmentIndex);
+    public static Path generateSegmentPath(String baseSubpartitionPath, long currentSegmentIndex) {
+        return new Path(baseSubpartitionPath, SEGMENT_FILE_PREFIX + currentSegmentIndex);
+    }
+
+    public static String generateSubpartitionPath(
+            String basePath,
+            ResultPartitionID resultPartitionID,
+            int subpartitionId,
+            boolean isBroadcastOnly) {
+        while (basePath.endsWith("/") && basePath.length() > 1) {
+            basePath = basePath.substring(0, basePath.length() - 1);
+        }
+        if (isBroadcastOnly) {
+            subpartitionId = 0;
+        }
+        return String.format("%s/%s/%s", basePath, resultPartitionID, subpartitionId);
+    }
+
+    public static String generateSubpartitionPath(
+            JobID jobID,
+            ResultPartitionID resultPartitionID,
+            int subpartitionId,
+            String baseDfsPath,
+            boolean isBroadcastOnly) {
+        while (baseDfsPath.endsWith("/") && baseDfsPath.length() > 1) {
+            baseDfsPath = baseDfsPath.substring(0, baseDfsPath.length() - 1);
+        }
+        if (isBroadcastOnly) {
+            subpartitionId = 0;
+        }
+        return String.format(
+                "%s/%s/%s/%s/%s",
+                baseDfsPath, TIER_STORE_DIR, jobID, resultPartitionID, subpartitionId);
     }
 
     public static Path generateSegmentFinishPath(
             String baseSubpartitionPath, long currentSegmentIndex) {
         return new Path(
                 baseSubpartitionPath,
-                "/" + SEGMENT_FILE_PREFIX + currentSegmentIndex + SEGMENT_FINISH_FILE_SUFFIX);
+                SEGMENT_FILE_PREFIX + currentSegmentIndex + SEGMENT_FINISH_FILE_SUFFIX);
+    }
+
+    public static Path generateSegmentPath(
+            String basePath,
+            ResultPartitionID resultPartitionID,
+            int subpartitionId,
+            boolean isBroadcastOnly,
+            long segmentId) {
+        String subpartitionPath =
+                generateSubpartitionPath(
+                        basePath, resultPartitionID, subpartitionId, isBroadcastOnly);
+        return generateSegmentPath(subpartitionPath, segmentId);
     }
 
     public static void writeSegmentFinishFile(String baseSubpartitionPath, long currentSegmentIndex)

@@ -44,7 +44,7 @@ import java.util.function.BiConsumer;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateSegmentFinishPath;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getBaseSubpartitionPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateSubpartitionPath;
 
 /** Default implementation of {@link RemoteStorageFileScanner}. */
 public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
@@ -178,7 +178,7 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
         String baseSubpartitionPath =
-                getBaseSubpartitionPath(
+                generateSubpartitionPath(
                         baseRemoteStoragePath,
                         TieredStorageIdMappingUtils.convertId(partitionId),
                         subpartitionId.getSubpartitionId(),

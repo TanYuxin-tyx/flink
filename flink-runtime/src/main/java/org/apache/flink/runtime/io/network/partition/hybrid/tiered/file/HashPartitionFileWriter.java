@@ -47,7 +47,7 @@ import java.util.concurrent.TimeoutException;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.createSubpartitionPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateBufferWithHeaders;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateNewSegmentPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateSegmentPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.writeSegmentFinishFile;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -171,7 +171,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         if (currentChannel == null) {
             String subpartitionPath =
                     createSubpartitionPath(basePath, resultPartitionID, subpartitionId, false);
-            Path writingSegmentPath = generateNewSegmentPath(subpartitionPath, segmentId);
+            Path writingSegmentPath = generateSegmentPath(subpartitionPath, segmentId);
             FileSystem fs = writingSegmentPath.getFileSystem();
             currentChannel =
                     Channels.newChannel(
