@@ -107,6 +107,11 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
             if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
                 throw new TimeoutException("Timeout to shutdown the flush thread.");
             }
+            for (WritableByteChannel subpartitionChannel : subpartitionChannels) {
+                if (subpartitionChannel != null) {
+                    subpartitionChannel.close();
+                }
+            }
         } catch (Exception e) {
             ExceptionUtils.rethrow(e);
         }

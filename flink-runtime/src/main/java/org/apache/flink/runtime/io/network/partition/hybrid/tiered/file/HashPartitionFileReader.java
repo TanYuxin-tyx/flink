@@ -38,8 +38,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.parseBufferHeader;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateNewSegmentPath;
@@ -99,6 +103,7 @@ public class HashPartitionFileReader implements PartitionFileReader {
         reusedHeaderBuffer.clear();
         int bufferHeaderResult = channel.read(reusedHeaderBuffer);
         if (bufferHeaderResult == -1) {
+            channel.close();
             channel = null;
             openedChannels.get(partitionId).put(subpartitionId, Tuple2.of(channel, segmentId));
             return new NetworkBuffer(
@@ -154,5 +159,22 @@ public class HashPartitionFileReader implements PartitionFileReader {
     }
 
     @Override
-    public void release() {}
+    public void release() {
+        openedChannels.values().stream()
+                .map(Map::values)
+                .flatMap(
+                        (Function<
+                                        Collection<Tuple2<ReadableByteChannel, Integer>>,
+                                        Stream<Tuple2<ReadableByteChannel, Integer>>>)
+                                Collection::stream)
+                .filter(Objects::nonNull)
+                .forEach(
+                        channel -> {
+                            try {
+                                channel.f0.close();
+                            } catch (IOException e) {
+                                ExceptionUtils.rethrow(e);
+                            }
+                        });
+    }
 }
