@@ -38,7 +38,10 @@ import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** This class is responsible for managing the data in a single subpartition. */
+/**
+ * This {@link SubpartitionRemoteCacheManager} is responsible for managing the buffers in a single
+ * subpartition.
+ */
 public class SubpartitionRemoteCacheManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(SubpartitionRemoteCacheManager.class);

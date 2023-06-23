@@ -22,35 +22,18 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
-import org.apache.flink.util.ExceptionUtils;
-import org.apache.flink.util.FatalExitExceptionHandler;
-
-import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.util.Arrays;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
-/** This class is responsible for managing cached buffers data before flush to remote storage. */
+/**
+ * The {@link RemoteCacheManager} is responsible for managing the cached buffers before flush to the
+ * storage.
+ */
 public class RemoteCacheManager {
 
     private final SubpartitionRemoteCacheManager[] subpartitionCacheDataManagers;
 
     private final int[] subpartitionSegmentIndexes;
-
-    private final ExecutorService ioExecutor =
-            Executors.newSingleThreadScheduledExecutor(
-                    new ThreadFactoryBuilder()
-                            .setNameFormat("tiered store remote spiller")
-                            // It is more appropriate to use task fail over than exit JVM here,
-                            // but the task thread will bring some extra overhead to check the
-                            // exception information set by other thread. As the spiller thread will
-                            // not encounter exceptions in most cases, we temporarily choose the
-                            // form of fatal error to deal except thrown by spiller thread.
-                            .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
-                            .build());
 
     public RemoteCacheManager(
             TieredStoragePartitionId partitionId,
@@ -88,14 +71,6 @@ public class RemoteCacheManager {
 
     void close() {
         Arrays.stream(subpartitionCacheDataManagers).forEach(SubpartitionRemoteCacheManager::close);
-        try {
-            ioExecutor.shutdown();
-            if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
-                throw new TimeoutException("Shutdown spilling thread timeout.");
-            }
-        } catch (Exception e) {
-            ExceptionUtils.rethrow(e);
-        }
     }
 
     /**
