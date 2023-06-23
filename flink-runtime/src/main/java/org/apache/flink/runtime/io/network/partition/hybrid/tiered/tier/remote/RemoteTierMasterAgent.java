@@ -33,7 +33,7 @@ import java.io.IOException;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.deletePath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.findPathContainsPartition;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateToReleaseJobPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateJobPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateToReleasePartitionPath;
 
 public class RemoteTierMasterAgent implements TierMasterAgent {
@@ -75,7 +75,7 @@ public class RemoteTierMasterAgent implements TierMasterAgent {
 
     @Override
     public void release(JobID jobID) {
-        String toReleasePath = generateToReleaseJobPath(jobID, remoteStorageBaseHomePath);
+        String toReleasePath = generateJobPath(jobID, remoteStorageBaseHomePath);
         deletePathQuietly(toReleasePath);
     }
 

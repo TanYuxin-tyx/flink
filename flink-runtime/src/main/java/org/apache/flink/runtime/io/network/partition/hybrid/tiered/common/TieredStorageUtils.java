@@ -117,7 +117,7 @@ public class TieredStorageUtils {
         outputStream.close();
     }
 
-    public static String generateToReleaseJobPath(JobID jobID, String baseDfsPath) {
+    public static String generateJobPath(JobID jobID, String baseDfsPath) {
         if (jobID == null || baseDfsPath == null) {
             return null;
         }
