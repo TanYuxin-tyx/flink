@@ -36,16 +36,12 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateBufferWithHeaders;
 
@@ -96,20 +92,6 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     @Override
     public CompletableFuture<Void> write(
             TieredStoragePartitionId partitionId, List<SubpartitionBufferContext> buffersToWrite) {
-        List<Tuple2<Buffer, Integer>> buffersToSpill =
-                buffersToWrite.stream()
-                        .map(SubpartitionBufferContext::getSegmentBufferContexts)
-                        .flatMap(
-                                (Function<List<SegmentBufferContext>, Stream<SegmentBufferContext>>)
-                                        Collection::stream)
-                        .map(SegmentBufferContext::getBufferWithIndexes)
-                        .flatMap(
-                                (Function<
-                                                List<Tuple2<Buffer, Integer>>,
-                                                Stream<Tuple2<Buffer, Integer>>>)
-                                        Collection::stream)
-                        .collect(Collectors.toList());
-
         CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
         ioExecutor.execute(() -> spill(buffersToWrite, spillSuccessNotifier));
         return spillSuccessNotifier;

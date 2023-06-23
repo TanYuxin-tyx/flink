@@ -29,7 +29,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SpilledBufferContext;
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
@@ -38,7 +37,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -77,16 +75,6 @@ public class TieredStorageUtils {
 
         bufferWithHeaders[index] = header;
         bufferWithHeaders[index + 1] = buffer.getNioBufferReadable();
-    }
-
-    public static List<SpilledBufferContext> convertToSpilledBufferContext(
-            List<Tuple2<Buffer, Integer>> buffers) {
-        return buffers.stream()
-                .map(
-                        bufferAndIndex ->
-                                new SpilledBufferContext(
-                                        bufferAndIndex.f0, bufferAndIndex.f1, -1, -1))
-                .collect(Collectors.toList());
     }
 
     public static void writeDfsBuffers(
