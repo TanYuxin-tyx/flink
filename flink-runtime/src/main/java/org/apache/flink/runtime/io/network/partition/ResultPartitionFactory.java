@@ -481,9 +481,9 @@ public class ResultPartitionFactory {
                     Paths.get(dataFileBasePath + DATA_FILE_SUFFIX), regionBufferIndexTracker);
         } else if (tierFactory.getClass() == RemoteTierFactory.class) {
             return HashPartitionFile.createPartitionFileWriter(
+                    createJobRemoteStorageBasePath(jobID, remoteStorageShuffleHomePath),
                     numSubpartitions,
-                    id,
-                    createJobRemoteStorageBasePath(jobID, remoteStorageShuffleHomePath));
+                    id);
         }
         return null;
     }

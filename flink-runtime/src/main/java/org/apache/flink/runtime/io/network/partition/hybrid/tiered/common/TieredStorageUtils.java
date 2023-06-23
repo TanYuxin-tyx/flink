@@ -29,7 +29,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -77,7 +76,7 @@ public class TieredStorageUtils {
         bufferWithHeaders[index + 1] = buffer.getNioBufferReadable();
     }
 
-    public static void writeDfsBuffers(
+    public static void writeBuffers(
             WritableByteChannel writeChannel, long expectedBytes, ByteBuffer[] bufferWithHeaders)
             throws IOException {
         int writeSize = 0;
@@ -246,18 +245,14 @@ public class TieredStorageUtils {
                 "/" + SEGMENT_FILE_PREFIX + currentSegmentIndex + SEGMENT_FINISH_FILE_SUFFIX);
     }
 
-    public static void writeSegmentFinishFile(
-            String baseSubpartitionPath, long currentSegmentIndex) {
+    public static void writeSegmentFinishFile(String baseSubpartitionPath, long currentSegmentIndex)
+            throws IOException {
         Path markFinishSegmentPath =
                 generateSegmentFinishPath(baseSubpartitionPath, currentSegmentIndex);
-        try {
-            FileSystem fs = markFinishSegmentPath.getFileSystem();
-            OutputStream outputStream =
-                    fs.create(markFinishSegmentPath, FileSystem.WriteMode.OVERWRITE);
-            outputStream.close();
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e);
-        }
+        FileSystem fs = markFinishSegmentPath.getFileSystem();
+        OutputStream outputStream =
+                fs.create(markFinishSegmentPath, FileSystem.WriteMode.OVERWRITE);
+        outputStream.close();
     }
 
     public static byte[] randomBytes(int length) {

@@ -51,26 +51,26 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.writeSegmentFinishFile;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** THe implementation of {@link PartitionFileWriter} with merged logic. */
+/** THe implementation of {@link PartitionFileWriter} with hash mode. */
 public class HashPartitionFileWriter implements PartitionFileWriter {
 
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadExecutor(
                     new ThreadFactoryBuilder()
-                            .setNameFormat("HashPartitionFileWriter flusher")
+                            .setNameFormat("Hash partition file flush thread")
                             .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
                             .build());
 
     private final ResultPartitionID resultPartitionID;
 
-    private final String baseShuffleDataPath;
+    private final String basePath;
 
     private final WritableByteChannel[] subpartitionChannels;
 
     public HashPartitionFileWriter(
-            int numSubpartitions, ResultPartitionID resultPartitionID, String baseShuffleDataPath) {
+            String basePath, int numSubpartitions, ResultPartitionID resultPartitionID) {
+        this.basePath = basePath;
         this.resultPartitionID = resultPartitionID;
-        this.baseShuffleDataPath = baseShuffleDataPath;
         this.subpartitionChannels = new WritableByteChannel[numSubpartitions];
         Arrays.fill(subpartitionChannels, null);
     }
@@ -165,33 +165,31 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         WritableByteChannel currentChannel = subpartitionChannels[subpartitionId];
         if (currentChannel == null) {
             String subpartitionPath =
-                    createBaseSubpartitionPath(
-                            baseShuffleDataPath, resultPartitionID, subpartitionId, false);
+                    createBaseSubpartitionPath(basePath, resultPartitionID, subpartitionId, false);
             Path writingSegmentPath = generateNewSegmentPath(subpartitionPath, segmentId);
             FileSystem fs = writingSegmentPath.getFileSystem();
             currentChannel =
                     Channels.newChannel(
                             fs.create(writingSegmentPath, FileSystem.WriteMode.NO_OVERWRITE));
-            TieredStorageUtils.writeDfsBuffers(currentChannel, expectedBytes, bufferWithHeaders);
+            TieredStorageUtils.writeBuffers(currentChannel, expectedBytes, bufferWithHeaders);
             subpartitionChannels[subpartitionId] = currentChannel;
         } else {
-            TieredStorageUtils.writeDfsBuffers(currentChannel, expectedBytes, bufferWithHeaders);
+            TieredStorageUtils.writeBuffers(currentChannel, expectedBytes, bufferWithHeaders);
         }
     }
 
     private void writeFinishSegmentFile(
             int subpartitionId, int segmentId, CompletableFuture<Void> flushSuccessNotifier) {
-        String subpartitionPath = null;
+        String subpartitionPath;
         try {
             subpartitionPath =
-                    createBaseSubpartitionPath(
-                            baseShuffleDataPath, resultPartitionID, subpartitionId, false);
+                    createBaseSubpartitionPath(basePath, resultPartitionID, subpartitionId, false);
+            writeSegmentFinishFile(subpartitionPath, segmentId);
+            subpartitionChannels[subpartitionId].close();
+            subpartitionChannels[subpartitionId] = null;
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
         }
-        writeSegmentFinishFile(subpartitionPath, segmentId);
-        // clear the current channel
-        subpartitionChannels[subpartitionId] = null;
         flushSuccessNotifier.complete(null);
     }
 }
