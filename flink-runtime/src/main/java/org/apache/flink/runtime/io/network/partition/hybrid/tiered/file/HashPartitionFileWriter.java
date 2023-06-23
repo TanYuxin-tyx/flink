@@ -169,9 +169,10 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(buffersToFlush);
         WritableByteChannel currentChannel = subpartitionChannels[subpartitionId];
         if (currentChannel == null) {
-            String subpartitionPath =
-                    createSubpartitionPath(basePath, resultPartitionID, subpartitionId, false);
-            Path writingSegmentPath = generateSegmentPath(subpartitionPath, segmentId);
+
+            Path writingSegmentPath =
+                    generateSegmentPath(
+                            basePath, resultPartitionID, subpartitionId, false, segmentId);
             FileSystem fs = writingSegmentPath.getFileSystem();
             currentChannel =
                     Channels.newChannel(

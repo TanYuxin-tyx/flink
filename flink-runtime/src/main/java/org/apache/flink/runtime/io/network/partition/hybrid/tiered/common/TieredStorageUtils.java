@@ -180,10 +180,6 @@ public class TieredStorageUtils {
         return null;
     }
 
-    public static Path generateSegmentPath(String baseSubpartitionPath, long currentSegmentIndex) {
-        return new Path(baseSubpartitionPath, SEGMENT_FILE_PREFIX + currentSegmentIndex);
-    }
-
     public static String generateSubpartitionPath(
             String basePath,
             ResultPartitionID resultPartitionID,
@@ -231,7 +227,7 @@ public class TieredStorageUtils {
         String subpartitionPath =
                 generateSubpartitionPath(
                         basePath, resultPartitionID, subpartitionId, isBroadcastOnly);
-        return generateSegmentPath(subpartitionPath, segmentId);
+        return new Path(subpartitionPath, SEGMENT_FILE_PREFIX + segmentId);
     }
 
     public static void writeSegmentFinishFile(String baseSubpartitionPath, long currentSegmentIndex)
