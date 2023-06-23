@@ -86,15 +86,15 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
                             subpartitionBuffers.getSegmentBufferContexts();
                     multiSegmentBuffers.forEach(
                             segmentBuffers -> {
-                                CompletableFuture<Void> spillSuccessNotifier =
+                                CompletableFuture<Void> flushSuccessNotifier =
                                         new CompletableFuture<>();
                                 Runnable writeRunnable =
-                                        getWriteOrFinisheSegmentRunnable(
+                                        getFlushOrFinisheSegmentRunnable(
                                                 subpartitionId,
                                                 segmentBuffers,
-                                                spillSuccessNotifier);
+                                                flushSuccessNotifier);
                                 ioExecutor.execute(writeRunnable);
-                                completableFutures.add(spillSuccessNotifier);
+                                completableFutures.add(flushSuccessNotifier);
                             });
                 });
         return FutureUtils.waitForAll(completableFutures);
@@ -105,57 +105,50 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         try {
             ioExecutor.shutdown();
             if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
-                throw new TimeoutException("Shutdown spilling thread timeout.");
+                throw new TimeoutException("Timeout to shutdown the flush thread.");
             }
         } catch (Exception e) {
             ExceptionUtils.rethrow(e);
         }
     }
 
-    private Runnable getWriteOrFinisheSegmentRunnable(
+    // ------------------------------------------------------------------------
+    //  Internal Methods
+    // ------------------------------------------------------------------------
+
+    private Runnable getFlushOrFinisheSegmentRunnable(
             int subpartitionId,
             SegmentBufferContext segmentBuffers,
-            CompletableFuture<Void> spillSuccessNotifier) {
+            CompletableFuture<Void> flushSuccessNotifier) {
         int segmentId = segmentBuffers.getSegmentId();
-        List<Tuple2<Buffer, Integer>> spilledBuffers = segmentBuffers.getBufferWithIndexes();
+        List<Tuple2<Buffer, Integer>> buffersToFlush = segmentBuffers.getBufferWithIndexes();
         boolean isFinishSegment = segmentBuffers.isSegmentFinished();
-        checkState(!spilledBuffers.isEmpty() || isFinishSegment);
+        checkState(!buffersToFlush.isEmpty() || isFinishSegment);
 
-        Runnable writeRunnable;
-        if (spilledBuffers.size() > 0) {
-            writeRunnable =
-                    () -> spill(subpartitionId, segmentId, spilledBuffers, spillSuccessNotifier);
-        } else {
-            writeRunnable =
-                    () -> writeFinishSegmentFile(subpartitionId, segmentId, spillSuccessNotifier);
-        }
-        return writeRunnable;
+        return buffersToFlush.size() > 0
+                ? () -> flush(subpartitionId, segmentId, buffersToFlush, flushSuccessNotifier)
+                : () -> writeFinishSegmentFile(subpartitionId, segmentId, flushSuccessNotifier);
     }
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
-    private void spill(
+    private void flush(
             int subpartitionId,
             int segmentId,
-            List<Tuple2<Buffer, Integer>> spilledBuffers,
-            CompletableFuture<Void> spillSuccessNotifier) {
+            List<Tuple2<Buffer, Integer>> buffersToFlush,
+            CompletableFuture<Void> flushSuccessNotifier) {
         try {
-            writeBuffers(
-                    subpartitionId,
-                    segmentId,
-                    spilledBuffers,
-                    createSpilledBuffersAndGetTotalBytes(spilledBuffers));
-            spilledBuffers.forEach(spilledBuffer -> spilledBuffer.f0.recycleBuffer());
-            spillSuccessNotifier.complete(null);
+            writeBuffers(subpartitionId, segmentId, buffersToFlush, getTotalBytes(buffersToFlush));
+            buffersToFlush.forEach(bufferToFlush -> bufferToFlush.f0.recycleBuffer());
+            flushSuccessNotifier.complete(null);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
         }
     }
 
-    private long createSpilledBuffersAndGetTotalBytes(
-            List<Tuple2<Buffer, Integer>> spilledBuffers) {
+    private long getTotalBytes(List<Tuple2<Buffer, Integer>> buffersToFlush) {
         long expectedBytes = 0;
-        for (Tuple2<Buffer, Integer> spilledBuffer : spilledBuffers) {
-            Buffer buffer = spilledBuffer.f0;
+        for (Tuple2<Buffer, Integer> bufferToFlush : buffersToFlush) {
+            Buffer buffer = bufferToFlush.f0;
             int numBytes = buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
             expectedBytes += numBytes;
         }
@@ -165,10 +158,10 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     private void writeBuffers(
             int subpartitionId,
             int segmentId,
-            List<Tuple2<Buffer, Integer>> spilledBuffers,
+            List<Tuple2<Buffer, Integer>> buffersToFlush,
             long expectedBytes)
             throws IOException {
-        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(spilledBuffers);
+        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(buffersToFlush);
         WritableByteChannel currentChannel = subpartitionChannels[subpartitionId];
         if (currentChannel == null) {
             String subpartitionPath =
@@ -187,7 +180,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     }
 
     private void writeFinishSegmentFile(
-            int subpartitionId, int segmentId, CompletableFuture<Void> spillSuccessNotifier) {
+            int subpartitionId, int segmentId, CompletableFuture<Void> flushSuccessNotifier) {
         String subpartitionPath = null;
         try {
             subpartitionPath =
@@ -199,6 +192,6 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         writeSegmentFinishFile(subpartitionPath, segmentId);
         // clear the current channel
         subpartitionChannels[subpartitionId] = null;
-        spillSuccessNotifier.complete(null);
+        flushSuccessNotifier.complete(null);
     }
 }

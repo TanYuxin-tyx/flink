@@ -115,9 +115,9 @@ class DiskCacheManager {
         partitionFileWriter.release();
     }
 
-    // ------------------------------------
-    //           Internal Method
-    // ------------------------------------
+    // ------------------------------------------------------------------------
+    //  Internal Methods
+    // ------------------------------------------------------------------------
 
     private void notifyFlushCachedBuffers() {
         flushBuffers(false);

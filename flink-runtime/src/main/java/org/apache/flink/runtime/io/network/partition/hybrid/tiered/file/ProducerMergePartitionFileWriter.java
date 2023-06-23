@@ -58,11 +58,11 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     private static final Logger LOG =
             LoggerFactory.getLogger(ProducerMergePartitionFileWriter.class);
 
-    /** One thread to perform the spill operation. */
+    /** One thread to perform the flush operation. */
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadExecutor(
                     new ThreadFactoryBuilder()
-                            .setNameFormat("ProducerMergePartitionFileWriter Spiller")
+                            .setNameFormat("Producer merge partition file flush thread")
                             .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
                             .build());
 
@@ -70,7 +70,7 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     private final FileChannel dataFileChannel;
 
     /**
-     * The partition file index. When spilling buffers, the partition file indexes will be updated.
+     * The partition file index. When flushing buffers, the partition file indexes will be updated.
      */
     private final PartitionFileIndex partitionFileIndex;
 
@@ -92,33 +92,51 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     @Override
     public CompletableFuture<Void> write(
             TieredStoragePartitionId partitionId, List<SubpartitionBufferContext> buffersToWrite) {
-        CompletableFuture<Void> spillSuccessNotifier = new CompletableFuture<>();
-        ioExecutor.execute(() -> spill(buffersToWrite, spillSuccessNotifier));
-        return spillSuccessNotifier;
+        CompletableFuture<Void> flushSuccessNotifier = new CompletableFuture<>();
+        ioExecutor.execute(() -> flush(buffersToWrite, flushSuccessNotifier));
+        return flushSuccessNotifier;
     }
 
-    /** Called in single-threaded ioExecutor. Order is guaranteed. */
-    private void spill(
-            List<SubpartitionBufferContext> toWrite, CompletableFuture<Void> spillSuccessNotifier) {
+    @Override
+    public void release() {
         try {
-            List<PartitionFileIndex.SpilledBuffer> spilledBuffers = new ArrayList<>();
-            calculateSizeAndWriteBuffers(toWrite, spilledBuffers);
-            partitionFileIndex.generateRegionsBasedOnBuffers(spilledBuffers);
-            spillSuccessNotifier.complete(null);
+            ioExecutor.shutdown();
+            if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
+                throw new TimeoutException("Timeout to shutdown the flush thread.");
+            }
+            dataFileChannel.close();
+        } catch (Exception e) {
+            ExceptionUtils.rethrow(e);
+        }
+        partitionFileIndex.release();
+    }
+
+    // ------------------------------------------------------------------------
+    //  Internal Methods
+    // ------------------------------------------------------------------------
+
+    /** Called in single-threaded ioExecutor. Order is guaranteed. */
+    private void flush(
+            List<SubpartitionBufferContext> toWrite, CompletableFuture<Void> flushSuccessNotifier) {
+        try {
+            List<PartitionFileIndex.BufferToFlush> toFlushBuffers = new ArrayList<>();
+            calculateSizeAndFlushBuffers(toWrite, toFlushBuffers);
+            partitionFileIndex.generateRegionsBasedOnBuffers(toFlushBuffers);
+            flushSuccessNotifier.complete(null);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
         }
     }
 
     /**
-     * Compute buffer's file offset and create spilled buffers.
+     * Compute buffer's file offset and create buffers to be flushed.
      *
-     * @param toWrite all buffers to write to create {@link PartitionFileIndex.SpilledBuffer}s
-     * @param spilledBuffers receive the created {@link PartitionFileIndex.SpilledBuffer}
+     * @param toWrite all buffers to write to create {@link PartitionFileIndex.BufferToFlush}s
+     * @param toFlushBuffers receive the created {@link PartitionFileIndex.BufferToFlush}
      */
-    private void calculateSizeAndWriteBuffers(
+    private void calculateSizeAndFlushBuffers(
             List<SubpartitionBufferContext> toWrite,
-            List<PartitionFileIndex.SpilledBuffer> spilledBuffers)
+            List<PartitionFileIndex.BufferToFlush> toFlushBuffers)
             throws IOException {
         List<Tuple2<Buffer, Integer>> buffersToFlush = new ArrayList<>();
         long expectedBytes = 0;
@@ -132,8 +150,8 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
                 for (Tuple2<Buffer, Integer> bufferWithIndex :
                         segmentBufferContext.getBufferWithIndexes()) {
                     Buffer buffer = bufferWithIndex.f0;
-                    spilledBuffers.add(
-                            new PartitionFileIndex.SpilledBuffer(
+                    toFlushBuffers.add(
+                            new PartitionFileIndex.BufferToFlush(
                                     subpartitionId,
                                     bufferWithIndex.f1,
                                     totalBytesWritten + expectedBytes));
@@ -141,12 +159,12 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
                 }
             }
         }
-        writeBuffers(buffersToFlush, expectedBytes);
+        flushBuffers(buffersToFlush, expectedBytes);
         buffersToFlush.forEach(bufferWithIndex -> bufferWithIndex.f0.recycleBuffer());
     }
 
-    /** Write all buffers to disk. */
-    private void writeBuffers(List<Tuple2<Buffer, Integer>> bufferWithIndexes, long expectedBytes)
+    /** Write all buffers to the disk. */
+    private void flushBuffers(List<Tuple2<Buffer, Integer>> bufferWithIndexes, long expectedBytes)
             throws IOException {
         if (bufferWithIndexes.isEmpty()) {
             return;
@@ -155,26 +173,5 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
         ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferWithIndexes);
         BufferReaderWriterUtil.writeBuffers(dataFileChannel, expectedBytes, bufferWithHeaders);
         totalBytesWritten += expectedBytes;
-    }
-
-    /**
-     * Release this {@link ProducerMergePartitionFileWriter} when resultPartition is released. It
-     * means spiller will wait for all previous spilling operation done blocking and close the file
-     * channel.
-     *
-     * <p>This method only called by rpc thread.
-     */
-    @Override
-    public void release() {
-        try {
-            ioExecutor.shutdown();
-            if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
-                throw new TimeoutException("Shutdown spilling thread timeout.");
-            }
-            dataFileChannel.close();
-        } catch (Exception e) {
-            ExceptionUtils.rethrow(e);
-        }
-        partitionFileIndex.release();
     }
 }

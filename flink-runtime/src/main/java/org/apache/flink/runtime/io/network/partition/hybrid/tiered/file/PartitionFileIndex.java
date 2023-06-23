@@ -30,9 +30,12 @@ import java.util.Optional;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
- * The {@link PartitionFileIndex} represents the indexes and the regions of the spilled buffers. The
- * region indexes are generated when writing the spilled buffers, and these region indexes are used
- * when reading data from disk.
+ * The {@link PartitionFileIndex} is responsible for storing the indexes of data files generated
+ * during the partition file write process and utilized during partition file reads. In order to
+ * simplify the representation of consecutive buffers that belong to a single subpartition within a
+ * file, these indexes are encapsulated into a {@link Region}. During the partition file write
+ * process, the {@link Region}s are generated based on the buffers. During partition file reads, the
+ * {@link Region} is used to retrieve consecutive buffers that belong to a single subpartition.
  */
 public class PartitionFileIndex {
 
@@ -58,23 +61,23 @@ public class PartitionFileIndex {
     }
 
     /**
-     * Based on the input {@link SpilledBuffer}s, generate the region accordingly. When the spilled
-     * buffer's subpartition id changes, a new region is created. For example, the buffers to be
-     * spilled are as follows(each buffer is represented by subpartitionId-bufferIndex). 1-1, 1-2,
-     * 1-3, 2-1, 2-2, 2-5, 1-4, 1-5, 2-6, then 5 regions are generated. |1-1, 1-2, 1-3|2-1,
-     * 2-2|2-5|1-4, 1-5|2-6|.
+     * Based on the input {@link BufferToFlush}s, generate the {@link Region}s accordingly. When the
+     * buffer's subpartition id changes or the buffer index changes, a new region is created. For
+     * example, the buffers are as follows(each buffer is represented by
+     * subpartitionId-bufferIndex). 1-1, 1-2, 1-3, 2-1, 2-2, 2-5, 1-4, 1-5, 2-6, then 5 regions are
+     * generated. |1-1, 1-2, 1-3|2-1, 2-2|2-5|1-4, 1-5|2-6|.
      *
-     * <p>Note that these spilled buffers are logically partitioned by the region indexes logically,
-     * but they remain physically contiguous when flushing to disk.
+     * <p>Note that these buffers are logically partitioned by the region indexes logically, but
+     * they remain physically contiguous when flushing to disk.
      *
-     * @param spilledBuffers the buffers to be spilled
+     * @param bufferToFlushes the buffers to be flushed
      */
-    void generateRegionsBasedOnBuffers(List<SpilledBuffer> spilledBuffers) {
-        if (spilledBuffers.isEmpty()) {
+    void generateRegionsBasedOnBuffers(List<BufferToFlush> bufferToFlushes) {
+        if (bufferToFlushes.isEmpty()) {
             return;
         }
 
-        Map<Integer, List<Region>> convertedRegions = convertToRegions(spilledBuffers);
+        Map<Integer, List<Region>> convertedRegions = convertToRegions(bufferToFlushes);
         synchronized (lock) {
             convertedRegions.forEach(
                     (subpartition, regions) ->
@@ -112,14 +115,15 @@ public class PartitionFileIndex {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private static Map<Integer, List<Region>> convertToRegions(List<SpilledBuffer> spilledBuffers) {
+    private static Map<Integer, List<Region>> convertToRegions(
+            List<BufferToFlush> bufferToFlushes) {
         Map<Integer, List<Region>> subpartitionRegionMap = new HashMap<>();
-        Iterator<SpilledBuffer> iterator = spilledBuffers.iterator();
-        SpilledBuffer firstBufferInRegion = iterator.next();
-        SpilledBuffer lastBufferInRegion = firstBufferInRegion;
+        Iterator<BufferToFlush> iterator = bufferToFlushes.iterator();
+        BufferToFlush firstBufferInRegion = iterator.next();
+        BufferToFlush lastBufferInRegion = firstBufferInRegion;
 
         while (iterator.hasNext()) {
-            SpilledBuffer currentBuffer = iterator.next();
+            BufferToFlush currentBuffer = iterator.next();
             if (currentBuffer.getSubpartitionId() != firstBufferInRegion.getSubpartitionId()
                     || currentBuffer.getBufferIndex() != lastBufferInRegion.getBufferIndex() + 1) {
                 // the current buffer belongs to a new region, close the previous region
@@ -135,8 +139,8 @@ public class PartitionFileIndex {
     }
 
     private static void addInternalRegionToMap(
-            SpilledBuffer firstBufferInRegion,
-            SpilledBuffer lastBufferInRegion,
+            BufferToFlush firstBufferInRegion,
+            BufferToFlush lastBufferInRegion,
             Map<Integer, List<Region>> subpartitionRegionMap) {
         checkArgument(
                 firstBufferInRegion.getSubpartitionId() == lastBufferInRegion.getSubpartitionId());
@@ -152,8 +156,12 @@ public class PartitionFileIndex {
                                         + 1));
     }
 
-    /** Represents a buffer to be spilled. */
-    public static class SpilledBuffer {
+    // ------------------------------------------------------------------------
+    //  Internal Classes
+    // ------------------------------------------------------------------------
+
+    /** Represents a buffer to be flushed. */
+    public static class BufferToFlush {
         /** The subpartition id that the buffer belongs to. */
         private final int subpartitionId;
 
@@ -163,7 +171,7 @@ public class PartitionFileIndex {
         /** The file offset that the buffer begin with. */
         private final long fileOffset;
 
-        SpilledBuffer(int subpartitionId, int bufferIndex, long fileOffset) {
+        BufferToFlush(int subpartitionId, int bufferIndex, long fileOffset) {
             this.subpartitionId = subpartitionId;
             this.bufferIndex = bufferIndex;
             this.fileOffset = fileOffset;
