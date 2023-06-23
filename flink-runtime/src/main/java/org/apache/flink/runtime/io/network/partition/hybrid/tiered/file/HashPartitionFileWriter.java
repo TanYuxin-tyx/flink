@@ -169,7 +169,6 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(buffersToFlush);
         WritableByteChannel currentChannel = subpartitionChannels[subpartitionId];
         if (currentChannel == null) {
-
             Path writingSegmentPath =
                     generateSegmentPath(
                             basePath, resultPartitionID, subpartitionId, false, segmentId);

@@ -107,6 +107,16 @@ public class TieredStorageUtils {
         return subpartitionPathStr;
     }
 
+    public static void writeSegmentFinishFile(String baseSubpartitionPath, long currentSegmentIndex)
+            throws IOException {
+        Path markFinishSegmentPath =
+                generateSegmentFinishPath(baseSubpartitionPath, currentSegmentIndex);
+        FileSystem fs = markFinishSegmentPath.getFileSystem();
+        OutputStream outputStream =
+                fs.create(markFinishSegmentPath, FileSystem.WriteMode.OVERWRITE);
+        outputStream.close();
+    }
+
     public static String generateToReleaseJobPath(JobID jobID, String baseDfsPath) {
         if (jobID == null || baseDfsPath == null) {
             return null;
@@ -228,16 +238,6 @@ public class TieredStorageUtils {
                 generateSubpartitionPath(
                         basePath, resultPartitionID, subpartitionId, isBroadcastOnly);
         return new Path(subpartitionPath, SEGMENT_FILE_PREFIX + segmentId);
-    }
-
-    public static void writeSegmentFinishFile(String baseSubpartitionPath, long currentSegmentIndex)
-            throws IOException {
-        Path markFinishSegmentPath =
-                generateSegmentFinishPath(baseSubpartitionPath, currentSegmentIndex);
-        FileSystem fs = markFinishSegmentPath.getFileSystem();
-        OutputStream outputStream =
-                fs.create(markFinishSegmentPath, FileSystem.WriteMode.OVERWRITE);
-        outputStream.close();
     }
 
     public static byte[] randomBytes(int length) {
