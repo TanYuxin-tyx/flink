@@ -138,7 +138,7 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
                 subpartitionReadCache
                         .computeIfAbsent(subpartitionId, ignore -> new HashMap<>())
                         .computeIfAbsent(bufferIndex, ignore -> new LinkedList<>());
-        return progress.isEmpty() ? 0 : progress.peek().getCurrentBufferIndex();
+        return progress.isEmpty() ? 0 : progress.peek().getCurrentFileOffset();
     }
 
     @Override
