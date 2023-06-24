@@ -171,7 +171,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         if (currentChannel == null) {
             Path writingSegmentPath =
                     generateSegmentPath(
-                            basePath, resultPartitionID, subpartitionId, false, segmentId);
+                            basePath, resultPartitionID, subpartitionId, segmentId);
             FileSystem fs = writingSegmentPath.getFileSystem();
             currentChannel =
                     Channels.newChannel(
@@ -188,7 +188,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         String subpartitionPath;
         try {
             subpartitionPath =
-                    createSubpartitionPath(basePath, resultPartitionID, subpartitionId, false);
+                    createSubpartitionPath(basePath, resultPartitionID, subpartitionId);
             writeSegmentFinishFile(subpartitionPath, segmentId);
             subpartitionChannels[subpartitionId].close();
             subpartitionChannels[subpartitionId] = null;

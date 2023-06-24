@@ -31,8 +31,7 @@ public class HashPartitionFile {
         return new HashPartitionFileWriter(dataFilePath, numSubpartitions, resultPartitionID);
     }
 
-    public static HashPartitionFileReader createPartitionFileReader(
-            String dataFilePath, Boolean isBroadcast) {
-        return new HashPartitionFileReader(dataFilePath, isBroadcast);
+    public static HashPartitionFileReader createPartitionFileReader(String dataFilePath) {
+        return new HashPartitionFileReader(dataFilePath);
     }
 }

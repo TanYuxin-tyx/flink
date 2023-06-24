@@ -60,13 +60,10 @@ public class HashPartitionFileReader implements PartitionFileReader {
 
     private final String basePath;
 
-    private final Boolean isBroadcast;
-
     private FileSystem fileSystem;
 
-    public HashPartitionFileReader(String basePath, Boolean isBroadcast) {
+    public HashPartitionFileReader(String basePath) {
         this.basePath = basePath;
-        this.isBroadcast = isBroadcast;
         try {
             this.fileSystem = new Path(basePath).getFileSystem();
         } catch (IOException e) {
@@ -148,7 +145,6 @@ public class HashPartitionFileReader implements PartitionFileReader {
                         basePath,
                         TieredStorageIdMappingUtils.convertId(partitionId),
                         subpartitionId.getSubpartitionId(),
-                        isBroadcast,
                         segmentId);
         ReadableByteChannel channel = null;
         if (!fileSystem.exists(currentSegmentPath)) {

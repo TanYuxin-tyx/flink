@@ -178,8 +178,6 @@ public class SingleInputGateFactory {
                 calculateNumChannels(igdd.getShuffleDescriptors().length, subpartitionIndexRange);
 
         ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
-        boolean isUpstreamBroadcastOnly =
-                ((NettyShuffleDescriptor) shuffleDescriptors[0]).isUpstreamBroadcastOnly();
         List<TieredStoragePartitionId> tieredStoragePartitionIds = null;
         List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds = null;
         List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
@@ -205,8 +203,7 @@ public class SingleInputGateFactory {
                 remoteStorageFileScanner =
                         new RemoteStorageFileScannerImpl(
                                 tieredStorageConsumerSpecs,
-                                createJobBasePath(owner.getJobID(), baseRemoteStoragePath),
-                                isUpstreamBroadcastOnly);
+                                createJobBasePath(owner.getJobID(), baseRemoteStoragePath));
             }
         }
 

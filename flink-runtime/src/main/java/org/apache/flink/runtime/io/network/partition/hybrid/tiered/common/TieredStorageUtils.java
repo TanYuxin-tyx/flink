@@ -93,12 +93,11 @@ public class TieredStorageUtils {
     public static String createSubpartitionPath(
             String basePath,
             ResultPartitionID resultPartitionID,
-            int subpartitionId,
-            boolean isBroadcastOnly)
+            int subpartitionId)
             throws IOException {
         String subpartitionPathStr =
                 generateSubpartitionPath(
-                        basePath, resultPartitionID, subpartitionId, isBroadcastOnly);
+                        basePath, resultPartitionID, subpartitionId);
         Path subpartitionPath = new Path(subpartitionPathStr);
         FileSystem fs = subpartitionPath.getFileSystem();
         if (!fs.exists(subpartitionPath)) {
@@ -193,13 +192,9 @@ public class TieredStorageUtils {
     public static String generateSubpartitionPath(
             String basePath,
             ResultPartitionID resultPartitionID,
-            int subpartitionId,
-            boolean isBroadcastOnly) {
+            int subpartitionId) {
         while (basePath.endsWith("/") && basePath.length() > 1) {
             basePath = basePath.substring(0, basePath.length() - 1);
-        }
-        if (isBroadcastOnly) {
-            subpartitionId = 0;
         }
         return String.format("%s/%s/%s", basePath, resultPartitionID, subpartitionId);
     }
@@ -208,13 +203,9 @@ public class TieredStorageUtils {
             JobID jobID,
             ResultPartitionID resultPartitionID,
             int subpartitionId,
-            String baseDfsPath,
-            boolean isBroadcastOnly) {
+            String baseDfsPath) {
         while (baseDfsPath.endsWith("/") && baseDfsPath.length() > 1) {
             baseDfsPath = baseDfsPath.substring(0, baseDfsPath.length() - 1);
-        }
-        if (isBroadcastOnly) {
-            subpartitionId = 0;
         }
         return String.format(
                 "%s/%s/%s/%s/%s",
@@ -232,11 +223,9 @@ public class TieredStorageUtils {
             String basePath,
             ResultPartitionID resultPartitionID,
             int subpartitionId,
-            boolean isBroadcastOnly,
             long segmentId) {
         String subpartitionPath =
-                generateSubpartitionPath(
-                        basePath, resultPartitionID, subpartitionId, isBroadcastOnly);
+                generateSubpartitionPath(basePath, resultPartitionID, subpartitionId);
         return new Path(subpartitionPath, SEGMENT_FILE_PREFIX + segmentId);
     }
 

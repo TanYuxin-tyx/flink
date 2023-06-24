@@ -57,8 +57,6 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
 
     private final String baseRemoteStoragePath;
 
-    private final boolean isBroadcast;
-
     private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
             requiredSegmentIds;
 
@@ -73,10 +71,8 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
 
     public RemoteStorageFileScannerImpl(
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
-            String baseRemoteStoragePath,
-            boolean isBroadcast) {
+            String baseRemoteStoragePath) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
-        this.isBroadcast = isBroadcast;
         this.channelIndexes = new HashMap<>();
         for (int index = 0; index < tieredStorageConsumerSpecs.size(); index++) {
             TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
@@ -86,7 +82,7 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
         }
         this.requiredSegmentIds = new HashMap<>();
         this.partitionFileReader =
-                HashPartitionFile.createPartitionFileReader(baseRemoteStoragePath, isBroadcast);
+                HashPartitionFile.createPartitionFileReader(baseRemoteStoragePath);
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
@@ -181,8 +177,7 @@ public class RemoteStorageFileScannerImpl implements RemoteStorageFileScanner {
                 generateSubpartitionPath(
                         baseRemoteStoragePath,
                         TieredStorageIdMappingUtils.convertId(partitionId),
-                        subpartitionId.getSubpartitionId(),
-                        isBroadcast);
+                        subpartitionId.getSubpartitionId());
         Path currentSegmentFinishPath = generateSegmentFinishPath(baseSubpartitionPath, segmentId);
         try {
             return remoteFileSystem.exists(currentSegmentFinishPath);
