@@ -39,7 +39,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * The buffer container for accumulating the records into {@link Buffer}s. After accumulating, the
  * {@link SortBufferAccumulator} will read the sorted buffers.
  */
-public class SortBufferContainer {
+public class SortBuffer {
 
     /**
      * Size of an index entry: 4 bytes for record length, 4 bytes for data type and 8 bytes for
@@ -110,7 +110,7 @@ public class SortBufferContainer {
     /** The subpartition that is reading data from. */
     private int readingSubpartitionId = -1;
 
-    SortBufferContainer(
+    SortBuffer(
             LinkedList<MemorySegment> freeSegments,
             BufferRecycler bufferRecycler,
             int numSubpartitions,
@@ -137,8 +137,8 @@ public class SortBufferContainer {
     // ------------------------------------------------------------------------
 
     /**
-     * Note that no partial records will be written to this {@link SortBufferContainer}, which means
-     * that either all data of target record will be written or nothing will be written.
+     * Note that no partial records will be written to this {@link SortBuffer}, which means that
+     * either all data of target record will be written or nothing will be written.
      *
      * @param record the record to be written
      * @param subpartitionId the subpartition id

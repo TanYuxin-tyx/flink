@@ -43,8 +43,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-/** Tests for {@link SortBufferContainer}. */
-public class SortBufferContainerTest {
+/** Tests for {@link SortBuffer}. */
+public class SortBufferTest {
 
     @Test
     public void testWriteAndReadDataBuffer() throws Exception {
@@ -67,8 +67,7 @@ public class SortBufferContainerTest {
         Arrays.fill(numBytesRead, 0);
 
         // fill the sort buffer with randomly generated data
-        SortBufferContainer dataBuffer =
-                createDataBuffer(bufferPoolSize, bufferSize, numSubpartitions);
+        SortBuffer dataBuffer = createDataBuffer(bufferPoolSize, bufferSize, numSubpartitions);
         int numDataBuffers = 5;
         while (numDataBuffers > 0) {
             // record size may be larger than buffer size so a record may span multiple segments
@@ -122,7 +121,7 @@ public class SortBufferContainerTest {
                 numSubpartitions, numBytesWritten, numBytesRead, dataWritten, buffersRead);
     }
 
-    private Pair<Integer, Buffer> copyIntoSegment(int bufferSize, SortBufferContainer dataBuffer) {
+    private Pair<Integer, Buffer> copyIntoSegment(int bufferSize, SortBuffer dataBuffer) {
         MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(bufferSize);
         return dataBuffer.readBuffer(segment);
     }
@@ -188,7 +187,7 @@ public class SortBufferContainerTest {
     public void testWriteEmptyData() throws Exception {
         int bufferSize = 1024;
 
-        SortBufferContainer dataBuffer = createDataBuffer(1, bufferSize, 1);
+        SortBuffer dataBuffer = createDataBuffer(1, bufferSize, 1);
 
         ByteBuffer record = ByteBuffer.allocate(1);
         record.position(1);
@@ -200,7 +199,7 @@ public class SortBufferContainerTest {
     public void testWriteFinishedDataBuffer() throws Exception {
         int bufferSize = 1024;
 
-        SortBufferContainer dataBuffer = createDataBuffer(1, bufferSize, 1);
+        SortBuffer dataBuffer = createDataBuffer(1, bufferSize, 1);
         dataBuffer.finish();
 
         dataBuffer.writeRecord(ByteBuffer.allocate(1), 0, Buffer.DataType.DATA_BUFFER);
@@ -210,7 +209,7 @@ public class SortBufferContainerTest {
     public void testWriteReleasedDataBuffer() throws Exception {
         int bufferSize = 1024;
 
-        SortBufferContainer dataBuffer = createDataBuffer(1, bufferSize, 1);
+        SortBuffer dataBuffer = createDataBuffer(1, bufferSize, 1);
         dataBuffer.release();
 
         dataBuffer.writeRecord(ByteBuffer.allocate(1), 0, Buffer.DataType.DATA_BUFFER);
@@ -221,7 +220,7 @@ public class SortBufferContainerTest {
         int bufferPoolSize = 10;
         int bufferSize = 1024;
 
-        SortBufferContainer dataBuffer = createDataBuffer(bufferPoolSize, bufferSize, 1);
+        SortBuffer dataBuffer = createDataBuffer(bufferPoolSize, bufferSize, 1);
 
         for (int i = 1; i < bufferPoolSize; ++i) {
             appendAndCheckResult(dataBuffer, bufferSize, true, bufferSize * i, i, true);
@@ -238,12 +237,12 @@ public class SortBufferContainerTest {
         int bufferPoolSize = 10;
         int bufferSize = 1024;
 
-        SortBufferContainer dataBuffer = createDataBuffer(bufferPoolSize, bufferSize, 1);
+        SortBuffer dataBuffer = createDataBuffer(bufferPoolSize, bufferSize, 1);
         appendAndCheckResult(dataBuffer, bufferPoolSize * bufferSize + 1, false, 0, 0, false);
     }
 
     private void appendAndCheckResult(
-            SortBufferContainer dataBuffer,
+            SortBuffer dataBuffer,
             int recordSize,
             boolean writeSuccess,
             long numBytes,
@@ -261,7 +260,7 @@ public class SortBufferContainerTest {
     public void testReadUnfinishedDataBuffer() throws Exception {
         int bufferSize = 1024;
 
-        SortBufferContainer dataBuffer = createDataBuffer(1, bufferSize, 1);
+        SortBuffer dataBuffer = createDataBuffer(1, bufferSize, 1);
         dataBuffer.writeRecord(ByteBuffer.allocate(1), 0, Buffer.DataType.DATA_BUFFER);
 
         assertTrue(dataBuffer.hasRemaining());
@@ -272,7 +271,7 @@ public class SortBufferContainerTest {
     public void testReadReleasedDataBuffer() throws Exception {
         int bufferSize = 1024;
 
-        SortBufferContainer dataBuffer = createDataBuffer(1, bufferSize, 1);
+        SortBuffer dataBuffer = createDataBuffer(1, bufferSize, 1);
         dataBuffer.writeRecord(ByteBuffer.allocate(1), 0, Buffer.DataType.DATA_BUFFER);
         dataBuffer.finish();
         assertTrue(dataBuffer.hasRemaining());
@@ -287,7 +286,7 @@ public class SortBufferContainerTest {
     public void testReadEmptyDataBuffer() throws Exception {
         int bufferSize = 1024;
 
-        SortBufferContainer dataBuffer = createDataBuffer(1, bufferSize, 1);
+        SortBuffer dataBuffer = createDataBuffer(1, bufferSize, 1);
         dataBuffer.finish();
 
         assertFalse(dataBuffer.hasRemaining());
@@ -307,8 +306,7 @@ public class SortBufferContainerTest {
         for (int i = 0; i < bufferPoolSize; ++i) {
             segments.add(bufferPool.requestMemorySegmentBlocking());
         }
-        SortBufferContainer dataBuffer =
-                new SortBufferContainer(segments, bufferPool, 1, bufferSize, bufferPoolSize);
+        SortBuffer dataBuffer = new SortBuffer(segments, bufferPool, 1, bufferSize, bufferPoolSize);
         dataBuffer.writeRecord(ByteBuffer.allocate(recordSize), 0, Buffer.DataType.DATA_BUFFER);
 
         assertEquals(bufferPoolSize, bufferPool.bestEffortGetNumOfUsedBuffers());
@@ -320,8 +318,8 @@ public class SortBufferContainerTest {
         assertTrue(dataBuffer.hasRemaining());
     }
 
-    private SortBufferContainer createDataBuffer(
-            int bufferPoolSize, int bufferSize, int numSubpartitions) throws Exception {
+    private SortBuffer createDataBuffer(int bufferPoolSize, int bufferSize, int numSubpartitions)
+            throws Exception {
         NetworkBufferPool globalPool = new NetworkBufferPool(bufferPoolSize, bufferSize);
         BufferPool bufferPool = globalPool.createBufferPool(bufferPoolSize, bufferPoolSize);
 
@@ -329,8 +327,7 @@ public class SortBufferContainerTest {
         for (int i = 0; i < bufferPoolSize; ++i) {
             segments.add(bufferPool.requestMemorySegmentBlocking());
         }
-        return new SortBufferContainer(
-                segments, bufferPool, numSubpartitions, bufferSize, bufferPoolSize);
+        return new SortBuffer(segments, bufferPool, numSubpartitions, bufferSize, bufferPoolSize);
     }
 
     public static int[] getRandomSubpartitionOrder(int numSubpartitions) {
