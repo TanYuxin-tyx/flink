@@ -127,7 +127,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         int targetSubpartition = subpartitionId.getSubpartitionId();
         SortBufferContainer sortBufferContainer =
                 isBroadcast ? getBroadcastDataBuffer() : getUnicastDataBuffer();
-        if (!sortBufferContainer.writeRecord(record, targetSubpartition, dataType)) {
+        if (sortBufferContainer.writeRecord(record, targetSubpartition, dataType)) {
             return;
         }
 

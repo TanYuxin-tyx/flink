@@ -86,7 +86,7 @@ public class SortBufferContainerTest {
             boolean isBuffer = random.nextBoolean();
             Buffer.DataType dataType =
                     isBuffer ? Buffer.DataType.DATA_BUFFER : Buffer.DataType.EVENT_BUFFER;
-            boolean isFull = dataBuffer.writeRecord(record, subpartition, dataType);
+            boolean writeSuccess = dataBuffer.writeRecord(record, subpartition, dataType);
 
             record.flip();
             if (record.hasRemaining()) {
@@ -94,7 +94,7 @@ public class SortBufferContainerTest {
                 numBytesWritten[subpartition] += record.remaining();
             }
 
-            if (!isFull) {
+            if (writeSuccess) {
                 continue;
             }
             dataBuffer.finish();
@@ -224,13 +224,13 @@ public class SortBufferContainerTest {
         SortBufferContainer dataBuffer = createDataBuffer(bufferPoolSize, bufferSize, 1);
 
         for (int i = 1; i < bufferPoolSize; ++i) {
-            appendAndCheckResult(dataBuffer, bufferSize, false, bufferSize * i, i, true);
+            appendAndCheckResult(dataBuffer, bufferSize, true, bufferSize * i, i, true);
         }
 
         // writeRecord should fail for insufficient capacity
         int numRecords = bufferPoolSize - 1;
         long numBytes = bufferSize * numRecords;
-        appendAndCheckResult(dataBuffer, bufferSize + 1, true, numBytes, numRecords, true);
+        appendAndCheckResult(dataBuffer, bufferSize + 1, false, numBytes, numRecords, true);
     }
 
     @Test
@@ -239,20 +239,21 @@ public class SortBufferContainerTest {
         int bufferSize = 1024;
 
         SortBufferContainer dataBuffer = createDataBuffer(bufferPoolSize, bufferSize, 1);
-        appendAndCheckResult(dataBuffer, bufferPoolSize * bufferSize + 1, true, 0, 0, false);
+        appendAndCheckResult(dataBuffer, bufferPoolSize * bufferSize + 1, false, 0, 0, false);
     }
 
     private void appendAndCheckResult(
             SortBufferContainer dataBuffer,
             int recordSize,
-            boolean isFull,
+            boolean writeSuccess,
             long numBytes,
             long numRecords,
             boolean hasRemaining)
             throws IOException {
         ByteBuffer largeRecord = ByteBuffer.allocate(recordSize);
 
-        assertEquals(isFull, dataBuffer.writeRecord(largeRecord, 0, Buffer.DataType.DATA_BUFFER));
+        assertEquals(
+                writeSuccess, dataBuffer.writeRecord(largeRecord, 0, Buffer.DataType.DATA_BUFFER));
         assertEquals(hasRemaining, dataBuffer.hasRemaining());
     }
 

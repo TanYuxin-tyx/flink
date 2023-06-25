@@ -143,8 +143,7 @@ public class SortBufferContainer {
      * @param record the record to be written
      * @param subpartitionId the subpartition id
      * @param dataType the data type of the record
-     * @return true if the {@link SortBufferContainer} is full, or return false if the contianer is
-     *     not full
+     * @return true if writing the record successfully, otherwise return false.
      */
     boolean writeRecord(ByteBuffer record, int subpartitionId, Buffer.DataType dataType) {
         checkArgument(record.hasRemaining(), "Cannot writeRecord empty data.");
@@ -155,7 +154,7 @@ public class SortBufferContainer {
 
         // Return false directly if it can not allocate enough buffers for the given record
         if (!allocateBuffersForRecord(totalBytes)) {
-            return true;
+            return false;
         }
 
         // WriteRecord the index entry and record or event data
@@ -163,7 +162,7 @@ public class SortBufferContainer {
         writeRecord(record);
 
         numTotalBytes += totalBytes;
-        return false;
+        return true;
     }
 
     /**
