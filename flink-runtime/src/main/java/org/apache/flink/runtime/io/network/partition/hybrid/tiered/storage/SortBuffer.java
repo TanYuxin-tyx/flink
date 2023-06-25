@@ -36,8 +36,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * The buffer container for accumulating the records into {@link Buffer}s. After accumulating, the
- * {@link SortBufferAccumulator} will read the sorted buffers.
+ * The {@link SortBuffer} is used to accumulate the records into {@link Buffer}s. The {@link
+ * SortBuffer} allows for writing data in arbitrary subpartition orders but supports reading of data
+ * in the order grouped by subpartitions.
  */
 public class SortBuffer {
 

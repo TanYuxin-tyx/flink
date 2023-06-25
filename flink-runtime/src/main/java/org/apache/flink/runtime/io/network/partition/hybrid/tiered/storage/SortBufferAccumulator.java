@@ -45,11 +45,11 @@ import static org.apache.flink.util.Preconditions.checkState;
  * transform to finished buffers. The accumulated buffers will be transferred to the corresponding
  * tier dynamically.
  *
- * <p>The {@link BufferAccumulator} can help use less buffers to accumulate data, which decouples
- * the buffer usage with the number of parallelism. The number of buffers used by the {@link
- * SortBufferAccumulator} will be numBuffers at most. Once the {@link SortBuffer} is full, or
- * receiving a different type of buffer, or receiving the end-of-partition event, the buffer in the
- * sort buffer will be flushed to the tiers.
+ * <p>The {@link SortBufferAccumulator} can help use less buffers to accumulate data, which
+ * decouples the buffer usage with the number of parallelism. The number of buffers used by the
+ * {@link SortBufferAccumulator} will be numBuffers at most. Once the {@link SortBuffer} is full, or
+ * switching from broadcast to non-broadcast(or vice versa), the buffer in the sort buffer will be
+ * flushed to the tiers.
  *
  * <p>Note that this class need not be thread-safe, because it should only be accessed from the main
  * thread.
