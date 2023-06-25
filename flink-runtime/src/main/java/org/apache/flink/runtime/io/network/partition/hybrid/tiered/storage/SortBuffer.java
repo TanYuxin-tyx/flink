@@ -170,8 +170,8 @@ public class SortBuffer {
      * Read the sorted buffers.
      *
      * @param readMemorySegment the buffer to store the data to be read
-     * @return null iff all the data has been read from the container, or return the pair of
-     *     subpartition id and the read buffer
+     * @return null iff all the data has been read from the {@link SortBuffer}, or return the pair
+     *     of subpartition id and the read buffer
      */
     Pair<Integer, Buffer> readBuffer(MemorySegment readMemorySegment) {
         checkState(isFinished, "Sort buffer is not ready to be read.");
