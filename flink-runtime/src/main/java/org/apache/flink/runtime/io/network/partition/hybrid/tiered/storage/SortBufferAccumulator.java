@@ -131,6 +131,9 @@ public class SortBufferAccumulator implements BufferAccumulator {
             return;
         }
 
+        // The container is empty, but we failed to write the record into it, which suggests the
+        // record is larger than the container can hold. So the record is written into multiple
+        // buffers directly.
         if (!sortBufferContainer.hasRemaining()) {
             sortBufferContainer.release();
             writeLargeRecord(record, targetSubpartition, dataType);
