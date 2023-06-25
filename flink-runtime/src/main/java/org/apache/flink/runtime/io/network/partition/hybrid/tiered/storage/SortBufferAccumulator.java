@@ -139,9 +139,8 @@ public class SortBufferAccumulator implements BufferAccumulator {
 
         flushDataBuffer(currentDataBuffer);
         currentDataBuffer.release();
-        if (record.hasRemaining()) {
-            receive(record, subpartitionId, dataType, isBroadcast);
-        }
+        checkState(record.hasRemaining(), "Empty record.");
+        receive(record, subpartitionId, dataType, isBroadcast);
     }
 
     @Override
