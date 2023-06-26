@@ -116,10 +116,9 @@ public class ProducerMergedPartitionFileIndex {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private static Map<Integer, List<Region>> convertToRegions(
-            List<FlushedBuffers> flushedBuffers) {
+    private static Map<Integer, List<Region>> convertToRegions(List<FlushedBuffers> buffers) {
         Map<Integer, List<Region>> subpartitionRegionMap = new HashMap<>();
-        Iterator<FlushedBuffers> iterator = flushedBuffers.iterator();
+        Iterator<FlushedBuffers> iterator = buffers.iterator();
         FlushedBuffers firstBufferInRegion = iterator.next();
         FlushedBuffers lastBufferInRegion = firstBufferInRegion;
 
