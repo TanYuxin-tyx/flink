@@ -456,7 +456,6 @@ public class ResultPartitionFactory {
                             isBroadcast,
                             partitionFileWriter,
                             partitionFileReader,
-                            partitionFileIndex,
                             bufferCompressor,
                             storageMemoryManager,
                             nettyService,

@@ -30,7 +30,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceProducer;
@@ -97,7 +96,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             boolean isBroadcastOnly,
             PartitionFileWriter partitionFileWriter,
             PartitionFileReader partitionFileReader,
-            ProducerMergedPartitionFileIndex partitionFileIndex,
             BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,

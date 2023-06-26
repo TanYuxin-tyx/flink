@@ -25,7 +25,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -72,7 +71,6 @@ public class DiskTierFactory implements TierFactory {
             boolean isBroadcastOnly,
             PartitionFileWriter partitionFileWriter,
             PartitionFileReader partitionFileReader,
-            ProducerMergedPartitionFileIndex partitionFileIndex,
             BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
@@ -90,7 +88,6 @@ public class DiskTierFactory implements TierFactory {
                 isBroadcastOnly,
                 partitionFileWriter,
                 partitionFileReader,
-                partitionFileIndex,
                 bufferCompressor,
                 storageMemoryManager,
                 nettyService,
