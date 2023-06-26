@@ -19,7 +19,6 @@
 package org.apache.flink.runtime.io.network.partition.consumer;
 
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
@@ -178,10 +177,6 @@ public class SingleInputGateFactory {
                 calculateNumChannels(igdd.getShuffleDescriptors().length, subpartitionIndexRange);
 
         ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
-        List<TieredStoragePartitionId> tieredStoragePartitionIds = null;
-        List<TieredStorageSubpartitionId> tieredStorageSubpartitionIds = null;
-        List<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>>
-                partitionIdAndSubpartitionIds = null;
         RemoteStorageFileScanner remoteStorageFileScanner = null;
         List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs = null;
         if (enableTieredStore) {
