@@ -38,7 +38,8 @@ import static org.apache.flink.util.Preconditions.checkState;
 /**
  * The {@link SortBuffer} is used to accumulate the records into {@link Buffer}s. The {@link
  * SortBuffer} allows for writing data in arbitrary subpartition orders but supports reading of data
- * in the order grouped by subpartitions.
+ * in the order grouped by subpartitions. Note that the {@link SortBuffer} only supports reading
+ * after the write process finished, and can not support reading while writing.
  */
 public class SortBuffer {
 

@@ -179,10 +179,8 @@ public class SortBufferAccumulator implements BufferAccumulator {
                 numBuffersForSort);
     }
 
-    private void requestGuaranteedBuffers() {
-        int effectiveRequiredBuffers = effectiveNumRequestedBuffers();
-
-        while (freeSegments.size() < effectiveRequiredBuffers) {
+    private void requestBuffers() {
+        while (freeSegments.size() < numBuffers) {
             BufferBuilder bufferBuilder = storeMemoryManager.requestBufferBlocking(this);
             Buffer buffer = bufferBuilder.createBufferConsumerFromBeginning().build();
             freeSegments.add(checkNotNull(buffer).getMemorySegment());
@@ -193,8 +191,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
     }
 
     private void requestNetworkBuffers() {
-        requestGuaranteedBuffers();
-
+        requestBuffers();
         // Use the half of the buffers for writing, and the other half for reading
         numBuffersForSort = freeSegments.size() / 2;
     }
@@ -256,10 +253,6 @@ public class SortBufferAccumulator implements BufferAccumulator {
             freeSegment = buffer.getMemorySegment();
         }
         return freeSegment;
-    }
-
-    private int effectiveNumRequestedBuffers() {
-        return Math.min(numSubpartitions, numBuffers);
     }
 
     private void flushBuffer(Pair<Integer, Buffer> bufferAndSubpartitionId) {
