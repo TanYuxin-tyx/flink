@@ -276,7 +276,7 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
             if (!isRunning
                     && !allScheduledReaders.isEmpty()
                     && numRequestedBuffers + bufferPool.getNumBuffersPerRequest()
-                            <= maxRequestedBuffers
+                    <= maxRequestedBuffers
                     && numRequestedBuffers < bufferPool.getAverageBuffersPerRequester()) {
                 isRunning = true;
                 ioExecutor.execute(
@@ -341,13 +341,13 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
                 Buffer buffer;
                 try {
                     if ((buffer =
-                                    partitionFileReader.readBuffer(
-                                            partitionId,
-                                            subpartitionId,
-                                            -1,
-                                            nextBufferIndex,
-                                            memorySegment,
-                                            recycler))
+                            partitionFileReader.readBuffer(
+                                    partitionId,
+                                    subpartitionId,
+                                    -1,
+                                    nextBufferIndex,
+                                    memorySegment,
+                                    recycler))
                             == null) {
                         buffers.add(memorySegment);
                         break;
@@ -364,15 +364,9 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
                                 .get(subpartitionId.getSubpartitionId())
                                 .get(nettyPayload.getBufferIndex());
                 if (segmentId != null) {
-                    nettyConnectionWriter.writeBuffer(NettyPayload.newSegment(segmentId));
-                    if(nettyConnectionWriter.numQueuedBuffers() <= 1){
-                        notifyAvailable();
-                    }
+                    writeToNettyConnectionWriter(NettyPayload.newSegment(segmentId));
                 }
-                nettyConnectionWriter.writeBuffer(nettyPayload);
-                if(nettyConnectionWriter.numQueuedBuffers() <= 1){
-                    notifyAvailable();
-                }
+                writeToNettyConnectionWriter(nettyPayload);
             }
         }
 
@@ -380,6 +374,13 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
         public int compareTo(ScheduledSubpartitionReader reader) {
             checkArgument(reader != null);
             return Long.compare(getPriority(), reader.getPriority());
+        }
+
+        private void writeToNettyConnectionWriter(NettyPayload nettyPayload) {
+            nettyConnectionWriter.writeBuffer(nettyPayload);
+            if (nettyConnectionWriter.numQueuedBuffers() <= 1) {
+                notifyAvailable();
+            }
         }
 
         private long getPriority() {

@@ -54,8 +54,8 @@ public class HashPartitionFileReader implements PartitionFileReader {
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
     private final Map<
-                    TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>>>
+            TieredStoragePartitionId,
+            Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>>>
             openedChannels = new HashMap<>();
 
     private final String basePath;
@@ -77,7 +77,7 @@ public class HashPartitionFileReader implements PartitionFileReader {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex,
-            MemorySegment segment,
+            MemorySegment memorySegment,
             BufferRecycler recycler)
             throws IOException {
         Tuple2<ReadableByteChannel, Integer> fileChannelAndSegmentId =
@@ -160,8 +160,8 @@ public class HashPartitionFileReader implements PartitionFileReader {
                 .map(Map::values)
                 .flatMap(
                         (Function<
-                                        Collection<Tuple2<ReadableByteChannel, Integer>>,
-                                        Stream<Tuple2<ReadableByteChannel, Integer>>>)
+                                Collection<Tuple2<ReadableByteChannel, Integer>>,
+                                Stream<Tuple2<ReadableByteChannel, Integer>>>)
                                 Collection::stream)
                 .filter(Objects::nonNull)
                 .forEach(

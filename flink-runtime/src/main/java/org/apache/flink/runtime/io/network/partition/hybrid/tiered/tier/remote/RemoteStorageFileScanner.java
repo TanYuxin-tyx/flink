@@ -59,6 +59,6 @@ public interface RemoteStorageFileScanner extends Runnable {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId);
 
-    /** Close the {@link RemoteStorageFileScanner} */
+    /** Close the {@link RemoteStorageFileScanner}. */
     void close();
 }

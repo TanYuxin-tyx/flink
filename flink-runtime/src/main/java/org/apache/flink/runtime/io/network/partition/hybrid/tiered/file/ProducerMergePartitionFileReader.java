@@ -76,7 +76,7 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex,
-            MemorySegment segment,
+            MemorySegment memorySegment,
             BufferRecycler recycler)
             throws IOException {
         Map<Integer, Queue<SubpartitionReadCache>> progresses =
@@ -111,7 +111,7 @@ public class ProducerMergePartitionFileReader implements PartitionFileReader {
         }
         Buffer buffer = null;
         try {
-            buffer = readFromByteChannel(fileChannel, reusedHeaderBuffer, segment, recycler);
+            buffer = readFromByteChannel(fileChannel, reusedHeaderBuffer, memorySegment, recycler);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to read buffer.");
         }
