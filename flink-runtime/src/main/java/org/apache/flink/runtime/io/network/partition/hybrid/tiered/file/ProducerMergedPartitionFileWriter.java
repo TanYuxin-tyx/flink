@@ -50,13 +50,13 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
  * the shuffle data is written in the producer side, the consumer side need to read multiple
  * producers to get its partition data.
  *
- * <p>Note that one partition file written by the {@link ProducerMergePartitionFileWriter} may
+ * <p>Note that one partition file written by the {@link ProducerMergedPartitionFileWriter} may
  * contain the data of multiple subpartitions.
  */
-public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
+public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
 
     private static final Logger LOG =
-            LoggerFactory.getLogger(ProducerMergePartitionFileWriter.class);
+            LoggerFactory.getLogger(ProducerMergedPartitionFileWriter.class);
 
     /** One thread to perform the flush operation. */
     private final ExecutorService ioExecutor =
@@ -72,12 +72,13 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     /**
      * The partition file index. When flushing buffers, the partition file indexes will be updated.
      */
-    private final PartitionFileIndex partitionFileIndex;
+    private final ProducerMergedPartitionFileIndex partitionFileIndex;
 
     /** Records the current writing location. */
     private long totalBytesWritten;
 
-    ProducerMergePartitionFileWriter(Path dataFilePath, PartitionFileIndex partitionFileIndex) {
+    ProducerMergedPartitionFileWriter(
+            Path dataFilePath, ProducerMergedPartitionFileIndex partitionFileIndex) {
         LOG.info("Creating partition file " + dataFilePath);
         try {
             this.dataFileChannel =
@@ -119,9 +120,9 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     private void flush(
             List<SubpartitionBufferContext> toWrite, CompletableFuture<Void> flushSuccessNotifier) {
         try {
-            List<PartitionFileIndex.BufferToFlush> toFlushBuffers = new ArrayList<>();
-            calculateSizeAndFlushBuffers(toWrite, toFlushBuffers);
-            partitionFileIndex.generateRegionsBasedOnBuffers(toFlushBuffers);
+            List<ProducerMergedPartitionFileIndex.FlushedBuffers> buffers = new ArrayList<>();
+            calculateSizeAndFlushBuffers(toWrite, buffers);
+            partitionFileIndex.addBuffers(buffers);
             flushSuccessNotifier.complete(null);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
@@ -131,12 +132,13 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
     /**
      * Compute buffer's file offset and create buffers to be flushed.
      *
-     * @param toWrite all buffers to write to create {@link PartitionFileIndex.BufferToFlush}s
-     * @param toFlushBuffers receive the created {@link PartitionFileIndex.BufferToFlush}
+     * @param toWrite all buffers to write to create {@link
+     *     ProducerMergedPartitionFileIndex.FlushedBuffers}s
+     * @param buffers receive the created {@link ProducerMergedPartitionFileIndex.FlushedBuffers}
      */
     private void calculateSizeAndFlushBuffers(
             List<SubpartitionBufferContext> toWrite,
-            List<PartitionFileIndex.BufferToFlush> toFlushBuffers)
+            List<ProducerMergedPartitionFileIndex.FlushedBuffers> buffers)
             throws IOException {
         List<Tuple2<Buffer, Integer>> buffersToFlush = new ArrayList<>();
         long expectedBytes = 0;
@@ -150,8 +152,8 @@ public class ProducerMergePartitionFileWriter implements PartitionFileWriter {
                 for (Tuple2<Buffer, Integer> bufferWithIndex :
                         segmentBufferContext.getBufferWithIndexes()) {
                     Buffer buffer = bufferWithIndex.f0;
-                    toFlushBuffers.add(
-                            new PartitionFileIndex.BufferToFlush(
+                    buffers.add(
+                            new ProducerMergedPartitionFileIndex.FlushedBuffers(
                                     subpartitionId,
                                     bufferWithIndex.f1,
                                     totalBytesWritten + expectedBytes));

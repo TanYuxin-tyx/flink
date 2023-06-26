@@ -50,11 +50,16 @@ public interface PartitionFileReader {
             throws IOException;
 
     /**
-     * Get the priority when reading partition file data. The priority may improve the read
-     * efficiency or the read performance. For example, use the file offset of the reader as the
-     * priority to achieve better disk sequential reading to improve the read performance. Note that
-     * the reader priority is not a guaranteed ability for a reader, and all the readers will return
-     * the same priority value if the readers have no the priorities.
+     * Get the priority for reading a particular buffer from the partitioned file. The priority is
+     * defined as, it is suggested to read buffers with higher priority (smaller value) in prior to
+     * buffers with lower priority (larger value).
+     *
+     * <p>Depending on the partition file implementation, following the suggestions should typically
+     * result in better performance and efficiency. This can be achieved by e.g. choosing preloaded
+     * data over others, optimizing the order of disk access to be more sequential, etc.
+     *
+     * <p>Note: Priorities are suggestions rather than a requirements. The caller can still read
+     * data in whichever order it wants.
      *
      * @param partitionId the partition id of the buffer
      * @param subpartitionId the subpartition id of the buffer

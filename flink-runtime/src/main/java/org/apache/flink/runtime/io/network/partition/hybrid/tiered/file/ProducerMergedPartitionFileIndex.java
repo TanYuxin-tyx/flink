@@ -30,14 +30,21 @@ import java.util.Optional;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
- * The {@link PartitionFileIndex} is responsible for storing the indexes of data files generated
- * during the partition file write process and utilized during partition file reads. In order to
- * simplify the representation of consecutive buffers that belong to a single subpartition within a
- * file, these indexes are encapsulated into a {@link Region}. During the partition file write
- * process, the {@link Region}s are generated based on the buffers. During partition file reads, the
- * {@link Region} is used to retrieve consecutive buffers that belong to a single subpartition.
+ * The {@link ProducerMergedPartitionFileIndex} is used by {@link ProducerMergedPartitionFileWriter}
+ * and {@link ProducerMergedPartitionFileReader}, to maintain the offset of each buffer in the
+ * physical file.
+ *
+ * <p>For efficiency, buffers from the same subpartition that are both logically (i.e. index in the
+ * subpartition) and physically (i.e. offset in the file) consecutive are combined into a {@link
+ * Region}.
+ *
+ * <pre>For example, the following buffers (indicated by subpartitionId-bufferIndex):
+ *   1-1, 1-2, 1-3, 2-1, 2-2, 2-5, 1-4, 1-5, 2-6
+ * will be combined into 5 regions (separated by '|'):
+ *   1-1, 1-2, 1-3 | 2-1, 2-2 | 2-5 | 1-4, 1-5 | 2-6
+ * </pre>
  */
-public class PartitionFileIndex {
+public class ProducerMergedPartitionFileIndex {
 
     /**
      * The regions belonging to each subpartitions.
@@ -53,7 +60,7 @@ public class PartitionFileIndex {
 
     private final Object lock = new Object();
 
-    public PartitionFileIndex(int numSubpartitions) {
+    public ProducerMergedPartitionFileIndex(int numSubpartitions) {
         this.subpartitionRegions = new ArrayList<>();
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionRegions.add(new ArrayList<>());
@@ -61,23 +68,17 @@ public class PartitionFileIndex {
     }
 
     /**
-     * Based on the input {@link BufferToFlush}s, generate the {@link Region}s accordingly. When the
-     * buffer's subpartition id changes or the buffer index changes, a new region is created. For
-     * example, the buffers are as follows(each buffer is represented by
-     * subpartitionId-bufferIndex). 1-1, 1-2, 1-3, 2-1, 2-2, 2-5, 1-4, 1-5, 2-6, then 5 regions are
-     * generated. |1-1, 1-2, 1-3|2-1, 2-2|2-5|1-4, 1-5|2-6|.
+     * Add buffers to the index.
      *
-     * <p>Note that these buffers are logically partitioned by the region indexes logically, but
-     * they remain physically contiguous when flushing to disk.
-     *
-     * @param bufferToFlushes the buffers to be flushed
+     * @param buffers to be added. Note, the provided buffers are required to be physically
+     *     consecutive and in the same order as in the file.
      */
-    void generateRegionsBasedOnBuffers(List<BufferToFlush> bufferToFlushes) {
-        if (bufferToFlushes.isEmpty()) {
+    void addBuffers(List<FlushedBuffers> buffers) {
+        if (buffers.isEmpty()) {
             return;
         }
 
-        Map<Integer, List<Region>> convertedRegions = convertToRegions(bufferToFlushes);
+        Map<Integer, List<Region>> convertedRegions = convertToRegions(buffers);
         synchronized (lock) {
             convertedRegions.forEach(
                     (subpartition, regions) ->
@@ -89,7 +90,7 @@ public class PartitionFileIndex {
      * Get the {@link Region} of the specific subpartition.
      *
      * @param subpartitionId the specific subpartition id
-     * @param regionId the region id to get from the {@link PartitionFileIndex}
+     * @param regionId the region id to get from the {@link ProducerMergedPartitionFileIndex}
      */
     public Optional<Region> getRegion(int subpartitionId, int regionId) {
         synchronized (lock) {
@@ -116,14 +117,14 @@ public class PartitionFileIndex {
     // ------------------------------------------------------------------------
 
     private static Map<Integer, List<Region>> convertToRegions(
-            List<BufferToFlush> bufferToFlushes) {
+            List<FlushedBuffers> flushedBuffers) {
         Map<Integer, List<Region>> subpartitionRegionMap = new HashMap<>();
-        Iterator<BufferToFlush> iterator = bufferToFlushes.iterator();
-        BufferToFlush firstBufferInRegion = iterator.next();
-        BufferToFlush lastBufferInRegion = firstBufferInRegion;
+        Iterator<FlushedBuffers> iterator = flushedBuffers.iterator();
+        FlushedBuffers firstBufferInRegion = iterator.next();
+        FlushedBuffers lastBufferInRegion = firstBufferInRegion;
 
         while (iterator.hasNext()) {
-            BufferToFlush currentBuffer = iterator.next();
+            FlushedBuffers currentBuffer = iterator.next();
             if (currentBuffer.getSubpartitionId() != firstBufferInRegion.getSubpartitionId()
                     || currentBuffer.getBufferIndex() != lastBufferInRegion.getBufferIndex() + 1) {
                 // the current buffer belongs to a new region, close the previous region
@@ -139,8 +140,8 @@ public class PartitionFileIndex {
     }
 
     private static void addInternalRegionToMap(
-            BufferToFlush firstBufferInRegion,
-            BufferToFlush lastBufferInRegion,
+            FlushedBuffers firstBufferInRegion,
+            FlushedBuffers lastBufferInRegion,
             Map<Integer, List<Region>> subpartitionRegionMap) {
         checkArgument(
                 firstBufferInRegion.getSubpartitionId() == lastBufferInRegion.getSubpartitionId());
@@ -161,7 +162,7 @@ public class PartitionFileIndex {
     // ------------------------------------------------------------------------
 
     /** Represents a buffer to be flushed. */
-    public static class BufferToFlush {
+    public static class FlushedBuffers {
         /** The subpartition id that the buffer belongs to. */
         private final int subpartitionId;
 
@@ -171,7 +172,7 @@ public class PartitionFileIndex {
         /** The file offset that the buffer begin with. */
         private final long fileOffset;
 
-        BufferToFlush(int subpartitionId, int bufferIndex, long fileOffset) {
+        FlushedBuffers(int subpartitionId, int bufferIndex, long fileOffset) {
             this.subpartitionId = subpartitionId;
             this.bufferIndex = bufferIndex;
             this.fileOffset = fileOffset;
@@ -191,8 +192,13 @@ public class PartitionFileIndex {
     }
 
     /**
-     * A {@link Region} represents a series of physically continuous buffers in the file, which are
-     * from the same subpartition.
+     * Represents a series of buffers that are:
+     *
+     * <ul>
+     *   <li>From the same subpartition
+     *   <li>Logically (i.e. buffer index) consecutive
+     *   <li>Physically (i.e. offset in the file) consecutive
+     * </ul>
      */
     public static class Region {
 

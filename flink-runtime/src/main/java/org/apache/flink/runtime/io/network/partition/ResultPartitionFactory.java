@@ -33,10 +33,10 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.HashPartitionFile;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergePartitionFile;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFile;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
@@ -433,8 +433,8 @@ public class ResultPartitionFactory {
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
         List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
-        PartitionFileIndex partitionFileIndex =
-                new PartitionFileIndex(isBroadcast ? 1 : subpartitions.length);
+        ProducerMergedPartitionFileIndex partitionFileIndex =
+                new ProducerMergedPartitionFileIndex(isBroadcast ? 1 : subpartitions.length);
         for (TierFactory tierFactory : storeConfiguration.getTierFactories()) {
             PartitionFileWriter partitionFileWriter =
                     createPartitionFileWriter(
@@ -475,9 +475,9 @@ public class ResultPartitionFactory {
             int numSubpartitions,
             String dataFileBasePath,
             String remoteStorageShuffleHomePath,
-            PartitionFileIndex regionBufferIndexTracker) {
+            ProducerMergedPartitionFileIndex regionBufferIndexTracker) {
         if (tierFactory.getClass() == DiskTierFactory.class) {
-            return ProducerMergePartitionFile.createPartitionFileWriter(
+            return ProducerMergedPartitionFile.createPartitionFileWriter(
                     Paths.get(dataFileBasePath + DATA_FILE_SUFFIX), regionBufferIndexTracker);
         } else if (tierFactory.getClass() == RemoteTierFactory.class) {
             return HashPartitionFile.createPartitionFileWriter(
@@ -489,9 +489,9 @@ public class ResultPartitionFactory {
     private PartitionFileReader createPartitionFileReader(
             TierFactory tierFactory,
             String dataFileBasePath,
-            PartitionFileIndex regionBufferIndexTracker) {
+            ProducerMergedPartitionFileIndex regionBufferIndexTracker) {
         if (tierFactory.getClass() == DiskTierFactory.class) {
-            return ProducerMergePartitionFile.createPartitionFileReader(
+            return ProducerMergedPartitionFile.createPartitionFileReader(
                     Paths.get(dataFileBasePath + DATA_FILE_SUFFIX), regionBufferIndexTracker);
         } else if (tierFactory.getClass() == RemoteTierFactory.class) {
             return null; // TODO, create hash reader.

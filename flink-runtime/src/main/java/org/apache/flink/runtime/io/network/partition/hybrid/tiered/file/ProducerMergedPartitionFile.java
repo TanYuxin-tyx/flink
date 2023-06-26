@@ -24,15 +24,15 @@ import java.nio.file.Path;
  * The partition file in the producer-merge mode. In this mode, the shuffle data is written in the
  * producer side, the consumer side need to read multiple producers to get its partition data.
  */
-public class ProducerMergePartitionFile {
+public class ProducerMergedPartitionFile {
 
-    public static ProducerMergePartitionFileWriter createPartitionFileWriter(
-            Path dataFilePath, PartitionFileIndex partitionFileIndex) {
-        return new ProducerMergePartitionFileWriter(dataFilePath, partitionFileIndex);
+    public static ProducerMergedPartitionFileWriter createPartitionFileWriter(
+            Path dataFilePath, ProducerMergedPartitionFileIndex partitionFileIndex) {
+        return new ProducerMergedPartitionFileWriter(dataFilePath, partitionFileIndex);
     }
 
-    public static ProducerMergePartitionFileReader createPartitionFileReader(
-            Path dataFilePath, PartitionFileIndex partitionFileIndex) {
-        return new ProducerMergePartitionFileReader(dataFilePath, partitionFileIndex);
+    public static ProducerMergedPartitionFileReader createPartitionFileReader(
+            Path dataFilePath, ProducerMergedPartitionFileIndex partitionFileIndex) {
+        return new ProducerMergedPartitionFileReader(dataFilePath, partitionFileIndex);
     }
 }
