@@ -51,7 +51,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
-    private static final int CACHE_MAX_NUM = 10000;
+    private static final int MAX_REGION_CACHE = 10000;
 
     private final Map<Tuple2<TieredStorageSubpartitionId, Integer>, RegionCache> regionCaches;
 
@@ -83,20 +83,11 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             throws IOException {
 
         lazyInitializeFileChannel(partitionId);
-
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        RegionCache regionCache = regionCaches.get(cacheKey);
+        RegionCache regionCache = tryGetCachedRegion(cacheKey);
         if (regionCache == null) {
-            Optional<Region> region =
-                    dataIndex.getRegion(subpartitionId.getSubpartitionId(), bufferIndex);
-            if (region.isPresent()) {
-                regionCache = new RegionCache(bufferIndex, region.get());
-                regionCaches.put(cacheKey, regionCache);
-                numRegionCache++;
-            } else {
-                return null;
-            }
+            return null;
         }
         long fileOffSet = regionCache.getCurrentFileOffset();
         try {
@@ -110,25 +101,17 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to read buffer.");
         }
-
         boolean hasBuffer =
                 regionCache.advance(
                         checkNotNull(buffer).readableBytes()
                                 + BufferReaderWriterUtil.HEADER_LENGTH);
-
-        if (!hasBuffer) {
+        if (hasBuffer) {
             int nextBufferIndex = bufferIndex + 1;
-            Optional<Region> region =
-                    dataIndex.getRegion(subpartitionId.getSubpartitionId(), nextBufferIndex);
-            if (region.isPresent()) {
-                regionCaches.put(
-                        Tuple2.of(subpartitionId, nextBufferIndex),
-                        new RegionCache(nextBufferIndex, region.get()));
+            if (numRegionCache < MAX_REGION_CACHE) {
+                regionCaches.put(Tuple2.of(subpartitionId, nextBufferIndex), regionCache);
                 numRegionCache++;
             }
         }
-        regionCaches.remove(cacheKey);
-        numRegionCache--;
         return buffer;
     }
 
@@ -169,9 +152,22 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         }
     }
 
-    /**
-     * {@link RegionCache} is the cache of {@link Region}. It contains the read offset
-     */
+    private RegionCache tryGetCachedRegion(Tuple2<TieredStorageSubpartitionId, Integer> cacheKey)
+            throws IOException {
+        RegionCache regionCache = regionCaches.remove(cacheKey);
+        if (regionCache == null) {
+            Optional<Region> region =
+                    dataIndex.getRegion(cacheKey.f0.getSubpartitionId(), cacheKey.f1);
+            if (region.isPresent()) {
+                regionCache = new RegionCache(cacheKey.f1, region.get());
+            }
+        } else {
+            numRegionCache--;
+        }
+        return regionCache;
+    }
+
+    /** {@link RegionCache} is the cache of {@link Region}. It contains the read offset */
     private class RegionCache {
 
         private final Region region;
@@ -198,7 +194,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         private boolean advance(long bufferSize) {
             currentBufferIndex++;
             currentFileOffset += bufferSize;
-            return currentBufferIndex > (region.getFirstBufferIndex() + region.getNumBuffers());
+            return currentBufferIndex < (region.getFirstBufferIndex() + region.getNumBuffers());
         }
 
         private void moveFileOffsetToBuffer(int bufferIndex) throws IOException {
