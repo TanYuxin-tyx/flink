@@ -129,19 +129,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex) {
-        lazyInitializeFileChannel(partitionId);
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
         RegionCache regionCache = regionCaches.get(cacheKey);
-        if (regionCache == null) {
-            Optional<Region> region =
-                    dataIndex.getRegion(subpartitionId.getSubpartitionId(), bufferIndex);
-            if (region.isPresent()) {
-                regionCache = new RegionCache(subpartitionId, bufferIndex, region.get());
-                regionCaches.put(cacheKey, regionCache);
-            }
-        }
-        return regionCache == null ? 0 : regionCache.getCurrentFileOffset();
+        return regionCache == null ? Long.MAX_VALUE : regionCache.getCurrentFileOffset();
     }
 
     @Override
@@ -157,18 +148,14 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         IOUtils.deleteFileQuietly(dataFilePath);
     }
 
-    private void lazyInitializeFileChannel(TieredStoragePartitionId partitionId) {
-        try {
-            if (fileChannel == null) {
-                try {
-                    fileChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
-                } catch (FileNotFoundException e) {
-                    throw new PartitionNotFoundException(
-                            TieredStorageIdMappingUtils.convertId(partitionId));
-                }
+    private void lazyInitializeFileChannel(TieredStoragePartitionId partitionId) throws IOException {
+        if (fileChannel == null) {
+            try {
+                fileChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
+            } catch (FileNotFoundException e) {
+                throw new PartitionNotFoundException(
+                        TieredStorageIdMappingUtils.convertId(partitionId));
             }
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e, "Failed to initialize te file channel.");
         }
     }
 
