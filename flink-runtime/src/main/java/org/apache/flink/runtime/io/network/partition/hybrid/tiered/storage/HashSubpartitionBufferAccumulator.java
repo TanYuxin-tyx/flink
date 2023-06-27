@@ -54,6 +54,12 @@ public class HashSubpartitionBufferAccumulator {
 
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
+    private final Object lock = new Object();
+
+    private boolean isClosed;
+
+    private boolean isReleased;
+
     public HashSubpartitionBufferAccumulator(
             TieredStorageSubpartitionId subpartitionId,
             int bufferSize,
@@ -76,13 +82,19 @@ public class HashSubpartitionBufferAccumulator {
     }
 
     public void close() {
-        recycleBuffers();
-        checkState(unfinishedBuffers.isEmpty(), "There are unfinished buffers.");
+        synchronized (lock) {
+            isClosed = true;
+            recycleBuffers();
+            checkState(unfinishedBuffers.isEmpty(), "There are unfinished buffers.");
+        }
     }
 
     public void release() {
-        recycleBuffers();
-        checkState(unfinishedBuffers.isEmpty(), "There are unfinished buffers.");
+        synchronized (lock) {
+            isReleased = true;
+            recycleBuffers();
+            checkState(unfinishedBuffers.isEmpty(), "There are unfinished buffers.");
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -111,51 +123,70 @@ public class HashSubpartitionBufferAccumulator {
 
     private void ensureCapacityForRecord(ByteBuffer record) {
         final int numRecordBytes = record.remaining();
-        int availableBytes =
-                Optional.ofNullable(unfinishedBuffers.peek())
-                        .map(
-                                currentWritingBuffer ->
-                                        currentWritingBuffer.getWritableBytes()
-                                                + bufferSize * (unfinishedBuffers.size() - 1))
-                        .orElse(0);
+        synchronized (lock) {
+            if (isClosed || isReleased) {
+                return;
+            }
+            int availableBytes =
+                    Optional.ofNullable(unfinishedBuffers.peek())
+                            .map(
+                                    currentWritingBuffer ->
+                                            currentWritingBuffer.getWritableBytes()
+                                                    + bufferSize * (unfinishedBuffers.size() - 1))
+                            .orElse(0);
 
-        while (availableBytes < numRecordBytes) {
-            BufferBuilder bufferBuilder = bufferAccumulatorContext.requestBufferBlocking();
-            unfinishedBuffers.add(bufferBuilder);
-            availableBytes += bufferSize;
+            while (availableBytes < numRecordBytes) {
+                BufferBuilder bufferBuilder = bufferAccumulatorContext.requestBufferBlocking();
+                unfinishedBuffers.add(bufferBuilder);
+                availableBytes += bufferSize;
+            }
         }
     }
 
     private void writeRecord(ByteBuffer record) {
-        while (record.hasRemaining()) {
-            BufferBuilder currentWritingBuffer = checkNotNull(unfinishedBuffers.peek());
-            currentWritingBuffer.append(record);
-            if (currentWritingBuffer.isFull()) {
-                finishCurrentWritingBuffer();
+        synchronized (lock) {
+            while (record.hasRemaining()) {
+                if (isClosed || isReleased) {
+                    return;
+                }
+                BufferBuilder currentWritingBuffer = checkNotNull(unfinishedBuffers.peek());
+                currentWritingBuffer.append(record);
+                if (currentWritingBuffer.isFull()) {
+                    finishCurrentWritingBuffer();
+                }
             }
         }
     }
 
     private void finishCurrentWritingBufferIfNotEmpty() {
-        BufferBuilder currentWritingBuffer = unfinishedBuffers.peek();
-        if (currentWritingBuffer == null || currentWritingBuffer.getWritableBytes() == bufferSize) {
-            return;
-        }
+        synchronized (lock) {
+            BufferBuilder currentWritingBuffer = unfinishedBuffers.peek();
+            if (currentWritingBuffer == null
+                    || currentWritingBuffer.getWritableBytes() == bufferSize) {
+                return;
+            }
 
-        finishCurrentWritingBuffer();
+            finishCurrentWritingBuffer();
+        }
     }
 
     private void finishCurrentWritingBuffer() {
-        BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
-        if (currentWritingBuffer == null) {
-            return;
+        synchronized (lock) {
+            if (isClosed || isReleased) {
+                return;
+            }
+            BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
+            if (currentWritingBuffer == null) {
+                return;
+            }
+            currentWritingBuffer.finish();
+            BufferConsumer bufferConsumer =
+                    currentWritingBuffer.createBufferConsumerFromBeginning();
+            Buffer buffer = bufferConsumer.build();
+            currentWritingBuffer.close();
+            bufferConsumer.close();
+            flushFinishedBuffer(buffer);
         }
-        currentWritingBuffer.finish();
-        BufferConsumer bufferConsumer = currentWritingBuffer.createBufferConsumerFromBeginning();
-        Buffer buffer = bufferConsumer.build();
-        currentWritingBuffer.close();
-        bufferConsumer.close();
-        flushFinishedBuffer(buffer);
     }
 
     private void recycleBuffers() {
@@ -165,7 +196,12 @@ public class HashSubpartitionBufferAccumulator {
     }
 
     private void flushFinishedBuffer(Buffer finishedBuffer) {
-        bufferAccumulatorContext.flushAccumulatedBuffers(
-                subpartitionId, Collections.singletonList(finishedBuffer));
+        synchronized (lock) {
+            if (isClosed || isReleased) {
+                finishedBuffer.recycleBuffer();
+            }
+            bufferAccumulatorContext.flushAccumulatedBuffers(
+                    subpartitionId, Collections.singletonList(finishedBuffer));
+        }
     }
 }
