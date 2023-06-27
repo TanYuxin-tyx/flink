@@ -58,7 +58,7 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
     private static final Logger LOG =
             LoggerFactory.getLogger(ProducerMergedPartitionFileWriter.class);
 
-    /** One thread to perform the flush operation. */
+    /** One thread to flush buffers to the file. */
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadExecutor(
                     new ThreadFactoryBuilder()
@@ -74,7 +74,7 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
      */
     private final ProducerMergedPartitionFileIndex partitionFileIndex;
 
-    /** Records the current writing location. */
+    /** The total number of bytes written to the file. */
     private long totalBytesWritten;
 
     ProducerMergedPartitionFileWriter(

@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.ArrayList;
@@ -91,13 +93,21 @@ public class ProducerMergedPartitionFileIndex {
         }
     }
 
-    public Optional<Region> getRegion(int subpartitionId, int bufferIndex) {
+    /**
+     * Get the {@link Region} according to the subpartition id and the buffer index.
+     *
+     * @param subpartitionId the subpartition id
+     * @param bufferIndex the buffer index
+     */
+    Optional<Region> getRegion(TieredStorageSubpartitionId subpartitionId, int bufferIndex) {
         synchronized (lock) {
             if (isReleased) {
                 return Optional.empty();
             }
             Map.Entry<Integer, Region> regionEntry =
-                    subpartitionRegions.get(subpartitionId).floorEntry(bufferIndex);
+                    subpartitionRegions
+                            .get(subpartitionId.getSubpartitionId())
+                            .floorEntry(bufferIndex);
             if (regionEntry == null) {
                 return Optional.empty();
             }

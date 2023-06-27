@@ -173,8 +173,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             throws IOException {
         RegionCache regionCache = regionCaches.remove(cacheKey);
         if (regionCache == null) {
-            Optional<Region> region =
-                    dataIndex.getRegion(cacheKey.f0.getSubpartitionId(), cacheKey.f1);
+            Optional<Region> region = dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
             if (region.isPresent()) {
                 regionCache = new RegionCache(cacheKey.f1, region.get());
             }
