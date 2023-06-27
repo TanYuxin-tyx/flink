@@ -89,7 +89,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             Optional<Region> region =
                     dataIndex.getRegion(subpartitionId.getSubpartitionId(), bufferIndex);
             if (region.isPresent()) {
-                regionCache = new RegionCache(subpartitionId, bufferIndex, region.get());
+                regionCache = new RegionCache(bufferIndex, region.get());
                 regionCaches.put(cacheKey, regionCache);
             } else {
                 return null;
@@ -108,16 +108,18 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             ExceptionUtils.rethrow(e, "Failed to read buffer.");
         }
 
-        if (buffer == null) {
-            System.out.println("");
-        }
-
         boolean hasBuffer =
                 regionCache.advance(
                         checkNotNull(buffer).readableBytes()
                                 + BufferReaderWriterUtil.HEADER_LENGTH);
-        if (hasBuffer) {
-            regionCaches.put(Tuple2.of(subpartitionId, bufferIndex + 1), regionCache);
+
+        if (!hasBuffer) {
+            int nextBufferIndex = bufferIndex + 1;
+            Optional<Region> region =
+                    dataIndex.getRegion(subpartitionId.getSubpartitionId(), nextBufferIndex);
+            region.ifPresent(value -> regionCaches.put(
+                    Tuple2.of(subpartitionId, nextBufferIndex),
+                    new RegionCache(nextBufferIndex, value)));
         }
         regionCaches.remove(cacheKey);
         return buffer;
@@ -148,7 +150,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         IOUtils.deleteFileQuietly(dataFilePath);
     }
 
-    private void lazyInitializeFileChannel(TieredStoragePartitionId partitionId) throws IOException {
+    private void lazyInitializeFileChannel(TieredStoragePartitionId partitionId)
+            throws IOException {
         if (fileChannel == null) {
             try {
                 fileChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
@@ -165,18 +168,16 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      */
     private class RegionCache {
 
-        private final TieredStorageSubpartitionId subpartitionId;
+        private final Region region;
 
         private long currentFileOffset;
 
         private int numBuffersReadable;
 
-        private int currentBufferIndex;
-
         public RegionCache(
-                TieredStorageSubpartitionId subpartitionId, int bufferIndex, Region region) {
-            this.subpartitionId = subpartitionId;
-            moveFileOffsetToBuffer(region, bufferIndex);
+                int bufferIndex, Region region) {
+            this.region = region;
+            moveFileOffsetToBuffer(bufferIndex);
         }
 
         /**
@@ -189,25 +190,12 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         }
 
         private boolean advance(long bufferSize) {
-            currentBufferIndex++;
             numBuffersReadable--;
             currentFileOffset += bufferSize;
-            if (numBuffersReadable < 0) {
-                System.out.println("");
-            }
-            if (numBuffersReadable == 0) {
-                Optional<Region> region =
-                        dataIndex.getRegion(subpartitionId.getSubpartitionId(), currentBufferIndex);
-                if (region.isPresent()) {
-                    moveFileOffsetToBuffer(region.get(), currentBufferIndex);
-                    return true;
-                }
-                return false;
-            }
-            return true;
+            return numBuffersReadable != 0;
         }
 
-        private void moveFileOffsetToBuffer(Region region, int bufferIndex) {
+        private void moveFileOffsetToBuffer(int bufferIndex) {
             try {
                 checkNotNull(fileChannel).position(region.getRegionFileOffset());
                 for (int i = 0; i < (bufferIndex - region.getFirstBufferIndex()); ++i) {
@@ -217,12 +205,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             } catch (IOException e) {
                 ExceptionUtils.rethrow(e, "Failed to move file offset");
             }
-            currentBufferIndex = bufferIndex;
             int skipBuffers = bufferIndex - region.getFirstBufferIndex();
             numBuffersReadable = region.getNumBuffers() - skipBuffers;
-            if (skipBuffers < 0 || numBuffersReadable <= 0) {
-                System.out.println("");
-            }
         }
     }
 }
