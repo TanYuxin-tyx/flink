@@ -55,9 +55,9 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      * Max number of region caches.
      *
      * <p>This number is utilized to constrain the total number of cached regions in the event of a
-     * region leak within the implementation. Corresponding tests have been incorporated to
-     * guarantee correctness. As the future implementation approaches, the cache storage strategy
-     * will be established using the LRU algorithm with a justifiable cache size.
+     * region leak within the implementation. Corresponding tests have been added to guarantee
+     * correctness. As the future implementation approaches, the cache storage strategy will be
+     * established using the LRU algorithm with a justifiable cache size.
      */
     private static final int MAX_REGION_CACHE = 10000;
 
@@ -67,7 +67,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      * <p>The key of the cache is formed by combining the {@link TieredStorageSubpartitionId} and
      * buffer index. The value denotes the cached region for the corresponding subpartition and
      * buffer index. Each cached region comprises the last consumed {@link Region}, the next buffer
-     * index within the region, and the file offset of the next buffer index
+     * index within the region, and the file offset of the next buffer index.
      */
     private final Map<Tuple2<TieredStorageSubpartitionId, Integer>, RegionCache> regionCaches;
 
@@ -79,7 +79,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
     private FileChannel fileChannel;
 
-    /** The current number of region caches; */
+    /** The current number of region caches. */
     private int numRegionCache;
 
     ProducerMergedPartitionFileReader(
@@ -102,7 +102,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         lazyInitializeFileChannel(partitionId);
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        RegionCache regionCache = tryGetCachedRegion(cacheKey);
+        RegionCache regionCache = tryGetRegionCache(cacheKey);
         if (regionCache == null) {
             return null;
         }
@@ -157,6 +157,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         IOUtils.deleteFileQuietly(dataFilePath);
     }
 
+    /**
+     * Initializes the file channel in a lazy manner, which can reduce usage of the file descriptor
+     * resource.
+     *
+     * @param partitionId denotes the id of the {@link TieredStoragePartitionId}.
+     * @throws IOException is thrown in the event of an error.
+     */
     private void lazyInitializeFileChannel(TieredStoragePartitionId partitionId)
             throws IOException {
         if (fileChannel == null) {
@@ -169,7 +176,18 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         }
     }
 
-    private RegionCache tryGetCachedRegion(Tuple2<TieredStorageSubpartitionId, Integer> cacheKey)
+    /**
+     * Try to get the region cache associated with the given cache key.
+     *
+     * <p>If the relevant region cache exists within the region caches, it will be returned and
+     * subsequently removed. However, if the region cache does not exist, a new region cache will be
+     * created using the data index and returned.
+     *
+     * @param cacheKey denotes the key of the desired region cache.
+     * @return returns the relevant region cache if it exists, otherwise a null value.
+     * @throws IOException is thrown in the event of an error.
+     */
+    private RegionCache tryGetRegionCache(Tuple2<TieredStorageSubpartitionId, Integer> cacheKey)
             throws IOException {
         RegionCache regionCache = regionCaches.remove(cacheKey);
         if (regionCache == null) {
@@ -217,7 +235,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
          *
          * @param bufferSize denotes the size of the buffer.
          * @return returns a boolean value indicating the presence or absence of residual buffers in
-         *     the region
+         *     the region.
          */
         private boolean advance(long bufferSize) {
             nextBufferIndex++;
