@@ -146,11 +146,11 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
             int subpartitionId = subpartitionBufferContext.getSubpartitionId();
             for (SegmentBufferContext segmentBufferContext :
                     subpartitionBufferContext.getSegmentBufferContexts()) {
-                List<Tuple2<Buffer, Integer>> bufferWithIndexes =
-                        segmentBufferContext.getBufferWithIndexes();
-                buffersToFlush.addAll(bufferWithIndexes);
+                List<Tuple2<Buffer, Integer>> bufferAndIndexes =
+                        segmentBufferContext.getBufferAndIndexes();
+                buffersToFlush.addAll(bufferAndIndexes);
                 for (Tuple2<Buffer, Integer> bufferWithIndex :
-                        segmentBufferContext.getBufferWithIndexes()) {
+                        segmentBufferContext.getBufferAndIndexes()) {
                     Buffer buffer = bufferWithIndex.f0;
                     buffers.add(
                             new ProducerMergedPartitionFileIndex.FlushedBuffers(
@@ -162,17 +162,17 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
             }
         }
         flushBuffers(buffersToFlush, expectedBytes);
-        buffersToFlush.forEach(bufferWithIndex -> bufferWithIndex.f0.recycleBuffer());
+        buffersToFlush.forEach(bufferAndIndex -> bufferAndIndex.f0.recycleBuffer());
     }
 
     /** Write all buffers to the disk. */
-    private void flushBuffers(List<Tuple2<Buffer, Integer>> bufferWithIndexes, long expectedBytes)
+    private void flushBuffers(List<Tuple2<Buffer, Integer>> bufferAndIndexes, long expectedBytes)
             throws IOException {
-        if (bufferWithIndexes.isEmpty()) {
+        if (bufferAndIndexes.isEmpty()) {
             return;
         }
 
-        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferWithIndexes);
+        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(bufferAndIndexes);
         BufferReaderWriterUtil.writeBuffers(dataFileChannel, expectedBytes, bufferWithHeaders);
         totalBytesWritten += expectedBytes;
     }

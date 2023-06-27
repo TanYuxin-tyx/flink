@@ -83,17 +83,17 @@ public interface PartitionFileWriter {
         private final int segmentId;
 
         /** All the buffers belonging to the segment. */
-        private final List<Tuple2<Buffer, Integer>> bufferWithIndexes;
+        private final List<Tuple2<Buffer, Integer>> bufferAndIndexes;
 
         /** Whether it is necessary to finish the segment. */
         private final boolean segmentFinished;
 
         public SegmentBufferContext(
                 int segmentId,
-                List<Tuple2<Buffer, Integer>> bufferWithIndexes,
+                List<Tuple2<Buffer, Integer>> bufferAndIndexes,
                 boolean segmentFinished) {
             this.segmentId = segmentId;
-            this.bufferWithIndexes = bufferWithIndexes;
+            this.bufferAndIndexes = bufferAndIndexes;
             this.segmentFinished = segmentFinished;
         }
 
@@ -101,8 +101,8 @@ public interface PartitionFileWriter {
             return segmentId;
         }
 
-        public List<Tuple2<Buffer, Integer>> getBufferWithIndexes() {
-            return bufferWithIndexes;
+        public List<Tuple2<Buffer, Integer>> getBufferAndIndexes() {
+            return bufferAndIndexes;
         }
 
         public boolean isSegmentFinished() {

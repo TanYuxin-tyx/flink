@@ -96,13 +96,13 @@ public class ProducerMergedPartitionFileIndex {
             if (isReleased) {
                 return Optional.empty();
             }
-            Map.Entry<Integer, Region> entry =
+            Map.Entry<Integer, Region> regionEntry =
                     subpartitionRegions.get(subpartitionId).floorEntry(bufferIndex);
-            if (entry == null) {
+            if (regionEntry == null) {
                 return Optional.empty();
             }
-            Region region = entry.getValue();
-            return bufferIndex < (region.getFirstBufferIndex() + region.numBuffers)
+            Region region = regionEntry.getValue();
+            return bufferIndex < region.getFirstBufferIndex() + region.numBuffers
                     ? Optional.of(region)
                     : Optional.empty();
         }

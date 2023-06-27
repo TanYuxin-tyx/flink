@@ -126,7 +126,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
             SegmentBufferContext segmentBuffers,
             CompletableFuture<Void> flushSuccessNotifier) {
         int segmentId = segmentBuffers.getSegmentId();
-        List<Tuple2<Buffer, Integer>> buffersToFlush = segmentBuffers.getBufferWithIndexes();
+        List<Tuple2<Buffer, Integer>> buffersToFlush = segmentBuffers.getBufferAndIndexes();
         boolean isFinishSegment = segmentBuffers.isSegmentFinished();
         checkState(!buffersToFlush.isEmpty() || isFinishSegment);
 
@@ -170,8 +170,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         WritableByteChannel currentChannel = subpartitionChannels[subpartitionId];
         if (currentChannel == null) {
             Path writingSegmentPath =
-                    generateSegmentPath(
-                            basePath, resultPartitionID, subpartitionId, segmentId);
+                    generateSegmentPath(basePath, resultPartitionID, subpartitionId, segmentId);
             FileSystem fs = writingSegmentPath.getFileSystem();
             currentChannel =
                     Channels.newChannel(
@@ -187,8 +186,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
             int subpartitionId, int segmentId, CompletableFuture<Void> flushSuccessNotifier) {
         String subpartitionPath;
         try {
-            subpartitionPath =
-                    createSubpartitionPath(basePath, resultPartitionID, subpartitionId);
+            subpartitionPath = createSubpartitionPath(basePath, resultPartitionID, subpartitionId);
             writeSegmentFinishFile(subpartitionPath, segmentId);
             subpartitionChannels[subpartitionId].close();
             subpartitionChannels[subpartitionId] = null;
