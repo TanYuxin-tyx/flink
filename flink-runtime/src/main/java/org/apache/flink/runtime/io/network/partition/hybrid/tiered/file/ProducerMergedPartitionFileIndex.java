@@ -150,6 +150,7 @@ public class ProducerMergedPartitionFileIndex {
                 .computeIfAbsent(firstBufferInRegion.getSubpartitionId(), ArrayList::new)
                 .add(
                         new Region(
+                                firstBufferInRegion.getBufferIndex(),
                                 firstBufferInRegion.getFileOffset(),
                                 lastBufferInRegion.getBufferIndex()
                                         - firstBufferInRegion.getBufferIndex()
@@ -201,13 +202,17 @@ public class ProducerMergedPartitionFileIndex {
      */
     public static class Region {
 
+        /** The buffer index of first buffer. */
+        private final int firstBufferIndex;
+
         /** The file offset of the region. */
         private final long regionFileOffset;
 
         /** The number of buffers that the region contains. */
         private final int numBuffers;
 
-        Region(long regionFileOffset, int numBuffers) {
+        Region(int firstBufferIndex, long regionFileOffset, int numBuffers) {
+            this.firstBufferIndex = firstBufferIndex;
             this.regionFileOffset = regionFileOffset;
             this.numBuffers = numBuffers;
         }
@@ -218,6 +223,10 @@ public class ProducerMergedPartitionFileIndex {
 
         public int getNumBuffers() {
             return numBuffers;
+        }
+
+        public int getFirstBufferIndex() {
+            return firstBufferIndex;
         }
     }
 }

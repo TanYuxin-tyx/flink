@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
@@ -43,7 +44,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.positionToNextBuffer;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFileIndex.Region;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -53,7 +56,11 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
-    private final Map<TieredStorageSubpartitionId, Map<Integer, Queue<SubpartitionReadCache>>>
+    private static final int CACHE_MAX_NUM = 10000;
+
+    private final Map<Tuple2<TieredStorageSubpartitionId, Integer>, RegionCache> regionCaches;
+
+    private final Map<TieredStorageSubpartitionId, Map<Integer, Queue<RegionCache>>>
             subpartitionReadCache;
 
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
@@ -69,6 +76,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         this.dataFilePath = dataFilePath;
         this.dataIndex = dataIndex;
         this.subpartitionReadCache = new HashMap<>();
+        this.regionCaches = new HashMap<>();
     }
 
     @Override
@@ -80,15 +88,15 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             MemorySegment memorySegment,
             BufferRecycler recycler)
             throws IOException {
-        Map<Integer, Queue<SubpartitionReadCache>> progresses =
+        Map<Integer, Queue<RegionCache>> progresses =
                 subpartitionReadCache.computeIfAbsent(subpartitionId, ignore -> new HashMap<>());
-        Queue<SubpartitionReadCache> subpartitionProgresses =
+        Queue<RegionCache> subpartitionProgresses =
                 progresses.computeIfAbsent(bufferIndex, ignore -> new LinkedList<>());
-        SubpartitionReadCache currentProgress =
+        RegionCache currentProgress =
                 subpartitionProgresses.isEmpty() ? null : subpartitionProgresses.peek();
         if (currentProgress == null) {
             checkState(bufferIndex == 0);
-            currentProgress = new SubpartitionReadCache(subpartitionId);
+            currentProgress = new RegionCache(subpartitionId);
             subpartitionProgresses.add(currentProgress);
             progresses.put(0, subpartitionProgresses);
         }
@@ -135,7 +143,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex) {
-        Queue<SubpartitionReadCache> progress =
+        Queue<RegionCache> progress =
                 subpartitionReadCache
                         .computeIfAbsent(subpartitionId, ignore -> new HashMap<>())
                         .computeIfAbsent(bufferIndex, ignore -> new LinkedList<>());
@@ -149,10 +157,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     }
 
     /**
-     * {@link SubpartitionReadCache} is the cache to record the reading progress for a consumer of a
+     * {@link RegionCache} is the cache to record the reading progress for a consumer of a
      * subpartition.
      */
-    private class SubpartitionReadCache {
+    private class RegionCache {
 
         private final TieredStorageSubpartitionId subpartitionId;
 
@@ -164,7 +172,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
         private int bufferIndex = 0;
 
-        public SubpartitionReadCache(TieredStorageSubpartitionId subpartitionId) {
+        public RegionCache(TieredStorageSubpartitionId subpartitionId) {
             this.subpartitionId = subpartitionId;
         }
 
@@ -204,6 +212,50 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             numBuffersReadable--;
             currentFileOffset += bufferSize;
             checkState(numBuffersReadable >= 0);
+        }
+    }
+
+    private class RegionCache2 {
+
+        private final TieredStorageSubpartitionId subpartitionId;
+
+        private long currentFileOffset;
+
+        private int numBuffersReadable;
+
+        public RegionCache2(
+                TieredStorageSubpartitionId subpartitionId, int currentBufferIndex, Region region)
+                throws IOException {
+            this.subpartitionId = subpartitionId;
+            moveFileOffsetToBuffer(region, currentBufferIndex);
+        }
+
+        /**
+         * Get the current file offset.
+         *
+         * @return the file offset.
+         */
+        private long getCurrentFileOffset() {
+            return currentFileOffset;
+        }
+
+        private boolean advance(long bufferSize) {
+            numBuffersReadable--;
+            currentFileOffset += bufferSize;
+            if (numBuffersReadable == 0) {
+                // moveFileOffsetToBuffer(region, currentBufferIndex);
+                return false;
+            }
+            return true;
+        }
+
+        private void moveFileOffsetToBuffer(Region region, int bufferIndex) throws IOException {
+            checkNotNull(fileChannel).position(region.getRegionFileOffset());
+            for (int i = 0; i < (bufferIndex - region.getFirstBufferIndex()); ++i) {
+                positionToNextBuffer(fileChannel, reusedHeaderBuffer);
+            }
+            numBuffersReadable =
+                    region.getNumBuffers() - (bufferIndex - region.getFirstBufferIndex());
         }
     }
 }
