@@ -53,6 +53,7 @@ public class ProducerMergedPartitionFileIndex {
      * <p>Note that the field can be accessed by the writing and reading IO thread, so the lock is
      * to ensure the thread safety.
      */
+    @GuardedBy("lock")
     private final List<TreeMap<Integer, Region>> subpartitionRegions;
 
     @GuardedBy("lock")
@@ -128,19 +129,19 @@ public class ProducerMergedPartitionFileIndex {
             FlushedBuffers currentBuffer = iterator.next();
             if (currentBuffer.getSubpartitionId() != firstBufferInRegion.getSubpartitionId()
                     || currentBuffer.getBufferIndex() != lastBufferInRegion.getBufferIndex() + 1) {
-                // the current buffer belongs to a new region, close the previous region
-                addInternalRegionToMap(
-                        firstBufferInRegion, lastBufferInRegion, subpartitionRegionMap);
+                // The current buffer belongs to a new region, add the current region to the map
+                addRegionToMap(firstBufferInRegion, lastBufferInRegion, subpartitionRegionMap);
                 firstBufferInRegion = currentBuffer;
             }
             lastBufferInRegion = currentBuffer;
         }
 
-        addInternalRegionToMap(firstBufferInRegion, lastBufferInRegion, subpartitionRegionMap);
+        // Add the last region to the map
+        addRegionToMap(firstBufferInRegion, lastBufferInRegion, subpartitionRegionMap);
         return subpartitionRegionMap;
     }
 
-    private static void addInternalRegionToMap(
+    private static void addRegionToMap(
             FlushedBuffers firstBufferInRegion,
             FlushedBuffers lastBufferInRegion,
             Map<Integer, List<Region>> subpartitionRegionMap) {
