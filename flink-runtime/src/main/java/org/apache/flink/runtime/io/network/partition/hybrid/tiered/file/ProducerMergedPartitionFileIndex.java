@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -52,8 +53,7 @@ public class ProducerMergedPartitionFileIndex {
      * <p>Note that the field can be accessed by the writing and reading IO thread, so the lock is
      * to ensure the thread safety.
      */
-    @GuardedBy("lock")
-    private final List<List<Region>> subpartitionRegions;
+    private final List<TreeMap<Integer, Region>> subpartitionRegions;
 
     @GuardedBy("lock")
     private boolean isReleased;
@@ -63,7 +63,7 @@ public class ProducerMergedPartitionFileIndex {
     public ProducerMergedPartitionFileIndex(int numSubpartitions) {
         this.subpartitionRegions = new ArrayList<>();
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
-            subpartitionRegions.add(new ArrayList<>());
+            subpartitionRegions.add(new TreeMap<>());
         }
     }
 
@@ -81,27 +81,29 @@ public class ProducerMergedPartitionFileIndex {
         Map<Integer, List<Region>> convertedRegions = convertToRegions(buffers);
         synchronized (lock) {
             convertedRegions.forEach(
-                    (subpartition, regions) ->
-                            subpartitionRegions.get(subpartition).addAll(regions));
+                    (subpartition, regions) -> {
+                        Map<Integer, Region> regionMap = subpartitionRegions.get(subpartition);
+                        for (Region region : regions) {
+                            regionMap.put(region.getFirstBufferIndex(), region);
+                        }
+                    });
         }
     }
 
-    /**
-     * Get the {@link Region} of the specific subpartition.
-     *
-     * @param subpartitionId the specific subpartition id
-     * @param regionId the region id to get from the {@link ProducerMergedPartitionFileIndex}
-     */
-    public Optional<Region> getRegion(int subpartitionId, int regionId) {
+    public Optional<Region> getRegion(int subpartitionId, int bufferIndex) {
         synchronized (lock) {
             if (isReleased) {
                 return Optional.empty();
             }
-            List<Region> currentRegions = subpartitionRegions.get(subpartitionId);
-            if (regionId < currentRegions.size()) {
-                return Optional.of(currentRegions.get(regionId));
+            Map.Entry<Integer, Region> entry =
+                    subpartitionRegions.get(subpartitionId).floorEntry(bufferIndex);
+            if (entry == null) {
+                return Optional.empty();
             }
-            return Optional.empty();
+            Region region = entry.getValue();
+            return bufferIndex < (region.getFirstBufferIndex() + region.numBuffers)
+                    ? Optional.of(region)
+                    : Optional.empty();
         }
     }
 
