@@ -51,8 +51,24 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  */
 public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
+    /**
+     * Max number of region caches.
+     *
+     * <p>This number is utilized to constrain the total number of cached regions in the event of a
+     * region leak within the implementation. Corresponding tests have been incorporated to
+     * guarantee correctness. As the future implementation approaches, the cache storage strategy
+     * will be established using the LRU algorithm with a justifiable cache size.
+     */
     private static final int MAX_REGION_CACHE = 10000;
 
+    /**
+     * Region caches stored in map.
+     *
+     * <p>The key of the cache is formed by combining the {@link TieredStorageSubpartitionId} and
+     * buffer index. The value denotes the cached region for the corresponding subpartition and
+     * buffer index. Each cached region comprises the last consumed {@link Region}, the next buffer
+     * index within the region, and the file offset of the next buffer index
+     */
     private final Map<Tuple2<TieredStorageSubpartitionId, Integer>, RegionCache> regionCaches;
 
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
@@ -63,6 +79,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
     private FileChannel fileChannel;
 
+    /** The current number of region caches; */
     private int numRegionCache;
 
     ProducerMergedPartitionFileReader(
@@ -89,7 +106,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         if (regionCache == null) {
             return null;
         }
-        long fileOffSet = regionCache.getCurrentFileOffset();
+        long fileOffSet = regionCache.getFileOffset();
         try {
             fileChannel.position(fileOffSet);
         } catch (IOException e) {
@@ -124,7 +141,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
         RegionCache regionCache = regionCaches.get(cacheKey);
-        return regionCache == null ? Long.MAX_VALUE : regionCache.getCurrentFileOffset();
+        return regionCache == null ? Long.MAX_VALUE : regionCache.getFileOffset();
     }
 
     @Override
@@ -167,42 +184,60 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         return regionCache;
     }
 
-    /** {@link RegionCache} is the cache of {@link Region}. It contains the read offset */
+    /**
+     * The {@link RegionCache} represents a cache of {@link Region} objects. Each cached region
+     * contains the last consumed {@link Region}, the next buffer index within the region, and the
+     * file offset of the next buffer index.
+     */
     private class RegionCache {
 
         private final Region region;
 
-        private long currentFileOffset;
+        private int nextBufferIndex;
 
-        private int currentBufferIndex;
+        private long fileOffset;
 
         public RegionCache(int bufferIndex, Region region) throws IOException {
-            this.currentBufferIndex = bufferIndex;
+            this.nextBufferIndex = bufferIndex;
             this.region = region;
             moveFileOffsetToBuffer(bufferIndex);
         }
 
         /**
-         * Get the current file offset.
+         * Get the file offset of next buffer.
          *
          * @return the file offset.
          */
-        private long getCurrentFileOffset() {
-            return currentFileOffset;
+        private long getFileOffset() {
+            return fileOffset;
         }
 
+        /**
+         * Updates the {@link RegionCache} upon the retrieval of a buffer from the file using the
+         * file offset in the {@link RegionCache}.
+         *
+         * @param bufferSize denotes the size of the buffer.
+         * @return returns a boolean value indicating the presence or absence of residual buffers in
+         *     the region
+         */
         private boolean advance(long bufferSize) {
-            currentBufferIndex++;
-            currentFileOffset += bufferSize;
-            return currentBufferIndex < (region.getFirstBufferIndex() + region.getNumBuffers());
+            nextBufferIndex++;
+            fileOffset += bufferSize;
+            return nextBufferIndex < (region.getFirstBufferIndex() + region.getNumBuffers());
         }
 
+        /**
+         * Relocates the file channel offset to the position of the specified buffer index.
+         *
+         * @param bufferIndex denotes the index of the buffer.
+         * @throws IOException is thrown in the event of an error.
+         */
         private void moveFileOffsetToBuffer(int bufferIndex) throws IOException {
             checkNotNull(fileChannel).position(region.getRegionFileOffset());
             for (int i = 0; i < (bufferIndex - region.getFirstBufferIndex()); ++i) {
                 positionToNextBuffer(fileChannel, reusedHeaderBuffer);
             }
-            currentFileOffset = fileChannel.position();
+            fileOffset = fileChannel.position();
         }
     }
 }
