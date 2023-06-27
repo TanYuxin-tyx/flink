@@ -59,9 +59,11 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
     private final Path dataFilePath;
 
+    private final ProducerMergedPartitionFileIndex dataIndex;
+
     private FileChannel fileChannel;
 
-    private final ProducerMergedPartitionFileIndex dataIndex;
+    private int numRegionCache;
 
     ProducerMergedPartitionFileReader(
             Path dataFilePath, ProducerMergedPartitionFileIndex dataIndex) {
@@ -91,6 +93,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             if (region.isPresent()) {
                 regionCache = new RegionCache(bufferIndex, region.get());
                 regionCaches.put(cacheKey, regionCache);
+                numRegionCache++;
             } else {
                 return null;
             }
@@ -117,11 +120,15 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             int nextBufferIndex = bufferIndex + 1;
             Optional<Region> region =
                     dataIndex.getRegion(subpartitionId.getSubpartitionId(), nextBufferIndex);
-            region.ifPresent(value -> regionCaches.put(
-                    Tuple2.of(subpartitionId, nextBufferIndex),
-                    new RegionCache(nextBufferIndex, value)));
+            if (region.isPresent()) {
+                regionCaches.put(
+                        Tuple2.of(subpartitionId, nextBufferIndex),
+                        new RegionCache(nextBufferIndex, region.get()));
+                numRegionCache++;
+            }
         }
         regionCaches.remove(cacheKey);
+        numRegionCache--;
         return buffer;
     }
 
@@ -163,8 +170,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     }
 
     /**
-     * {@link RegionCache} is the cache to record the reading progress for a consumer of a
-     * subpartition.
+     * {@link RegionCache} is the cache of {@link Region}. It contains the read offset
      */
     private class RegionCache {
 
@@ -172,10 +178,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
         private long currentFileOffset;
 
-        private int numBuffersReadable;
+        private int currentBufferIndex;
 
-        public RegionCache(
-                int bufferIndex, Region region) {
+        public RegionCache(int bufferIndex, Region region) throws IOException {
+            this.currentBufferIndex = bufferIndex;
             this.region = region;
             moveFileOffsetToBuffer(bufferIndex);
         }
@@ -190,23 +196,17 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         }
 
         private boolean advance(long bufferSize) {
-            numBuffersReadable--;
+            currentBufferIndex++;
             currentFileOffset += bufferSize;
-            return numBuffersReadable != 0;
+            return currentBufferIndex > (region.getFirstBufferIndex() + region.getNumBuffers());
         }
 
-        private void moveFileOffsetToBuffer(int bufferIndex) {
-            try {
-                checkNotNull(fileChannel).position(region.getRegionFileOffset());
-                for (int i = 0; i < (bufferIndex - region.getFirstBufferIndex()); ++i) {
-                    positionToNextBuffer(fileChannel, reusedHeaderBuffer);
-                }
-                currentFileOffset = fileChannel.position();
-            } catch (IOException e) {
-                ExceptionUtils.rethrow(e, "Failed to move file offset");
+        private void moveFileOffsetToBuffer(int bufferIndex) throws IOException {
+            checkNotNull(fileChannel).position(region.getRegionFileOffset());
+            for (int i = 0; i < (bufferIndex - region.getFirstBufferIndex()); ++i) {
+                positionToNextBuffer(fileChannel, reusedHeaderBuffer);
             }
-            int skipBuffers = bufferIndex - region.getFirstBufferIndex();
-            numBuffersReadable = region.getNumBuffers() - skipBuffers;
+            currentFileOffset = fileChannel.position();
         }
     }
 }
