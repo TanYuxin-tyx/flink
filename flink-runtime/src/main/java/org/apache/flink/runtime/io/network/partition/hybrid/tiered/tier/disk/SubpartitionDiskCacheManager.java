@@ -65,21 +65,14 @@ class SubpartitionDiskCacheManager {
     // ------------------------------------------------------------------------
     //  Called by DiskCacheManager
     // ------------------------------------------------------------------------
-    void appendEndOfSegmentEvent(ByteBuffer record, DataType dataType) {
-        writeEvent(record, dataType);
-        segmentIndex++;
-    }
-
-    int getBufferIndex() {
-        return bufferIndex;
-    }
-
-    int getSegmentIndex() {
-        return segmentIndex;
-    }
 
     void append(Buffer buffer) {
         addBuffer(buffer);
+    }
+
+    void appendEndOfSegmentEvent(ByteBuffer record, DataType dataType) {
+        writeEvent(record, dataType);
+        segmentIndex++;
     }
 
     /** Note that allBuffers can be touched by multiple threads. */
@@ -89,6 +82,14 @@ class SubpartitionDiskCacheManager {
             allBuffers.clear();
             return targetBuffers;
         }
+    }
+
+    int getBufferIndex() {
+        return bufferIndex;
+    }
+
+    int getSegmentIndex() {
+        return segmentIndex;
     }
 
     void release() {

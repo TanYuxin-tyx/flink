@@ -70,6 +70,16 @@ class DiskCacheManager {
     // ------------------------------------------------------------------------
 
     /**
+     * Append buffer to {@link DiskCacheManager}.
+     *
+     * @param buffer to be managed by this class.
+     * @param subpartitionId the subpartition of this record.
+     */
+    void append(Buffer buffer, int subpartitionId) {
+        subpartitionCacheManagers[subpartitionId].append(buffer);
+    }
+
+    /**
      * Append the end-of-segment event to {@link DiskCacheManager}, which indicates the segment has
      * finished.
      *
@@ -85,16 +95,6 @@ class DiskCacheManager {
         // segment in another tier may be stuck by lacking buffers. This flush has a low trigger
         // frequency, so its impact on performance is relatively small.
         forceFlushCachedBuffers();
-    }
-
-    /**
-     * Append buffer to {@link DiskCacheManager}.
-     *
-     * @param buffer to be managed by this class.
-     * @param subpartitionId the subpartition of this record.
-     */
-    void append(Buffer buffer, int subpartitionId) {
-        subpartitionCacheManagers[subpartitionId].append(buffer);
     }
 
     /**
