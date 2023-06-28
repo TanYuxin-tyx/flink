@@ -94,7 +94,7 @@ public class ProducerMergedPartitionFileIndex {
     }
 
     /**
-     * Get the {@link Region} according to the subpartition id and the buffer index.
+     * Get the subpartition's {@link Region} containing the specific buffer index.
      *
      * @param subpartitionId the subpartition id
      * @param bufferIndex the buffer index
@@ -175,7 +175,7 @@ public class ProducerMergedPartitionFileIndex {
     // ------------------------------------------------------------------------
 
     /** Represents a buffer to be flushed. */
-    public static class FlushedBuffers {
+    static class FlushedBuffers {
         /** The subpartition id that the buffer belongs to. */
         private final int subpartitionId;
 
@@ -191,15 +191,15 @@ public class ProducerMergedPartitionFileIndex {
             this.fileOffset = fileOffset;
         }
 
-        public int getSubpartitionId() {
+        int getSubpartitionId() {
             return subpartitionId;
         }
 
-        public int getBufferIndex() {
+        int getBufferIndex() {
             return bufferIndex;
         }
 
-        public long getFileOffset() {
+        long getFileOffset() {
             return fileOffset;
         }
     }
@@ -213,7 +213,7 @@ public class ProducerMergedPartitionFileIndex {
      *   <li>Physically (i.e. offset in the file) consecutive
      * </ul>
      */
-    public static class Region {
+    static class Region {
 
         /** The buffer index of first buffer. */
         private final int firstBufferIndex;
@@ -230,15 +230,15 @@ public class ProducerMergedPartitionFileIndex {
             this.numBuffers = numBuffers;
         }
 
-        public long getRegionFileOffset() {
+        long getRegionFileOffset() {
             return regionFileOffset;
         }
 
-        public int getNumBuffers() {
+        int getNumBuffers() {
             return numBuffers;
         }
 
-        public int getFirstBufferIndex() {
+        int getFirstBufferIndex() {
             return firstBufferIndex;
         }
     }
