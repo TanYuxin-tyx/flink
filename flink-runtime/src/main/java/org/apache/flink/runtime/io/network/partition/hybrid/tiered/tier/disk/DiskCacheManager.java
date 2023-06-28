@@ -65,7 +65,8 @@ class DiskCacheManager {
     }
 
     /**
-     * Append the end-of-segment event to {@link DiskCacheManager}.
+     * Append the end-of-segment event to {@link DiskCacheManager}, which indicates the segment has
+     * finished.
      *
      * @param record the end-of-segment event
      * @param subpartitionId target subpartition of this record.
@@ -79,7 +80,7 @@ class DiskCacheManager {
         // written to another tier. If the buffers in this tier are not flushed here, then the next
         // segment in another tier may be stuck by lacking buffers. This flush has a low trigger
         // frequency, so its impact on performance is relatively small.
-        flushAndReleaseCacheBuffers();
+        forceFlushCachedBuffers();
     }
 
     /**
@@ -104,7 +105,7 @@ class DiskCacheManager {
 
     /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
     public void close() {
-        flushAndReleaseCacheBuffers();
+        forceFlushCachedBuffers();
     }
 
     /**
@@ -123,7 +124,7 @@ class DiskCacheManager {
         flushBuffers(false);
     }
 
-    private void flushAndReleaseCacheBuffers() {
+    private void forceFlushCachedBuffers() {
         flushBuffers(true);
     }
 
