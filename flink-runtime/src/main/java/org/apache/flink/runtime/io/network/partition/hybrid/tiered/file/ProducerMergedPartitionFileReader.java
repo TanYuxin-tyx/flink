@@ -65,9 +65,9 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      * Region caches stored in map.
      *
      * <p>The key of the cache is formed by combining the {@link TieredStorageSubpartitionId} and
-     * buffer index. The value denotes the cached region for the corresponding subpartition and
-     * buffer index. Each cached region comprises the last consumed {@link Region}, the next buffer
-     * index within the region, and the file offset of the next buffer index.
+     * buffer index. The value denotes the region cache for the corresponding subpartition and
+     * buffer index. Each region cache comprises the last consumed {@link Region}, the next buffer
+     * index to consume within the region, and the file offset of the next buffer index.
      */
     private final Map<Tuple2<TieredStorageSubpartitionId, Integer>, RegionCache> regionCaches;
 
@@ -153,15 +153,14 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 ExceptionUtils.rethrow(e, "Failed to close file channel.");
             }
         }
-        fileChannel = null;
         IOUtils.deleteFileQuietly(dataFilePath);
     }
 
     /**
-     * Initializes the file channel in a lazy manner, which can reduce usage of the file descriptor
+     * Initialize the file channel in a lazy manner, which can reduce usage of the file descriptor
      * resource.
      *
-     * @param partitionId denotes the id of the {@link TieredStoragePartitionId}.
+     * @param partitionId denotes the partition id.
      * @throws IOException is thrown in the event of an error.
      */
     private void lazyInitializeFileChannel(TieredStoragePartitionId partitionId)
@@ -202,9 +201,9 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     }
 
     /**
-     * The {@link RegionCache} represents a cache of {@link Region} objects. Each cached region
-     * contains the last consumed {@link Region}, the next buffer index within the region, and the
-     * file offset of the next buffer index.
+     * The {@link RegionCache} represents the cache of a {@link Region}. Each region cache contains
+     * the last consumed {@link Region}, the next buffer index to consume within the region, and the
+     * file offset of the buffer index.
      */
     private class RegionCache {
 
