@@ -45,6 +45,7 @@ class DiskCacheManager {
 
     private final SubpartitionDiskCacheManager[] subpartitionCacheManagers;
 
+    /** Whether the current flush process has completed. */
     private CompletableFuture<Void> hasFlushCompleted;
 
     DiskCacheManager(
@@ -64,6 +65,10 @@ class DiskCacheManager {
         storageMemoryManager.listenBufferReclaimRequest(this::notifyFlushCachedBuffers);
     }
 
+    // ------------------------------------------------------------------------
+    //  Called by DiskTierProducerAgent
+    // ------------------------------------------------------------------------
+
     /**
      * Append the end-of-segment event to {@link DiskCacheManager}, which indicates the segment has
      * finished.
@@ -72,8 +77,7 @@ class DiskCacheManager {
      * @param subpartitionId target subpartition of this record.
      * @param dataType the type of this record. In other words, is it data or event.
      */
-    public void appendEndOfSegmentEvent(
-            ByteBuffer record, int subpartitionId, Buffer.DataType dataType) {
+    void appendEndOfSegmentEvent(ByteBuffer record, int subpartitionId, Buffer.DataType dataType) {
         subpartitionCacheManagers[subpartitionId].appendEndOfSegmentEvent(record, dataType);
 
         // When finishing a segment, the buffers should be flushed because the next segment may be
@@ -89,7 +93,7 @@ class DiskCacheManager {
      * @param buffer to be managed by this class.
      * @param subpartitionId the subpartition of this record.
      */
-    public void append(Buffer buffer, int subpartitionId) {
+    void append(Buffer buffer, int subpartitionId) {
         subpartitionCacheManagers[subpartitionId].append(buffer);
     }
 
@@ -99,19 +103,19 @@ class DiskCacheManager {
      * @param subpartitionId the target subpartition id
      * @return the finished buffer index
      */
-    public int getBufferIndex(int subpartitionId) {
+    int getBufferIndex(int subpartitionId) {
         return subpartitionCacheManagers[subpartitionId].getBufferIndex();
     }
 
     /** Close this {@link DiskCacheManager}, it means no data can append to memory. */
-    public void close() {
+    void close() {
         forceFlushCachedBuffers();
     }
 
     /**
      * Release this {@link DiskCacheManager}, it means all memory taken by this class will recycle.
      */
-    public void release() {
+    void release() {
         Arrays.stream(subpartitionCacheManagers).forEach(SubpartitionDiskCacheManager::release);
         partitionFileWriter.release();
     }

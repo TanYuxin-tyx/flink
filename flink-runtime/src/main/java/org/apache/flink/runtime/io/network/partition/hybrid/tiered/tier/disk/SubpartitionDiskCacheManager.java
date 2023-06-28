@@ -79,7 +79,7 @@ class SubpartitionDiskCacheManager {
     }
 
     void append(Buffer buffer) {
-        addBuffer(new Tuple2<>(buffer, bufferIndex));
+        addBuffer(buffer);
     }
 
     /** Note that allBuffers can be touched by multiple threads. */
@@ -104,17 +104,14 @@ class SubpartitionDiskCacheManager {
         checkArgument(dataType.isEvent());
 
         MemorySegment data = MemorySegmentFactory.wrap(event.array());
-        Buffer buffer =
-                new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size());
-
-        addBuffer(new Tuple2<>(buffer, bufferIndex));
+        addBuffer(new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size()));
     }
 
     /** Note that allBuffers can be touched by multiple threads. */
-    private void addBuffer(Tuple2<Buffer, Integer> nettyPayload) {
+    private void addBuffer(Buffer buffer) {
         synchronized (allBuffers) {
+            allBuffers.add(new Tuple2<>(buffer, bufferIndex));
             bufferIndex++;
-            allBuffers.add(nettyPayload);
         }
     }
 
@@ -122,7 +119,7 @@ class SubpartitionDiskCacheManager {
         synchronized (allBuffers) {
             for (Tuple2<Buffer, Integer> bufferAndIndex : allBuffers) {
                 Buffer buffer = bufferAndIndex.f0;
-                if (buffer.isRecycled()) {
+                if (!buffer.isRecycled()) {
                     buffer.recycleBuffer();
                 }
             }
