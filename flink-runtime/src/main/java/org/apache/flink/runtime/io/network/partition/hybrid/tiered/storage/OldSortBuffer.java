@@ -36,12 +36,12 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * The {@link SortBuffer} is used to accumulate the records into {@link Buffer}s. The {@link
- * SortBuffer} allows for writing data in arbitrary subpartition orders but supports reading of data
- * in the order grouped by subpartitions. Note that the {@link SortBuffer} only supports reading
- * after the write process finished, and can not support reading while writing.
+ * The {@link OldSortBuffer} is used to accumulate the records into {@link Buffer}s. The {@link
+ * OldSortBuffer} allows for writing data in arbitrary subpartition orders but supports reading of
+ * data in the order grouped by subpartitions. Note that the {@link OldSortBuffer} only supports
+ * reading after the write process finished, and can not support reading while writing.
  */
-public class SortBuffer {
+public class OldSortBuffer {
 
     /**
      * Size of an index entry: 4 bytes for record length, 4 bytes for data type and 8 bytes for
@@ -112,7 +112,7 @@ public class SortBuffer {
     /** The subpartition that is reading data from. */
     private int readingSubpartitionId = -1;
 
-    SortBuffer(
+    OldSortBuffer(
             LinkedList<MemorySegment> freeSegments,
             BufferRecycler bufferRecycler,
             int numSubpartitions,
@@ -139,7 +139,7 @@ public class SortBuffer {
     // ------------------------------------------------------------------------
 
     /**
-     * Note that no partial records will be written to this {@link SortBuffer}, which means that
+     * Note that no partial records will be written to this {@link OldSortBuffer}, which means that
      * either all data of target record will be written or nothing will be written.
      *
      * @param record the record to be written
@@ -171,8 +171,8 @@ public class SortBuffer {
      * Read the sorted buffers.
      *
      * @param readMemorySegment the buffer to store the data to be read
-     * @return null iff all the data has been read from the {@link SortBuffer}, or return the pair
-     *     of subpartition id and the read buffer
+     * @return null iff all the data has been read from the {@link OldSortBuffer}, or return the
+     *     pair of subpartition id and the read buffer
      */
     Pair<Integer, Buffer> readBuffer(MemorySegment readMemorySegment) {
         checkState(isFinished, "Sort buffer is not ready to be read.");

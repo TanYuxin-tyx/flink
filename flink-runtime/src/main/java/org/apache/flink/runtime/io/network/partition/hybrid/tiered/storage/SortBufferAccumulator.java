@@ -23,9 +23,9 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
+import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
+import org.apache.flink.runtime.io.network.partition.DataBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-
-import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nullable;
 
@@ -47,9 +47,9 @@ import static org.apache.flink.util.Preconditions.checkState;
  *
  * <p>The {@link SortBufferAccumulator} can help use less buffers to accumulate data, which
  * decouples the buffer usage with the number of parallelism. The number of buffers used by the
- * {@link SortBufferAccumulator} will be numBuffers at most. Once the {@link SortBuffer} is full, or
- * switching from broadcast to non-broadcast(or vice versa), the buffer in the sort buffer will be
- * flushed to the tiers.
+ * {@link SortBufferAccumulator} will be numBuffers at most. Once the {@link OldSortBuffer} is full,
+ * or switching from broadcast to non-broadcast(or vice versa), the buffer in the sort buffer will
+ * be flushed to the tiers.
  *
  * <p>Note that this class need not be thread-safe, because it should only be accessed from the main
  * thread.
@@ -69,18 +69,15 @@ public class SortBufferAccumulator implements BufferAccumulator {
     private final LinkedList<MemorySegment> freeSegments = new LinkedList<>();
 
     /** The memory manager of the tiered storage. */
-    private final TieredStorageMemoryManager storeMemoryManager;
-
-    /** The number of buffers for sorting used in the {@link SortBuffer}. */
-    private int numBuffersForSort;
+    private final TieredStorageMemoryManager memoryManager;
 
     /**
-     * The {@link SortBuffer} is utilized to accumulate the incoming records. Whenever there is a
+     * The {@link OldSortBuffer} is utilized to accumulate the incoming records. Whenever there is a
      * transition from broadcast to non-broadcast (or vice versa), the buffer is flushed to ensure
      * data integrity. Note that this can be null before using it to store records, and this {@link
-     * SortBuffer} will be released once flushed.
+     * OldSortBuffer} will be released once flushed.
      */
-    @Nullable private SortBuffer currentDataBuffer;
+    @Nullable private DataBuffer currentDataBuffer;
 
     /**
      * The buffer recycler. Note that this can be null before requesting buffers from the memory
@@ -96,18 +93,18 @@ public class SortBufferAccumulator implements BufferAccumulator {
     @Nullable
     private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher;
 
-    /** Whether the current {@link SortBuffer} is a broadcast sort buffer. */
+    /** Whether the current {@link OldSortBuffer} is a broadcast sort buffer. */
     private boolean isBroadcastDataBuffer;
 
     public SortBufferAccumulator(
             int numSubpartitions,
             int numBuffers,
             int bufferSizeBytes,
-            TieredStorageMemoryManager storeMemoryManager) {
+            TieredStorageMemoryManager memoryManager) {
         this.numSubpartitions = numSubpartitions;
         this.bufferSizeBytes = bufferSizeBytes;
         this.numBuffers = numBuffers;
-        this.storeMemoryManager = storeMemoryManager;
+        this.memoryManager = memoryManager;
     }
 
     @Override
@@ -124,11 +121,11 @@ public class SortBufferAccumulator implements BufferAccumulator {
             throws IOException {
         int targetSubpartition = subpartitionId.getSubpartitionId();
         switchCurrentDataBufferIfNeeded(isBroadcast);
-        if (checkNotNull(currentDataBuffer).writeRecord(record, targetSubpartition, dataType)) {
+        if (!checkNotNull(currentDataBuffer).append(record, targetSubpartition, dataType)) {
             return;
         }
 
-        // The sort buffer is empty, but we failed to write the record into it, which suggests the
+        // The sort buffer is empty, but we failed to write the record into it, which indicates the
         // record is larger than the sort buffer can hold. So the record is written into multiple
         // buffers directly.
         if (!currentDataBuffer.hasRemaining()) {
@@ -168,10 +165,12 @@ public class SortBufferAccumulator implements BufferAccumulator {
         currentDataBuffer = createNewDataBuffer();
     }
 
-    private SortBuffer createNewDataBuffer() {
-        requestNetworkBuffers();
+    private DataBuffer createNewDataBuffer() {
+        requestBuffers();
 
-        return new SortBuffer(
+        // Use the half of the buffers for writing, and the other half for reading
+        int numBuffersForSort = freeSegments.size() / 2;
+        return new TieredStorageSortBuffer(
                 freeSegments,
                 this::recycleBuffer,
                 numSubpartitions,
@@ -181,7 +180,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
 
     private void requestBuffers() {
         while (freeSegments.size() < numBuffers) {
-            BufferBuilder bufferBuilder = storeMemoryManager.requestBufferBlocking(this);
+            BufferBuilder bufferBuilder = memoryManager.requestBufferBlocking(this);
             Buffer buffer = bufferBuilder.createBufferConsumerFromBeginning().build();
             freeSegments.add(checkNotNull(buffer).getMemorySegment());
             if (bufferRecycler == null) {
@@ -190,13 +189,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         }
     }
 
-    private void requestNetworkBuffers() {
-        requestBuffers();
-        // Use the half of the buffers for writing, and the other half for reading
-        numBuffersForSort = freeSegments.size() / 2;
-    }
-
-    private void flushDataBuffer(SortBuffer sortBuffer) {
+    private void flushDataBuffer(DataBuffer sortBuffer) {
         if (sortBuffer == null || sortBuffer.isReleased() || !sortBuffer.hasRemaining()) {
             return;
         }
@@ -204,14 +197,11 @@ public class SortBufferAccumulator implements BufferAccumulator {
 
         do {
             MemorySegment freeSegment = getFreeSegment();
-            Pair<Integer, Buffer> bufferAndSubpartitionId = sortBuffer.readBuffer(freeSegment);
-            if (bufferAndSubpartitionId == null) {
-                if (freeSegment != null) {
-                    recycleBuffer(freeSegment);
-                }
+            BufferWithChannel bufferWithChannel = sortBuffer.getNextBuffer(freeSegment);
+            if (bufferWithChannel == null) {
                 break;
             }
-            flushBuffer(bufferAndSubpartitionId);
+            flushBuffer(bufferWithChannel);
         } while (true);
 
         releaseFreeBuffers();
@@ -226,8 +216,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         }
     }
 
-    private void writeLargeRecord(
-            ByteBuffer record, int targetSubpartition, Buffer.DataType dataType) {
+    private void writeLargeRecord(ByteBuffer record, int subpartitionId, Buffer.DataType dataType) {
 
         checkState(dataType != Buffer.DataType.EVENT_BUFFER);
         while (record.hasRemaining()) {
@@ -236,10 +225,10 @@ public class SortBufferAccumulator implements BufferAccumulator {
             writeBuffer.put(0, record, toCopy);
 
             flushBuffer(
-                    Pair.of(
-                            targetSubpartition,
+                    new BufferWithChannel(
                             new NetworkBuffer(
-                                    writeBuffer, checkNotNull(bufferRecycler), dataType, toCopy)));
+                                    writeBuffer, checkNotNull(bufferRecycler), dataType, toCopy),
+                            subpartitionId));
         }
 
         releaseFreeBuffers();
@@ -248,18 +237,18 @@ public class SortBufferAccumulator implements BufferAccumulator {
     private MemorySegment getFreeSegment() {
         MemorySegment freeSegment = freeSegments.poll();
         if (freeSegment == null) {
-            BufferBuilder bufferBuilder = storeMemoryManager.requestBufferBlocking(this);
+            BufferBuilder bufferBuilder = memoryManager.requestBufferBlocking(this);
             Buffer buffer = bufferBuilder.createBufferConsumerFromBeginning().build();
             freeSegment = buffer.getMemorySegment();
         }
         return freeSegment;
     }
 
-    private void flushBuffer(Pair<Integer, Buffer> bufferAndSubpartitionId) {
+    private void flushBuffer(BufferWithChannel bufferWithChannel) {
         checkNotNull(accumulatedBufferFlusher)
                 .accept(
-                        new TieredStorageSubpartitionId(bufferAndSubpartitionId.getLeft()),
-                        Collections.singletonList(bufferAndSubpartitionId.getRight()));
+                        new TieredStorageSubpartitionId(bufferWithChannel.getChannelIndex()),
+                        Collections.singletonList(bufferWithChannel.getBuffer()));
     }
 
     private void releaseFreeBuffers() {
