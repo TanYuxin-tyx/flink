@@ -47,7 +47,10 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * The implementation of {@link PartitionFileReader} with producer-merge mode. In this mode, the
- * shuffle data is written in the producer side with a single file.
+ * shuffle data is written in the producer side, the consumer side need to read multiple producers
+ * to get its partition data.
+ *
+ * <p>Note that one partition file may contain the data of multiple subpartitions.
  */
 public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
@@ -213,7 +216,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
         private long fileOffset;
 
-        public RegionCache(int bufferIndex, Region region) throws IOException {
+        private RegionCache(int bufferIndex, Region region) throws IOException {
             this.nextBufferIndex = bufferIndex;
             this.region = region;
             moveFileOffsetToBuffer(bufferIndex);

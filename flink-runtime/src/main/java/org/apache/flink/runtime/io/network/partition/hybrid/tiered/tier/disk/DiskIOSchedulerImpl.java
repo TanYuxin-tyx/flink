@@ -63,21 +63,39 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
 
     private final Object lock = new Object();
 
+    /** The partition id. */
     private final TieredStoragePartitionId partitionId;
 
+    /** The executor is responsible for scheduling the disk read process. */
     private final ScheduledExecutorService ioExecutor;
 
-    private final Duration bufferRequestTimeout;
-
+    /**
+     * The buffer pool is specifically designed for reading from disk and shared in the TaskManager.
+     */
     private final BatchShuffleReadBufferPool bufferPool;
 
+    /**
+     * The maximum number of buffers that can be allocated and still not recycled for a
+     * subpartition, which ensures that each subpartition can be consumed evenly.
+     */
     private final int maxBufferReadAhead;
 
+    /**
+     * The maximum number of buffers that can be allocated and still not recycled by a single {@link
+     * DiskIOScheduler} for all subpartitions. This ensures that different {@link DiskIOScheduler}s
+     * in the TaskManager can evenly use the buffer pool.
+     */
     private final int maxRequestedBuffers;
+
+    /**
+     * The maximum time to wait when requesting read buffers from the buffer pool before throwing an
+     * exception.
+     */
+    private final Duration bufferRequestTimeout;
 
     private final TieredStorageNettyService nettyService;
 
-    private final List<Map<Integer, Integer>> segmentIdRecorder;
+    private final List<Map<Integer, Integer>> firstBufferIndexInSegment;
 
     private final PartitionFileReader partitionFileReader;
 
@@ -102,7 +120,7 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
             Duration bufferRequestTimeout,
             int maxBufferReadAhead,
             TieredStorageNettyService nettyService,
-            List<Map<Integer, Integer>> segmentIdRecorder,
+            List<Map<Integer, Integer>> firstBufferIndexInSegment,
             PartitionFileReader partitionFileReader) {
         this.partitionId = partitionId;
         this.bufferPool = checkNotNull(bufferPool);
@@ -111,7 +129,7 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
         this.bufferRequestTimeout = checkNotNull(bufferRequestTimeout);
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.nettyService = nettyService;
-        this.segmentIdRecorder = segmentIdRecorder;
+        this.firstBufferIndexInSegment = firstBufferIndexInSegment;
         this.partitionFileReader = partitionFileReader;
         bufferPool.registerRequester(this);
     }
@@ -167,7 +185,7 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
             }
             isReleased = true;
             allScheduledReaders.clear();
-            segmentIdRecorder.clear();
+            firstBufferIndexInSegment.clear();
             partitionFileReader.release();
             bufferPool.unregisterRequester(this);
         }
@@ -276,7 +294,7 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
             if (!isRunning
                     && !allScheduledReaders.isEmpty()
                     && numRequestedBuffers + bufferPool.getNumBuffersPerRequest()
-                    <= maxRequestedBuffers
+                            <= maxRequestedBuffers
                     && numRequestedBuffers < bufferPool.getAverageBuffersPerRequester()) {
                 isRunning = true;
                 ioExecutor.execute(
@@ -300,8 +318,8 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
     }
 
     /**
-     * {@link ScheduledSubpartitionReader} is the reader of a subpartition, which is scheduled by
-     * {@link DiskIOScheduler} and read data from disk.
+     * The {@link ScheduledSubpartitionReader} is responsible for reading a subpartition from disk,
+     * and is scheduled by the {@link DiskIOScheduler}.
      */
     private class ScheduledSubpartitionReader implements Comparable<ScheduledSubpartitionReader> {
 
@@ -341,13 +359,13 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
                 Buffer buffer;
                 try {
                     if ((buffer =
-                            partitionFileReader.readBuffer(
-                                    partitionId,
-                                    subpartitionId,
-                                    -1,
-                                    nextBufferIndex,
-                                    memorySegment,
-                                    recycler))
+                                    partitionFileReader.readBuffer(
+                                            partitionId,
+                                            subpartitionId,
+                                            -1,
+                                            nextBufferIndex,
+                                            memorySegment,
+                                            recycler))
                             == null) {
                         buffers.add(memorySegment);
                         break;
@@ -360,7 +378,7 @@ public class DiskIOSchedulerImpl implements DiskIOScheduler {
                         NettyPayload.newBuffer(
                                 buffer, nextBufferIndex++, subpartitionId.getSubpartitionId());
                 Integer segmentId =
-                        segmentIdRecorder
+                        firstBufferIndexInSegment
                                 .get(subpartitionId.getSubpartitionId())
                                 .get(nettyPayload.getBufferIndex());
                 if (segmentId != null) {

@@ -23,10 +23,10 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceProducer;
 
 /**
- * {@link DiskIOScheduler} is the scheduler to control the reading of data from shuffle file, which
- * ensures the order of buffers in each subpartition is correct during file reading. It implements
- * the interface {@link NettyServiceProducer} to send the buffers to netty server through {@link
- * NettyConnectionWriter}.
+ * The {@link DiskIOScheduler} is a scheduler that controls the reading of data from shuffle files.
+ * It ensures the correct order of buffers in each subpartition during file reading. The scheduler
+ * implements the {@link NettyServiceProducer} interface to send the buffers to the Netty server
+ * through the {@link NettyConnectionWriter}.
  */
 public interface DiskIOScheduler extends Runnable, BufferRecycler, NettyServiceProducer {
 
