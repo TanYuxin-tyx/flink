@@ -120,7 +120,7 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
     private void flush(
             List<SubpartitionBufferContext> toWrite, CompletableFuture<Void> flushSuccessNotifier) {
         try {
-            List<ProducerMergedPartitionFileIndex.FlushedBuffers> buffers = new ArrayList<>();
+            List<ProducerMergedPartitionFileIndex.FlushedBuffer> buffers = new ArrayList<>();
             calculateSizeAndFlushBuffers(toWrite, buffers);
             partitionFileIndex.addBuffers(buffers);
             flushSuccessNotifier.complete(null);
@@ -133,12 +133,12 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
      * Compute buffer's file offset and create buffers to be flushed.
      *
      * @param toWrite all buffers to write to create {@link
-     *     ProducerMergedPartitionFileIndex.FlushedBuffers}s
-     * @param buffers receive the created {@link ProducerMergedPartitionFileIndex.FlushedBuffers}
+     *     ProducerMergedPartitionFileIndex.FlushedBuffer}s
+     * @param buffers receive the created {@link ProducerMergedPartitionFileIndex.FlushedBuffer}
      */
     private void calculateSizeAndFlushBuffers(
             List<SubpartitionBufferContext> toWrite,
-            List<ProducerMergedPartitionFileIndex.FlushedBuffers> buffers)
+            List<ProducerMergedPartitionFileIndex.FlushedBuffer> buffers)
             throws IOException {
         List<Tuple2<Buffer, Integer>> buffersToFlush = new ArrayList<>();
         long expectedBytes = 0;
@@ -153,7 +153,7 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
                         segmentBufferContext.getBufferAndIndexes()) {
                     Buffer buffer = bufferWithIndex.f0;
                     buffers.add(
-                            new ProducerMergedPartitionFileIndex.FlushedBuffers(
+                            new ProducerMergedPartitionFileIndex.FlushedBuffer(
                                     subpartitionId,
                                     bufferWithIndex.f1,
                                     totalBytesWritten + expectedBytes));

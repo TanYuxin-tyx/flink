@@ -76,7 +76,7 @@ public class ProducerMergedPartitionFileIndex {
      * @param buffers to be added. Note, the provided buffers are required to be physically
      *     consecutive and in the same order as in the file.
      */
-    void addBuffers(List<FlushedBuffers> buffers) {
+    void addBuffers(List<FlushedBuffer> buffers) {
         if (buffers.isEmpty()) {
             return;
         }
@@ -129,14 +129,14 @@ public class ProducerMergedPartitionFileIndex {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private static Map<Integer, List<Region>> convertToRegions(List<FlushedBuffers> buffers) {
+    private static Map<Integer, List<Region>> convertToRegions(List<FlushedBuffer> buffers) {
         Map<Integer, List<Region>> subpartitionRegionMap = new HashMap<>();
-        Iterator<FlushedBuffers> iterator = buffers.iterator();
-        FlushedBuffers firstBufferInRegion = iterator.next();
-        FlushedBuffers lastBufferInRegion = firstBufferInRegion;
+        Iterator<FlushedBuffer> iterator = buffers.iterator();
+        FlushedBuffer firstBufferInRegion = iterator.next();
+        FlushedBuffer lastBufferInRegion = firstBufferInRegion;
 
         while (iterator.hasNext()) {
-            FlushedBuffers currentBuffer = iterator.next();
+            FlushedBuffer currentBuffer = iterator.next();
             if (currentBuffer.getSubpartitionId() != firstBufferInRegion.getSubpartitionId()
                     || currentBuffer.getBufferIndex() != lastBufferInRegion.getBufferIndex() + 1) {
                 // The current buffer belongs to a new region, add the current region to the map
@@ -152,8 +152,8 @@ public class ProducerMergedPartitionFileIndex {
     }
 
     private static void addRegionToMap(
-            FlushedBuffers firstBufferInRegion,
-            FlushedBuffers lastBufferInRegion,
+            FlushedBuffer firstBufferInRegion,
+            FlushedBuffer lastBufferInRegion,
             Map<Integer, List<Region>> subpartitionRegionMap) {
         checkArgument(
                 firstBufferInRegion.getSubpartitionId() == lastBufferInRegion.getSubpartitionId());
@@ -175,7 +175,7 @@ public class ProducerMergedPartitionFileIndex {
     // ------------------------------------------------------------------------
 
     /** Represents a buffer to be flushed. */
-    static class FlushedBuffers {
+    static class FlushedBuffer {
         /** The subpartition id that the buffer belongs to. */
         private final int subpartitionId;
 
@@ -185,7 +185,7 @@ public class ProducerMergedPartitionFileIndex {
         /** The file offset that the buffer begin with. */
         private final long fileOffset;
 
-        FlushedBuffers(int subpartitionId, int bufferIndex, long fileOffset) {
+        FlushedBuffer(int subpartitionId, int bufferIndex, long fileOffset) {
             this.subpartitionId = subpartitionId;
             this.bufferIndex = bufferIndex;
             this.fileOffset = fileOffset;
