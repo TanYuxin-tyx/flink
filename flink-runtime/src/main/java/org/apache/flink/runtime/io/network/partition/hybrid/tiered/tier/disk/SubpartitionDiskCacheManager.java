@@ -62,8 +62,6 @@ class SubpartitionDiskCacheManager {
      */
     private int segmentIndex;
 
-    SubpartitionDiskCacheManager() {}
-
     // ------------------------------------------------------------------------
     //  Called by DiskCacheManager
     // ------------------------------------------------------------------------
@@ -93,7 +91,7 @@ class SubpartitionDiskCacheManager {
         }
     }
 
-    public void release() {
+    void release() {
         recycleBuffers();
         checkState(allBuffers.isEmpty(), "Leaking buffers.");
     }
