@@ -54,8 +54,8 @@ public class HashPartitionFileReader implements PartitionFileReader {
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
     private final Map<
-            TieredStoragePartitionId,
-            Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>>>
+                    TieredStoragePartitionId,
+                    Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>>>
             openedChannels = new HashMap<>();
 
     private final String basePath;
@@ -139,19 +139,16 @@ public class HashPartitionFileReader implements PartitionFileReader {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId)
             throws IOException {
-
         Path currentSegmentPath =
                 generateSegmentPath(
                         basePath,
                         TieredStorageIdMappingUtils.convertId(partitionId),
                         subpartitionId.getSubpartitionId(),
                         segmentId);
-        ReadableByteChannel channel = null;
         if (!fileSystem.exists(currentSegmentPath)) {
-            return channel;
+            return null;
         }
-        channel = Channels.newChannel(fileSystem.open(currentSegmentPath));
-        return channel;
+        return Channels.newChannel(fileSystem.open(currentSegmentPath));
     }
 
     @Override
@@ -160,8 +157,8 @@ public class HashPartitionFileReader implements PartitionFileReader {
                 .map(Map::values)
                 .flatMap(
                         (Function<
-                                Collection<Tuple2<ReadableByteChannel, Integer>>,
-                                Stream<Tuple2<ReadableByteChannel, Integer>>>)
+                                        Collection<Tuple2<ReadableByteChannel, Integer>>,
+                                        Stream<Tuple2<ReadableByteChannel, Integer>>>)
                                 Collection::stream)
                 .filter(Objects::nonNull)
                 .forEach(
