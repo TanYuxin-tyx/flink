@@ -23,14 +23,11 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.IOUtils;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -102,25 +99,16 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             BufferRecycler recycler)
             throws IOException {
 
-        lazyInitializeFileChannel(partitionId);
+        lazyInitializeFileChannel();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
         Optional<BufferOffsetCache> cache = tryGetCache(cacheKey);
         if (!cache.isPresent()) {
             return null;
         }
-        long fileOffSet = cache.get().getFileOffset();
-        try {
-            fileChannel.position(fileOffSet);
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e, "Failed to position file offset to buffer.");
-        }
-        Buffer buffer = null;
-        try {
-            buffer = readFromByteChannel(fileChannel, reusedHeaderBuffer, memorySegment, recycler);
-        } catch (IOException e) {
-            ExceptionUtils.rethrow(e, "Failed to read buffer.");
-        }
+        fileChannel.position(cache.get().getFileOffset());
+        Buffer buffer =
+                readFromByteChannel(fileChannel, reusedHeaderBuffer, memorySegment, recycler);
         boolean hasBuffer =
                 cache.get()
                         .advance(
@@ -143,9 +131,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            int bufferIndex)
-            throws IOException {
-        lazyInitializeFileChannel(partitionId);
+            int bufferIndex) {
+        lazyInitializeFileChannel();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
         return tryGetCache(cacheKey).map(BufferOffsetCache::getFileOffset).orElse(Long.MAX_VALUE);
@@ -166,18 +153,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     /**
      * Initialize the file channel in a lazy manner, which can reduce usage of the file descriptor
      * resource.
-     *
-     * @param partitionId denotes the partition id.
-     * @throws IOException is thrown in the event of an error.
      */
-    private void lazyInitializeFileChannel(TieredStoragePartitionId partitionId)
-            throws IOException {
+    private void lazyInitializeFileChannel() {
         if (fileChannel == null) {
             try {
                 fileChannel = FileChannel.open(dataFilePath, StandardOpenOption.READ);
-            } catch (FileNotFoundException e) {
-                throw new PartitionNotFoundException(
-                        TieredStorageIdMappingUtils.convertId(partitionId));
+            } catch (IOException e) {
+                ExceptionUtils.rethrow(e, "Failed to open file channel.");
             }
         }
     }
@@ -192,20 +174,17 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      * @param cacheKey the key of cache.
      * @return returns the relevant buffer offset cache if it exists, otherwise return {@link
      *     Optional#empty()}.
-     * @throws IOException is thrown in the event of an error.
      */
     private Optional<BufferOffsetCache> tryGetCache(
-            Tuple2<TieredStorageSubpartitionId, Integer> cacheKey) throws IOException {
+            Tuple2<TieredStorageSubpartitionId, Integer> cacheKey) {
         BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
         if (bufferOffsetCache == null) {
-            Optional<Region> region = dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
-            if (region.isPresent()) {
-                bufferOffsetCache = new BufferOffsetCache(cacheKey.f1, region.get());
-            }
+            Optional<Region> regionOpt = dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
+            return regionOpt.map(region -> new BufferOffsetCache(cacheKey.f1, region));
         } else {
             numCaches--;
+            return Optional.empty();
         }
-        return bufferOffsetCache == null ? Optional.empty() : Optional.of(bufferOffsetCache);
     }
 
     /**
@@ -221,7 +200,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
         private int nextBufferIndex;
 
-        private BufferOffsetCache(int bufferIndex, Region region) throws IOException {
+        private BufferOffsetCache(int bufferIndex, Region region) {
             this.nextBufferIndex = bufferIndex;
             this.region = region;
             moveFileOffsetToBuffer(bufferIndex);
@@ -253,14 +232,17 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
          * Relocates the file channel offset to the position of the specified buffer index.
          *
          * @param bufferIndex denotes the index of the buffer.
-         * @throws IOException is thrown in the event of an error.
          */
-        private void moveFileOffsetToBuffer(int bufferIndex) throws IOException {
-            checkNotNull(fileChannel).position(region.getRegionFileOffset());
-            for (int i = 0; i < (bufferIndex - region.getFirstBufferIndex()); ++i) {
-                positionToNextBuffer(fileChannel, reusedHeaderBuffer);
+        private void moveFileOffsetToBuffer(int bufferIndex) {
+            try {
+                checkNotNull(fileChannel).position(region.getRegionFileOffset());
+                for (int i = 0; i < (bufferIndex - region.getFirstBufferIndex()); ++i) {
+                    positionToNextBuffer(fileChannel, reusedHeaderBuffer);
+                }
+                fileOffset = fileChannel.position();
+            } catch (IOException e) {
+                ExceptionUtils.rethrow(e, "Failed to move file offset");
             }
-            fileOffset = fileChannel.position();
         }
     }
 }
