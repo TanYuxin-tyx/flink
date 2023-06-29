@@ -201,13 +201,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     // ------------------------------------------------------------------------
 
     private int readBuffersFromFile() {
-        List<ScheduledSubpartitionReader> scheduledReaders = new ArrayList<>();
-        try {
-            scheduledReaders = sortScheduledReaders();
-        } catch (IOException throwable) {
-            failScheduledReaders(scheduledReaders, throwable);
-            LOG.debug("Failed to sort readers.", throwable);
-        }
+        List<ScheduledSubpartitionReader> scheduledReaders = sortScheduledReaders();
         if (scheduledReaders.isEmpty()) {
             return 0;
         }
@@ -231,7 +225,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             startIndex++;
             try {
                 scheduledReader.loadDiskDataToBuffers(buffers, this);
-            } catch (IOException throwable) {
+            } catch (Exception throwable) {
                 failScheduledReaders(Collections.singletonList(scheduledReader), throwable);
                 LOG.debug("Failed to read shuffle data.", throwable);
             }
@@ -244,7 +238,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         return numBuffersRead;
     }
 
-    private List<ScheduledSubpartitionReader> sortScheduledReaders() throws IOException {
+    private List<ScheduledSubpartitionReader> sortScheduledReaders() {
         synchronized (lock) {
             if (isReleased) {
                 return new ArrayList<>();
@@ -403,7 +397,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             return Long.compare(getPriority(), reader.getPriority());
         }
 
-        private void prepareForScheduling() throws IOException {
+        private void prepareForScheduling() {
             if (nextSegmentId < 0) {
                 updateSegmentId();
             }
