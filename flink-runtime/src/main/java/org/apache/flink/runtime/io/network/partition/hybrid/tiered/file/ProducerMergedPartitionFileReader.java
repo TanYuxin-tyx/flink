@@ -183,7 +183,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     }
 
     /**
-     * Try to get the cache associated with the given cache key.
+     * Try to get the cache according to the key.
      *
      * <p>If the relevant buffer offset cache exists, it will be returned and subsequently removed.
      * However, if the buffer offset cache does not exist, a new cache will be created using the

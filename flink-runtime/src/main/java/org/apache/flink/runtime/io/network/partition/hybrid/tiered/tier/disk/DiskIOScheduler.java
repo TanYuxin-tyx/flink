@@ -365,12 +365,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                 + subpartitionId
                                 + " has already been failed.");
             }
-
-            // If the number of written but unsent buffers achieves the limited value, skip this
-            // time.
-            if (nettyConnectionWriter.numQueuedBuffers() >= maxBufferReadAhead) {
-                return;
-            }
             while (!buffers.isEmpty()
                     && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead
                     && nextSegmentId >= 0) {
