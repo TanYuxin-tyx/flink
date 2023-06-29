@@ -46,7 +46,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScanner;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -245,7 +245,7 @@ public class SingleInputGate extends IndexedInputGate {
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
             @Nullable String baseRemoteStoragePath,
-            @Nullable RemoteStorageFileScanner remoteStorageFileScanner,
+            @Nullable RemoteStorageScanner remoteStorageScanner,
             @Nullable TieredStorageConsumerClient consumerClient) {
 
         this.owningTaskName = checkNotNull(owningTaskName);
@@ -302,9 +302,10 @@ public class SingleInputGate extends IndexedInputGate {
                                     lastPrioritySequenceNumber[channelIndex] = sequenceNumber;
                                 }
                             });
-            if (remoteStorageFileScanner != null) {
-                remoteStorageFileScanner
-                        .setupQueueChannelCallBack(queueChannelCallBack);
+            if (remoteStorageScanner != null) {
+                remoteStorageScanner.setupRemoteStorageScannerAvailabilityAndPriorityHelper(
+                        (subpartitionId, priority) ->
+                                queueChannel(channels[subpartitionId], null, priority));
             }
         }
     }

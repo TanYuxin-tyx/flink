@@ -11,7 +11,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierCons
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory.MemoryTierFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScanner;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierFactory;
 
 import java.io.IOException;
@@ -43,12 +43,16 @@ public class TieredStorageConsumerClient {
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
             String baseRemoteStoragePath,
-            RemoteStorageFileScanner remoteStorageFileScanner,
-            PartitionFileReader partitionFileReader) {
+            RemoteStorageScanner remoteStorageScanner,
+            PartitionFileReader partitionFileReader,
+            int remoteBufferSize) {
         this.tierFactories = createTierFactories(baseRemoteStoragePath);
         this.tierConsumerAgents =
                 createTierConsumerAgents(
-                        tieredStorageConsumerSpecs, nettyService, remoteStorageFileScanner, partitionFileReader);
+                        tieredStorageConsumerSpecs,
+                        nettyService,
+                        remoteStorageScanner,
+                        partitionFileReader, remoteBufferSize);
     }
 
     public void start() {
@@ -118,8 +122,9 @@ public class TieredStorageConsumerClient {
     private List<TierConsumerAgent> createTierConsumerAgents(
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
-            RemoteStorageFileScanner remoteStorageFileScanner,
-            PartitionFileReader partitionFileReader) {
+            RemoteStorageScanner remoteStorageScanner,
+            PartitionFileReader partitionFileReader,
+            int remoteBufferSize) {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
         Map<
                         TieredStoragePartitionId,
@@ -138,7 +143,10 @@ public class TieredStorageConsumerClient {
         for (TierFactory tierFactory : tierFactories) {
             tierConsumerAgents.add(
                     tierFactory.createConsumerAgent(
-                            nettyConnectionReaders, remoteStorageFileScanner, partitionFileReader));
+                            nettyConnectionReaders,
+                            remoteStorageScanner,
+                            partitionFileReader,
+                            remoteBufferSize));
         }
         return tierConsumerAgents;
     }

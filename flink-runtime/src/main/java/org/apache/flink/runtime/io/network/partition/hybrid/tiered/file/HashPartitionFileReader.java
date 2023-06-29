@@ -110,15 +110,14 @@ public class HashPartitionFileReader implements PartitionFileReader {
         }
         reusedHeaderBuffer.rewind();
         BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
-        ByteBuffer dataBuffer = ByteBuffer.allocateDirect(header.getLength());
-        int dataBufferResult = channel.read(dataBuffer);
+        int dataBufferResult = channel.read(memorySegment.wrap(0, header.getLength()));
         if (dataBufferResult == -1) {
             throw new IOException("An empty data buffer is read.");
         }
         Buffer.DataType dataType = header.getDataType();
         return new NetworkBuffer(
-                MemorySegmentFactory.wrapOffHeapMemory(dataBuffer),
-                FreeingBufferRecycler.INSTANCE,
+                memorySegment,
+                recycler,
                 dataType,
                 header.isCompressed(),
                 header.getLength());

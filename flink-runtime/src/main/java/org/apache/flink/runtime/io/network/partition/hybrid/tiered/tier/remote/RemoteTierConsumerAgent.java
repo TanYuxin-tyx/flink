@@ -1,6 +1,10 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
@@ -17,24 +21,30 @@ import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_
 /** The data client is used to fetch data from remote tier. */
 public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
-    private final RemoteStorageFileScanner remoteStorageFileScanner;
+    private final RemoteStorageScanner remoteStorageScanner;
 
     private final PartitionFileReader partitionFileReader;
 
-    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
-            requiredSegmentIds;
+    private final Map<
+                    TieredStoragePartitionId,
+                    Map<TieredStorageSubpartitionId, Tuple2<Integer, Integer>>>
+            currentBufferIndexAndSegmentIds;
+
+    private final int remoteBufferSize;
 
     RemoteTierConsumerAgent(
-            RemoteStorageFileScanner remoteStorageFileScanner,
-            PartitionFileReader partitionFileReader) {
-        this.remoteStorageFileScanner = remoteStorageFileScanner;
-        this.requiredSegmentIds = new HashMap<>();
+            RemoteStorageScanner remoteStorageScanner,
+            PartitionFileReader partitionFileReader,
+            int remoteBufferSize) {
+        this.remoteStorageScanner = remoteStorageScanner;
+        this.currentBufferIndexAndSegmentIds = new HashMap<>();
         this.partitionFileReader = partitionFileReader;
+        this.remoteBufferSize = remoteBufferSize;
     }
 
     @Override
     public void start() {
-        remoteStorageFileScanner.start();
+        remoteStorageScanner.start();
     }
 
     @Override
@@ -42,30 +52,44 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
-        if (segmentId
-                != requiredSegmentIds
+        Tuple2<Integer, Integer> bufferIndexAndSegmentId =
+                currentBufferIndexAndSegmentIds
                         .computeIfAbsent(partitionId, ignore -> new HashMap<>())
-                        .getOrDefault(subpartitionId, -1)) {
-            remoteStorageFileScanner.registerSegmentId(partitionId, subpartitionId, segmentId);
-            requiredSegmentIds.get(partitionId).put(subpartitionId, segmentId);
-            return Optional.empty();
+                        .getOrDefault(subpartitionId, Tuple2.of(0, -1));
+        int currentBufferIndex = bufferIndexAndSegmentId.f0;
+        int currentSegmentId = bufferIndexAndSegmentId.f1;
+        if (segmentId != currentSegmentId) {
+            remoteStorageScanner.registerSegmentId(partitionId, subpartitionId, segmentId);
         }
+        MemorySegment memorySegment =
+                MemorySegmentFactory.allocateUnpooledSegment(remoteBufferSize);
         Buffer buffer = null;
         try {
             buffer =
                     partitionFileReader.readBuffer(
-                            partitionId, subpartitionId, segmentId, -1, null, null);
+                            partitionId,
+                            subpartitionId,
+                            segmentId,
+                            currentBufferIndex,
+                            memorySegment,
+                            FreeingBufferRecycler.INSTANCE);
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }
         if (buffer != null && buffer.getDataType() != END_OF_SEGMENT) {
-            remoteStorageFileScanner.triggerSubpartitionReading(partitionId, subpartitionId);
+            remoteStorageScanner.triggerNextRoundReading(partitionId, subpartitionId, buffer.getDataType().hasPriority());
         }
-        return buffer == null ? Optional.empty() : Optional.of(buffer);
+        if (buffer != null) {
+            currentBufferIndexAndSegmentIds
+                    .get(partitionId)
+                    .put(subpartitionId, Tuple2.of(++currentBufferIndex, segmentId));
+            return Optional.of(buffer);
+        }
+        return Optional.empty();
     }
 
     @Override
     public void close() throws IOException {
-        remoteStorageFileScanner.close();
+        remoteStorageScanner.close();
     }
 }

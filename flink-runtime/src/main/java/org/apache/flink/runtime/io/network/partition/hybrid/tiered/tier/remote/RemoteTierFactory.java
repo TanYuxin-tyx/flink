@@ -93,8 +93,10 @@ public class RemoteTierFactory implements TierFactory {
                                     TieredStorageSubpartitionId,
                                     CompletableFuture<NettyConnectionReader>>>
                     readers,
-            RemoteStorageFileScanner remoteStorageFileScanner,
-            PartitionFileReader partitionFileReader) {
-        return new RemoteTierConsumerAgent(remoteStorageFileScanner, partitionFileReader);
+            RemoteStorageScanner remoteStorageScanner,
+            PartitionFileReader partitionFileReader,
+            int remoteBufferSize) {
+        return new RemoteTierConsumerAgent(
+                remoteStorageScanner, partitionFileReader, remoteBufferSize);
     }
 }

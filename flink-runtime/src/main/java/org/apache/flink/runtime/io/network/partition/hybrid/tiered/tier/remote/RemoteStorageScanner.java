@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
@@ -37,38 +38,47 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiConsumer;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateSegmentFinishPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateSubpartitionPath;
 
 /**
- * The {@link RemoteStorageFileScanner} is the monitor to scan the existing status of shuffle data
+ * The {@link RemoteStorageScanner} is the monitor to scan the existing status of shuffle data
  * stored in remote storage. It will be invoked by {@link RemoteTierConsumerAgent} to register the
- * required segment id and trigger the reading of {@link RemoteTierConsumerAgent}, and it also
- * provides a method to read buffer from remote storage.
+ * required segment id and trigger the reading of {@link RemoteTierConsumerAgent}.
  */
-public class RemoteStorageFileScanner implements Runnable {
+public class RemoteStorageScanner implements Runnable {
 
+    /** Executor to scan the existing status of segment files on remote storage. */
     private final ScheduledExecutorService scannerExecutor =
             Executors.newSingleThreadScheduledExecutor(
                     new ThreadFactoryBuilder()
                             .setNameFormat("remote storage file scanner")
                             .build());
 
-    private final String baseRemoteStoragePath;
-
+    /**
+     * The id of current required segment stored in map.
+     *
+     * <p>The key is partition id and subpartition id. The value is current required segment id.
+     */
     private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
             requiredSegmentIds;
 
+    /**
+     * The channel index in {@link SingleInputGate} stored in map.
+     *
+     * <p>The key is partition id and subpartition id. The value is related channel index.
+     */
     private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
             channelIndexes;
 
+    private final String baseRemoteStoragePath;
+
     private FileSystem remoteFileSystem;
 
-    private BiConsumer<Integer, Boolean> queueChannelCallBack;
+    private RemoteStorageScannerAvailabilityAndPriorityHelper helper;
 
-    public RemoteStorageFileScanner(
+    public RemoteStorageScanner(
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             String baseRemoteStoragePath) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
@@ -84,7 +94,7 @@ public class RemoteStorageFileScanner implements Runnable {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
             ExceptionUtils.rethrow(
-                    e, "Failed to initialize fileSystem on the path: " + baseRemoteStoragePath);
+                    e, "Failed to initialize file system on the path: " + baseRemoteStoragePath);
         }
     }
 
@@ -121,12 +131,12 @@ public class RemoteStorageFileScanner implements Runnable {
             }
         }
         for (int channelIndex : availableInputChannelIndexes) {
-            queueChannelCallBack.accept(channelIndex, false);
+            helper.notifyAvailableAndPriority(channelIndex, false);
         }
     }
 
     /**
-     * Register a segment id to the {@link RemoteStorageFileScanner}. If the scanner discovers the
+     * Register a segment id to the {@link RemoteStorageScanner}. If the scanner discovers the
      * segment file exists, it will trigger the next round of reading.
      *
      * @param partitionId partition id indicates the id of partition.
@@ -148,13 +158,17 @@ public class RemoteStorageFileScanner implements Runnable {
         scannerExecutor.shutdownNow();
     }
 
-    public void setupQueueChannelCallBack(BiConsumer<Integer, Boolean> queueChannelCallBack) {
-        this.queueChannelCallBack = queueChannelCallBack;
+    public void setupRemoteStorageScannerAvailabilityAndPriorityHelper(
+            RemoteStorageScannerAvailabilityAndPriorityHelper helper) {
+        this.helper = helper;
     }
 
-    public void triggerSubpartitionReading(
-            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
-        queueChannelCallBack.accept(channelIndexes.get(partitionId).get(subpartitionId), false);
+    public void triggerNextRoundReading(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            boolean isPriority) {
+        helper.notifyAvailableAndPriority(
+                channelIndexes.get(partitionId).get(subpartitionId), isPriority);
     }
 
     private boolean checkFileExist(

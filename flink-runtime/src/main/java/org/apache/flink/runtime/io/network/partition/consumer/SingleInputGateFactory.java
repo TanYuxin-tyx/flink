@@ -44,7 +44,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.Partitio
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScanner;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
@@ -179,7 +179,7 @@ public class SingleInputGateFactory {
                 calculateNumChannels(igdd.getShuffleDescriptors().length, subpartitionIndexRange);
 
         ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
-        RemoteStorageFileScanner remoteStorageFileScanner = null;
+        RemoteStorageScanner remoteStorageScanner = null;
         List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs = null;
         TieredStorageConsumerClient tieredStorageConsumerClient = null;
         if (enableTieredStore) {
@@ -199,16 +199,17 @@ public class SingleInputGateFactory {
             }
             if (baseRemoteStoragePath != null) {
                 String basePath = createJobBasePath(owner.getJobID(), baseRemoteStoragePath);
-                remoteStorageFileScanner =
-                        new RemoteStorageFileScanner(tieredStorageConsumerSpecs, basePath);
+                remoteStorageScanner =
+                        new RemoteStorageScanner(tieredStorageConsumerSpecs, basePath);
                 PartitionFileReader reader = HashPartitionFile.createPartitionFileReader(basePath);
                 tieredStorageConsumerClient =
                         new TieredStorageConsumerClient(
                                 tieredStorageConsumerSpecs,
                                 nettyService,
                                 baseRemoteStoragePath,
-                                remoteStorageFileScanner,
-                                reader);
+                                remoteStorageScanner,
+                                reader,
+                                networkBufferSize);
             }
         }
 
@@ -231,7 +232,7 @@ public class SingleInputGateFactory {
                         tieredStorageConsumerSpecs,
                         nettyService,
                         baseRemoteStoragePath,
-                        remoteStorageFileScanner,
+                        remoteStorageScanner,
                         tieredStorageConsumerClient);
 
         createInputChannels(
@@ -359,7 +360,7 @@ public class SingleInputGateFactory {
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
             @Nullable String baseRemoteStoragePath,
-            @Nullable RemoteStorageFileScanner remoteStorageFileScanner,
+            @Nullable RemoteStorageScanner remoteStorageScanner,
             @Nullable TieredStorageConsumerClient tieredStorageConsumerClient) {
 
         return new SingleInputGate(
@@ -380,7 +381,7 @@ public class SingleInputGateFactory {
                 tieredStorageConsumerSpecs,
                 nettyService,
                 baseRemoteStoragePath,
-                remoteStorageFileScanner,
+                remoteStorageScanner,
                 tieredStorageConsumerClient);
     }
 
