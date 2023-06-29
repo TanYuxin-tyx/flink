@@ -96,7 +96,8 @@ public class MemoryTierFactory implements TierFactory {
                                     TieredStorageSubpartitionId,
                                     CompletableFuture<NettyConnectionReader>>>
                     readers,
-            RemoteStorageFileScanner remoteStorageFileScanner) {
+            RemoteStorageFileScanner remoteStorageFileScanner,
+            PartitionFileReader partitionFileReader) {
         return new MemoryTierConsumerAgent(readers);
     }
 }

@@ -39,10 +39,12 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.HashPartitionFile;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScanner;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScannerImpl;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
@@ -179,6 +181,7 @@ public class SingleInputGateFactory {
         ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
         RemoteStorageFileScanner remoteStorageFileScanner = null;
         List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs = null;
+        TieredStorageConsumerClient tieredStorageConsumerClient = null;
         if (enableTieredStore) {
             tieredStorageConsumerSpecs = new ArrayList<>();
             for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
@@ -195,10 +198,17 @@ public class SingleInputGateFactory {
                 }
             }
             if (baseRemoteStoragePath != null) {
+                String basePath = createJobBasePath(owner.getJobID(), baseRemoteStoragePath);
                 remoteStorageFileScanner =
-                        new RemoteStorageFileScannerImpl(
+                        new RemoteStorageFileScanner(tieredStorageConsumerSpecs, basePath);
+                PartitionFileReader reader = HashPartitionFile.createPartitionFileReader(basePath);
+                tieredStorageConsumerClient =
+                        new TieredStorageConsumerClient(
                                 tieredStorageConsumerSpecs,
-                                createJobBasePath(owner.getJobID(), baseRemoteStoragePath));
+                                nettyService,
+                                baseRemoteStoragePath,
+                                remoteStorageFileScanner,
+                                reader);
             }
         }
 
@@ -221,7 +231,8 @@ public class SingleInputGateFactory {
                         tieredStorageConsumerSpecs,
                         nettyService,
                         baseRemoteStoragePath,
-                        remoteStorageFileScanner);
+                        remoteStorageFileScanner,
+                        tieredStorageConsumerClient);
 
         createInputChannels(
                 owningTaskName, igdd, inputGate, subpartitionIndexRange, gateBuffersSpec, metrics);
@@ -348,7 +359,8 @@ public class SingleInputGateFactory {
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
             @Nullable String baseRemoteStoragePath,
-            @Nullable RemoteStorageFileScanner remoteStorageFileScanner) {
+            @Nullable RemoteStorageFileScanner remoteStorageFileScanner,
+            @Nullable TieredStorageConsumerClient tieredStorageConsumerClient) {
 
         return new SingleInputGate(
                 owningTaskName,
@@ -368,7 +380,8 @@ public class SingleInputGateFactory {
                 tieredStorageConsumerSpecs,
                 nettyService,
                 baseRemoteStoragePath,
-                remoteStorageFileScanner);
+                remoteStorageFileScanner,
+                tieredStorageConsumerClient);
     }
 
     protected static int calculateNumChannels(

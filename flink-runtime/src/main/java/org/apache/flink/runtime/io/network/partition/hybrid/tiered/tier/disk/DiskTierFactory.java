@@ -105,7 +105,8 @@ public class DiskTierFactory implements TierFactory {
                                     TieredStorageSubpartitionId,
                                     CompletableFuture<NettyConnectionReader>>>
                     readers,
-            RemoteStorageFileScanner remoteStorageFileScanner) {
+            RemoteStorageFileScanner remoteStorageFileScanner,
+            PartitionFileReader partitionFileReader) {
         return new DiskTierConsumerAgent(readers);
     }
 }

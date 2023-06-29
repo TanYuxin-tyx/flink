@@ -47,7 +47,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScanner;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageFileScannerImpl;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -246,7 +245,8 @@ public class SingleInputGate extends IndexedInputGate {
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
             @Nullable String baseRemoteStoragePath,
-            @Nullable RemoteStorageFileScanner remoteStorageFileScanner) {
+            @Nullable RemoteStorageFileScanner remoteStorageFileScanner,
+            @Nullable TieredStorageConsumerClient consumerClient) {
 
         this.owningTaskName = checkNotNull(owningTaskName);
         Preconditions.checkArgument(0 <= gateIndex, "The gate index must be positive.");
@@ -282,17 +282,8 @@ public class SingleInputGate extends IndexedInputGate {
         BiConsumer<Integer, Boolean> queueChannelCallBack =
                 (subpartitionId, priority) ->
                         queueChannel(channels[subpartitionId], null, priority);
-        this.tieredStorageConsumerClient =
-                enableTieredStoreMode
-                        ? new TieredStorageConsumerClient(
-                                tieredStorageConsumerSpecs,
-                                nettyService,
-                                baseRemoteStoragePath,
-                                remoteStorageFileScanner)
-                        : null;
-
         this.tieredStorageConsumerSpecs = tieredStorageConsumerSpecs;
-
+        this.tieredStorageConsumerClient = consumerClient;
         if (tieredStorageConsumerSpecs != null) {
             ((TieredStorageNettyServiceImpl) nettyService)
                     .setupInputChannels(
@@ -312,7 +303,7 @@ public class SingleInputGate extends IndexedInputGate {
                                 }
                             });
             if (remoteStorageFileScanner != null) {
-                ((RemoteStorageFileScannerImpl) remoteStorageFileScanner)
+                remoteStorageFileScanner
                         .setupQueueChannelCallBack(queueChannelCallBack);
             }
         }

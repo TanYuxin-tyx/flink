@@ -65,5 +65,6 @@ public interface TierFactory {
                                     TieredStorageSubpartitionId,
                                     CompletableFuture<NettyConnectionReader>>>
                     readers,
-            RemoteStorageFileScanner remoteStorageFileScanner);
+            RemoteStorageFileScanner remoteStorageFileScanner,
+            PartitionFileReader partitionFileReader);
 }
