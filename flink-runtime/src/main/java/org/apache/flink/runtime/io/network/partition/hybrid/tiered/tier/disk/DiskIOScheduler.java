@@ -396,11 +396,11 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 NettyPayload nettyPayload =
                         NettyPayload.newBuffer(
                                 buffer, nextBufferIndex++, subpartitionId.getSubpartitionId());
+                writeToNettyConnectionWriter(nettyPayload);
                 if (buffer.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
                     nextSegmentId = -1;
                     updateSegmentId();
                 }
-                writeToNettyConnectionWriter(nettyPayload);
             }
         }
 
