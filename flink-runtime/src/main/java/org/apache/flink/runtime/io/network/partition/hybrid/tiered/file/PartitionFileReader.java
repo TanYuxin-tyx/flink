@@ -39,6 +39,7 @@ public interface PartitionFileReader {
      * @param memorySegment the empty buffer to store the read buffer
      * @param recycler the buffer recycler
      * @return the read buffer
+     * @throws IOException is thrown in the event of an error.
      */
     Buffer readBuffer(
             TieredStoragePartitionId partitionId,
@@ -66,12 +67,14 @@ public interface PartitionFileReader {
      * @param segmentId the segment id of the buffer
      * @param bufferIndex the index of buffer
      * @return the priority of the {@link PartitionFileReader}.
+     * @throws IOException is thrown in the event of an error.
      */
     long getPriority(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            int bufferIndex);
+            int bufferIndex)
+            throws IOException;
 
     /** Release the {@link PartitionFileReader}. */
     void release();

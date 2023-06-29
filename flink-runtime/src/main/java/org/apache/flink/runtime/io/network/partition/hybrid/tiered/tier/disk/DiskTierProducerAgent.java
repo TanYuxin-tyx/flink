@@ -72,7 +72,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     private final TieredStorageMemoryManager storageMemoryManager;
 
-    private final DiskIOSchedulerImpl diskIOSchedulerImpl;
+    private final DiskIOScheduler diskIOScheduler;
 
     private final DiskCacheManager diskCacheManager;
 
@@ -129,8 +129,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         isBroadcastOnly ? 1 : numSubpartitions,
                         storageMemoryManager,
                         partitionFileWriter);
-        this.diskIOSchedulerImpl =
-                new DiskIOSchedulerImpl(
+        this.diskIOScheduler =
+                new DiskIOScheduler(
                         partitionId,
                         batchShuffleReadBufferPool,
                         batchShuffleReadIOExecutor,
@@ -190,12 +190,12 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                     new PartitionNotFoundException(
                             TieredStorageIdMappingUtils.convertId(partitionId)));
         }
-        diskIOSchedulerImpl.connectionEstablished(subpartitionId, nettyConnectionWriter);
+        diskIOScheduler.connectionEstablished(subpartitionId, nettyConnectionWriter);
     }
 
     @Override
     public void connectionBroken(NettyConnectionId connectionId) {
-        diskIOSchedulerImpl.connectionBroken(connectionId);
+        diskIOScheduler.connectionBroken(connectionId);
     }
 
     @Override
@@ -226,7 +226,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     }
 
     private void releaseResources() {
-        diskIOSchedulerImpl.release();
+        diskIOScheduler.release();
         diskCacheManager.release();
     }
 }

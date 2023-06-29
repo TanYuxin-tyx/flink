@@ -55,24 +55,24 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
     /**
-     * Max number of region caches.
+     * Max number of caches.
      *
-     * <p>This number is utilized to constrain the total number of cached regions in the event of a
-     * region leak within the implementation. Corresponding tests have been added to guarantee
-     * correctness. As the future implementation approaches, the cache storage strategy will be
-     * established using the LRU algorithm with a justifiable cache size.
+     * <p>The constant defines the maximum number of caches that can be created. Its value is set to
+     * 10000, which is considered sufficient for most parallel jobs. Each cache only contains
+     * references and numerical variables and occupies a minimal amount of memory so the value is
+     * not excessively large.
      */
-    private static final int MAX_REGION_CACHE = 10000;
+    private static final int MAX_CACHE_NUM = 10000;
 
     /**
-     * Region caches stored in map.
+     * Buffer offset caches stored in map.
      *
-     * <p>The key of the cache is formed by combining the {@link TieredStorageSubpartitionId} and
-     * buffer index. The value denotes the region cache for the corresponding subpartition and
-     * buffer index. Each region cache comprises the last consumed {@link Region}, the next buffer
-     * index to consume within the region, and the file offset of the next buffer index.
+     * <p>The key is the combination of {@link TieredStorageSubpartitionId} and buffer index. The
+     * value is the buffer offset cache, which includes file offset of the buffer index, the region
+     * containing the buffer index and next buffer index to consume.
      */
-    private final Map<Tuple2<TieredStorageSubpartitionId, Integer>, RegionCache> regionCaches;
+    private final Map<Tuple2<TieredStorageSubpartitionId, Integer>, BufferOffsetCache>
+            bufferOffsetCaches;
 
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
@@ -82,14 +82,14 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
     private FileChannel fileChannel;
 
-    /** The current number of region caches. */
-    private int numRegionCache;
+    /** The current number of caches. */
+    private int numCaches;
 
     ProducerMergedPartitionFileReader(
             Path dataFilePath, ProducerMergedPartitionFileIndex dataIndex) {
         this.dataFilePath = dataFilePath;
         this.dataIndex = dataIndex;
-        this.regionCaches = new HashMap<>();
+        this.bufferOffsetCaches = new HashMap<>();
     }
 
     @Override
@@ -105,11 +105,11 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         lazyInitializeFileChannel(partitionId);
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        RegionCache regionCache = tryGetRegionCache(cacheKey);
-        if (regionCache == null) {
+        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey);
+        if (!cache.isPresent()) {
             return null;
         }
-        long fileOffSet = regionCache.getFileOffset();
+        long fileOffSet = cache.get().getFileOffset();
         try {
             fileChannel.position(fileOffSet);
         } catch (IOException e) {
@@ -122,14 +122,17 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             ExceptionUtils.rethrow(e, "Failed to read buffer.");
         }
         boolean hasBuffer =
-                regionCache.advance(
-                        checkNotNull(buffer).readableBytes()
-                                + BufferReaderWriterUtil.HEADER_LENGTH);
+                cache.get()
+                        .advance(
+                                checkNotNull(buffer).readableBytes()
+                                        + BufferReaderWriterUtil.HEADER_LENGTH);
         if (hasBuffer) {
             int nextBufferIndex = bufferIndex + 1;
-            if (numRegionCache < MAX_REGION_CACHE) {
-                regionCaches.put(Tuple2.of(subpartitionId, nextBufferIndex), regionCache);
-                numRegionCache++;
+            // TODO: introduce the LRU cache strategy in the future to restrict the total
+            // cache number. Testing to prevent cache leaks has been implemented.
+            if (numCaches < MAX_CACHE_NUM) {
+                bufferOffsetCaches.put(Tuple2.of(subpartitionId, nextBufferIndex), cache.get());
+                numCaches++;
             }
         }
         return buffer;
@@ -140,11 +143,12 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            int bufferIndex) {
+            int bufferIndex)
+            throws IOException {
+        lazyInitializeFileChannel(partitionId);
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        RegionCache regionCache = regionCaches.get(cacheKey);
-        return regionCache == null ? Long.MAX_VALUE : regionCache.getFileOffset();
+        return tryGetCache(cacheKey).map(BufferOffsetCache::getFileOffset).orElse(Long.MAX_VALUE);
     }
 
     @Override
@@ -179,51 +183,52 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     }
 
     /**
-     * Try to get the region cache associated with the given cache key.
+     * Try to get the cache associated with the given cache key.
      *
-     * <p>If the relevant region cache exists within the region caches, it will be returned and
-     * subsequently removed. However, if the region cache does not exist, a new region cache will be
-     * created using the data index and returned.
+     * <p>If the relevant buffer offset cache exists, it will be returned and subsequently removed.
+     * However, if the buffer offset cache does not exist, a new cache will be created using the
+     * data index and returned.
      *
-     * @param cacheKey denotes the key of the desired region cache.
-     * @return returns the relevant region cache if it exists, otherwise a null value.
+     * @param cacheKey the key of cache.
+     * @return returns the relevant buffer offset cache if it exists, otherwise return {@link
+     *     Optional#empty()}.
      * @throws IOException is thrown in the event of an error.
      */
-    private RegionCache tryGetRegionCache(Tuple2<TieredStorageSubpartitionId, Integer> cacheKey)
-            throws IOException {
-        RegionCache regionCache = regionCaches.remove(cacheKey);
-        if (regionCache == null) {
+    private Optional<BufferOffsetCache> tryGetCache(
+            Tuple2<TieredStorageSubpartitionId, Integer> cacheKey) throws IOException {
+        BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
+        if (bufferOffsetCache == null) {
             Optional<Region> region = dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
             if (region.isPresent()) {
-                regionCache = new RegionCache(cacheKey.f1, region.get());
+                bufferOffsetCache = new BufferOffsetCache(cacheKey.f1, region.get());
             }
         } else {
-            numRegionCache--;
+            numCaches--;
         }
-        return regionCache;
+        return bufferOffsetCache == null ? Optional.empty() : Optional.of(bufferOffsetCache);
     }
 
     /**
-     * The {@link RegionCache} represents the cache of a {@link Region}. Each region cache contains
-     * the last consumed {@link Region}, the next buffer index to consume within the region, and the
-     * file offset of the buffer index.
+     * The {@link BufferOffsetCache} represents the file offset cache for a buffer index. Each cache
+     * includes file offset of the buffer index, the region containing the buffer index and next
+     * buffer index to consume.
      */
-    private class RegionCache {
+    private class BufferOffsetCache {
 
         private final Region region;
 
-        private int nextBufferIndex;
-
         private long fileOffset;
 
-        private RegionCache(int bufferIndex, Region region) throws IOException {
+        private int nextBufferIndex;
+
+        private BufferOffsetCache(int bufferIndex, Region region) throws IOException {
             this.nextBufferIndex = bufferIndex;
             this.region = region;
             moveFileOffsetToBuffer(bufferIndex);
         }
 
         /**
-         * Get the file offset of next buffer.
+         * Get the file offset.
          *
          * @return the file offset.
          */
@@ -232,12 +237,11 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         }
 
         /**
-         * Updates the {@link RegionCache} upon the retrieval of a buffer from the file using the
-         * file offset in the {@link RegionCache}.
+         * Updates the {@link BufferOffsetCache} upon the retrieval of a buffer from the file using
+         * the file offset in the {@link BufferOffsetCache}.
          *
          * @param bufferSize denotes the size of the buffer.
-         * @return returns a boolean value indicating the presence or absence of residual buffers in
-         *     the region.
+         * @return return true if there are remaining buffers in the region, otherwise return false.
          */
         private boolean advance(long bufferSize) {
             nextBufferIndex++;
