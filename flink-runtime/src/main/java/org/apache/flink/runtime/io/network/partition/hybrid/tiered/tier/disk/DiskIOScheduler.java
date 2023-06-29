@@ -393,10 +393,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     buffers.add(memorySegment);
                     throw throwable;
                 }
-                NettyPayload nettyPayload =
+                writeToNettyConnectionWriter(
                         NettyPayload.newBuffer(
-                                buffer, nextBufferIndex++, subpartitionId.getSubpartitionId());
-                writeToNettyConnectionWriter(nettyPayload);
+                                buffer, nextBufferIndex++, subpartitionId.getSubpartitionId()));
                 if (buffer.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
                     nextSegmentId = -1;
                     updateSegmentId();
@@ -454,7 +453,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     .get(subpartitionId.getSubpartitionId())
                     .computeIfPresent(
                             nextBufferIndex,
-                            (index, segmentId) -> {
+                            (bufferIndex, segmentId) -> {
                                 nextSegmentId = segmentId;
                                 writeToNettyConnectionWriter(NettyPayload.newSegment(segmentId));
                                 return segmentId;
