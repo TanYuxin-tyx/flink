@@ -22,11 +22,9 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.MemorySegment;
-import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
@@ -53,10 +51,15 @@ public class HashPartitionFileReader implements PartitionFileReader {
 
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
+    /**
+     * Opened file channels and segment id of related segment files stored in map.
+     *
+     * <p>The key is partition id and subpartition id. The value is file channel and segment id.
+     */
     private final Map<
                     TieredStoragePartitionId,
                     Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>>>
-            openedChannels = new HashMap<>();
+            openedChannelAndSegmentIds = new HashMap<>();
 
     private final String basePath;
 
@@ -81,7 +84,7 @@ public class HashPartitionFileReader implements PartitionFileReader {
             BufferRecycler recycler)
             throws IOException {
         Tuple2<ReadableByteChannel, Integer> fileChannelAndSegmentId =
-                openedChannels
+                openedChannelAndSegmentIds
                         .computeIfAbsent(partitionId, ignore -> new HashMap<>())
                         .getOrDefault(subpartitionId, Tuple2.of(null, -1));
         ReadableByteChannel channel = fileChannelAndSegmentId.f0;
@@ -93,7 +96,9 @@ public class HashPartitionFileReader implements PartitionFileReader {
             if (channel == null) {
                 return null;
             }
-            openedChannels.get(partitionId).put(subpartitionId, Tuple2.of(channel, segmentId));
+            openedChannelAndSegmentIds
+                    .get(partitionId)
+                    .put(subpartitionId, Tuple2.of(channel, segmentId));
         }
 
         reusedHeaderBuffer.clear();
@@ -101,26 +106,20 @@ public class HashPartitionFileReader implements PartitionFileReader {
         if (bufferHeaderResult == -1) {
             channel.close();
             channel = null;
-            openedChannels.get(partitionId).put(subpartitionId, Tuple2.of(channel, segmentId));
-            return new NetworkBuffer(
-                    MemorySegmentFactory.allocateUnpooledSegment(0),
-                    FreeingBufferRecycler.INSTANCE,
-                    Buffer.DataType.END_OF_SEGMENT,
-                    0);
+            openedChannelAndSegmentIds
+                    .get(partitionId)
+                    .put(subpartitionId, Tuple2.of(channel, segmentId));
+            return new NetworkBuffer(memorySegment, recycler, Buffer.DataType.END_OF_SEGMENT);
         }
         reusedHeaderBuffer.rewind();
         BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
         int dataBufferResult = channel.read(memorySegment.wrap(0, header.getLength()));
         if (dataBufferResult == -1) {
-            throw new IOException("An empty data buffer is read.");
+            throw new IOException("Empty data buffer is read.");
         }
         Buffer.DataType dataType = header.getDataType();
         return new NetworkBuffer(
-                memorySegment,
-                recycler,
-                dataType,
-                header.isCompressed(),
-                header.getLength());
+                memorySegment, recycler, dataType, header.isCompressed(), header.getLength());
     }
 
     @Override
@@ -152,7 +151,7 @@ public class HashPartitionFileReader implements PartitionFileReader {
 
     @Override
     public void release() {
-        openedChannels.values().stream()
+        openedChannelAndSegmentIds.values().stream()
                 .map(Map::values)
                 .flatMap(
                         (Function<

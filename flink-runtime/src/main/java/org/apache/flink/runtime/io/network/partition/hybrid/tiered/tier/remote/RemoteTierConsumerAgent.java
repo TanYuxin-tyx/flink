@@ -25,6 +25,11 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
     private final PartitionFileReader partitionFileReader;
 
+    /**
+     * The current reading buffer indexes and segment ids stored in map.
+     *
+     * <p>The key is partition id and subpartition id. The value is buffer index and segment id.
+     */
     private final Map<
                     TieredStoragePartitionId,
                     Map<TieredStorageSubpartitionId, Tuple2<Integer, Integer>>>
@@ -77,7 +82,8 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }
         if (buffer != null && buffer.getDataType() != END_OF_SEGMENT) {
-            remoteStorageScanner.triggerNextRoundReading(partitionId, subpartitionId, buffer.getDataType().hasPriority());
+            remoteStorageScanner.triggerNextRoundReading(
+                    partitionId, subpartitionId, buffer.getDataType().hasPriority());
         }
         if (buffer != null) {
             currentBufferIndexAndSegmentIds

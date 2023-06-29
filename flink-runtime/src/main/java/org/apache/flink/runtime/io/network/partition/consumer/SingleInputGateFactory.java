@@ -182,6 +182,7 @@ public class SingleInputGateFactory {
         RemoteStorageScanner remoteStorageScanner = null;
         List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs = null;
         TieredStorageConsumerClient tieredStorageConsumerClient = null;
+        PartitionFileReader reader = null;
         if (enableTieredStore) {
             tieredStorageConsumerSpecs = new ArrayList<>();
             for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
@@ -201,16 +202,17 @@ public class SingleInputGateFactory {
                 String basePath = createJobBasePath(owner.getJobID(), baseRemoteStoragePath);
                 remoteStorageScanner =
                         new RemoteStorageScanner(tieredStorageConsumerSpecs, basePath);
-                PartitionFileReader reader = HashPartitionFile.createPartitionFileReader(basePath);
-                tieredStorageConsumerClient =
-                        new TieredStorageConsumerClient(
-                                tieredStorageConsumerSpecs,
-                                nettyService,
-                                baseRemoteStoragePath,
-                                remoteStorageScanner,
-                                reader,
-                                networkBufferSize);
+                reader = HashPartitionFile.createPartitionFileReader(basePath);
             }
+
+            tieredStorageConsumerClient =
+                    new TieredStorageConsumerClient(
+                            tieredStorageConsumerSpecs,
+                            nettyService,
+                            baseRemoteStoragePath,
+                            remoteStorageScanner,
+                            reader,
+                            networkBufferSize);
         }
 
         SingleInputGate inputGate =
