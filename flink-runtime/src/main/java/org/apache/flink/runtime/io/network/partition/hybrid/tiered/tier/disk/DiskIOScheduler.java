@@ -308,7 +308,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             if (!isRunning
                     && !allScheduledReaders.isEmpty()
                     && numRequestedBuffers + bufferPool.getNumBuffersPerRequest()
-                            <= maxRequestedBuffers
+                    <= maxRequestedBuffers
                     && numRequestedBuffers < bufferPool.getAverageBuffersPerRequester()) {
                 isRunning = true;
                 ioExecutor.execute(
@@ -343,7 +343,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private int nextSegmentId = -1;
 
-        private int nextBufferIndex;;
+        private int nextBufferIndex;
 
         private long priority;
 
@@ -377,13 +377,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 Buffer buffer;
                 try {
                     if ((buffer =
-                                    partitionFileReader.readBuffer(
-                                            partitionId,
-                                            subpartitionId,
-                                            nextSegmentId,
-                                            nextBufferIndex,
-                                            memorySegment,
-                                            recycler))
+                            partitionFileReader.readBuffer(
+                                    partitionId,
+                                    subpartitionId,
+                                    nextSegmentId,
+                                    nextBufferIndex,
+                                    memorySegment,
+                                    recycler))
                             == null) {
                         buffers.add(memorySegment);
                         break;
@@ -428,7 +428,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     nextSegmentId < 0
                             ? Long.MAX_VALUE
                             : partitionFileReader.getPriority(
-                                    partitionId, subpartitionId, nextSegmentId, nextBufferIndex);
+                            partitionId, subpartitionId, nextSegmentId, nextBufferIndex);
         }
 
         private void writeToNettyConnectionWriter(NettyPayload nettyPayload) {
