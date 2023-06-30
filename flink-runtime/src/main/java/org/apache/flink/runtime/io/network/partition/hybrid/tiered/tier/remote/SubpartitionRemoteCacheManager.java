@@ -117,9 +117,6 @@ public class SubpartitionRemoteCacheManager {
 
     /** Release all buffers. */
     void release() {
-        checkState(
-                hasSpillCompleted.isDone() || hasSpillCompleted.isCancelled(),
-                "Uncompleted spilling buffers.");
         recycleBuffers();
         checkState(allBuffers.isEmpty(), "Leaking buffers.");
     }
