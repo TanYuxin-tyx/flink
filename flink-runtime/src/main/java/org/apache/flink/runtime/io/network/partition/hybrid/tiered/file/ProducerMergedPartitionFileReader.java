@@ -183,7 +183,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             return regionOpt.map(region -> new BufferOffsetCache(cacheKey.f1, region));
         } else {
             numCaches--;
-            return Optional.empty();
+            return Optional.of(bufferOffsetCache);
         }
     }
 
