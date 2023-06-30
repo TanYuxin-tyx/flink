@@ -45,8 +45,14 @@ class DiskCacheManager {
 
     private final SubpartitionDiskCacheManager[] subpartitionCacheManagers;
 
-    /** Whether the current flush process has completed. */
-    private CompletableFuture<Void> hasFlushCompleted;
+    /**
+     * This field indicates whether the current flushing process has been finished. It returns a
+     * {@link CompletableFuture} that signals whether the current flushing is complete. If the
+     * current flushing is still ongoing and a new non-forced flushing is requested, it will be
+     * ignored. However, a new forced flush will execute regardless of whether the current flushing
+     * is complete or not.
+     */
+    private CompletableFuture<Void> onGoingFlushFuture;
 
     DiskCacheManager(
             TieredStoragePartitionId partitionId,
@@ -57,7 +63,7 @@ class DiskCacheManager {
         this.numSubpartitions = numSubpartitions;
         this.partitionFileWriter = partitionFileWriter;
         this.subpartitionCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
-        this.hasFlushCompleted = FutureUtils.completedVoidFuture();
+        this.onGoingFlushFuture = FutureUtils.completedVoidFuture();
 
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionCacheManagers[subpartitionId] = new SubpartitionDiskCacheManager();
@@ -136,8 +142,8 @@ class DiskCacheManager {
      * Note that the request of flushing buffers may come from the disk check thread or the task
      * thread, so the method itself should ensure the thread safety.
      */
-    private synchronized void flushBuffers(boolean needForceFlush) {
-        if (!needForceFlush && !hasFlushCompleted.isDone()) {
+    private synchronized void flushBuffers(boolean forceFlush) {
+        if (!forceFlush && !onGoingFlushFuture.isDone()) {
             return;
         }
         List<PartitionFileWriter.SubpartitionBufferContext> buffersToFlush = new ArrayList<>();
@@ -146,8 +152,8 @@ class DiskCacheManager {
         if (numToWriteBuffers > 0) {
             CompletableFuture<Void> flushCompletableFuture =
                     partitionFileWriter.write(partitionId, buffersToFlush);
-            if (!needForceFlush) {
-                hasFlushCompleted = flushCompletableFuture;
+            if (!forceFlush) {
+                onGoingFlushFuture = flushCompletableFuture;
             }
         }
     }

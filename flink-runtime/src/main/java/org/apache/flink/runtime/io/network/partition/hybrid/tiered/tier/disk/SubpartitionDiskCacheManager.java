@@ -26,6 +26,8 @@ import org.apache.flink.runtime.io.network.buffer.Buffer.DataType;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 
+import net.jcip.annotations.GuardedBy;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -51,16 +53,23 @@ class SubpartitionDiskCacheManager {
     private final Deque<Tuple2<Buffer, Integer>> allBuffers = new LinkedList<>();
 
     /**
-     * Record the buffer index in the {@link SubpartitionDiskCacheManager}. Each time a new buffer
-     * is added to the {@code allBuffers}, this field is increased by one.
-     */
-    private int bufferIndex;
-
-    /**
      * Record the segment id that is writing to. Each time when the segment is finished, this filed
      * is increased by one.
+     *
+     * <p>Note that when flushing buffers, this can be touched by task thread or the flushing
+     * thread, so the thread safety should be ensured.
      */
+    @GuardedBy("allBuffers")
     private int segmentIndex;
+
+    /**
+     * Record the buffer index in the {@link SubpartitionDiskCacheManager}. Each time a new buffer
+     * is added to the {@code allBuffers}, this field is increased by one.
+     *
+     * <p>Note that the field can only be touched by the task thread, so this field need not be
+     * guarded by any lock or synchronizations.
+     */
+    private int bufferIndex;
 
     // ------------------------------------------------------------------------
     //  Called by DiskCacheManager
@@ -72,7 +81,9 @@ class SubpartitionDiskCacheManager {
 
     void appendEndOfSegmentEvent(ByteBuffer record, DataType dataType) {
         writeEvent(record, dataType);
-        segmentIndex++;
+        synchronized (allBuffers) {
+            segmentIndex++;
+        }
     }
 
     /** Note that allBuffers can be touched by multiple threads. */
@@ -89,7 +100,9 @@ class SubpartitionDiskCacheManager {
     }
 
     int getSegmentIndex() {
-        return segmentIndex;
+        synchronized (allBuffers) {
+            return segmentIndex;
+        }
     }
 
     void release() {
@@ -108,12 +121,12 @@ class SubpartitionDiskCacheManager {
         addBuffer(new NetworkBuffer(data, FreeingBufferRecycler.INSTANCE, dataType, data.size()));
     }
 
-    /** Note that allBuffers can be touched by multiple threads. */
+    /** This method is only called by the task thread. */
     private void addBuffer(Buffer buffer) {
         synchronized (allBuffers) {
             allBuffers.add(new Tuple2<>(buffer, bufferIndex));
-            bufferIndex++;
         }
+        bufferIndex++;
     }
 
     private void recycleBuffers() {

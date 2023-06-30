@@ -46,7 +46,7 @@ public class TieredStorageUtils {
 
     public static final String TIER_STORE_DIR = "tiered-storage";
 
-    public static final String DATA_FILE_SUFFIX = ".storage.data";
+    public static final String DATA_FILE_SUFFIX = ".tier-storage.data";
 
     private static final String SEGMENT_FILE_PREFIX = "seg-";
 
@@ -91,13 +91,10 @@ public class TieredStorageUtils {
     }
 
     public static String createSubpartitionPath(
-            String basePath,
-            ResultPartitionID resultPartitionID,
-            int subpartitionId)
+            String basePath, ResultPartitionID resultPartitionID, int subpartitionId)
             throws IOException {
         String subpartitionPathStr =
-                generateSubpartitionPath(
-                        basePath, resultPartitionID, subpartitionId);
+                generateSubpartitionPath(basePath, resultPartitionID, subpartitionId);
         Path subpartitionPath = new Path(subpartitionPathStr);
         FileSystem fs = subpartitionPath.getFileSystem();
         if (!fs.exists(subpartitionPath)) {
@@ -190,9 +187,7 @@ public class TieredStorageUtils {
     }
 
     public static String generateSubpartitionPath(
-            String basePath,
-            ResultPartitionID resultPartitionID,
-            int subpartitionId) {
+            String basePath, ResultPartitionID resultPartitionID, int subpartitionId) {
         while (basePath.endsWith("/") && basePath.length() > 1) {
             basePath = basePath.substring(0, basePath.length() - 1);
         }
