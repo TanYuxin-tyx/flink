@@ -91,15 +91,49 @@ public class TieredStorageUtils {
         checkState(writeSize == expectedBytes);
     }
 
-    public static String createJobPath(JobID jobID, String basePath) {
+    public static String getJobPath(JobID jobID, String basePath) {
         return String.format("%s/%s/%s", basePath, TieredStorageUtils.TIER_STORE_DIR, jobID);
     }
 
-    public static String mkdirForSubpartitionPath(
+    public static String getPartitionPath(ResultPartitionID partitionID, String basePath) {
+        if (basePath == null) {
+            return null;
+        }
+
+        while (basePath.endsWith("/") && basePath.length() > 1) {
+            basePath = basePath.substring(0, basePath.length() - 1);
+        }
+        return String.format("%s/%s", basePath, partitionID);
+    }
+
+    public static String getSubpartitionPath(
+            String basePath, ResultPartitionID resultPartitionID, int subpartitionId) {
+        while (basePath.endsWith("/") && basePath.length() > 1) {
+            basePath = basePath.substring(0, basePath.length() - 1);
+        }
+        return String.format("%s/%s/%s", basePath, resultPartitionID, subpartitionId);
+    }
+
+    public static Path getSegmentPath(
+            String basePath,
+            ResultPartitionID resultPartitionID,
+            int subpartitionId,
+            long segmentId) {
+        String subpartitionPath = getSubpartitionPath(basePath, resultPartitionID, subpartitionId);
+        return new Path(subpartitionPath, SEGMENT_FILE_PREFIX + segmentId);
+    }
+
+    public static Path getSegmentFinishPath(String baseSubpartitionPath, long currentSegmentIndex) {
+        return new Path(
+                baseSubpartitionPath,
+                SEGMENT_FILE_PREFIX + currentSegmentIndex + SEGMENT_FINISH_FILE_SUFFIX);
+    }
+
+    public static String createSubpartitionPath(
             String basePath, ResultPartitionID resultPartitionID, int subpartitionId)
             throws IOException {
         String subpartitionPathStr =
-                generateSubpartitionPath(basePath, resultPartitionID, subpartitionId);
+                getSubpartitionPath(basePath, resultPartitionID, subpartitionId);
         Path subpartitionPath = new Path(subpartitionPathStr);
         FileSystem fs = subpartitionPath.getFileSystem();
         if (!fs.exists(subpartitionPath)) {
@@ -111,35 +145,11 @@ public class TieredStorageUtils {
     public static void writeSegmentFinishFile(String baseSubpartitionPath, long currentSegmentIndex)
             throws IOException {
         Path markFinishSegmentPath =
-                generateSegmentFinishPath(baseSubpartitionPath, currentSegmentIndex);
+                getSegmentFinishPath(baseSubpartitionPath, currentSegmentIndex);
         FileSystem fs = markFinishSegmentPath.getFileSystem();
         OutputStream outputStream =
                 fs.create(markFinishSegmentPath, FileSystem.WriteMode.OVERWRITE);
         outputStream.close();
-    }
-
-    public static String generateToReleasePartitionPath(
-            JobID jobID, ResultPartitionID resultPartitionID, String baseDfsPath) {
-        if (jobID == null || baseDfsPath == null) {
-            return null;
-        }
-
-        while (baseDfsPath.endsWith("/") && baseDfsPath.length() > 1) {
-            baseDfsPath = baseDfsPath.substring(0, baseDfsPath.length() - 1);
-        }
-        return String.format("%s/%s/%s/%s", baseDfsPath, TIER_STORE_DIR, jobID, resultPartitionID);
-    }
-
-    public static String generateToReleasePartitionPath(
-            ResultPartitionID resultPartitionID, String basePath) {
-        if (basePath == null) {
-            return null;
-        }
-
-        while (basePath.endsWith("/") && basePath.length() > 1) {
-            basePath = basePath.substring(0, basePath.length() - 1);
-        }
-        return String.format("%s/%s", basePath, resultPartitionID);
     }
 
     public static void deletePath(Path path) throws IOException {
@@ -174,55 +184,13 @@ public class TieredStorageUtils {
         }
     }
 
-    public static String generateSubpartitionPath(
-            String basePath, ResultPartitionID resultPartitionID, int subpartitionId) {
-        while (basePath.endsWith("/") && basePath.length() > 1) {
-            basePath = basePath.substring(0, basePath.length() - 1);
-        }
-        return String.format("%s/%s/%s", basePath, resultPartitionID, subpartitionId);
-    }
-
-    public static String generateSubpartitionPath(
-            JobID jobID,
-            ResultPartitionID resultPartitionID,
-            int subpartitionId,
-            String baseDfsPath) {
-        while (baseDfsPath.endsWith("/") && baseDfsPath.length() > 1) {
-            baseDfsPath = baseDfsPath.substring(0, baseDfsPath.length() - 1);
-        }
-        return String.format(
-                "%s/%s/%s/%s/%s",
-                baseDfsPath, TIER_STORE_DIR, jobID, resultPartitionID, subpartitionId);
-    }
-
-    public static Path generateSegmentFinishPath(
-            String baseSubpartitionPath, long currentSegmentIndex) {
-        return new Path(
-                baseSubpartitionPath,
-                SEGMENT_FILE_PREFIX + currentSegmentIndex + SEGMENT_FINISH_FILE_SUFFIX);
-    }
-
-    public static Path generateSegmentPath(
-            String basePath,
-            ResultPartitionID resultPartitionID,
-            int subpartitionId,
-            long segmentId) {
-        String subpartitionPath =
-                generateSubpartitionPath(basePath, resultPartitionID, subpartitionId);
-        return new Path(subpartitionPath, SEGMENT_FILE_PREFIX + segmentId);
-    }
-
     public static void deletePathQuietly(String toRemovePath) {
-        deletePathQuietly(new Path(toRemovePath));
-    }
-
-    public static void deletePathQuietly(Path toRemovePath) {
         if (toRemovePath == null) {
             return;
         }
 
         try {
-            deletePath(toRemovePath);
+            deletePath(new Path(toRemovePath));
         } catch (IOException e) {
             LOG.error("Failed to delete files for {} ", toRemovePath, e);
         }

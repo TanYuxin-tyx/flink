@@ -203,7 +203,7 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
     @Override
     public void unregisterJob(JobID jobID) {
         if (baseDfsPath != null) {
-            String jobPath = TieredStorageUtils.createJobPath(jobID, baseDfsPath);
+            String jobPath = TieredStorageUtils.getJobPath(jobID, baseDfsPath);
             tieredStorageMasterClient.release(jobPath);
         }
     }

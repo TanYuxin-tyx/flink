@@ -21,7 +21,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResource;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 
@@ -31,7 +30,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.deletePathQuietly;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateToReleasePartitionPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getPartitionPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.removePartitionFiles;
 
 public class RemoteTierMasterAgent implements TierMasterAgent {
@@ -49,10 +48,10 @@ public class RemoteTierMasterAgent implements TierMasterAgent {
     }
 
     @Override
-    public void addPartition(ResultPartitionID resultPartitionID) {
+    public void addPartition(ResultPartitionID partitionID) {
         resourceRegistry.registerResource(
-                TieredStorageIdMappingUtils.convertId(resultPartitionID),
-                createResourceOfReleasePartitionFiles(resultPartitionID));
+                TieredStorageIdMappingUtils.convertId(partitionID),
+                () -> deletePathQuietly(getPartitionPath(partitionID, remoteStorageBaseHomePath)));
     }
 
     @Override
@@ -69,14 +68,5 @@ public class RemoteTierMasterAgent implements TierMasterAgent {
     @Override
     public void release(String pathToRelease) {
         deletePathQuietly(pathToRelease);
-    }
-
-    private TieredStorageResource createResourceOfReleasePartitionFiles(
-            ResultPartitionID resultPartitionID) {
-        return () -> {
-            String toReleasePath =
-                    generateToReleasePartitionPath(resultPartitionID, remoteStorageBaseHomePath);
-            deletePathQuietly(toReleasePath);
-        };
     }
 }

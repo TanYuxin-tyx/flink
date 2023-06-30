@@ -24,6 +24,7 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -39,8 +40,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateSegmentFinishPath;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateSubpartitionPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getSegmentFinishPath;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -134,7 +134,7 @@ public class RemoteStorageScanner implements Runnable {
         while (segmentFileNumber-- > 0) {
             Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>
                     partitionIdAndSubpartitionIdAndSegmentId =
-                    checkNotNull(requiredSegmentIds.poll());
+                            checkNotNull(requiredSegmentIds.poll());
             if (checkFileExist(
                     partitionIdAndSubpartitionIdAndSegmentId.f0,
                     partitionIdAndSubpartitionIdAndSegmentId.f1,
@@ -180,11 +180,11 @@ public class RemoteStorageScanner implements Runnable {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
         String baseSubpartitionPath =
-                generateSubpartitionPath(
+                TieredStorageUtils.getSubpartitionPath(
                         baseRemoteStoragePath,
                         TieredStorageIdMappingUtils.convertId(partitionId),
                         subpartitionId.getSubpartitionId());
-        Path currentSegmentFinishPath = generateSegmentFinishPath(baseSubpartitionPath, segmentId);
+        Path currentSegmentFinishPath = getSegmentFinishPath(baseSubpartitionPath, segmentId);
         try {
             return remoteFileSystem.exists(currentSegmentFinishPath);
         } catch (IOException e) {
