@@ -119,6 +119,7 @@ public class SubpartitionRemoteCacheManager {
     void release() {
         recycleBuffers();
         checkState(allBuffers.isEmpty(), "Leaking buffers.");
+        partitionFileWriter.release();
     }
 
     // ------------------------------------------------------------------------
