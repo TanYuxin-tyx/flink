@@ -165,6 +165,14 @@ public class RemoteStorageScanner implements Runnable {
                 channelIndexes.get(partitionId).get(subpartitionId), isPriority);
     }
 
+    public void updatePrioritySequenceNumber(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int sequenceNumber) {
+        helper.updatePrioritySequenceNumber(
+                channelIndexes.get(partitionId).get(subpartitionId), sequenceNumber);
+    }
+
     // ------------------------------------------------------------------------
     //  Internal Methods
     // ------------------------------------------------------------------------

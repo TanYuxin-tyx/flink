@@ -34,4 +34,13 @@ public interface RemoteStorageScannerAvailabilityAndPriorityHelper {
      * @param isPriority the value is to indicate the priority of reading process.
      */
     void notifyAvailableAndPriority(int channelIndex, boolean isPriority);
+
+    /**
+     * Update the latest sequence number of priority buffer read by the {@link
+     * RemoteTierConsumerAgent}, which helps determine if the reading process should have priority.
+     *
+     * @param channelIndex the index of input channel related to the connection.
+     * @param sequenceNumber the sequence number of priority buffer.
+     */
+    void updatePrioritySequenceNumber(int channelIndex, int sequenceNumber);
 }

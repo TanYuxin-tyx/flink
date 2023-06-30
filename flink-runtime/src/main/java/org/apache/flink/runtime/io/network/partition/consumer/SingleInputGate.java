@@ -47,6 +47,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScannerAvailabilityAndPriorityHelper;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -304,8 +305,19 @@ public class SingleInputGate extends IndexedInputGate {
                             });
             if (remoteStorageScanner != null) {
                 remoteStorageScanner.setupRemoteStorageScannerAvailabilityAndPriorityHelper(
-                        (subpartitionId, priority) ->
-                                queueChannel(channels[subpartitionId], null, priority));
+                        new RemoteStorageScannerAvailabilityAndPriorityHelper() {
+                            @Override
+                            public void notifyAvailableAndPriority(
+                                    int channelIndex, boolean isPriority) {
+                                queueChannelCallBack.accept(channelIndex, isPriority);
+                            }
+
+                            @Override
+                            public void updatePrioritySequenceNumber(
+                                    int channelIndex, int sequenceNumber) {
+                                lastPrioritySequenceNumber[channelIndex] = sequenceNumber;
+                            }
+                        });
             }
         }
     }

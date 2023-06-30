@@ -86,6 +86,10 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                     partitionId, subpartitionId, buffer.getDataType().hasPriority());
         }
         if (buffer != null) {
+            if (buffer.getDataType().hasPriority()) {
+                remoteStorageScanner.updatePrioritySequenceNumber(
+                        partitionId, subpartitionId, currentBufferIndex);
+            }
             currentBufferIndexAndSegmentIds
                     .get(partitionId)
                     .put(subpartitionId, Tuple2.of(++currentBufferIndex, segmentId));
