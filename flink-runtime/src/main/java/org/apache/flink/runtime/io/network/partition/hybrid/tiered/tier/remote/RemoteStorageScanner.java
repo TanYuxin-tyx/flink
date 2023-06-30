@@ -30,18 +30,18 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateSegmentFinishPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateSubpartitionPath;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
  * The {@link RemoteStorageScanner} is introduced to notify asynchronously for file reading on
@@ -61,8 +61,11 @@ public class RemoteStorageScanner implements Runnable {
                             .setNameFormat("remote storage file scanner")
                             .build());
 
-    /** Partition ids and subpartition ids and segment ids stored in list. */
-    private final List<Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>>
+    /**
+     * Tuple3 containing partition id and subpartition id and segment id. The tuple3 is stored in
+     * queue and indicates the required segment file.
+     */
+    private final Queue<Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>>
             requiredSegmentIds;
 
     /**
@@ -90,7 +93,7 @@ public class RemoteStorageScanner implements Runnable {
                     .computeIfAbsent(spec.getPartitionId(), ignore -> new HashMap<>())
                     .put(spec.getSubpartitionId(), index);
         }
-        this.requiredSegmentIds = new LinkedList<>();
+        this.requiredSegmentIds = new LinkedBlockingDeque<>();
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
@@ -116,9 +119,7 @@ public class RemoteStorageScanner implements Runnable {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
-        synchronized (this) {
-            requiredSegmentIds.add(Tuple3.of(partitionId, subpartitionId, segmentId));
-        }
+        requiredSegmentIds.add(Tuple3.of(partitionId, subpartitionId, segmentId));
     }
 
     /** Close the executor. */
@@ -129,27 +130,24 @@ public class RemoteStorageScanner implements Runnable {
     /** Iterate the registered segment ids and check related file status. */
     @Override
     public void run() {
-        List<Integer> needNotifyChannelIndexes = new ArrayList<>();
-        synchronized (this) {
-            Iterator<Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>>
-                    iterator = requiredSegmentIds.iterator();
-            while (iterator.hasNext()) {
-                Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>
-                        partitionIdAndSubpartitionIdAndSegmentId = iterator.next();
-                if (checkFileExist(
-                        partitionIdAndSubpartitionIdAndSegmentId.f0,
-                        partitionIdAndSubpartitionIdAndSegmentId.f1,
-                        partitionIdAndSubpartitionIdAndSegmentId.f2)) {
-                    needNotifyChannelIndexes.add(
-                            channelIndexes
-                                    .get(partitionIdAndSubpartitionIdAndSegmentId.f0)
-                                    .get(partitionIdAndSubpartitionIdAndSegmentId.f1));
-                    iterator.remove();
-                }
+        int segmentFileNumber = requiredSegmentIds.size();
+        while (segmentFileNumber-- > 0) {
+            Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>
+                    partitionIdAndSubpartitionIdAndSegmentId =
+                    checkNotNull(requiredSegmentIds.poll());
+            if (checkFileExist(
+                    partitionIdAndSubpartitionIdAndSegmentId.f0,
+                    partitionIdAndSubpartitionIdAndSegmentId.f1,
+                    partitionIdAndSubpartitionIdAndSegmentId.f2)) {
+                helper.notifyAvailableAndPriority(
+                        channelIndexes
+                                .get(partitionIdAndSubpartitionIdAndSegmentId.f0)
+                                .get(partitionIdAndSubpartitionIdAndSegmentId.f1),
+                        false);
+            } else {
+                requiredSegmentIds.add(partitionIdAndSubpartitionIdAndSegmentId);
             }
         }
-        needNotifyChannelIndexes.forEach(
-                channelIndex -> helper.notifyAvailableAndPriority(channelIndex, false));
     }
 
     public void setupRemoteStorageScannerAvailabilityAndPriorityHelper(
