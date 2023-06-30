@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 
@@ -40,7 +39,7 @@ public class TieredStorageMasterClient {
         tiers.forEach(tierMasterAgent -> tierMasterAgent.releasePartition(resultPartitionID));
     }
 
-    public void release(JobID jobID) {
-        tiers.forEach(tierMasterAgent -> tierMasterAgent.release(jobID));
+    public void release(String pathToRelease) {
+        tiers.forEach(tierMasterAgent -> tierMasterAgent.release(pathToRelease));
     }
 }

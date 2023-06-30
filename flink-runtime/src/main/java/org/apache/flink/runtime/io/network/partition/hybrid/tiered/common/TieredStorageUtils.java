@@ -30,6 +30,9 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -43,6 +46,8 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** Utils for reading or writing to tiered store. */
 public class TieredStorageUtils {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TieredStorageUtils.class);
 
     public static final String TIER_STORE_DIR = "tiered-storage";
 
@@ -86,11 +91,11 @@ public class TieredStorageUtils {
         checkState(writeSize == expectedBytes);
     }
 
-    public static String createJobBasePath(JobID jobID, String basePath) {
+    public static String createJobPath(JobID jobID, String basePath) {
         return String.format("%s/%s/%s", basePath, TieredStorageUtils.TIER_STORE_DIR, jobID);
     }
 
-    public static String createSubpartitionPath(
+    public static String mkdirForSubpartitionPath(
             String basePath, ResultPartitionID resultPartitionID, int subpartitionId)
             throws IOException {
         String subpartitionPathStr =
@@ -111,17 +116,6 @@ public class TieredStorageUtils {
         OutputStream outputStream =
                 fs.create(markFinishSegmentPath, FileSystem.WriteMode.OVERWRITE);
         outputStream.close();
-    }
-
-    public static String generateJobPath(JobID jobID, String baseDfsPath) {
-        if (jobID == null || baseDfsPath == null) {
-            return null;
-        }
-
-        while (baseDfsPath.endsWith("/") && baseDfsPath.length() > 1) {
-            baseDfsPath = baseDfsPath.substring(0, baseDfsPath.length() - 1);
-        }
-        return String.format("%s/%s/%s", baseDfsPath, TIER_STORE_DIR, jobID);
     }
 
     public static String generateToReleasePartitionPath(
@@ -166,24 +160,18 @@ public class TieredStorageUtils {
         return fs.listStatus(path);
     }
 
-    public static Path findPathContainsPartition(Path path, ResultPartitionID resultPartitionID)
+    public static void removePartitionFiles(Path path, ResultPartitionID resultPartitionID)
             throws IOException {
         if (path == null || resultPartitionID == null) {
-            return null;
+            return;
         }
         FileStatus[] jobDirs = listStatus(path);
         for (FileStatus jobDir : jobDirs) {
             if (!jobDir.isDir()) {
                 continue;
             }
-            FileStatus[] partitionDirs = listStatus(jobDir.getPath());
-            for (FileStatus partitionDir : partitionDirs) {
-                if (partitionDir.getPath().toString().endsWith(resultPartitionID.toString())) {
-                    return partitionDir.getPath();
-                }
-            }
+            deletePath(new Path(jobDir.getPath(), resultPartitionID.toString()));
         }
-        return null;
     }
 
     public static String generateSubpartitionPath(
@@ -222,6 +210,22 @@ public class TieredStorageUtils {
         String subpartitionPath =
                 generateSubpartitionPath(basePath, resultPartitionID, subpartitionId);
         return new Path(subpartitionPath, SEGMENT_FILE_PREFIX + segmentId);
+    }
+
+    public static void deletePathQuietly(String toRemovePath) {
+        deletePathQuietly(new Path(toRemovePath));
+    }
+
+    public static void deletePathQuietly(Path toRemovePath) {
+        if (toRemovePath == null) {
+            return;
+        }
+
+        try {
+            deletePath(toRemovePath);
+        } catch (IOException e) {
+            LOG.error("Failed to delete files for {} ", toRemovePath, e);
+        }
     }
 
     public static byte[] randomBytes(int length) {

@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 
 public interface TierMasterAgent {
@@ -28,5 +27,5 @@ public interface TierMasterAgent {
 
     void releasePartition(ResultPartitionID resultPartitionID);
 
-    void release(JobID jobID);
+    void release(String pathToRelease);
 }

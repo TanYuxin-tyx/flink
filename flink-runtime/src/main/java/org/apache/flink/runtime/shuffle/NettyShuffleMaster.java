@@ -24,6 +24,7 @@ import org.apache.flink.configuration.MemorySize;
 import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMasterClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
@@ -201,6 +202,9 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
 
     @Override
     public void unregisterJob(JobID jobID) {
-        tieredStorageMasterClient.release(jobID);
+        if (baseDfsPath != null) {
+            String jobPath = TieredStorageUtils.createJobPath(jobID, baseDfsPath);
+            tieredStorageMasterClient.release(jobPath);
+        }
     }
 }
