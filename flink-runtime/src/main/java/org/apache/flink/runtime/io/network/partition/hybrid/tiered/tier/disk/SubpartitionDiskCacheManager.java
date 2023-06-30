@@ -79,8 +79,8 @@ class SubpartitionDiskCacheManager {
         addBuffer(buffer);
     }
 
-    void appendEndOfSegmentEvent(ByteBuffer record, DataType dataType) {
-        writeEvent(record, dataType);
+    void appendEndOfSegmentEvent(ByteBuffer record) {
+        writeEvent(record, DataType.END_OF_SEGMENT);
         synchronized (allBuffers) {
             segmentIndex++;
         }

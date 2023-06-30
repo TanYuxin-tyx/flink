@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 
@@ -30,5 +29,5 @@ public class DiskTierMasterAgent implements TierMasterAgent {
     public void releasePartition(ResultPartitionID resultPartitionID) {}
 
     @Override
-    public void release(JobID jobID) {}
+    public void release(String pathToRelease) {}
 }

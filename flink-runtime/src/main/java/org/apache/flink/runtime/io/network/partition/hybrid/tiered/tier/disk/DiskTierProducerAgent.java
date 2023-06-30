@@ -50,7 +50,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.useNewBufferRecyclerAndCompressBuffer;
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -213,11 +212,9 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     private void emitEndOfSegmentEvent(int subpartitionId) {
         try {
             diskCacheManager.appendEndOfSegmentEvent(
-                    EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE),
-                    subpartitionId,
-                    END_OF_SEGMENT);
+                    EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE), subpartitionId);
         } catch (IOException e) {
-            ExceptionUtils.rethrow(e, "Failed to emitEndOfSegmentEvent");
+            ExceptionUtils.rethrow(e, "Failed to emit end of segment event.");
         }
     }
 
