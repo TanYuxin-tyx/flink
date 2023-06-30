@@ -27,7 +27,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
@@ -139,10 +138,7 @@ public class HashPartitionFileReader implements PartitionFileReader {
             throws IOException {
         Path currentSegmentPath =
                 getSegmentPath(
-                        basePath,
-                        TieredStorageIdMappingUtils.convertId(partitionId),
-                        subpartitionId.getSubpartitionId(),
-                        segmentId);
+                        basePath, partitionId, subpartitionId.getSubpartitionId(), segmentId);
         if (!fileSystem.exists(currentSegmentPath)) {
             return null;
         }

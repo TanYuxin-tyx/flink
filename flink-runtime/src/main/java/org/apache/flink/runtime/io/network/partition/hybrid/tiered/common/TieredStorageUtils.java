@@ -116,10 +116,14 @@ public class TieredStorageUtils {
 
     public static Path getSegmentPath(
             String basePath,
-            ResultPartitionID resultPartitionID,
+            TieredStoragePartitionId partitionId,
             int subpartitionId,
             long segmentId) {
-        String subpartitionPath = getSubpartitionPath(basePath, resultPartitionID, subpartitionId);
+        String subpartitionPath =
+                getSubpartitionPath(
+                        basePath,
+                        TieredStorageIdMappingUtils.convertId(partitionId),
+                        subpartitionId);
         return new Path(subpartitionPath, SEGMENT_FILE_PREFIX + segmentId);
     }
 
@@ -130,10 +134,13 @@ public class TieredStorageUtils {
     }
 
     public static String createSubpartitionPath(
-            String basePath, ResultPartitionID resultPartitionID, int subpartitionId)
+            String basePath, TieredStoragePartitionId partitionId, int subpartitionId)
             throws IOException {
         String subpartitionPathStr =
-                getSubpartitionPath(basePath, resultPartitionID, subpartitionId);
+                getSubpartitionPath(
+                        basePath,
+                        TieredStorageIdMappingUtils.convertId(partitionId),
+                        subpartitionId);
         Path subpartitionPath = new Path(subpartitionPathStr);
         FileSystem fs = subpartitionPath.getFileSystem();
         if (!fs.exists(subpartitionPath)) {

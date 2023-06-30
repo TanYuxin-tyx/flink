@@ -18,8 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
-
 /**
  * The partition file in the hash mode. In this mode, each segment of one subpartition is written to
  * an independent file.
@@ -27,8 +25,8 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 public class HashPartitionFile {
 
     public static HashPartitionFileWriter createPartitionFileWriter(
-            String dataFilePath, int numSubpartitions, ResultPartitionID resultPartitionID) {
-        return new HashPartitionFileWriter(dataFilePath, numSubpartitions, resultPartitionID);
+            String dataFilePath, int numSubpartitions) {
+        return new HashPartitionFileWriter(dataFilePath, numSubpartitions);
     }
 
     public static HashPartitionFileReader createPartitionFileReader(String dataFilePath) {
