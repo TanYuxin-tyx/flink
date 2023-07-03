@@ -26,8 +26,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMast
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.deletePathQuietly;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getPartitionPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.deletePathQuietly;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getPartitionPath;
 
 public class RemoteTierMasterAgent implements TierMasterAgent {
 

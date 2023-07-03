@@ -18,11 +18,35 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
+import org.apache.flink.core.fs.FileStatus;
+import org.apache.flink.core.fs.FileSystem;
+import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.WritableByteChannel;
+
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.TIER_STORAGE_DIR;
+import static org.apache.flink.util.Preconditions.checkState;
+
 /**
  * The partition file in the hash mode. In this mode, each segment of one subpartition is written to
  * an independent file.
  */
 public class SegmentPartitionFile {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SegmentPartitionFile.class);
+
+    private static final String SEGMENT_FILE_PREFIX = "seg-";
+
+    private static final String SEGMENT_FINISH_DIR_NAME = "FINISH";
 
     public static SegmentPartitionFileWriter createPartitionFileWriter(
             String dataFilePath, int numSubpartitions) {
@@ -31,5 +55,137 @@ public class SegmentPartitionFile {
 
     public static SegmentPartitionFileReader createPartitionFileReader(String dataFilePath) {
         return new SegmentPartitionFileReader(dataFilePath);
+    }
+
+    // ------------------------------------------------------------------------
+    //  File-related utilities
+    // ------------------------------------------------------------------------
+
+    public static void writeBuffers(
+            WritableByteChannel writeChannel, long expectedBytes, ByteBuffer[] bufferWithHeaders)
+            throws IOException {
+        int writeSize = 0;
+        for (ByteBuffer bufferWithHeader : bufferWithHeaders) {
+            writeSize += writeChannel.write(bufferWithHeader);
+        }
+        checkState(writeSize == expectedBytes);
+    }
+
+    public static String getTieredStoragePath(String basePath) {
+        return String.format("%s/%s", basePath, TIER_STORAGE_DIR);
+    }
+
+    public static String getPartitionPath(ResultPartitionID partitionID, String basePath) {
+        if (basePath == null) {
+            return null;
+        }
+
+        while (basePath.endsWith("/") && basePath.length() > 1) {
+            basePath = basePath.substring(0, basePath.length() - 1);
+        }
+        return String.format("%s/%s/%s", basePath, TIER_STORAGE_DIR, partitionID);
+    }
+
+    public static String getSubpartitionPath(
+            String basePath, TieredStoragePartitionId partitionId, int subpartitionId) {
+        while (basePath.endsWith("/") && basePath.length() > 1) {
+            basePath = basePath.substring(0, basePath.length() - 1);
+        }
+        return String.format(
+                "%s/%s/%s",
+                basePath, TieredStorageIdMappingUtils.convertId(partitionId), subpartitionId);
+    }
+
+    public static Path getSegmentPath(
+            String basePath,
+            TieredStoragePartitionId partitionId,
+            int subpartitionId,
+            long segmentId) {
+        String subpartitionPath = getSubpartitionPath(basePath, partitionId, subpartitionId);
+        return new Path(subpartitionPath, SEGMENT_FILE_PREFIX + segmentId);
+    }
+
+    public static Path getSegmentFinishDir(String baseSubpartitionPath) {
+        return new Path(baseSubpartitionPath, SEGMENT_FINISH_DIR_NAME);
+    }
+
+    public static String createSubpartitionPath(
+            String basePath, TieredStoragePartitionId partitionId, int subpartitionId)
+            throws IOException {
+        String subpartitionPathStr = getSubpartitionPath(basePath, partitionId, subpartitionId);
+        Path subpartitionPath = new Path(subpartitionPathStr);
+        FileSystem fs = subpartitionPath.getFileSystem();
+        if (!fs.exists(subpartitionPath)) {
+            fs.mkdirs(subpartitionPath);
+        }
+        return subpartitionPathStr;
+    }
+
+    public static void writeSegmentFinishFile(String baseSubpartitionPath, int segmentId)
+            throws IOException {
+        Path segmentFinishDir = getSegmentFinishDir(baseSubpartitionPath);
+        FileSystem fs = segmentFinishDir.getFileSystem();
+        Path segmentFinishFile = new Path(segmentFinishDir, String.valueOf(segmentId));
+        if (!fs.exists(segmentFinishDir)) {
+            fs.mkdirs(segmentFinishDir);
+            OutputStream outputStream =
+                    fs.create(segmentFinishFile, FileSystem.WriteMode.OVERWRITE);
+            outputStream.close();
+            return;
+        }
+
+        FileStatus[] files = fs.listStatus(segmentFinishDir);
+        if (files.length == 0) {
+            OutputStream outputStream =
+                    fs.create(segmentFinishFile, FileSystem.WriteMode.OVERWRITE);
+            outputStream.close();
+        } else {
+            checkState(files.length == 1);
+            fs.rename(files[0].getPath(), segmentFinishFile);
+        }
+    }
+
+    public static void deletePath(Path path) throws IOException {
+        if (path == null) {
+            return;
+        }
+        FileSystem fs = path.getFileSystem();
+        if (fs.exists(path)) {
+            fs.delete(path, true);
+        }
+    }
+
+    public static FileStatus[] listStatus(Path path) throws IOException {
+        if (path == null) {
+            return null;
+        }
+        FileSystem fs = path.getFileSystem();
+        return fs.listStatus(path);
+    }
+
+    public static void removePartitionFiles(Path path, ResultPartitionID resultPartitionID)
+            throws IOException {
+        if (path == null || resultPartitionID == null) {
+            return;
+        }
+        FileStatus[] jobDirs = listStatus(path);
+        for (FileStatus jobDir : jobDirs) {
+            if (!jobDir.isDir()) {
+                continue;
+            }
+            deletePath(new Path(jobDir.getPath(), resultPartitionID.toString()));
+        }
+    }
+
+    public static void deletePathQuietly(String toRemovePath) {
+        if (toRemovePath == null) {
+            return;
+        }
+
+        try {
+            deletePath(new Path(toRemovePath));
+        } catch (IOException e) {
+            LOG.error("Failed to delete files for {} ", toRemovePath, e);
+        }
     }
 }

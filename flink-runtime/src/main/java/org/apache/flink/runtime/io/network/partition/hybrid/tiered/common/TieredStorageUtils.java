@@ -19,29 +19,21 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.core.fs.FileStatus;
-import org.apache.flink.core.fs.FileSystem;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
 import java.util.List;
 import java.util.Random;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /** Utils for reading or writing to tiered store. */
 public class TieredStorageUtils {
@@ -51,12 +43,6 @@ public class TieredStorageUtils {
     public static final String TIER_STORAGE_DIR = "tiered-storage";
 
     public static final String DATA_FILE_SUFFIX = ".tier-storage.data";
-
-    private static final String SEGMENT_FILE_PREFIX = "seg-";
-
-    private static final String SEGMENT_FINISH_FILE_SUFFIX = ".FINISH";
-
-    private static final String SEGMENT_FINISH_DIR_SUFFIX = "FINISH";
 
     private static final char[] HEX_CHARS = {
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
@@ -73,141 +59,13 @@ public class TieredStorageUtils {
         return bufferWithHeaders;
     }
 
-    public static void setBufferWithHeader(
+    private static void setBufferWithHeader(
             Buffer buffer, ByteBuffer[] bufferWithHeaders, int index) {
         ByteBuffer header = BufferReaderWriterUtil.allocatedHeaderBuffer();
         BufferReaderWriterUtil.setByteChannelBufferHeader(buffer, header);
 
         bufferWithHeaders[index] = header;
         bufferWithHeaders[index + 1] = buffer.getNioBufferReadable();
-    }
-
-    public static void writeBuffers(
-            WritableByteChannel writeChannel, long expectedBytes, ByteBuffer[] bufferWithHeaders)
-            throws IOException {
-        int writeSize = 0;
-        for (ByteBuffer bufferWithHeader : bufferWithHeaders) {
-            writeSize += writeChannel.write(bufferWithHeader);
-        }
-        checkState(writeSize == expectedBytes);
-    }
-
-    public static String getTieredStoragePath(String basePath) {
-        return String.format("%s/%s", basePath, TIER_STORAGE_DIR);
-    }
-
-    public static String getPartitionPath(ResultPartitionID partitionID, String basePath) {
-        if (basePath == null) {
-            return null;
-        }
-
-        while (basePath.endsWith("/") && basePath.length() > 1) {
-            basePath = basePath.substring(0, basePath.length() - 1);
-        }
-        return String.format("%s/%s/%s", basePath, TIER_STORAGE_DIR, partitionID);
-    }
-
-    public static String getSubpartitionPath(
-            String basePath, TieredStoragePartitionId partitionId, int subpartitionId) {
-        while (basePath.endsWith("/") && basePath.length() > 1) {
-            basePath = basePath.substring(0, basePath.length() - 1);
-        }
-        return String.format(
-                "%s/%s/%s",
-                basePath, TieredStorageIdMappingUtils.convertId(partitionId), subpartitionId);
-    }
-
-    public static Path getSegmentPath(
-            String basePath,
-            TieredStoragePartitionId partitionId,
-            int subpartitionId,
-            long segmentId) {
-        String subpartitionPath = getSubpartitionPath(basePath, partitionId, subpartitionId);
-        return new Path(subpartitionPath, SEGMENT_FILE_PREFIX + segmentId);
-    }
-
-    public static Path getSegmentFinishDir(String baseSubpartitionPath) {
-        return new Path(baseSubpartitionPath, SEGMENT_FINISH_DIR_SUFFIX);
-    }
-
-    public static String createSubpartitionPath(
-            String basePath, TieredStoragePartitionId partitionId, int subpartitionId)
-            throws IOException {
-        String subpartitionPathStr = getSubpartitionPath(basePath, partitionId, subpartitionId);
-        Path subpartitionPath = new Path(subpartitionPathStr);
-        FileSystem fs = subpartitionPath.getFileSystem();
-        if (!fs.exists(subpartitionPath)) {
-            fs.mkdirs(subpartitionPath);
-        }
-        return subpartitionPathStr;
-    }
-
-    public static void writeSegmentFinishFile(String baseSubpartitionPath, int segmentId)
-            throws IOException {
-        Path segmentFinishDir = getSegmentFinishDir(baseSubpartitionPath);
-        FileSystem fs = segmentFinishDir.getFileSystem();
-        Path segmentFinishFile = new Path(segmentFinishDir, String.valueOf(segmentId));
-        if (!fs.exists(segmentFinishDir)) {
-            fs.mkdirs(segmentFinishDir);
-            OutputStream outputStream =
-                    fs.create(segmentFinishFile, FileSystem.WriteMode.OVERWRITE);
-            outputStream.close();
-            return;
-        }
-
-        FileStatus[] files = fs.listStatus(segmentFinishDir);
-        if (files.length == 0) {
-            OutputStream outputStream =
-                    fs.create(segmentFinishFile, FileSystem.WriteMode.OVERWRITE);
-            outputStream.close();
-        } else {
-            checkState(files.length == 1);
-            fs.rename(files[0].getPath(), segmentFinishFile);
-        }
-    }
-
-    public static void deletePath(Path path) throws IOException {
-        if (path == null) {
-            return;
-        }
-        FileSystem fs = path.getFileSystem();
-        if (fs.exists(path)) {
-            fs.delete(path, true);
-        }
-    }
-
-    public static FileStatus[] listStatus(Path path) throws IOException {
-        if (path == null) {
-            return null;
-        }
-        FileSystem fs = path.getFileSystem();
-        return fs.listStatus(path);
-    }
-
-    public static void removePartitionFiles(Path path, ResultPartitionID resultPartitionID)
-            throws IOException {
-        if (path == null || resultPartitionID == null) {
-            return;
-        }
-        FileStatus[] jobDirs = listStatus(path);
-        for (FileStatus jobDir : jobDirs) {
-            if (!jobDir.isDir()) {
-                continue;
-            }
-            deletePath(new Path(jobDir.getPath(), resultPartitionID.toString()));
-        }
-    }
-
-    public static void deletePathQuietly(String toRemovePath) {
-        if (toRemovePath == null) {
-            return;
-        }
-
-        try {
-            deletePath(new Path(toRemovePath));
-        } catch (IOException e) {
-            LOG.error("Failed to delete files for {} ", toRemovePath, e);
-        }
     }
 
     public static byte[] randomBytes(int length) {

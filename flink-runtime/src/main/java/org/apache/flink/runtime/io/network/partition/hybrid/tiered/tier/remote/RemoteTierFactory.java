@@ -39,7 +39,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getTieredStoragePath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getTieredStoragePath;
 
 public class RemoteTierFactory implements TierFactory {
 

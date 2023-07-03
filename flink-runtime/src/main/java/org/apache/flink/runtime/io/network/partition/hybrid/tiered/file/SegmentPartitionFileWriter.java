@@ -24,7 +24,6 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.concurrent.FutureUtils;
@@ -44,10 +43,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.createSubpartitionPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateBufferWithHeaders;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getSegmentPath;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.writeSegmentFinishFile;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.createSubpartitionPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.writeSegmentFinishFile;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -192,7 +191,7 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
             subpartitionPath = createSubpartitionPath(basePath, partitionId, subpartitionId);
             writeSegmentFinishFile(subpartitionPath, segmentId);
             WritableByteChannel channel = subpartitionChannels[subpartitionId];
-            if(channel != null){
+            if (channel != null) {
                 channel.close();
                 subpartitionChannels[subpartitionId] = null;
             }
@@ -228,10 +227,10 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
             currentChannel =
                     Channels.newChannel(
                             fs.create(writingSegmentPath, FileSystem.WriteMode.NO_OVERWRITE));
-            TieredStorageUtils.writeBuffers(currentChannel, expectedBytes, bufferWithHeaders);
+            SegmentPartitionFile.writeBuffers(currentChannel, expectedBytes, bufferWithHeaders);
             subpartitionChannels[subpartitionId] = currentChannel;
         } else {
-            TieredStorageUtils.writeBuffers(currentChannel, expectedBytes, bufferWithHeaders);
+            SegmentPartitionFile.writeBuffers(currentChannel, expectedBytes, bufferWithHeaders);
         }
     }
 }
