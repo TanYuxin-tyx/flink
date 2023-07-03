@@ -155,28 +155,6 @@ public class SegmentPartitionFile {
         }
     }
 
-    public static FileStatus[] listStatus(Path path) throws IOException {
-        if (path == null) {
-            return null;
-        }
-        FileSystem fs = path.getFileSystem();
-        return fs.listStatus(path);
-    }
-
-    public static void removePartitionFiles(Path path, ResultPartitionID resultPartitionID)
-            throws IOException {
-        if (path == null || resultPartitionID == null) {
-            return;
-        }
-        FileStatus[] jobDirs = listStatus(path);
-        for (FileStatus jobDir : jobDirs) {
-            if (!jobDir.isDir()) {
-                continue;
-            }
-            deletePath(new Path(jobDir.getPath(), resultPartitionID.toString()));
-        }
-    }
-
     public static void deletePathQuietly(String toRemovePath) {
         if (toRemovePath == null) {
             return;

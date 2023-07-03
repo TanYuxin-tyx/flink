@@ -25,9 +25,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Random;
@@ -37,8 +34,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** Utils for reading or writing to tiered store. */
 public class TieredStorageUtils {
-
-    private static final Logger LOG = LoggerFactory.getLogger(TieredStorageUtils.class);
 
     public static final String TIER_STORAGE_DIR = "tiered-storage";
 
