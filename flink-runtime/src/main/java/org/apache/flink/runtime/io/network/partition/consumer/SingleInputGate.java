@@ -334,7 +334,7 @@ public class SingleInputGate extends IndexedInputGate {
                 Integer priorityBufferSequenceNumber) {
             int channelIndex = channelIndexes.get(partitionId).get(subpartitionId);
             if (isPriority) {
-                queueChannel(channels[channelIndex], priorityBufferSequenceNumber, true);
+                queueChannel(channels[channelIndex], priorityBufferSequenceNumber, false);
                 lastPrioritySequenceNumber[channelIndex] = priorityBufferSequenceNumber;
             } else {
                 queueChannel(channels[channelIndex], null, false);
