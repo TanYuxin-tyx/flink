@@ -92,13 +92,12 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
                             segmentBuffers -> {
                                 CompletableFuture<Void> flushSuccessNotifier =
                                         new CompletableFuture<>();
-                                Runnable writeRunnable =
-                                        getFlushOrFinisheSegmentRunnable(
+                                ioExecutor.execute(
+                                        flushOrFinishSegmentRunnable(
                                                 partitionId,
                                                 subpartitionId,
                                                 segmentBuffers,
-                                                flushSuccessNotifier);
-                                ioExecutor.execute(writeRunnable);
+                                                flushSuccessNotifier));
                                 completableFutures.add(flushSuccessNotifier);
                             });
                 });
@@ -130,7 +129,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private Runnable getFlushOrFinisheSegmentRunnable(
+    private Runnable flushOrFinishSegmentRunnable(
             TieredStoragePartitionId partitionId,
             int subpartitionId,
             SegmentBufferContext segmentBuffers,
@@ -140,17 +139,15 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         boolean isFinishSegment = segmentBuffers.isSegmentFinished();
         checkState(!buffersToFlush.isEmpty() || isFinishSegment);
 
-        return buffersToFlush.size() > 0
-                ? () ->
-                        flush(
-                                partitionId,
-                                subpartitionId,
-                                segmentId,
-                                buffersToFlush,
-                                flushSuccessNotifier)
-                : () ->
-                        writeFinishSegmentFile(
-                                partitionId, subpartitionId, segmentId, flushSuccessNotifier);
+        return () -> {
+            if (buffersToFlush.size() > 0) {
+                flush(partitionId, subpartitionId, segmentId, buffersToFlush, flushSuccessNotifier);
+            }
+            if (isFinishSegment) {
+                writeFinishSegmentFile(
+                        partitionId, subpartitionId, segmentId, flushSuccessNotifier);
+            }
+        };
     }
 
     /** This method is only called by the flushing thread. */
