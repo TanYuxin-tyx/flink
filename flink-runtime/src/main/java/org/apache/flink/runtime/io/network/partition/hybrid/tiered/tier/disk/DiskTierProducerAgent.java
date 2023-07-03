@@ -137,7 +137,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         storeConfiguration.getBufferRequestTimeout(),
                         storeConfiguration.getMaxBuffersReadAhead(),
                         nettyService,
-                        firstBufferIndexInSegment,
+                        (subpartitionId, bufferIndex) ->
+                                firstBufferIndexInSegment.get(subpartitionId).get(bufferIndex),
                         partitionFileReader);
         nettyService.registerProducer(partitionId, this);
         resourceRegistry.registerResource(partitionId, this::releaseResources);
@@ -224,6 +225,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     }
 
     private void releaseResources() {
+        firstBufferIndexInSegment.clear();
         diskIOScheduler.release();
         diskCacheManager.release();
     }

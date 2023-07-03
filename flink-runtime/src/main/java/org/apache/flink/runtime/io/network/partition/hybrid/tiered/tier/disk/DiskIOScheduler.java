@@ -51,6 +51,7 @@ import java.util.Queue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiFunction;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -100,7 +101,11 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
     private final TieredStorageNettyService nettyService;
 
-    private final List<Map<Integer, Integer>> firstBufferIndexInSegment;
+    /**
+     * Retrieve the segment id if the buffer index represents the first buffer. The first integer is
+     * the id of subpartition, and the second integer is buffer index and the value is segment id.
+     */
+    private final BiFunction<Integer, Integer, Integer> firstBufferIndexInSegmentRetriever;
 
     private final PartitionFileReader partitionFileReader;
 
@@ -125,7 +130,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             Duration bufferRequestTimeout,
             int maxBufferReadAhead,
             TieredStorageNettyService nettyService,
-            List<Map<Integer, Integer>> firstBufferIndexInSegment,
+            BiFunction<Integer, Integer, Integer> firstBufferIndexInSegmentRetriever,
             PartitionFileReader partitionFileReader) {
         this.partitionId = partitionId;
         this.bufferPool = checkNotNull(bufferPool);
@@ -134,7 +139,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         this.bufferRequestTimeout = checkNotNull(bufferRequestTimeout);
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.nettyService = nettyService;
-        this.firstBufferIndexInSegment = firstBufferIndexInSegment;
+        this.firstBufferIndexInSegmentRetriever = firstBufferIndexInSegmentRetriever;
         this.partitionFileReader = partitionFileReader;
         bufferPool.registerRequester(this);
     }
@@ -159,7 +164,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             TieredStorageSubpartitionId subpartitionId,
             NettyConnectionWriter nettyConnectionWriter) {
         synchronized (lock) {
-            checkState(!isReleased, "ProducerMergePartitionFileReader is already released.");
+            checkState(!isReleased, "DiskIOScheduler is already released.");
             ScheduledSubpartitionReader scheduledSubpartitionReader =
                     new ScheduledSubpartitionReader(subpartitionId, nettyConnectionWriter);
             allScheduledReaders.put(
@@ -190,8 +195,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 return;
             }
             isReleased = true;
-            allScheduledReaders.clear();
-            firstBufferIndexInSegment.clear();
+            failScheduledReaders(
+                    new ArrayList<>(allScheduledReaders.values()),
+                    new RuntimeException("Disk readers are released unexpectedly."));
             partitionFileReader.release();
             bufferPool.unregisterRequester(this);
         }
@@ -435,15 +441,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         }
 
         private void updateSegmentId() {
-            firstBufferIndexInSegment
-                    .get(subpartitionId.getSubpartitionId())
-                    .computeIfPresent(
-                            nextBufferIndex,
-                            (bufferIndex, segmentId) -> {
-                                nextSegmentId = segmentId;
-                                writeToNettyConnectionWriter(NettyPayload.newSegment(segmentId));
-                                return segmentId;
-                            });
+            Integer segmentId =
+                    firstBufferIndexInSegmentRetriever.apply(
+                            subpartitionId.getSubpartitionId(), nextBufferIndex);
+            if (segmentId != null) {
+                nextSegmentId = segmentId;
+                writeToNettyConnectionWriter(NettyPayload.newSegment(segmentId));
+            }
         }
 
         private NettyConnectionId getId() {
