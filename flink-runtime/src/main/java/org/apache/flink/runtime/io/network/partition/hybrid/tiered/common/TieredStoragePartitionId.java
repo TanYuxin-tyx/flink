@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.bytesToHexString;
+import org.apache.flink.util.StringUtils;
 
 /**
  * Identifier of a partition.
@@ -35,6 +35,6 @@ public class TieredStoragePartitionId extends TieredStorageAbstractId {
 
     @Override
     public String toString() {
-        return "TieredStoragePartitionId{" + "ID=" + bytesToHexString(id) + '}';
+        return "TieredStoragePartitionId{" + "ID=" + StringUtils.byteToHexString(id) + '}';
     }
 }

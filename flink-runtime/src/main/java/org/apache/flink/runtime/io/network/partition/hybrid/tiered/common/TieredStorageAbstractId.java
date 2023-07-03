@@ -18,10 +18,11 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
+import org.apache.flink.util.StringUtils;
+
 import java.io.Serializable;
 import java.util.Arrays;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.bytesToHexString;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** The abstract unique identification for the Tiered Storage. */
@@ -67,6 +68,6 @@ public class TieredStorageAbstractId implements TieredStorageDataIdentifier, Ser
 
     @Override
     public String toString() {
-        return "TieredStorageAbstractId{" + "ID=" + bytesToHexString(id) + '}';
+        return "TieredStorageAbstractId{" + "ID=" + StringUtils.byteToHexString(id) + '}';
     }
 }
