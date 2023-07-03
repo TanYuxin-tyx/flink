@@ -51,16 +51,16 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             Map<TieredStorageSubpartitionId, Tuple2<Integer, Integer>>>
             currentBufferIndexAndSegmentIds;
 
-    private final int remoteBufferSize;
+    private final int bufferSizeBytes;
 
     RemoteTierConsumerAgent(
             RemoteStorageScanner remoteStorageScanner,
             PartitionFileReader partitionFileReader,
-            int remoteBufferSize) {
+            int bufferSizeBytes) {
         this.remoteStorageScanner = remoteStorageScanner;
         this.currentBufferIndexAndSegmentIds = new HashMap<>();
         this.partitionFileReader = partitionFileReader;
-        this.remoteBufferSize = remoteBufferSize;
+        this.bufferSizeBytes = bufferSizeBytes;
     }
 
     @Override
@@ -83,7 +83,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             remoteStorageScanner.registerSegmentId(partitionId, subpartitionId, segmentId);
         }
         MemorySegment memorySegment =
-                MemorySegmentFactory.allocateUnpooledSegment(remoteBufferSize);
+                MemorySegmentFactory.allocateUnpooledSegment(bufferSizeBytes);
         Buffer buffer = null;
         try {
             buffer =
