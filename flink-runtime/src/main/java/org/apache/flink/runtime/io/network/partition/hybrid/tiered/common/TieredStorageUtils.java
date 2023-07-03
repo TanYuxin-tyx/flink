@@ -56,6 +56,8 @@ public class TieredStorageUtils {
 
     private static final String SEGMENT_FINISH_FILE_SUFFIX = ".FINISH";
 
+    private static final String SEGMENT_FINISH_DIR_SUFFIX = "FINISH";
+
     private static final char[] HEX_CHARS = {
         '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
     };
@@ -120,28 +122,18 @@ public class TieredStorageUtils {
             TieredStoragePartitionId partitionId,
             int subpartitionId,
             long segmentId) {
-        String subpartitionPath =
-                getSubpartitionPath(
-                        basePath,
-                        partitionId,
-                        subpartitionId);
+        String subpartitionPath = getSubpartitionPath(basePath, partitionId, subpartitionId);
         return new Path(subpartitionPath, SEGMENT_FILE_PREFIX + segmentId);
     }
 
-    public static Path getSegmentFinishPath(String baseSubpartitionPath, long currentSegmentIndex) {
-        return new Path(
-                baseSubpartitionPath,
-                SEGMENT_FILE_PREFIX + currentSegmentIndex + SEGMENT_FINISH_FILE_SUFFIX);
+    public static Path getSegmentFinishDir(String baseSubpartitionPath) {
+        return new Path(baseSubpartitionPath, SEGMENT_FINISH_DIR_SUFFIX);
     }
 
     public static String createSubpartitionPath(
             String basePath, TieredStoragePartitionId partitionId, int subpartitionId)
             throws IOException {
-        String subpartitionPathStr =
-                getSubpartitionPath(
-                        basePath,
-                        partitionId,
-                        subpartitionId);
+        String subpartitionPathStr = getSubpartitionPath(basePath, partitionId, subpartitionId);
         Path subpartitionPath = new Path(subpartitionPathStr);
         FileSystem fs = subpartitionPath.getFileSystem();
         if (!fs.exists(subpartitionPath)) {
@@ -150,14 +142,26 @@ public class TieredStorageUtils {
         return subpartitionPathStr;
     }
 
-    public static void writeSegmentFinishFile(String baseSubpartitionPath, long currentSegmentIndex)
+    public static void writeSegmentFinishFile(String baseSubpartitionPath, int currentSegmentIndex)
             throws IOException {
-        Path markFinishSegmentPath =
-                getSegmentFinishPath(baseSubpartitionPath, currentSegmentIndex);
-        FileSystem fs = markFinishSegmentPath.getFileSystem();
-        OutputStream outputStream =
-                fs.create(markFinishSegmentPath, FileSystem.WriteMode.OVERWRITE);
-        outputStream.close();
+        Path segmentFinishDir = getSegmentFinishDir(baseSubpartitionPath);
+        FileSystem fs = segmentFinishDir.getFileSystem();
+        if (!fs.exists(segmentFinishDir)) {
+            fs.mkdirs(segmentFinishDir);
+        }
+        FileStatus[] files = fs.listStatus(segmentFinishDir);
+        if (files.length == 0) {
+            OutputStream outputStream =
+                    fs.create(
+                            new Path(segmentFinishDir, String.valueOf(currentSegmentIndex)),
+                            FileSystem.WriteMode.OVERWRITE);
+            outputStream.close();
+        } else {
+            checkState(files.length == 1);
+            fs.rename(
+                    files[0].getPath(),
+                    new Path(segmentFinishDir, String.valueOf(currentSegmentIndex)));
+        }
     }
 
     public static void deletePath(Path path) throws IOException {

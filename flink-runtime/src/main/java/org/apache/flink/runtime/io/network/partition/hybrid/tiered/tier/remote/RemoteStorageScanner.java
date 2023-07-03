@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
 import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate.AvailabilityAndPriorityRetriever;
@@ -35,10 +36,11 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getSegmentFinishPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getSegmentFinishDir;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getSubpartitionPath;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * The {@link RemoteStorageScanner} is introduced to notify asynchronously for file reading on
@@ -164,15 +166,23 @@ public class RemoteStorageScanner implements Runnable {
         String baseSubpartitionPath =
                 getSubpartitionPath(
                         baseRemoteStoragePath, partitionId, subpartitionId.getSubpartitionId());
-        Path currentSegmentFinishPath = getSegmentFinishPath(baseSubpartitionPath, segmentId);
+        Path segmentFinishDir = getSegmentFinishDir(baseSubpartitionPath);
+        FileStatus[] fileStatuses;
         try {
-            return remoteFileSystem.exists(currentSegmentFinishPath);
+            if (!remoteFileSystem.exists(segmentFinishDir)) {
+                return false;
+            }
+            fileStatuses = remoteFileSystem.listStatus(segmentFinishDir);
         } catch (IOException e) {
             throw new RuntimeException(
-                    "Failed to check the existing state of segment path: "
-                            + currentSegmentFinishPath,
-                    e);
+                    "Failed to list the segment finish file. " + segmentFinishDir, e);
         }
+        if (fileStatuses.length == 0) {
+            return false;
+        }
+        checkState(fileStatuses.length == 1);
+        int scannedSegmentId = Integer.parseInt(fileStatuses[0].getPath().getName());
+        return scannedSegmentId >= segmentId;
     }
 
     /**
