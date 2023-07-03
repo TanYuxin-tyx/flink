@@ -38,8 +38,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentFinishDir;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSubpartitionPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentFinishDirPath;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -177,10 +176,9 @@ public class RemoteStorageScanner implements Runnable {
      */
     private void scanMaxSegmentId(
             TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
-        String baseSubpartitionPath =
-                getSubpartitionPath(
+        Path segmentFinishDir =
+                getSegmentFinishDirPath(
                         baseRemoteStoragePath, partitionId, subpartitionId.getSubpartitionId());
-        Path segmentFinishDir = getSegmentFinishDir(baseSubpartitionPath);
         FileStatus[] fileStatuses;
         try {
             if (!remoteFileSystem.exists(segmentFinishDir)) {

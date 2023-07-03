@@ -44,7 +44,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateBufferWithHeaders;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.createSubpartitionPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.writeSegmentFinishFile;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -186,10 +185,8 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
             int subpartitionId,
             int segmentId,
             CompletableFuture<Void> flushSuccessNotifier) {
-        String subpartitionPath;
         try {
-            subpartitionPath = createSubpartitionPath(basePath, partitionId, subpartitionId);
-            writeSegmentFinishFile(subpartitionPath, segmentId);
+            writeSegmentFinishFile(basePath, partitionId, subpartitionId, segmentId);
             WritableByteChannel channel = subpartitionChannels[subpartitionId];
             if (channel != null) {
                 channel.close();

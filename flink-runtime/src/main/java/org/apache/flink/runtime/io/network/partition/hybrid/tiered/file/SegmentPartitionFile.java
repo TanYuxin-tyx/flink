@@ -105,8 +105,10 @@ public class SegmentPartitionFile {
         return new Path(subpartitionPath, SEGMENT_FILE_PREFIX + segmentId);
     }
 
-    public static Path getSegmentFinishDir(String baseSubpartitionPath) {
-        return new Path(baseSubpartitionPath, SEGMENT_FINISH_DIR_NAME);
+    public static Path getSegmentFinishDirPath(
+            String basePath, TieredStoragePartitionId partitionId, int subpartitionId) {
+        String subpartitionPath = getSubpartitionPath(basePath, partitionId, subpartitionId);
+        return new Path(subpartitionPath, SEGMENT_FINISH_DIR_NAME);
     }
 
     public static String createSubpartitionPath(
@@ -121,9 +123,14 @@ public class SegmentPartitionFile {
         return subpartitionPathStr;
     }
 
-    public static void writeSegmentFinishFile(String baseSubpartitionPath, int segmentId)
+    public static void writeSegmentFinishFile(
+            String basePath,
+            TieredStoragePartitionId partitionId,
+            int subpartitionId,
+            int segmentId)
             throws IOException {
-        Path segmentFinishDir = getSegmentFinishDir(baseSubpartitionPath);
+        createSubpartitionPath(basePath, partitionId, subpartitionId);
+        Path segmentFinishDir = getSegmentFinishDirPath(basePath, partitionId, subpartitionId);
         FileSystem fs = segmentFinishDir.getFileSystem();
         Path segmentFinishFile = new Path(segmentFinishDir, String.valueOf(segmentId));
         if (!fs.exists(segmentFinishDir)) {
