@@ -158,6 +158,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                     .put(
                             diskCacheManager.getBufferIndex(subpartitionId.getSubpartitionId()),
                             segmentId);
+            diskCacheManager.startSegment(subpartitionId.getSubpartitionId(), segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;
     }

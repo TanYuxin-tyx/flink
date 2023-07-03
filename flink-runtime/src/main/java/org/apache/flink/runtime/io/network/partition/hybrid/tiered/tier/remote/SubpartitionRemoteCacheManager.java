@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.concurrent.FutureUtils;
 
+import net.jcip.annotations.GuardedBy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +43,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * This {@link SubpartitionRemoteCacheManager} is responsible for managing the buffers in a single
  * subpartition.
  */
-public class SubpartitionRemoteCacheManager {
+class SubpartitionRemoteCacheManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(SubpartitionRemoteCacheManager.class);
 
@@ -52,13 +53,34 @@ public class SubpartitionRemoteCacheManager {
 
     private final PartitionFileWriter partitionFileWriter;
 
+    /**
+     * All the buffers. The first field of the tuple is the buffer, while the second field of the
+     * buffer is the buffer index.
+     *
+     * <p>Note that this field can be accessed by the task thread or the write IO thread, so the
+     * thread safety should be ensured.
+     */
     private final Deque<Tuple2<Buffer, Integer>> allBuffers = new LinkedList<>();
 
-    private CompletableFuture<Void> hasSpillCompleted = FutureUtils.completedVoidFuture();
+    private CompletableFuture<Void> flushCompletableFuture = FutureUtils.completedVoidFuture();
 
+    /**
+     * Record the segment id that is writing to.
+     *
+     * <p>Note that when flushing buffers, this can be touched by task thread or the flushing
+     * thread, so the thread safety should be ensured.
+     */
+    @GuardedBy("allBuffers")
+    private int segmentId = -1;
+
+    /**
+     * Record the buffer index in the {@link SubpartitionRemoteCacheManager}. Each time a new buffer
+     * is added to the {@code allBuffers}, this field is increased by one.
+     *
+     * <p>Note that the field can only be touched by the task thread, so this field need not be
+     * guarded by any lock or synchronizations.
+     */
     private int bufferIndex;
-
-    private int segmentIndex = -1;
 
     public SubpartitionRemoteCacheManager(
             TieredStoragePartitionId partitionId,
@@ -68,51 +90,56 @@ public class SubpartitionRemoteCacheManager {
         this.partitionId = partitionId;
         this.subpartitionId = subpartitionId;
         this.partitionFileWriter = partitionFileWriter;
-        storageMemoryManager.listenBufferReclaimRequest(this::spillBuffers);
+        storageMemoryManager.listenBufferReclaimRequest(this::flushBuffers);
     }
 
     // ------------------------------------------------------------------------
     //  Called by RemoteCacheManager
     // ------------------------------------------------------------------------
 
-    void startSegment(int segmentIndex) {
-        this.segmentIndex = segmentIndex;
+    void startSegment(int segmentId) {
+        synchronized (allBuffers) {
+            this.segmentId = segmentId;
+        }
     }
 
     void addBuffer(Buffer buffer) {
-        Tuple2<Buffer, Integer> toAddBuffer = new Tuple2<>(buffer, bufferIndex);
+        Tuple2<Buffer, Integer> toAddBuffer = new Tuple2<>(buffer, bufferIndex++);
         synchronized (allBuffers) {
-            bufferIndex++;
             allBuffers.add(toAddBuffer);
         }
     }
 
-    void finishSegment(int segmentIndex) {
-        checkState(this.segmentIndex == segmentIndex, "Wrong segment index.");
-        int bufferNumber = spillBuffers();
-        if (bufferNumber > 0) {
-            PartitionFileWriter.SubpartitionBufferContext finishSegmentBuffer =
+    void finishSegment(int segmentId) {
+        synchronized (allBuffers) {
+            checkState(this.segmentId == segmentId, "Wrong segment id.");
+        }
+        int numFlushedBuffers = flushBuffers();
+        if (numFlushedBuffers > 0) {
+            PartitionFileWriter.SubpartitionBufferContext bufferContext =
                     new PartitionFileWriter.SubpartitionBufferContext(
                             subpartitionId,
                             Collections.singletonList(
                                     new PartitionFileWriter.SegmentBufferContext(
-                                            segmentIndex, Collections.emptyList(), true)));
-            hasSpillCompleted =
+                                            segmentId, Collections.emptyList(), true)));
+            // Notify the partition file writer that the segment is finished through writing the
+            // buffer context
+            flushCompletableFuture =
                     partitionFileWriter.write(
-                            partitionId, Collections.singletonList(finishSegmentBuffer));
+                            partitionId, Collections.singletonList(bufferContext));
         }
         checkState(allBuffers.isEmpty(), "Leaking buffers.");
     }
 
     void close() {
-        // Wait the spilling buffers to be completed before closed
+        // Wait the flushing buffers to be completed before closed
         try {
-            hasSpillCompleted.get();
+            flushCompletableFuture.get();
         } catch (Exception e) {
-            LOG.error("Failed to spill the buffers.", e);
+            LOG.error("Failed to flush the buffers.", e);
             ExceptionUtils.rethrow(e);
         }
-        spillBuffers();
+        flushBuffers();
     }
 
     /** Release all buffers. */
@@ -126,24 +153,24 @@ public class SubpartitionRemoteCacheManager {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private int spillBuffers() {
+    private int flushBuffers() {
         synchronized (allBuffers) {
-            List<Tuple2<Buffer, Integer>> allBuffersToFlush = new ArrayList<>(allBuffers);
+            List<Tuple2<Buffer, Integer>> buffersToFlush = new ArrayList<>(allBuffers);
             allBuffers.clear();
-            if (allBuffersToFlush.isEmpty()) {
+            if (buffersToFlush.isEmpty()) {
                 return 0;
             }
 
-            PartitionFileWriter.SubpartitionBufferContext subpartitionSpilledBuffers =
+            PartitionFileWriter.SubpartitionBufferContext subpartitionBufferContext =
                     new PartitionFileWriter.SubpartitionBufferContext(
                             subpartitionId,
                             Collections.singletonList(
                                     new PartitionFileWriter.SegmentBufferContext(
-                                            segmentIndex, allBuffersToFlush, false)));
-            hasSpillCompleted =
+                                            segmentId, buffersToFlush, false)));
+            flushCompletableFuture =
                     partitionFileWriter.write(
-                            partitionId, Collections.singletonList(subpartitionSpilledBuffers));
-            return allBuffersToFlush.size();
+                            partitionId, Collections.singletonList(subpartitionBufferContext));
+            return buffersToFlush.size();
         }
     }
 

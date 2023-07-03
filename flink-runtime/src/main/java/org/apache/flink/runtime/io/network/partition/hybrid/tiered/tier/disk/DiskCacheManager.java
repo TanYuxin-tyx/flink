@@ -75,6 +75,10 @@ class DiskCacheManager {
     //  Called by DiskTierProducerAgent
     // ------------------------------------------------------------------------
 
+    void startSegment(int subpartitionId, int segmentIndex) {
+        subpartitionCacheManagers[subpartitionId].startSegment(segmentIndex);
+    }
+
     /**
      * Append buffer to {@link DiskCacheManager}.
      *
@@ -169,7 +173,7 @@ class DiskCacheManager {
                             Collections.singletonList(
                                     new PartitionFileWriter.SegmentBufferContext(
                                             subpartitionCacheManagers[subpartitionId]
-                                                    .getSegmentIndex(),
+                                                    .getSegmentId(),
                                             bufferWithIndexes,
                                             false))));
             numToWriteBuffers += bufferWithIndexes.size();

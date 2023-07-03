@@ -27,13 +27,13 @@ import java.util.Arrays;
 
 /**
  * The {@link RemoteCacheManager} is responsible for managing the cached buffers before flush to the
- * storage.
+ * remote storage.
  */
-public class RemoteCacheManager {
+class RemoteCacheManager {
 
     private final SubpartitionRemoteCacheManager[] subpartitionCacheDataManagers;
 
-    private final int[] subpartitionSegmentIndexes;
+    private final int[] subpartitionSegmentIds;
 
     public RemoteCacheManager(
             TieredStoragePartitionId partitionId,
@@ -41,42 +41,38 @@ public class RemoteCacheManager {
             TieredStorageMemoryManager storageMemoryManager,
             PartitionFileWriter partitionFileWriter) {
         this.subpartitionCacheDataManagers = new SubpartitionRemoteCacheManager[numSubpartitions];
-        this.subpartitionSegmentIndexes = new int[numSubpartitions];
+        this.subpartitionSegmentIds = new int[numSubpartitions];
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; ++subpartitionId) {
             subpartitionCacheDataManagers[subpartitionId] =
                     new SubpartitionRemoteCacheManager(
                             partitionId, subpartitionId, storageMemoryManager, partitionFileWriter);
         }
 
-        Arrays.fill(subpartitionSegmentIndexes, -1);
+        Arrays.fill(subpartitionSegmentIds, -1);
     }
 
-    // ------------------------------------
-    //          For DfsDataManager
-    // ------------------------------------
+    // ------------------------------------------------------------------------
+    //  Called by RemoteTierProducerAgent
+    // ------------------------------------------------------------------------
+
+    void startSegment(int subpartitionId, int segmentId) {
+        subpartitionCacheDataManagers[subpartitionId].startSegment(segmentId);
+        subpartitionSegmentIds[subpartitionId] = segmentId;
+    }
 
     void appendBuffer(Buffer finishedBuffer, int subpartitionId) {
         subpartitionCacheDataManagers[subpartitionId].addBuffer(finishedBuffer);
     }
 
-    void startSegment(int subpartitionId, int segmentIndex) {
-        subpartitionCacheDataManagers[subpartitionId].startSegment(segmentIndex);
-        subpartitionSegmentIndexes[subpartitionId] = segmentIndex;
-    }
-
     void finishSegment(int subpartitionId) {
         subpartitionCacheDataManagers[subpartitionId].finishSegment(
-                subpartitionSegmentIndexes[subpartitionId]);
+                subpartitionSegmentIds[subpartitionId]);
     }
 
     void close() {
         Arrays.stream(subpartitionCacheDataManagers).forEach(SubpartitionRemoteCacheManager::close);
     }
 
-    /**
-     * Release this {@link RemoteCacheManager}, it means all memory taken by this class will
-     * recycle.
-     */
     void release() {
         Arrays.stream(subpartitionCacheDataManagers)
                 .forEach(SubpartitionRemoteCacheManager::release);

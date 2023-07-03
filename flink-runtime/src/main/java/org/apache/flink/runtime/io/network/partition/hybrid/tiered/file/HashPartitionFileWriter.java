@@ -50,7 +50,15 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.writeSegmentFinishFile;
 import static org.apache.flink.util.Preconditions.checkState;
 
-/** THe implementation of {@link PartitionFileWriter} with hash mode. */
+/**
+ * The implementation of {@link PartitionFileWriter} with hash mode. In this mode, each segment of
+ * one subpartition is written to an independent file.
+ *
+ * <p>Note that after finishing writing a segment, a segment-finish file is written to ensure the
+ * downstream reads only when the entire segment file is written, avoiding partial data reads. The
+ * downstream can determine if the current segment is complete by checking for the existence of the
+ * segment-finish file.
+ */
 public class HashPartitionFileWriter implements PartitionFileWriter {
 
     private final ExecutorService ioExecutor =
@@ -166,7 +174,13 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
         }
     }
 
-    /** This method is only called by the flushing thread. */
+    /**
+     * Writing a segment-finish file when the current segment is complete. The downstream can
+     * determine if the current segment is complete by checking for the existence of the
+     * segment-finish file.
+     *
+     * <p>Note that the method is only called by the flushing thread.
+     */
     private void writeFinishSegmentFile(
             TieredStoragePartitionId partitionId,
             int subpartitionId,

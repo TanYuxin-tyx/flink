@@ -60,7 +60,7 @@ class SubpartitionDiskCacheManager {
      * thread, so the thread safety should be ensured.
      */
     @GuardedBy("allBuffers")
-    private int segmentIndex;
+    private int segmentId;
 
     /**
      * Record the buffer index in the {@link SubpartitionDiskCacheManager}. Each time a new buffer
@@ -75,15 +75,18 @@ class SubpartitionDiskCacheManager {
     //  Called by DiskCacheManager
     // ------------------------------------------------------------------------
 
+    void startSegment(int segmentIndex) {
+        synchronized (allBuffers) {
+            this.segmentId = segmentIndex;
+        }
+    }
+
     void append(Buffer buffer) {
         addBuffer(buffer);
     }
 
     void appendEndOfSegmentEvent(ByteBuffer record) {
         writeEvent(record, DataType.END_OF_SEGMENT);
-        synchronized (allBuffers) {
-            segmentIndex++;
-        }
     }
 
     /** Note that allBuffers can be touched by multiple threads. */
@@ -99,9 +102,9 @@ class SubpartitionDiskCacheManager {
         return bufferIndex;
     }
 
-    int getSegmentIndex() {
+    int getSegmentId() {
         synchronized (allBuffers) {
-            return segmentIndex;
+            return segmentId;
         }
     }
 
