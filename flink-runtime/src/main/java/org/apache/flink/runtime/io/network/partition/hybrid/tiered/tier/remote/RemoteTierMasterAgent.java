@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
@@ -27,11 +26,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMast
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.deletePathQuietly;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getPartitionPath;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.removePartitionFiles;
 
 public class RemoteTierMasterAgent implements TierMasterAgent {
 
@@ -56,17 +52,6 @@ public class RemoteTierMasterAgent implements TierMasterAgent {
 
     @Override
     public void releasePartition(ResultPartitionID resultPartitionID) {
-        try {
-            removePartitionFiles(new Path(remoteStorageBaseHomePath), resultPartitionID);
-        } catch (IOException e) {
-            LOG.error("Failed to release the partition files for {}", resultPartitionID);
-        }
-
         resourceRegistry.clearResourceFor(TieredStorageIdMappingUtils.convertId(resultPartitionID));
-    }
-
-    @Override
-    public void release(String pathToRelease) {
-        deletePathQuietly(pathToRelease);
     }
 }

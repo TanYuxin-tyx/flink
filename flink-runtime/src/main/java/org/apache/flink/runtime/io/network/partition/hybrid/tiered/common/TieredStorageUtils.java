@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
@@ -49,7 +48,7 @@ public class TieredStorageUtils {
 
     private static final Logger LOG = LoggerFactory.getLogger(TieredStorageUtils.class);
 
-    public static final String TIER_STORE_DIR = "tiered-storage";
+    public static final String TIER_STORAGE_DIR = "tiered-storage";
 
     public static final String DATA_FILE_SUFFIX = ".tier-storage.data";
 
@@ -91,8 +90,8 @@ public class TieredStorageUtils {
         checkState(writeSize == expectedBytes);
     }
 
-    public static String getJobPath(JobID jobID, String basePath) {
-        return String.format("%s/%s/%s", basePath, TieredStorageUtils.TIER_STORE_DIR, jobID);
+    public static String getTieredStoragePath(String basePath) {
+        return String.format("%s/%s", basePath, TIER_STORAGE_DIR);
     }
 
     public static String getPartitionPath(ResultPartitionID partitionID, String basePath) {
@@ -103,7 +102,7 @@ public class TieredStorageUtils {
         while (basePath.endsWith("/") && basePath.length() > 1) {
             basePath = basePath.substring(0, basePath.length() - 1);
         }
-        return String.format("%s/%s", basePath, partitionID);
+        return String.format("%s/%s/%s", basePath, TIER_STORAGE_DIR, partitionID);
     }
 
     public static String getSubpartitionPath(

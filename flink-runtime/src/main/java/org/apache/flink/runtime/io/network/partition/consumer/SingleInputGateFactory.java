@@ -72,7 +72,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.partition.consumer.InputGateSpecUtils.createGateBuffersSpec;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getJobPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getTieredStoragePath;
 import static org.apache.flink.runtime.shuffle.ShuffleUtils.applyWithShuffleTypeCheck;
 
 /** Factory for {@link SingleInputGate} to use in {@link NettyShuffleEnvironment}. */
@@ -199,7 +199,7 @@ public class SingleInputGateFactory {
                 }
             }
             if (baseRemoteStoragePath != null) {
-                String basePath = getJobPath(owner.getJobID(), baseRemoteStoragePath);
+                String basePath = getTieredStoragePath(baseRemoteStoragePath);
                 remoteStorageScanner =
                         new RemoteStorageScanner(tieredStorageConsumerSpecs, basePath);
                 reader = HashPartitionFile.createPartitionFileReader(basePath);

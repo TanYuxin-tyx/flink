@@ -26,6 +26,4 @@ public interface TierMasterAgent {
     void addPartition(ResultPartitionID resultPartitionID);
 
     void releasePartition(ResultPartitionID resultPartitionID);
-
-    void release(String pathToRelease);
 }

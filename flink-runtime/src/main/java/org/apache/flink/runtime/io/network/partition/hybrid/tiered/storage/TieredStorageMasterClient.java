@@ -38,8 +38,4 @@ public class TieredStorageMasterClient {
     public void release(ResultPartitionID resultPartitionID) {
         tiers.forEach(tierMasterAgent -> tierMasterAgent.releasePartition(resultPartitionID));
     }
-
-    public void release(String pathToRelease) {
-        tiers.forEach(tierMasterAgent -> tierMasterAgent.release(pathToRelease));
-    }
 }

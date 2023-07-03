@@ -27,7 +27,4 @@ public class MemoryTierMasterAgent implements TierMasterAgent {
 
     @Override
     public void releasePartition(ResultPartitionID resultPartitionID) {}
-
-    @Override
-    public void release(String pathToRelease) {}
 }
