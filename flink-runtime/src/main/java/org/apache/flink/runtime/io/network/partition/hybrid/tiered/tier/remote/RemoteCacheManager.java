@@ -65,8 +65,11 @@ class RemoteCacheManager {
     }
 
     void finishSegment(int subpartitionId) {
-        subpartitionCacheDataManagers[subpartitionId].finishSegment(
-                subpartitionSegmentIds[subpartitionId]);
+        // The segment needs to be finished only if there is data written in the segment
+        if (subpartitionSegmentIds[subpartitionId] >= 0) {
+            subpartitionCacheDataManagers[subpartitionId].finishSegment(
+                    subpartitionSegmentIds[subpartitionId]);
+        }
     }
 
     void close() {
