@@ -23,8 +23,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -63,8 +61,6 @@ public class MemoryTierFactory implements TierFactory {
             TieredStoragePartitionId partitionID,
             String dataFileBasePath,
             boolean isBroadcastOnly,
-            PartitionFileWriter partitionFileWriter,
-            PartitionFileReader partitionFileReader,
             BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
@@ -93,7 +89,6 @@ public class MemoryTierFactory implements TierFactory {
                                     CompletableFuture<NettyConnectionReader>>>
                     readers,
             RemoteStorageScanner remoteStorageScanner,
-            PartitionFileReader partitionFileReader,
             int remoteBufferSize) {
         return new MemoryTierConsumerAgent(readers);
     }

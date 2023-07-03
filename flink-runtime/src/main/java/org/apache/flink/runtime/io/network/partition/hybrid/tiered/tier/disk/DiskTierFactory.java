@@ -23,8 +23,10 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFile;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFileIndex;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFileWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -35,9 +37,13 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMast
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
 
 public class DiskTierFactory implements TierFactory {
 
@@ -65,8 +71,6 @@ public class DiskTierFactory implements TierFactory {
             TieredStoragePartitionId partitionId,
             String dataFileBasePath,
             boolean isBroadcastOnly,
-            PartitionFileWriter partitionFileWriter,
-            PartitionFileReader partitionFileReader,
             BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
@@ -74,6 +78,15 @@ public class DiskTierFactory implements TierFactory {
             ScheduledExecutorService batchShuffleReadIOExecutor,
             TieredStorageConfiguration storageConfiguration,
             TieredStorageResourceRegistry resourceRegistry) {
+        ProducerMergedPartitionFileIndex partitionFileIndex =
+                new ProducerMergedPartitionFileIndex(isBroadcastOnly ? 1 : numSubpartitions);
+        Path dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
+        ProducerMergedPartitionFileWriter partitionFileWriter =
+                ProducerMergedPartitionFile.createPartitionFileWriter(
+                        dataFilePath, partitionFileIndex);
+        ProducerMergedPartitionFileReader partitionFileReader =
+                ProducerMergedPartitionFile.createPartitionFileReader(
+                        dataFilePath, partitionFileIndex);
         return new DiskTierProducerAgent(
                 partitionId,
                 numSubpartitions,
@@ -102,7 +115,6 @@ public class DiskTierFactory implements TierFactory {
                                     CompletableFuture<NettyConnectionReader>>>
                     readers,
             RemoteStorageScanner remoteStorageScanner,
-            PartitionFileReader partitionFileReader,
             int remoteBufferSize) {
         return new DiskTierConsumerAgent(readers);
     }

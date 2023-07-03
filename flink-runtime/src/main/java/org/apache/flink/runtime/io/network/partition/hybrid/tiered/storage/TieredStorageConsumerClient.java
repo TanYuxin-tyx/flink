@@ -146,10 +146,7 @@ public class TieredStorageConsumerClient {
         for (TierFactory tierFactory : tierFactories) {
             tierConsumerAgents.add(
                     tierFactory.createConsumerAgent(
-                            nettyConnectionReaders,
-                            remoteStorageScanner,
-                            partitionFileReader,
-                            remoteBufferSize));
+                            nettyConnectionReaders, remoteStorageScanner, remoteBufferSize));
         }
         return tierConsumerAgents;
     }

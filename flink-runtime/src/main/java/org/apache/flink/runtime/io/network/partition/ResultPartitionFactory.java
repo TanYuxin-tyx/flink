@@ -32,11 +32,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfigu
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.HashPartitionFile;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFile;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFileIndex;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
@@ -49,8 +44,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierFactory;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -63,13 +56,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
-
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getTieredStoragePath;
 
 /** Factory for {@link ResultPartition} to use in {@link NettyShuffleEnvironment}. */
 public class ResultPartitionFactory {
@@ -290,7 +279,6 @@ public class ResultPartitionFactory {
 
                 List<TierProducerAgent> tierProducerAgents =
                         createTierStorages(
-                                jobID,
                                 id,
                                 isBroadcast,
                                 subpartitions,
@@ -396,7 +384,6 @@ public class ResultPartitionFactory {
 
     @SuppressWarnings("checkstyle:EmptyLineSeparator")
     private List<TierProducerAgent> createTierStorages(
-            JobID jobID,
             ResultPartitionID id,
             boolean isBroadcast,
             ResultSubpartition[] subpartitions,
@@ -407,7 +394,6 @@ public class ResultPartitionFactory {
             TieredStorageResourceRegistry resourceRegistry) {
         String dataFileBasePath = channelManager.createChannel().getPath();
         return createTierProducerAgents(
-                jobID,
                 id,
                 isBroadcast,
                 subpartitions,
@@ -415,13 +401,11 @@ public class ResultPartitionFactory {
                 bufferCompressor,
                 storageMemoryManager,
                 dataFileBasePath,
-                storeConfiguration.getRemoteStorageBasePath(),
                 nettyService,
                 resourceRegistry);
     }
 
     public List<TierProducerAgent> createTierProducerAgents(
-            JobID jobID,
             ResultPartitionID id,
             boolean isBroadcast,
             ResultSubpartition[] subpartitions,
@@ -429,33 +413,17 @@ public class ResultPartitionFactory {
             BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             String dataFileBasePath,
-            String remoteStorageBasePath,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
         List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
-        ProducerMergedPartitionFileIndex partitionFileIndex =
-                new ProducerMergedPartitionFileIndex(isBroadcast ? 1 : subpartitions.length);
         for (TierFactory tierFactory : storeConfiguration.getTierFactories()) {
-            PartitionFileWriter partitionFileWriter =
-                    createPartitionFileWriter(
-                            jobID,
-                            id,
-                            tierFactory,
-                            subpartitions.length,
-                            dataFileBasePath,
-                            remoteStorageBasePath,
-                            partitionFileIndex);
             TieredStoragePartitionId partitionId = TieredStorageIdMappingUtils.convertId(id);
-            PartitionFileReader partitionFileReader =
-                    createPartitionFileReader(tierFactory, dataFileBasePath, partitionFileIndex);
             tierProducerAgents.add(
                     tierFactory.createProducerAgent(
                             subpartitions.length,
                             partitionId,
                             dataFileBasePath,
                             isBroadcast,
-                            partitionFileWriter,
-                            partitionFileReader,
                             bufferCompressor,
                             storageMemoryManager,
                             nettyService,
@@ -465,37 +433,6 @@ public class ResultPartitionFactory {
                             resourceRegistry));
         }
         return tierProducerAgents;
-    }
-
-    private PartitionFileWriter createPartitionFileWriter(
-            JobID jobID,
-            ResultPartitionID id,
-            TierFactory tierFactory,
-            int numSubpartitions,
-            String dataFileBasePath,
-            String remoteStorageBasePath,
-            ProducerMergedPartitionFileIndex regionBufferIndexTracker) {
-        if (tierFactory.getClass() == DiskTierFactory.class) {
-            return ProducerMergedPartitionFile.createPartitionFileWriter(
-                    Paths.get(dataFileBasePath + DATA_FILE_SUFFIX), regionBufferIndexTracker);
-        } else if (tierFactory.getClass() == RemoteTierFactory.class) {
-            return HashPartitionFile.createPartitionFileWriter(
-                    getTieredStoragePath(remoteStorageBasePath), numSubpartitions);
-        }
-        return null;
-    }
-
-    private PartitionFileReader createPartitionFileReader(
-            TierFactory tierFactory,
-            String dataFileBasePath,
-            ProducerMergedPartitionFileIndex regionBufferIndexTracker) {
-        if (tierFactory.getClass() == DiskTierFactory.class) {
-            return ProducerMergedPartitionFile.createPartitionFileReader(
-                    Paths.get(dataFileBasePath + DATA_FILE_SUFFIX), regionBufferIndexTracker);
-        } else if (tierFactory.getClass() == RemoteTierFactory.class) {
-            return null; // TODO, create hash reader.
-        }
-        return null;
     }
 
     private HybridShuffleConfiguration getHybridShuffleConfiguration(

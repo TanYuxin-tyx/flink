@@ -99,6 +99,7 @@ class SubpartitionRemoteCacheManager {
 
     void startSegment(int segmentId) {
         synchronized (allBuffers) {
+            checkState(allBuffers.isEmpty(), "There are un-flushed buffers.");
             this.segmentId = segmentId;
         }
     }

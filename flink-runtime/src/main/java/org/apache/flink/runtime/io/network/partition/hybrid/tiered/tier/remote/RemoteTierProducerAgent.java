@@ -91,14 +91,13 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     @Override
     public boolean tryWrite(int subpartitionId, Buffer buffer) {
-        if (currentSubpartitionWriteBuffers[subpartitionId] != 0
-                && currentSubpartitionWriteBuffers[subpartitionId] + 1 > numBuffersPerSegment) {
+        if (currentSubpartitionWriteBuffers[subpartitionId] + 1 > numBuffersPerSegment) {
             cacheDataManager.finishSegment(subpartitionId);
             currentSubpartitionWriteBuffers[subpartitionId] = 0;
             return false;
         }
         currentSubpartitionWriteBuffers[subpartitionId]++;
-        emitBuffer(
+        cacheDataManager.appendBuffer(
                 useNewBufferRecyclerAndCompressBuffer(
                         bufferCompressor, buffer, memoryManager.getOwnerBufferRecycler(this)),
                 subpartitionId);
@@ -119,9 +118,5 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     private void releaseAllResources() {
         cacheDataManager.release();
-    }
-
-    private void emitBuffer(Buffer finishedBuffer, int subpartitionId) {
-        cacheDataManager.appendBuffer(finishedBuffer, subpartitionId);
     }
 }
