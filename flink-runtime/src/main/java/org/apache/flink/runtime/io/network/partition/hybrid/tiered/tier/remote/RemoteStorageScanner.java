@@ -54,8 +54,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class RemoteStorageScanner implements Runnable {
 
-    /** The initial scan interval is 500ms. */
-    private static final int INITIAL_SCAN_INTERVAL = 500;
+    /** The initial scan interval is 100ms. */
+    private static final int INITIAL_SCAN_INTERVAL = 100;
 
     /** The max scan interval is 10000ms. */
     private static final int MAX_SCAN_INTERVAL = 10_000;
