@@ -286,8 +286,7 @@ public class SingleInputGate extends IndexedInputGate {
         this.tieredStorageConsumerSpecs = tieredStorageConsumerSpecs;
         this.tieredStorageConsumerClient = consumerClient;
         if (tieredStorageConsumerClient != null) {
-            AvailabilityAndPriorityRetrieverImpl retriever =
-                    new AvailabilityAndPriorityRetrieverImpl();
+            AvailabilityAndPriorityRetriever retriever = new AvailabilityAndPriorityRetriever();
             this.tieredStorageConsumerClient.registerAvailabilityAndPriorityRetriever(retriever);
             ((TieredStorageNettyServiceImpl) nettyService)
                     .setupInputChannels(tieredStorageConsumerSpecs, createInputChannelSuppliers());
@@ -297,19 +296,16 @@ public class SingleInputGate extends IndexedInputGate {
         }
     }
 
-    private class AvailabilityAndPriorityRetrieverImpl
-            implements org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage
-                    .AvailabilityAndPriorityRetriever {
+    /**
+     * {@link AvailabilityAndPriorityRetriever} is used to retrieve the availability and priority
+     * status of a specific partition and subpartition.
+     */
+    public class AvailabilityAndPriorityRetriever {
 
-        /**
-         * The channel indexes stored in map.
-         *
-         * <p>The key is partition id and subpartition id. The value is related channel index.
-         */
         private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
                 channelIndexes;
 
-        public AvailabilityAndPriorityRetrieverImpl() {
+        public AvailabilityAndPriorityRetriever() {
             this.channelIndexes = new HashMap<>();
             for (int index = 0; index < checkNotNull(tieredStorageConsumerSpecs).size(); index++) {
                 TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
@@ -319,20 +315,29 @@ public class SingleInputGate extends IndexedInputGate {
             }
         }
 
-        @Override
+        /**
+         * Retrieve the availability and priority status of a specific partition and subpartition.
+         * If this method is invoked, the next round of reading will be triggered for the specific
+         * subpartition.
+         *
+         * @param partitionId the partition id.
+         * @param subpartitionId the subpartition id.
+         * @param isPriority the subpartition will be consumed with priority if the value is true
+         *     otherwise not.
+         * @param priorityBufferSequenceNumber the sequence number of priority buffer, which will be
+         *     recorded to prevent repeated notification for the same priority buffer.
+         */
         public void retrieveAvailableAndPriority(
                 TieredStoragePartitionId partitionId,
                 TieredStorageSubpartitionId subpartitionId,
                 boolean isPriority,
-                Integer sequenceNumber) {
+                Integer priorityBufferSequenceNumber) {
+            int channelIndex = channelIndexes.get(partitionId).get(subpartitionId);
             if (isPriority) {
-                queueChannel(
-                        channels[channelIndexes.get(partitionId).get(subpartitionId)],
-                        sequenceNumber,
-                        true);
+                queueChannel(channels[channelIndex], priorityBufferSequenceNumber, true);
+                lastPrioritySequenceNumber[channelIndex] = priorityBufferSequenceNumber;
             } else {
-                queueChannel(
-                        channels[channelIndexes.get(partitionId).get(subpartitionId)], null, false);
+                queueChannel(channels[channelIndex], null, false);
             }
         }
     }
