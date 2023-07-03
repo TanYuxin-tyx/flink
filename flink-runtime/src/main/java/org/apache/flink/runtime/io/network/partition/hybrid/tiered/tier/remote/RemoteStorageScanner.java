@@ -30,6 +30,8 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -73,6 +75,13 @@ public class RemoteStorageScanner implements Runnable {
     private final Queue<Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>>
             requiredSegmentIds;
 
+    /**
+     * The key is partition id and subpartition id, the value is max id of written segment files in
+     * the subpartition.
+     */
+    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
+            scannedMaxSegmentIds;
+
     private final String baseRemoteStoragePath;
 
     private final ScanStrategy scanStrategy;
@@ -86,6 +95,7 @@ public class RemoteStorageScanner implements Runnable {
     public RemoteStorageScanner(String baseRemoteStoragePath) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
         this.requiredSegmentIds = new LinkedBlockingDeque<>();
+        this.scannedMaxSegmentIds = new HashMap<>();
         this.scanStrategy = new ScanStrategy(INITIAL_SCAN_INTERVAL, MAX_SCAN_INTERVAL);
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
@@ -125,27 +135,26 @@ public class RemoteStorageScanner implements Runnable {
     @Override
     public void run() {
         int segmentFileNumber = requiredSegmentIds.size();
+        boolean scanned = false;
         while (segmentFileNumber-- > 0) {
-            Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>
-                    partitionIdAndSubpartitionIdAndSegmentId =
-                            checkNotNull(requiredSegmentIds.poll());
-            if (checkFileExist(
-                    partitionIdAndSubpartitionIdAndSegmentId.f0,
-                    partitionIdAndSubpartitionIdAndSegmentId.f1,
-                    partitionIdAndSubpartitionIdAndSegmentId.f2)) {
-                retriever.retrieveAvailableAndPriority(
-                        partitionIdAndSubpartitionIdAndSegmentId.f0,
-                        partitionIdAndSubpartitionIdAndSegmentId.f1,
-                        false,
-                        null);
+            Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer> ids =
+                    checkNotNull(requiredSegmentIds.poll());
+            TieredStoragePartitionId partitionId = ids.f0;
+            TieredStorageSubpartitionId subpartitionId = ids.f1;
+            int requiredSegmentId = ids.f2;
+            int maxSegmentId =
+                    scannedMaxSegmentIds
+                            .computeIfAbsent(partitionId, ignore -> new HashMap<>())
+                            .getOrDefault(subpartitionId, -1);
+            if (maxSegmentId >= requiredSegmentId) {
+                scanned = true;
+                retriever.retrieveAvailableAndPriority(partitionId, subpartitionId, false, null);
             } else {
-                requiredSegmentIds.add(partitionIdAndSubpartitionIdAndSegmentId);
+                scanMaxSegmentId(partitionId, subpartitionId);
+                requiredSegmentIds.add(ids);
             }
         }
-        attemptNumber++;
-        if (requiredSegmentIds.size() < segmentFileNumber) {
-            attemptNumber = 0;
-        }
+        attemptNumber = scanned ? 0 : attemptNumber + 1;
         scannerExecutor.schedule(
                 this, scanStrategy.getInterval(attemptNumber), TimeUnit.MILLISECONDS);
     }
@@ -159,10 +168,15 @@ public class RemoteStorageScanner implements Runnable {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private boolean checkFileExist(
-            TieredStoragePartitionId partitionId,
-            TieredStorageSubpartitionId subpartitionId,
-            int segmentId) {
+    /**
+     * Scan the max segment id of segment files for the specific partition and subpartition. The max
+     * segment id can be obtained from a file named by max segment id.
+     *
+     * @param partitionId the partition id.
+     * @param subpartitionId the subpartition id.
+     */
+    private void scanMaxSegmentId(
+            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
         String baseSubpartitionPath =
                 getSubpartitionPath(
                         baseRemoteStoragePath, partitionId, subpartitionId.getSubpartitionId());
@@ -170,7 +184,7 @@ public class RemoteStorageScanner implements Runnable {
         FileStatus[] fileStatuses;
         try {
             if (!remoteFileSystem.exists(segmentFinishDir)) {
-                return false;
+                return;
             }
             fileStatuses = remoteFileSystem.listStatus(segmentFinishDir);
         } catch (IOException e) {
@@ -178,11 +192,12 @@ public class RemoteStorageScanner implements Runnable {
                     "Failed to list the segment finish file. " + segmentFinishDir, e);
         }
         if (fileStatuses.length == 0) {
-            return false;
+            return;
         }
         checkState(fileStatuses.length == 1);
-        int scannedSegmentId = Integer.parseInt(fileStatuses[0].getPath().getName());
-        return scannedSegmentId >= segmentId;
+        scannedMaxSegmentIds
+                .computeIfAbsent(partitionId, ignore -> new HashMap<>())
+                .put(subpartitionId, Integer.parseInt(fileStatuses[0].getPath().getName()));
     }
 
     /**

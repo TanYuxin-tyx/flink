@@ -119,6 +119,16 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void flush(
             List<SubpartitionBufferContext> toWrite, CompletableFuture<Void> flushSuccessNotifier) {
+        if(toWrite.size() == 1){
+            List<SegmentBufferContext> segmentBufferContexts = toWrite
+                    .get(0)
+                    .getSegmentBufferContexts();
+            if(segmentBufferContexts.size() == 1){
+                if(segmentBufferContexts.get(0).isSegmentFinished()){
+                    System.out.println("");
+                }
+            }
+        }
         try {
             List<ProducerMergedPartitionFileIndex.FlushedBuffer> buffers = new ArrayList<>();
             calculateSizeAndFlushBuffers(toWrite, buffers);

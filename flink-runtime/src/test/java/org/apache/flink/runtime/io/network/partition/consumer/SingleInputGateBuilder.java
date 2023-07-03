@@ -173,9 +173,6 @@ public class SingleInputGateBuilder {
                         bufferSize,
                         createThroughputCalculator.apply(bufferDebloatConfiguration),
                         maybeCreateBufferDebloater(gateIndex),
-                        false,
-                        null,
-                        null,
                         null,
                         null,
                         null);

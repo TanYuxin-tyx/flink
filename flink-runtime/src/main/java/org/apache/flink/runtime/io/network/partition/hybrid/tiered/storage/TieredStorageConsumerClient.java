@@ -39,6 +39,8 @@ public class TieredStorageConsumerClient {
                     Map<TieredStorageSubpartitionId, Tuple3<TierConsumerAgent, Integer, Integer>>>
             currentConsumerInfo = new HashMap<>();
 
+    private final RemoteStorageScanner remoteStorageScanner;
+
     private AvailabilityAndPriorityRetriever retriever;
 
     public TieredStorageConsumerClient(
@@ -49,6 +51,7 @@ public class TieredStorageConsumerClient {
             PartitionFileReader partitionFileReader,
             int remoteBufferSize) {
         this.tierFactories = createTierFactories(remoteStorageBasePath);
+        this.remoteStorageScanner = remoteStorageScanner;
         this.tierConsumerAgents =
                 createTierConsumerAgents(
                         tieredStorageConsumerSpecs,
@@ -104,6 +107,9 @@ public class TieredStorageConsumerClient {
     public void registerAvailabilityAndPriorityRetriever(
             AvailabilityAndPriorityRetriever retriever) {
         this.retriever = retriever;
+        if (remoteStorageScanner != null) {
+            remoteStorageScanner.registerAvailabilityAndPriorityRetriever(retriever);
+        }
     }
 
     public void close() throws IOException {

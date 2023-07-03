@@ -232,8 +232,6 @@ public class SingleInputGateFactory {
                                 owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)),
                         tieredStorageConsumerSpecs,
                         nettyService,
-                        remoteStorageBasePath,
-                        remoteStorageScanner,
                         tieredStorageConsumerClient);
 
         createInputChannels(
@@ -360,8 +358,6 @@ public class SingleInputGateFactory {
             @Nullable BufferDebloater bufferDebloater,
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
-            @Nullable String baseRemoteStoragePath,
-            @Nullable RemoteStorageScanner remoteStorageScanner,
             @Nullable TieredStorageConsumerClient tieredStorageConsumerClient) {
 
         return new SingleInputGate(
@@ -378,11 +374,8 @@ public class SingleInputGateFactory {
                 segmentSize,
                 throughputCalculator,
                 bufferDebloater,
-                enableTieredStore,
                 tieredStorageConsumerSpecs,
                 nettyService,
-                baseRemoteStoragePath,
-                remoteStorageScanner,
                 tieredStorageConsumerClient);
     }
 

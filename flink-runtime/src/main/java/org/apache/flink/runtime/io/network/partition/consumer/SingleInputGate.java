@@ -47,7 +47,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -74,7 +73,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Timer;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -242,11 +240,8 @@ public class SingleInputGate extends IndexedInputGate {
             int segmentSize,
             ThroughputCalculator throughputCalculator,
             @Nullable BufferDebloater bufferDebloater,
-            boolean enableTieredStoreMode,
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
-            @Nullable String baseRemoteStoragePath,
-            @Nullable RemoteStorageScanner remoteStorageScanner,
             @Nullable TieredStorageConsumerClient consumerClient) {
 
         this.owningTaskName = checkNotNull(owningTaskName);
@@ -280,19 +275,13 @@ public class SingleInputGate extends IndexedInputGate {
         this.unpooledSegment = MemorySegmentFactory.allocateUnpooledSegment(segmentSize);
         this.bufferDebloater = bufferDebloater;
         this.throughputCalculator = checkNotNull(throughputCalculator);
-        BiConsumer<Integer, Boolean> queueChannelCallBack =
-                (subpartitionId, priority) ->
-                        queueChannel(channels[subpartitionId], null, priority);
         this.tieredStorageConsumerSpecs = tieredStorageConsumerSpecs;
         this.tieredStorageConsumerClient = consumerClient;
         if (tieredStorageConsumerClient != null) {
-            AvailabilityAndPriorityRetriever retriever = new AvailabilityAndPriorityRetriever();
-            this.tieredStorageConsumerClient.registerAvailabilityAndPriorityRetriever(retriever);
+            this.tieredStorageConsumerClient.registerAvailabilityAndPriorityRetriever(
+                    new AvailabilityAndPriorityRetriever());
             ((TieredStorageNettyServiceImpl) nettyService)
                     .setupInputChannels(tieredStorageConsumerSpecs, createInputChannelSuppliers());
-            if (remoteStorageScanner != null) {
-                remoteStorageScanner.registerAvailabilityAndPriorityRetriever(retriever);
-            }
         }
     }
 
