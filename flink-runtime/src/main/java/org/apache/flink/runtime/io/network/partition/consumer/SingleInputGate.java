@@ -41,7 +41,8 @@ import org.apache.flink.runtime.io.network.partition.PrioritizedDeque;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel.BufferAndAvailability;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReaderAvailabilityAndPriorityHelper;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
@@ -285,24 +286,11 @@ public class SingleInputGate extends IndexedInputGate {
                         queueChannel(channels[subpartitionId], null, priority);
         this.tieredStorageConsumerSpecs = tieredStorageConsumerSpecs;
         this.tieredStorageConsumerClient = consumerClient;
-        if (tieredStorageConsumerSpecs != null) {
+        if (tieredStorageConsumerClient != null) {
+            this.tieredStorageConsumerClient.registerAvailabilityAndPriorityRetriever(
+                    new AvailabilityAndPriorityRetrieverImpl());
             ((TieredStorageNettyServiceImpl) nettyService)
-                    .setupInputChannels(
-                            tieredStorageConsumerSpecs,
-                            createInputChannelSuppliers(),
-                            new NettyConnectionReaderAvailabilityAndPriorityHelper() {
-                                @Override
-                                public void notifyReaderAvailableAndPriority(
-                                        int channelIndex, boolean isPriority) {
-                                    queueChannelCallBack.accept(channelIndex, isPriority);
-                                }
-
-                                @Override
-                                public void updatePrioritySequenceNumber(
-                                        int channelIndex, int sequenceNumber) {
-                                    lastPrioritySequenceNumber[channelIndex] = sequenceNumber;
-                                }
-                            });
+                    .setupInputChannels(tieredStorageConsumerSpecs, createInputChannelSuppliers());
             if (remoteStorageScanner != null) {
                 remoteStorageScanner.setupRemoteStorageScannerAvailabilityAndPriorityHelper(
                         new RemoteStorageScannerAvailabilityAndPriorityHelper() {
@@ -318,6 +306,46 @@ public class SingleInputGate extends IndexedInputGate {
                                 lastPrioritySequenceNumber[channelIndex] = sequenceNumber;
                             }
                         });
+            }
+        }
+    }
+
+    private class AvailabilityAndPriorityRetrieverImpl
+            implements org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage
+                    .AvailabilityAndPriorityRetriever {
+
+        /**
+         * The channel indexes stored in map.
+         *
+         * <p>The key is partition id and subpartition id. The value is related channel index.
+         */
+        private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
+                channelIndexes;
+
+        public AvailabilityAndPriorityRetrieverImpl() {
+            this.channelIndexes = new HashMap<>();
+            for (int index = 0; index < checkNotNull(tieredStorageConsumerSpecs).size(); index++) {
+                TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
+                channelIndexes
+                        .computeIfAbsent(spec.getPartitionId(), ignore -> new HashMap<>())
+                        .put(spec.getSubpartitionId(), index);
+            }
+        }
+
+        @Override
+        public void retrieveAvailableAndPriority(
+                TieredStoragePartitionId partitionId,
+                TieredStorageSubpartitionId subpartitionId,
+                boolean isPriority,
+                int sequenceNumber) {
+            if (isPriority) {
+                queueChannel(
+                        channels[channelIndexes.get(partitionId).get(subpartitionId)],
+                        sequenceNumber,
+                        true);
+            } else {
+                queueChannel(
+                        channels[channelIndexes.get(partitionId).get(subpartitionId)], null, false);
             }
         }
     }

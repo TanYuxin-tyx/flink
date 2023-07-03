@@ -125,8 +125,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
 
     public void setupInputChannels(
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
-            List<Supplier<InputChannel>> inputChannelProviders,
-            NettyConnectionReaderAvailabilityAndPriorityHelper helper) {
+            List<Supplier<InputChannel>> inputChannelProviders) {
         checkState(tieredStorageConsumerSpecs.size() == inputChannelProviders.size());
         for (int index = 0; index < tieredStorageConsumerSpecs.size(); ++index) {
             TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
@@ -135,9 +134,7 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             registeredNettyConnectionReaders
                     .remove(partitionId)
                     .remove(subpartitionId)
-                    .complete(
-                            new NettyConnectionReaderImpl(
-                                    index, inputChannelProviders.get(index), helper));
+                    .complete(new NettyConnectionReaderImpl(inputChannelProviders.get(index)));
         }
     }
 }
