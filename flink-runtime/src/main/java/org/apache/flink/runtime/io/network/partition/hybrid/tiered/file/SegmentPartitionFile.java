@@ -33,7 +33,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.TIER_STORAGE_DIR;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.TIERED_STORAGE_DIR;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -72,7 +72,7 @@ public class SegmentPartitionFile {
     }
 
     public static String getTieredStoragePath(String basePath) {
-        return String.format("%s/%s", basePath, TIER_STORAGE_DIR);
+        return String.format("%s/%s", basePath, TIERED_STORAGE_DIR);
     }
 
     public static String getPartitionPath(ResultPartitionID partitionID, String basePath) {
@@ -83,7 +83,7 @@ public class SegmentPartitionFile {
         while (basePath.endsWith("/") && basePath.length() > 1) {
             basePath = basePath.substring(0, basePath.length() - 1);
         }
-        return String.format("%s/%s/%s", basePath, TIER_STORAGE_DIR, partitionID);
+        return String.format("%s/%s/%s", basePath, TIERED_STORAGE_DIR, partitionID);
     }
 
     public static String getSubpartitionPath(
