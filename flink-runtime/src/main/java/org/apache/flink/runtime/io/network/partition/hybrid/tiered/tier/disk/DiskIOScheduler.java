@@ -151,7 +151,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             numRequestedBuffers += numBuffersRead;
             isRunning = false;
         }
-        System.out.println(numRequestedBuffers);
         if (numBuffersRead == 0) {
             ioExecutor.schedule(this::triggerScheduling, 5, TimeUnit.MILLISECONDS);
         } else {
