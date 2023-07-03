@@ -142,25 +142,27 @@ public class TieredStorageUtils {
         return subpartitionPathStr;
     }
 
-    public static void writeSegmentFinishFile(String baseSubpartitionPath, int currentSegmentIndex)
+    public static void writeSegmentFinishFile(String baseSubpartitionPath, int segmentId)
             throws IOException {
         Path segmentFinishDir = getSegmentFinishDir(baseSubpartitionPath);
         FileSystem fs = segmentFinishDir.getFileSystem();
+        Path segmentFinishFile = new Path(segmentFinishDir, String.valueOf(segmentId));
         if (!fs.exists(segmentFinishDir)) {
             fs.mkdirs(segmentFinishDir);
+            OutputStream outputStream =
+                    fs.create(segmentFinishFile, FileSystem.WriteMode.OVERWRITE);
+            outputStream.close();
+            return;
         }
+
         FileStatus[] files = fs.listStatus(segmentFinishDir);
         if (files.length == 0) {
             OutputStream outputStream =
-                    fs.create(
-                            new Path(segmentFinishDir, String.valueOf(currentSegmentIndex)),
-                            FileSystem.WriteMode.OVERWRITE);
+                    fs.create(segmentFinishFile, FileSystem.WriteMode.OVERWRITE);
             outputStream.close();
         } else {
             checkState(files.length == 1);
-            fs.rename(
-                    files[0].getPath(),
-                    new Path(segmentFinishDir, String.valueOf(currentSegmentIndex)));
+            fs.rename(files[0].getPath(), segmentFinishFile);
         }
     }
 
