@@ -34,8 +34,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
-import org.apache.flink.shaded.guava30.com.google.common.collect.HashBiMap;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,6 +44,7 @@ import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -106,11 +105,11 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     private final PartitionFileReader partitionFileReader;
 
     @GuardedBy("lock")
-    private final HashBiMap<NettyConnectionId, ScheduledSubpartitionReader> allScheduledReaders =
-            HashBiMap.create();
+    private final Map<NettyConnectionId, ScheduledSubpartitionReader> allScheduledReaders =
+            new HashMap<>();
 
     @GuardedBy("lock")
-    private volatile boolean isRunning;
+    private boolean isRunning;
 
     @GuardedBy("lock")
     private volatile int numRequestedBuffers;
@@ -144,8 +143,10 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     public synchronized void run() {
         int numBuffersRead = readBuffersFromFile();
         synchronized (lock) {
+            numRequestedBuffers += numBuffersRead;
             isRunning = false;
         }
+        System.out.println(numRequestedBuffers);
         if (numBuffersRead == 0) {
             ioExecutor.schedule(this::triggerScheduling, 5, TimeUnit.MILLISECONDS);
         } else {
@@ -219,10 +220,10 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             return 0;
         }
 
-        int startIndex = 0;
-        while (startIndex < scheduledReaders.size() && !buffers.isEmpty()) {
-            ScheduledSubpartitionReader scheduledReader = scheduledReaders.get(startIndex);
-            startIndex++;
+        for (ScheduledSubpartitionReader scheduledReader : scheduledReaders) {
+            if (buffers.isEmpty()) {
+                break;
+            }
             try {
                 scheduledReader.loadDiskDataToBuffers(buffers, this);
             } catch (Exception throwable) {
@@ -232,9 +233,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         }
         int numBuffersRead = numBuffersAllocated - buffers.size();
         releaseBuffers(buffers);
-        synchronized (lock) {
-            numRequestedBuffers += numBuffersRead;
-        }
         return numBuffersRead;
     }
 
@@ -278,7 +276,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             List<ScheduledSubpartitionReader> scheduledReaders, Throwable failureCause) {
         for (ScheduledSubpartitionReader scheduledReader : scheduledReaders) {
             synchronized (lock) {
-                allScheduledReaders.remove(allScheduledReaders.inverse().get(scheduledReader));
+                allScheduledReaders.remove(scheduledReader.getId());
             }
             scheduledReader.failReader(failureCause);
         }
@@ -446,6 +444,10 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                 writeToNettyConnectionWriter(NettyPayload.newSegment(segmentId));
                                 return segmentId;
                             });
+        }
+
+        private NettyConnectionId getId() {
+            return nettyConnectionWriter.getNettyConnectionId();
         }
     }
 }
