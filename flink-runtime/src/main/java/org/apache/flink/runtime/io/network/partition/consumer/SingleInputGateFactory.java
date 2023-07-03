@@ -200,8 +200,7 @@ public class SingleInputGateFactory {
             }
             if (remoteStorageBasePath != null) {
                 String basePath = getTieredStoragePath(remoteStorageBasePath);
-                remoteStorageScanner =
-                        new RemoteStorageScanner(tieredStorageConsumerSpecs, basePath);
+                remoteStorageScanner = new RemoteStorageScanner(basePath);
                 reader = HashPartitionFile.createPartitionFileReader(basePath);
             }
 

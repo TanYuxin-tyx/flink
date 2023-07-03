@@ -24,13 +24,11 @@ import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate.AvailabilityAndPriorityRetriever;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -39,6 +37,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getSegmentFinishPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getSubpartitionPath;
+import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -51,6 +50,12 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * trigger the reading process of the file.
  */
 public class RemoteStorageScanner implements Runnable {
+
+    /** The initial scan interval is 500ms. */
+    private static final int INITIAL_SCAN_INTERVAL = 500;
+
+    /** The max scan interval is 10000ms. */
+    private static final int MAX_SCAN_INTERVAL = 10_000;
 
     /** Executor to scan the existence status of segment files on remote storage. */
     private final ScheduledExecutorService scannerExecutor =
@@ -68,15 +73,18 @@ public class RemoteStorageScanner implements Runnable {
 
     private final String baseRemoteStoragePath;
 
+    private final ScanStrategy scanStrategy;
+
     private FileSystem remoteFileSystem;
 
     private AvailabilityAndPriorityRetriever retriever;
 
-    public RemoteStorageScanner(
-            List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
-            String baseRemoteStoragePath) {
+    private int attemptNumber = 0;
+
+    public RemoteStorageScanner(String baseRemoteStoragePath) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
         this.requiredSegmentIds = new LinkedBlockingDeque<>();
+        this.scanStrategy = new ScanStrategy(INITIAL_SCAN_INTERVAL, MAX_SCAN_INTERVAL);
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
@@ -87,7 +95,8 @@ public class RemoteStorageScanner implements Runnable {
 
     /** Start the executor. */
     public void start() {
-        scannerExecutor.scheduleAtFixedRate(this, 0, 10, TimeUnit.MILLISECONDS);
+        scannerExecutor.schedule(
+                this, scanStrategy.getInterval(attemptNumber), TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -131,6 +140,12 @@ public class RemoteStorageScanner implements Runnable {
                 requiredSegmentIds.add(partitionIdAndSubpartitionIdAndSegmentId);
             }
         }
+        attemptNumber++;
+        if (requiredSegmentIds.size() < segmentFileNumber) {
+            attemptNumber = 0;
+        }
+        scannerExecutor.schedule(
+                this, scanStrategy.getInterval(attemptNumber), TimeUnit.MILLISECONDS);
     }
 
     public void registerAvailabilityAndPriorityRetriever(
@@ -157,6 +172,40 @@ public class RemoteStorageScanner implements Runnable {
                     "Failed to check the existing state of segment path: "
                             + currentSegmentFinishPath,
                     e);
+        }
+    }
+
+    /**
+     * The strategy is used to decide the scan interval of {@link RemoteStorageScanner}. The
+     * interval will be updated exponentially and restricted by max value.
+     */
+    private static class ScanStrategy {
+
+        private final int initialScanInterval;
+
+        private final int maxScanInterval;
+
+        public ScanStrategy(int initialScanInterval, int maxScanInterval) {
+            checkArgument(
+                    initialScanInterval > 0,
+                    "initialScanInterval must be positive, was %s",
+                    initialScanInterval);
+            checkArgument(
+                    maxScanInterval > 0,
+                    "maxScanInterval must be positive, was %s",
+                    maxScanInterval);
+            checkArgument(
+                    initialScanInterval <= maxScanInterval,
+                    "initialScanInterval must be lower than or equal to maxScanInterval",
+                    maxScanInterval);
+            this.initialScanInterval = initialScanInterval;
+            this.maxScanInterval = maxScanInterval;
+        }
+
+        public long getInterval(int attempt) {
+            checkArgument(attempt >= 0, "attempt must not be negative (%s)", attempt);
+            final long interval = initialScanInterval * Math.round(Math.pow(2, attempt));
+            return interval >= 0 && interval < maxScanInterval ? interval : maxScanInterval;
         }
     }
 }
