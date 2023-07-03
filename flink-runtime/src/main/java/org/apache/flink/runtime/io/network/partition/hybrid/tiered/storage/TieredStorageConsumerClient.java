@@ -45,11 +45,11 @@ public class TieredStorageConsumerClient {
     public TieredStorageConsumerClient(
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
-            String baseRemoteStoragePath,
+            String remoteStorageBasePath,
             RemoteStorageScanner remoteStorageScanner,
             PartitionFileReader partitionFileReader,
             int remoteBufferSize) {
-        this.tierFactories = createTierFactories(baseRemoteStoragePath);
+        this.tierFactories = createTierFactories(remoteStorageBasePath);
         this.tierConsumerAgents =
                 createTierConsumerAgents(
                         tieredStorageConsumerSpecs,
@@ -114,12 +114,12 @@ public class TieredStorageConsumerClient {
         }
     }
 
-    private List<TierFactory> createTierFactories(String baseRemoteStoragePath) {
+    private List<TierFactory> createTierFactories(String remoteStorageBasePath) {
         List<TierFactory> tierFactories = new ArrayList<>();
         tierFactories.add(new MemoryTierFactory(0, 0));
         tierFactories.add(new DiskTierFactory(0, 0, 0));
-        if (baseRemoteStoragePath != null) {
-            tierFactories.add(new RemoteTierFactory(0, 0));
+        if (remoteStorageBasePath != null) {
+            tierFactories.add(new RemoteTierFactory(0, 0, remoteStorageBasePath));
         }
         return tierFactories;
     }

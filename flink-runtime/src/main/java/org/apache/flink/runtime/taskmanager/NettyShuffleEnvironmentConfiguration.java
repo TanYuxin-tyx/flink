@@ -112,7 +112,7 @@ public class NettyShuffleEnvironmentConfiguration {
 
     private final boolean enableTieredStoreForHybridShuffle;
 
-    @Nullable private final String baseRemoteStoragePath;
+    @Nullable private final String remoteStorageBasePath;
 
     private final String tieredStoreTiers;
 
@@ -141,7 +141,7 @@ public class NettyShuffleEnvironmentConfiguration {
             int maxOverdraftBuffersPerGate,
             int hybridShuffleSpilledIndexSegmentSize,
             long hybridShuffleNumRetainedInMemoryRegionsMax,
-            @Nullable String baseRemoteStoragePath,
+            @Nullable String remoteStorageBasePath,
             float minReservedDiskSpaceFraction,
             boolean enableTieredStoreForHybridShuffle,
             String tieredStoreTiers) {
@@ -171,7 +171,7 @@ public class NettyShuffleEnvironmentConfiguration {
         this.hybridShuffleSpilledIndexSegmentSize = hybridShuffleSpilledIndexSegmentSize;
         this.hybridShuffleNumRetainedInMemoryRegionsMax =
                 hybridShuffleNumRetainedInMemoryRegionsMax;
-        this.baseRemoteStoragePath = baseRemoteStoragePath;
+        this.remoteStorageBasePath = remoteStorageBasePath;
         this.enableTieredStoreForHybridShuffle = enableTieredStoreForHybridShuffle;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.tieredStoreTiers = tieredStoreTiers;
@@ -279,8 +279,8 @@ public class NettyShuffleEnvironmentConfiguration {
         return hybridShuffleSpilledIndexSegmentSize;
     }
 
-    public String getBaseRemoteStoragePath() {
-        return baseRemoteStoragePath;
+    public String getRemoteStorageBasePath() {
+        return remoteStorageBasePath;
     }
 
     public float minReservedDiskSpaceFraction() {
@@ -428,7 +428,7 @@ public class NettyShuffleEnvironmentConfiguration {
         String baseDfsHomePath =
                 configuration.getString(
                         NettyShuffleEnvironmentOptions
-                                .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH);
+                                .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_PATH);
 
         boolean enableTieredStoreForHybridShuffle =
                 configuration.get(

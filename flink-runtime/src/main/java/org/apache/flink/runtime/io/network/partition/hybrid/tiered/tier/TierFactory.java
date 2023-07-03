@@ -31,17 +31,13 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
 
-import javax.annotation.Nullable;
-
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
 public interface TierFactory {
 
-    TierMasterAgent createMasterAgent(
-            TieredStorageResourceRegistry resourceRegistry,
-            @Nullable String remoteStorageBaseHomePath);
+    TierMasterAgent createMasterAgent(TieredStorageResourceRegistry resourceRegistry);
 
     TierProducerAgent createProducerAgent(
             int numSubpartitions,

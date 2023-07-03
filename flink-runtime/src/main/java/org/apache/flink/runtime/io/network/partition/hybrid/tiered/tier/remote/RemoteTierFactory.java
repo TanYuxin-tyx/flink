@@ -34,8 +34,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFact
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
-import javax.annotation.Nullable;
-
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -46,16 +44,18 @@ public class RemoteTierFactory implements TierFactory {
 
     private final int bufferSizeBytes;
 
-    public RemoteTierFactory(int numBytesPerSegment, int bufferSizeBytes) {
+    private final String remoteStorageBasePath;
+
+    public RemoteTierFactory(
+            int numBytesPerSegment, int bufferSizeBytes, String remoteStorageBasePath) {
         this.numBytesPerSegment = numBytesPerSegment;
         this.bufferSizeBytes = bufferSizeBytes;
+        this.remoteStorageBasePath = remoteStorageBasePath;
     }
 
     @Override
-    public TierMasterAgent createMasterAgent(
-            TieredStorageResourceRegistry resourceRegistry,
-            @Nullable String remoteStorageBaseHomePath) {
-        return new RemoteTierMasterAgent(resourceRegistry, remoteStorageBaseHomePath);
+    public TierMasterAgent createMasterAgent(TieredStorageResourceRegistry resourceRegistry) {
+        return new RemoteTierMasterAgent(resourceRegistry, remoteStorageBasePath);
     }
 
     @Override

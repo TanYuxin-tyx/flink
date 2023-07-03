@@ -66,7 +66,7 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
 
     private final String tieredStoreTiers;
 
-    private final String baseDfsPath;
+    private final String baseRemoteStoragePath;
 
     private final boolean enableTieredStoreForHybridShuffle;
 
@@ -87,10 +87,10 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
         sortShuffleMinBuffers =
                 conf.getInteger(NettyShuffleEnvironmentOptions.NETWORK_SORT_SHUFFLE_MIN_BUFFERS);
         networkBufferSize = ConfigurationParserUtils.getPageSize(conf);
-        baseDfsPath =
+        baseRemoteStoragePath =
                 conf.getString(
                         NettyShuffleEnvironmentOptions
-                                .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH);
+                                .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_PATH);
         enableTieredStoreForHybridShuffle =
                 conf.getBoolean(
                         NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE);
@@ -117,7 +117,7 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
     private List<TierMasterAgent> createTieredMasterClients(
             TieredStorageConfiguration storeConfiguration) {
         return storeConfiguration.getTierFactories().stream()
-                .map(tierFactory -> tierFactory.createMasterAgent(resourceRegistry, baseDfsPath))
+                .map(tierFactory -> tierFactory.createMasterAgent(resourceRegistry))
                 .collect(Collectors.toList());
     }
 
@@ -125,8 +125,8 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
         return TieredStorageConfiguration.builder()
                 // TODO, this is only for it case tests and configured tests. Remove this set tier
                 // types and use the default tier factories in the tiered storage factory
-                .setTierTypes(tieredStoreTiers)
-                .setBaseDfsHomePath(baseDfsPath)
+                .setTierTypes(tieredStoreTiers, baseRemoteStoragePath)
+                .setRemoteStorageBasePath(baseRemoteStoragePath)
                 .build();
     }
 

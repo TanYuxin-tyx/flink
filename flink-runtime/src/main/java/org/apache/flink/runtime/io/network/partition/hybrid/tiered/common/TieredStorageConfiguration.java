@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
+import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierFactory;
@@ -105,7 +107,7 @@ public class TieredStorageConfiguration {
 
     private final int numBuffersUseSortAccumulatorThreshold;
 
-    private final String baseDfsHomePath;
+    private final String remoteStorageBasePath;
 
     private final int[] tierExclusiveBuffers;
 
@@ -122,7 +124,7 @@ public class TieredStorageConfiguration {
             float numBuffersTriggerFlushRatio,
             long bufferPoolSizeCheckIntervalMs,
             int numBuffersUseSortAccumulatorThreshold,
-            String baseDfsHomePath,
+            String remoteStorageBasePath,
             int configuredNetworkBuffersPerChannel,
             int[] tierExclusiveBuffers,
             TierFactory[] tierFactories) {
@@ -136,7 +138,7 @@ public class TieredStorageConfiguration {
         this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
         this.bufferPoolSizeCheckIntervalMs = bufferPoolSizeCheckIntervalMs;
         this.numBuffersUseSortAccumulatorThreshold = numBuffersUseSortAccumulatorThreshold;
-        this.baseDfsHomePath = baseDfsHomePath;
+        this.remoteStorageBasePath = remoteStorageBasePath;
         this.configuredNetworkBuffersPerChannel = configuredNetworkBuffersPerChannel;
         this.tierExclusiveBuffers = tierExclusiveBuffers;
         this.tierFactories = tierFactories;
@@ -197,8 +199,8 @@ public class TieredStorageConfiguration {
         return numBuffersUseSortAccumulatorThreshold;
     }
 
-    public String getBaseDfsHomePath() {
-        return baseDfsHomePath;
+    public String getRemoteStorageBasePath() {
+        return remoteStorageBasePath;
     }
 
     public int getConfiguredNetworkBuffersPerChannel() {
@@ -232,7 +234,7 @@ public class TieredStorageConfiguration {
         private int numBuffersUseSortAccumulatorThreshold =
                 DEFAULT_NUM_BUFFERS_USE_SORT_ACCUMULATOR_THRESHOLD;
 
-        private String baseDfsHomePath = null;
+        private String remoteStorageBasePath = null;
 
         private int configuredNetworkBuffersPerChannel;
 
@@ -301,8 +303,9 @@ public class TieredStorageConfiguration {
             return this;
         }
 
-        public TieredStorageConfiguration.Builder setBaseDfsHomePath(String baseDfsHomePath) {
-            this.baseDfsHomePath = baseDfsHomePath;
+        public TieredStorageConfiguration.Builder setRemoteStorageBasePath(
+                String remoteStorageBasePath) {
+            this.remoteStorageBasePath = remoteStorageBasePath;
             return this;
         }
 
@@ -314,9 +317,11 @@ public class TieredStorageConfiguration {
 
         /** Only for test. This method will be removed in the production code. */
         public TieredStorageConfiguration.Builder setTierTypes(
-                String configuredStoreTiers, ResultPartitionType partitionType) {
+                String configuredStoreTiers,
+                ResultPartitionType partitionType,
+                String remoteStorageBasePath) {
             TierType[] tierTypes = getConfiguredTierTypes(configuredStoreTiers, partitionType);
-            tierFactories = getTierFactories(tierTypes, bufferSize);
+            tierFactories = getTierFactories(tierTypes, bufferSize, remoteStorageBasePath);
             tierExclusiveBuffers = new int[tierTypes.length];
 
             for (int i = 0; i < tierTypes.length; i++) {
@@ -326,9 +331,10 @@ public class TieredStorageConfiguration {
         }
 
         /** Only for test. This method will be removed in the production code. */
-        public TieredStorageConfiguration.Builder setTierTypes(String configuredStoreTiers) {
+        public TieredStorageConfiguration.Builder setTierTypes(
+                String configuredStoreTiers, String remoteStorageBasePath) {
             TierType[] tierTypes = getConfiguredTierTypes(configuredStoreTiers);
-            tierFactories = getTierFactories(tierTypes, bufferSize);
+            tierFactories = getTierFactories(tierTypes, bufferSize, remoteStorageBasePath);
             return this;
         }
 
@@ -391,10 +397,10 @@ public class TieredStorageConfiguration {
 
         public TieredStorageConfiguration build() {
             if (tierFactories == null) {
-                this.tierFactories = getDefaultTierFactories(baseDfsHomePath, bufferSize);
+                this.tierFactories = getDefaultTierFactories(remoteStorageBasePath, bufferSize);
             }
             if (tierExclusiveBuffers == null) {
-                this.tierExclusiveBuffers = getDefaultExclusiveBuffers(baseDfsHomePath);
+                this.tierExclusiveBuffers = getDefaultExclusiveBuffers(remoteStorageBasePath);
             }
 
             return new TieredStorageConfiguration(
@@ -408,7 +414,7 @@ public class TieredStorageConfiguration {
                     numBuffersTriggerFlushRatio,
                     bufferPoolSizeCheckIntervalMs,
                     numBuffersUseSortAccumulatorThreshold,
-                    baseDfsHomePath,
+                    remoteStorageBasePath,
                     configuredNetworkBuffersPerChannel,
                     tierExclusiveBuffers,
                     tierFactories);
@@ -416,15 +422,17 @@ public class TieredStorageConfiguration {
     }
 
     // Only for tests
-    private static TierFactory[] getTierFactories(TierType[] tierTypes, int bufferSize) {
+    private static TierFactory[] getTierFactories(
+            TierType[] tierTypes, int bufferSize, String remoteStorageBasePath) {
         TierFactory[] tierFactories = new TierFactory[tierTypes.length];
         for (int i = 0; i < tierTypes.length; i++) {
-            tierFactories[i] = createTierFactory(tierTypes[i], bufferSize);
+            tierFactories[i] = createTierFactory(tierTypes[i], bufferSize, remoteStorageBasePath);
         }
         return tierFactories;
     }
 
-    private static TierFactory createTierFactory(TierType tierType, int bufferSize) {
+    private static TierFactory createTierFactory(
+            TierType tierType, int bufferSize, String remoteStorageBasePath) {
         switch (tierType) {
             case IN_MEM:
                 return new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT, bufferSize);
@@ -434,14 +442,18 @@ public class TieredStorageConfiguration {
                         bufferSize,
                         DEFAULT_MIN_RESERVE_SPACE_FRACTION);
             case IN_REMOTE:
-                return new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT, bufferSize);
+                return new RemoteTierFactory(
+                        DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT,
+                        bufferSize,
+                        remoteStorageBasePath);
             default:
                 throw new IllegalArgumentException("Illegal tier type " + tierType);
         }
     }
 
-    private static TierFactory[] getDefaultTierFactories(String baseDfsHomePath, int bufferSize) {
-        return baseDfsHomePath == null
+    private static TierFactory[] getDefaultTierFactories(
+            String remoteStorageBasePath, int bufferSize) {
+        return remoteStorageBasePath == null
                 ? new TierFactory[] {
                     new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT, bufferSize),
                     new DiskTierFactory(
@@ -455,7 +467,10 @@ public class TieredStorageConfiguration {
                             DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
                             bufferSize,
                             DEFAULT_MIN_RESERVE_SPACE_FRACTION),
-                    new RemoteTierFactory(DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT, bufferSize)
+                    new RemoteTierFactory(
+                            DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT,
+                            bufferSize,
+                            remoteStorageBasePath)
                 };
     }
 
@@ -463,5 +478,15 @@ public class TieredStorageConfiguration {
         return baseDfsHomePath == null
                 ? DEFAULT_MEMORY_DISK_EXCLUSIVE_BUFFERS
                 : DEFAULT_MEMORY_DISK_REMOTE_EXCLUSIVE_BUFFERS;
+    }
+
+    public static TieredStorageConfiguration fromConfiguration(Configuration conf) {
+        String remoteStorageBasePath =
+                conf.getString(
+                        NettyShuffleEnvironmentOptions
+                                .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_PATH);
+        TieredStorageConfiguration.Builder builder = new TieredStorageConfiguration.Builder();
+        builder.setRemoteStorageBasePath(remoteStorageBasePath);
+        return builder.build();
     }
 }

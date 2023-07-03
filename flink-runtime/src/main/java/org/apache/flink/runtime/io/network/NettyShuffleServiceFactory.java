@@ -213,7 +213,7 @@ public class NettyShuffleServiceFactory
                         config.getMaxOverdraftBuffersPerGate(),
                         config.getHybridShuffleSpilledIndexSegmentSize(),
                         config.getHybridShuffleNumRetainedInMemoryRegionsMax(),
-                        config.getBaseRemoteStoragePath(),
+                        config.getRemoteStorageBasePath(),
                         config.minReservedDiskSpaceFraction(),
                         config.enableTieredStoreForHybridShuffle(),
                         config.getTieredStoreTiers());

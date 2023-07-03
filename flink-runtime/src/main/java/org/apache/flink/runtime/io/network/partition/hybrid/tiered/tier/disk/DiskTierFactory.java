@@ -35,8 +35,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMast
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
 
-import javax.annotation.Nullable;
-
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -57,9 +55,7 @@ public class DiskTierFactory implements TierFactory {
     }
 
     @Override
-    public TierMasterAgent createMasterAgent(
-            TieredStorageResourceRegistry resourceRegistry,
-            @Nullable String remoteStorageBaseHomePath) {
+    public TierMasterAgent createMasterAgent(TieredStorageResourceRegistry resourceRegistry) {
         return new DiskTierMasterAgent();
     }
 

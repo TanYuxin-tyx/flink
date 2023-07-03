@@ -400,7 +400,7 @@ public class NettyShuffleEnvironmentOptions {
                                             + " thrown.");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
-    public static final ConfigOption<String> NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_HOME_PATH =
+    public static final ConfigOption<String> NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_PATH =
             key("taskmanager.network.hybrid-shuffle.remote.path")
                     .stringType()
                     .noDefaultValue()

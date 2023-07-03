@@ -111,7 +111,7 @@ public class SingleInputGateFactory {
 
     private final Boolean enableTieredStore;
 
-    @Nullable private final String baseRemoteStoragePath;
+    @Nullable private final String remoteStorageBasePath;
 
     public SingleInputGateFactory(
             @Nonnull ResourceID taskExecutorResourceId,
@@ -138,7 +138,7 @@ public class SingleInputGateFactory {
         this.networkBufferPool = networkBufferPool;
         this.debloatConfiguration = networkConfig.getDebloatConfiguration();
         this.enableTieredStore = networkConfig.enableTieredStoreForHybridShuffle();
-        this.baseRemoteStoragePath = networkConfig.getBaseRemoteStoragePath();
+        this.remoteStorageBasePath = networkConfig.getRemoteStorageBasePath();
     }
 
     /** Creates an input gate and all of its input channels. */
@@ -198,8 +198,8 @@ public class SingleInputGateFactory {
                             new TieredStorageConsumerSpec(partitionId, subpartitionId));
                 }
             }
-            if (baseRemoteStoragePath != null) {
-                String basePath = getTieredStoragePath(baseRemoteStoragePath);
+            if (remoteStorageBasePath != null) {
+                String basePath = getTieredStoragePath(remoteStorageBasePath);
                 remoteStorageScanner =
                         new RemoteStorageScanner(tieredStorageConsumerSpecs, basePath);
                 reader = HashPartitionFile.createPartitionFileReader(basePath);
@@ -209,7 +209,7 @@ public class SingleInputGateFactory {
                     new TieredStorageConsumerClient(
                             tieredStorageConsumerSpecs,
                             nettyService,
-                            baseRemoteStoragePath,
+                            remoteStorageBasePath,
                             remoteStorageScanner,
                             reader,
                             networkBufferSize);
@@ -233,7 +233,7 @@ public class SingleInputGateFactory {
                                 owningTaskName, gateIndex, networkInputGroup.addGroup(gateIndex)),
                         tieredStorageConsumerSpecs,
                         nettyService,
-                        baseRemoteStoragePath,
+                        remoteStorageBasePath,
                         remoteStorageScanner,
                         tieredStorageConsumerClient);
 

@@ -112,7 +112,7 @@ public class ResultPartitionFactory {
 
     private final int maxOverdraftBuffersPerGate;
 
-    private final String baseRemoteStorageHomePath;
+    private final String remoteStorageBasePath;
 
     private final float minReservedDiskSpaceFraction;
 
@@ -139,7 +139,7 @@ public class ResultPartitionFactory {
             int maxOverdraftBuffersPerGate,
             int hybridShuffleSpilledIndexSegmentSize,
             long hybridShuffleNumRetainedInMemoryRegionsMax,
-            String baseRemoteStorageHomePath,
+            String remoteStorageBasePath,
             float minReservedDiskSpaceFraction,
             boolean enableTieredStoreForHybridShuffle,
             String tieredStoreTiers) {
@@ -163,7 +163,7 @@ public class ResultPartitionFactory {
         this.hybridShuffleSpilledIndexSegmentSize = hybridShuffleSpilledIndexSegmentSize;
         this.hybridShuffleNumRetainedInMemoryRegionsMax =
                 hybridShuffleNumRetainedInMemoryRegionsMax;
-        this.baseRemoteStorageHomePath = baseRemoteStorageHomePath;
+        this.remoteStorageBasePath = remoteStorageBasePath;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.tieredStoreTiers = tieredStoreTiers;
         this.enableTieredStoreForHybridShuffle = enableTieredStoreForHybridShuffle;
@@ -415,7 +415,7 @@ public class ResultPartitionFactory {
                 bufferCompressor,
                 storageMemoryManager,
                 dataFileBasePath,
-                storeConfiguration.getBaseDfsHomePath(),
+                storeConfiguration.getRemoteStorageBasePath(),
                 nettyService,
                 resourceRegistry);
     }
@@ -429,7 +429,7 @@ public class ResultPartitionFactory {
             BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             String dataFileBasePath,
-            String remoteStorageShuffleHomePath,
+            String remoteStorageBasePath,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
         List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
@@ -443,7 +443,7 @@ public class ResultPartitionFactory {
                             tierFactory,
                             subpartitions.length,
                             dataFileBasePath,
-                            remoteStorageShuffleHomePath,
+                            remoteStorageBasePath,
                             partitionFileIndex);
             TieredStoragePartitionId partitionId = TieredStorageIdMappingUtils.convertId(id);
             PartitionFileReader partitionFileReader =
@@ -473,14 +473,14 @@ public class ResultPartitionFactory {
             TierFactory tierFactory,
             int numSubpartitions,
             String dataFileBasePath,
-            String remoteStorageShuffleHomePath,
+            String remoteStorageBasePath,
             ProducerMergedPartitionFileIndex regionBufferIndexTracker) {
         if (tierFactory.getClass() == DiskTierFactory.class) {
             return ProducerMergedPartitionFile.createPartitionFileWriter(
                     Paths.get(dataFileBasePath + DATA_FILE_SUFFIX), regionBufferIndexTracker);
         } else if (tierFactory.getClass() == RemoteTierFactory.class) {
             return HashPartitionFile.createPartitionFileWriter(
-                    getTieredStoragePath(remoteStorageShuffleHomePath), numSubpartitions);
+                    getTieredStoragePath(remoteStorageBasePath), numSubpartitions);
         }
         return null;
     }
@@ -518,10 +518,10 @@ public class ResultPartitionFactory {
                         numberOfSubpartitions,
                         networkBufferSize,
                         batchShuffleReadBufferPool.getNumBuffersPerRequest())
-                .setTierTypes(tieredStoreTiers, type)
+                .setTierTypes(tieredStoreTiers, type, remoteStorageBasePath)
                 // TODO, Replace these previous two lines with the setTierSpecs
                 //                .setTierSpecs(tierConfSpecs)
-                .setBaseDfsHomePath(baseRemoteStorageHomePath)
+                .setRemoteStorageBasePath(remoteStorageBasePath)
                 .setConfiguredNetworkBuffersPerChannel(configuredNetworkBuffersPerChannel)
                 .build();
     }

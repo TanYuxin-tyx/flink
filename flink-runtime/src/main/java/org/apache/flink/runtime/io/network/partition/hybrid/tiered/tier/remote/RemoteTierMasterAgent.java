@@ -35,19 +35,19 @@ public class RemoteTierMasterAgent implements TierMasterAgent {
 
     private final TieredStorageResourceRegistry resourceRegistry;
 
-    private final String remoteStorageBaseHomePath;
+    private final String remoteStorageBasePath;
 
     RemoteTierMasterAgent(
-            TieredStorageResourceRegistry resourceRegistry, String remoteStorageBaseHomePath) {
+            TieredStorageResourceRegistry resourceRegistry, String remoteStorageBasePath) {
         this.resourceRegistry = resourceRegistry;
-        this.remoteStorageBaseHomePath = remoteStorageBaseHomePath;
+        this.remoteStorageBasePath = remoteStorageBasePath;
     }
 
     @Override
     public void addPartition(ResultPartitionID partitionID) {
         resourceRegistry.registerResource(
                 TieredStorageIdMappingUtils.convertId(partitionID),
-                () -> deletePathQuietly(getPartitionPath(partitionID, remoteStorageBaseHomePath)));
+                () -> deletePathQuietly(getPartitionPath(partitionID, remoteStorageBasePath)));
     }
 
     @Override
