@@ -56,8 +56,8 @@ public class HashPartitionFileReader implements PartitionFileReader {
      * <p>The key is partition id and subpartition id. The value is file channel and segment id.
      */
     private final Map<
-            TieredStoragePartitionId,
-            Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>>>
+                    TieredStoragePartitionId,
+                    Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>>>
             openedChannelAndSegmentIds = new HashMap<>();
 
     private final String basePath;
@@ -82,10 +82,10 @@ public class HashPartitionFileReader implements PartitionFileReader {
             MemorySegment memorySegment,
             BufferRecycler recycler)
             throws IOException {
+        Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>> subpartitionInfo =
+                openedChannelAndSegmentIds.computeIfAbsent(partitionId, ignore -> new HashMap<>());
         Tuple2<ReadableByteChannel, Integer> fileChannelAndSegmentId =
-                openedChannelAndSegmentIds
-                        .computeIfAbsent(partitionId, ignore -> new HashMap<>())
-                        .getOrDefault(subpartitionId, Tuple2.of(null, -1));
+                subpartitionInfo.getOrDefault(subpartitionId, Tuple2.of(null, -1));
         ReadableByteChannel channel = fileChannelAndSegmentId.f0;
         if (channel == null || fileChannelAndSegmentId.f1 != segmentId) {
             if (channel != null) {
@@ -95,19 +95,14 @@ public class HashPartitionFileReader implements PartitionFileReader {
             if (channel == null) {
                 return null;
             }
-            openedChannelAndSegmentIds
-                    .get(partitionId)
-                    .put(subpartitionId, Tuple2.of(channel, segmentId));
+            subpartitionInfo.put(subpartitionId, Tuple2.of(channel, segmentId));
         }
 
         reusedHeaderBuffer.clear();
         int bufferHeaderResult = channel.read(reusedHeaderBuffer);
         if (bufferHeaderResult == -1) {
             channel.close();
-            channel = null;
-            openedChannelAndSegmentIds
-                    .get(partitionId)
-                    .put(subpartitionId, Tuple2.of(channel, segmentId));
+            openedChannelAndSegmentIds.get(partitionId).remove(subpartitionId);
             return new NetworkBuffer(memorySegment, recycler, Buffer.DataType.END_OF_SEGMENT);
         }
         reusedHeaderBuffer.rewind();
@@ -151,8 +146,8 @@ public class HashPartitionFileReader implements PartitionFileReader {
                 .map(Map::values)
                 .flatMap(
                         (Function<
-                                Collection<Tuple2<ReadableByteChannel, Integer>>,
-                                Stream<Tuple2<ReadableByteChannel, Integer>>>)
+                                        Collection<Tuple2<ReadableByteChannel, Integer>>,
+                                        Stream<Tuple2<ReadableByteChannel, Integer>>>)
                                 Collection::stream)
                 .filter(Objects::nonNull)
                 .forEach(
