@@ -56,8 +56,8 @@ public class HashPartitionFileReader implements PartitionFileReader {
      * <p>The key is partition id and subpartition id. The value is file channel and segment id.
      */
     private final Map<
-                    TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>>>
+            TieredStoragePartitionId,
+            Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>>>
             openedChannelAndSegmentIds = new HashMap<>();
 
     private final String basePath;
@@ -151,8 +151,8 @@ public class HashPartitionFileReader implements PartitionFileReader {
                 .map(Map::values)
                 .flatMap(
                         (Function<
-                                        Collection<Tuple2<ReadableByteChannel, Integer>>,
-                                        Stream<Tuple2<ReadableByteChannel, Integer>>>)
+                                Collection<Tuple2<ReadableByteChannel, Integer>>,
+                                Stream<Tuple2<ReadableByteChannel, Integer>>>)
                                 Collection::stream)
                 .filter(Objects::nonNull)
                 .forEach(

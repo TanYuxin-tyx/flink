@@ -107,11 +107,13 @@ public class TieredStorageUtils {
     }
 
     public static String getSubpartitionPath(
-            String basePath, ResultPartitionID resultPartitionID, int subpartitionId) {
+            String basePath, TieredStoragePartitionId partitionId, int subpartitionId) {
         while (basePath.endsWith("/") && basePath.length() > 1) {
             basePath = basePath.substring(0, basePath.length() - 1);
         }
-        return String.format("%s/%s/%s", basePath, resultPartitionID, subpartitionId);
+        return String.format(
+                "%s/%s/%s",
+                basePath, TieredStorageIdMappingUtils.convertId(partitionId), subpartitionId);
     }
 
     public static Path getSegmentPath(
@@ -122,7 +124,7 @@ public class TieredStorageUtils {
         String subpartitionPath =
                 getSubpartitionPath(
                         basePath,
-                        TieredStorageIdMappingUtils.convertId(partitionId),
+                        partitionId,
                         subpartitionId);
         return new Path(subpartitionPath, SEGMENT_FILE_PREFIX + segmentId);
     }
@@ -139,7 +141,7 @@ public class TieredStorageUtils {
         String subpartitionPathStr =
                 getSubpartitionPath(
                         basePath,
-                        TieredStorageIdMappingUtils.convertId(partitionId),
+                        partitionId,
                         subpartitionId);
         Path subpartitionPath = new Path(subpartitionPathStr);
         FileSystem fs = subpartitionPath.getFileSystem();
