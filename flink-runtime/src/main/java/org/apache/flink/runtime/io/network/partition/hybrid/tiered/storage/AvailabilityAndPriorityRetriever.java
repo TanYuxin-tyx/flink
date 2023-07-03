@@ -41,5 +41,5 @@ public interface AvailabilityAndPriorityRetriever {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             boolean isPriority,
-            int sequenceNumber);
+            Integer sequenceNumber);
 }

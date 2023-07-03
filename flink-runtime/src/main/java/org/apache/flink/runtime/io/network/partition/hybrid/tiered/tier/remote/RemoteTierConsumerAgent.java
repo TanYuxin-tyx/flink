@@ -34,8 +34,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
-
 /** The data client is used to fetch data from remote tier. */
 public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
@@ -99,15 +97,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }
-        if (buffer != null && buffer.getDataType() != END_OF_SEGMENT) {
-            remoteStorageScanner.triggerNextRoundReading(
-                    partitionId, subpartitionId, buffer.getDataType().hasPriority());
-        }
         if (buffer != null) {
-            if (buffer.getDataType().hasPriority()) {
-                remoteStorageScanner.updatePrioritySequenceNumber(
-                        partitionId, subpartitionId, currentBufferIndex);
-            }
             currentBufferIndexAndSegmentIds
                     .get(partitionId)
                     .put(subpartitionId, Tuple2.of(++currentBufferIndex, segmentId));

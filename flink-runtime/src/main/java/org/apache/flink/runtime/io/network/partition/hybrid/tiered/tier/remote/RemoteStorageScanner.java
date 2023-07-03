@@ -23,15 +23,14 @@ import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityAndPriorityRetriever;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -67,31 +66,16 @@ public class RemoteStorageScanner implements Runnable {
     private final Queue<Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>>
             requiredSegmentIds;
 
-    /**
-     * The channel indexes stored in map.
-     *
-     * <p>The key is partition id and subpartition id. The value is related channel index.
-     */
-    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
-            channelIndexes;
-
     private final String baseRemoteStoragePath;
 
     private FileSystem remoteFileSystem;
 
-    private RemoteStorageScannerAvailabilityAndPriorityHelper helper;
+    private AvailabilityAndPriorityRetriever retriever;
 
     public RemoteStorageScanner(
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             String baseRemoteStoragePath) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
-        this.channelIndexes = new HashMap<>();
-        for (int index = 0; index < tieredStorageConsumerSpecs.size(); index++) {
-            TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
-            channelIndexes
-                    .computeIfAbsent(spec.getPartitionId(), ignore -> new HashMap<>())
-                    .put(spec.getSubpartitionId(), index);
-        }
         this.requiredSegmentIds = new LinkedBlockingDeque<>();
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
@@ -133,41 +117,25 @@ public class RemoteStorageScanner implements Runnable {
         while (segmentFileNumber-- > 0) {
             Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>
                     partitionIdAndSubpartitionIdAndSegmentId =
-                    checkNotNull(requiredSegmentIds.poll());
+                            checkNotNull(requiredSegmentIds.poll());
             if (checkFileExist(
                     partitionIdAndSubpartitionIdAndSegmentId.f0,
                     partitionIdAndSubpartitionIdAndSegmentId.f1,
                     partitionIdAndSubpartitionIdAndSegmentId.f2)) {
-                helper.notifyAvailableAndPriority(
-                        channelIndexes
-                                .get(partitionIdAndSubpartitionIdAndSegmentId.f0)
-                                .get(partitionIdAndSubpartitionIdAndSegmentId.f1),
-                        false);
+                retriever.retrieveAvailableAndPriority(
+                        partitionIdAndSubpartitionIdAndSegmentId.f0,
+                        partitionIdAndSubpartitionIdAndSegmentId.f1,
+                        false,
+                        null);
             } else {
                 requiredSegmentIds.add(partitionIdAndSubpartitionIdAndSegmentId);
             }
         }
     }
 
-    public void setupRemoteStorageScannerAvailabilityAndPriorityHelper(
-            RemoteStorageScannerAvailabilityAndPriorityHelper helper) {
-        this.helper = helper;
-    }
-
-    public void triggerNextRoundReading(
-            TieredStoragePartitionId partitionId,
-            TieredStorageSubpartitionId subpartitionId,
-            boolean isPriority) {
-        helper.notifyAvailableAndPriority(
-                channelIndexes.get(partitionId).get(subpartitionId), isPriority);
-    }
-
-    public void updatePrioritySequenceNumber(
-            TieredStoragePartitionId partitionId,
-            TieredStorageSubpartitionId subpartitionId,
-            int sequenceNumber) {
-        helper.updatePrioritySequenceNumber(
-                channelIndexes.get(partitionId).get(subpartitionId), sequenceNumber);
+    public void registerAvailabilityAndPriorityRetriever(
+            AvailabilityAndPriorityRetriever retriever) {
+        this.retriever = retriever;
     }
 
     // ------------------------------------------------------------------------
