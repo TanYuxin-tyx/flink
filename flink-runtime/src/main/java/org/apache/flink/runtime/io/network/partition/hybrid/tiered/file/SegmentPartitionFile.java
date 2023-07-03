@@ -22,14 +22,14 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
  * The partition file in the hash mode. In this mode, each segment of one subpartition is written to
  * an independent file.
  */
-public class HashPartitionFile {
+public class SegmentPartitionFile {
 
-    public static HashPartitionFileWriter createPartitionFileWriter(
+    public static SegmentPartitionFileWriter createPartitionFileWriter(
             String dataFilePath, int numSubpartitions) {
-        return new HashPartitionFileWriter(dataFilePath, numSubpartitions);
+        return new SegmentPartitionFileWriter(dataFilePath, numSubpartitions);
     }
 
-    public static HashPartitionFileReader createPartitionFileReader(String dataFilePath) {
-        return new HashPartitionFileReader(dataFilePath);
+    public static SegmentPartitionFileReader createPartitionFileReader(String dataFilePath) {
+        return new SegmentPartitionFileReader(dataFilePath);
     }
 }

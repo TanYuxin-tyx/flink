@@ -23,9 +23,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.HashPartitionFile;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileWriter;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
@@ -75,7 +75,7 @@ public class RemoteTierFactory implements TierFactory {
             TieredStorageConfiguration tieredStorageConfiguration,
             TieredStorageResourceRegistry resourceRegistry) {
         PartitionFileWriter partitionFileWriter =
-                HashPartitionFile.createPartitionFileWriter(
+                SegmentPartitionFile.createPartitionFileWriter(
                         getTieredStoragePath(remoteStorageBasePath), numSubpartitions);
         return new RemoteTierProducerAgent(
                 partitionID,
@@ -100,7 +100,7 @@ public class RemoteTierFactory implements TierFactory {
             RemoteStorageScanner remoteStorageScanner,
             int remoteBufferSize) {
         PartitionFileReader partitionFileReader =
-                HashPartitionFile.createPartitionFileReader(
+                SegmentPartitionFile.createPartitionFileReader(
                         getTieredStoragePath(remoteStorageBasePath));
         return new RemoteTierConsumerAgent(
                 remoteStorageScanner, partitionFileReader, remoteBufferSize);

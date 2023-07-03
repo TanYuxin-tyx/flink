@@ -51,15 +51,19 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
- * The implementation of {@link PartitionFileWriter} with hash mode. In this mode, each segment of
- * one subpartition is written to an independent file.
+ * The implementation of {@link PartitionFileWriter} with segment file mode. In this mode, each
+ * segment of one subpartition is written to an independent file.
  *
- * <p>Note that after finishing writing a segment, a segment-finish file is written to ensure the
- * downstream reads only when the entire segment file is written, avoiding partial data reads. The
- * downstream can determine if the current segment is complete by checking for the existence of the
+ * <p>After finishing writing a segment, a segment-finish file is written to ensure the downstream
+ * reads only when the entire segment file is written, avoiding partial data reads. The downstream
+ * can determine if the current segment is complete by checking for the existence of the
  * segment-finish file.
+ *
+ * <p>To minimize the number of files, each subpartition uses only a single segment-finish file. For
+ * instance, if segment-finish file 5 exists, it indicates that segments 1 to 5 have all been
+ * finished.
  */
-public class HashPartitionFileWriter implements PartitionFileWriter {
+public class SegmentPartitionFileWriter implements PartitionFileWriter {
 
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadExecutor(
@@ -73,7 +77,7 @@ public class HashPartitionFileWriter implements PartitionFileWriter {
 
     private volatile boolean isReleased;
 
-    public HashPartitionFileWriter(String basePath, int numSubpartitions) {
+    SegmentPartitionFileWriter(String basePath, int numSubpartitions) {
         this.basePath = basePath;
         this.subpartitionChannels = new WritableByteChannel[numSubpartitions];
         Arrays.fill(subpartitionChannels, null);

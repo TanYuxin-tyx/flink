@@ -46,7 +46,7 @@ import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUt
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.getSegmentPath;
 
 /** THe implementation of {@link PartitionFileReader} with hash mode. */
-public class HashPartitionFileReader implements PartitionFileReader {
+public class SegmentPartitionFileReader implements PartitionFileReader {
 
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
@@ -64,7 +64,7 @@ public class HashPartitionFileReader implements PartitionFileReader {
 
     private FileSystem fileSystem;
 
-    public HashPartitionFileReader(String basePath) {
+    public SegmentPartitionFileReader(String basePath) {
         this.basePath = basePath;
         try {
             this.fileSystem = new Path(basePath).getFileSystem();
