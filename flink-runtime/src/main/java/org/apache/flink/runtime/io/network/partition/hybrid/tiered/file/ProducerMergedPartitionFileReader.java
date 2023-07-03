@@ -77,7 +77,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
     private final ProducerMergedPartitionFileIndex dataIndex;
 
-    private FileChannel fileChannel;
+    private volatile FileChannel fileChannel;
 
     /** The current number of caches. */
     private int numCaches;
@@ -102,19 +102,19 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         lazyInitializeFileChannel();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey);
+        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, true);
         if (!cache.isPresent()) {
             return null;
         }
         fileChannel.position(cache.get().getFileOffset());
         Buffer buffer =
                 readFromByteChannel(fileChannel, reusedHeaderBuffer, memorySegment, recycler);
-        boolean hasBuffer =
+        boolean hasNextBuffer =
                 cache.get()
                         .advance(
                                 checkNotNull(buffer).readableBytes()
                                         + BufferReaderWriterUtil.HEADER_LENGTH);
-        if (hasBuffer) {
+        if (hasNextBuffer) {
             int nextBufferIndex = bufferIndex + 1;
             // TODO: introduce the LRU cache strategy in the future to restrict the total
             // cache number. Testing to prevent cache leaks has been implemented.
@@ -135,7 +135,9 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         lazyInitializeFileChannel();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        return tryGetCache(cacheKey).map(BufferOffsetCache::getFileOffset).orElse(Long.MAX_VALUE);
+        return tryGetCache(cacheKey, false)
+                .map(BufferOffsetCache::getFileOffset)
+                .orElse(Long.MAX_VALUE);
     }
 
     @Override
@@ -172,17 +174,22 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      * data index and returned.
      *
      * @param cacheKey the key of cache.
+     * @param removeKey boolean decides whether to remove key.
      * @return returns the relevant buffer offset cache if it exists, otherwise return {@link
      *     Optional#empty()}.
      */
     private Optional<BufferOffsetCache> tryGetCache(
-            Tuple2<TieredStorageSubpartitionId, Integer> cacheKey) {
+            Tuple2<TieredStorageSubpartitionId, Integer> cacheKey, boolean removeKey) {
         BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
         if (bufferOffsetCache == null) {
             Optional<Region> regionOpt = dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
             return regionOpt.map(region -> new BufferOffsetCache(cacheKey.f1, region));
         } else {
-            numCaches--;
+            if (removeKey) {
+                numCaches--;
+            } else {
+                bufferOffsetCaches.put(cacheKey, bufferOffsetCache);
+            }
             return Optional.of(bufferOffsetCache);
         }
     }
