@@ -191,8 +191,11 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
         try {
             subpartitionPath = createSubpartitionPath(basePath, partitionId, subpartitionId);
             writeSegmentFinishFile(subpartitionPath, segmentId);
-            subpartitionChannels[subpartitionId].close();
-            subpartitionChannels[subpartitionId] = null;
+            WritableByteChannel channel = subpartitionChannels[subpartitionId];
+            if(channel != null){
+                channel.close();
+                subpartitionChannels[subpartitionId] = null;
+            }
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
         }
