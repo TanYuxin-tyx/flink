@@ -68,7 +68,7 @@ public class SegmentPartitionFile {
         for (ByteBuffer bufferWithHeader : bufferWithHeaders) {
             writeSize += writeChannel.write(bufferWithHeader);
         }
-        checkState(writeSize == expectedBytes);
+        checkState(writeSize == expectedBytes, "Wong number of written bytes.");
     }
 
     public static String getTieredStoragePath(String basePath) {
@@ -134,30 +134,24 @@ public class SegmentPartitionFile {
                     fs.create(segmentFinishFile, FileSystem.WriteMode.OVERWRITE);
             outputStream.close();
         } else {
-            checkState(files.length == 1);
+            checkState(files.length == 1, "Wong number of segment-finish files.");
             fs.rename(files[0].getPath(), segmentFinishFile);
         }
     }
 
-    public static void deletePath(Path path) throws IOException {
-        if (path == null) {
-            return;
-        }
-        FileSystem fs = path.getFileSystem();
-        if (fs.exists(path)) {
-            fs.delete(path, true);
-        }
-    }
-
-    public static void deletePathQuietly(String toRemovePath) {
-        if (toRemovePath == null) {
+    public static void deletePathQuietly(String toDelete) {
+        if (toDelete == null) {
             return;
         }
 
         try {
-            deletePath(new Path(toRemovePath));
+            Path toRemovePath = new Path(toDelete);
+            FileSystem fs = toRemovePath.getFileSystem();
+            if (fs.exists(toRemovePath)) {
+                fs.delete(toRemovePath, true);
+            }
         } catch (IOException e) {
-            LOG.error("Failed to delete files for {} ", toRemovePath, e);
+            LOG.error("Failed to delete files for {} ", toDelete, e);
         }
     }
 }
