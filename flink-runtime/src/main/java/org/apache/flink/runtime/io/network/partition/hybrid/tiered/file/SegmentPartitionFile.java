@@ -111,25 +111,12 @@ public class SegmentPartitionFile {
         return new Path(subpartitionPath, SEGMENT_FINISH_DIR_NAME);
     }
 
-    public static String createSubpartitionPath(
-            String basePath, TieredStoragePartitionId partitionId, int subpartitionId)
-            throws IOException {
-        String subpartitionPathStr = getSubpartitionPath(basePath, partitionId, subpartitionId);
-        Path subpartitionPath = new Path(subpartitionPathStr);
-        FileSystem fs = subpartitionPath.getFileSystem();
-        if (!fs.exists(subpartitionPath)) {
-            fs.mkdirs(subpartitionPath);
-        }
-        return subpartitionPathStr;
-    }
-
     public static void writeSegmentFinishFile(
             String basePath,
             TieredStoragePartitionId partitionId,
             int subpartitionId,
             int segmentId)
             throws IOException {
-        createSubpartitionPath(basePath, partitionId, subpartitionId);
         Path segmentFinishDir = getSegmentFinishDirPath(basePath, partitionId, subpartitionId);
         FileSystem fs = segmentFinishDir.getFileSystem();
         Path segmentFinishFile = new Path(segmentFinishDir, String.valueOf(segmentId));
