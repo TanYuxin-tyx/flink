@@ -31,14 +31,13 @@ public class TieredStorageConsumerClient {
     private final List<TierConsumerAgent> tierConsumerAgents;
 
     /**
-     * This map is used to record the consumer agent being used. The key includes {@link
-     * TieredStoragePartitionId} and {@link TieredStorageSubpartitionId}. and the value includes the
-     * current consumer agent, segment number, and sequence number of buffer.
+     * The key includes {@link TieredStoragePartitionId} and {@link TieredStorageSubpartitionId}.
+     * The value includes the current consumer agent, segment number, and sequence number of buffer.
      */
     private final Map<
                     TieredStoragePartitionId,
                     Map<TieredStorageSubpartitionId, Tuple3<TierConsumerAgent, Integer, Integer>>>
-            currentConsumerAgentAndSegmentIds = new HashMap<>();
+            currentConsumerInfo = new HashMap<>();
 
     private AvailabilityAndPriorityRetriever retriever;
 
@@ -69,8 +68,7 @@ public class TieredStorageConsumerClient {
             TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
         Map<TieredStorageSubpartitionId, Tuple3<TierConsumerAgent, Integer, Integer>>
                 subpartitionInfo =
-                        currentConsumerAgentAndSegmentIds.computeIfAbsent(
-                                partitionId, ignore -> new HashMap<>());
+                        currentConsumerInfo.computeIfAbsent(partitionId, ignore -> new HashMap<>());
         Tuple3<TierConsumerAgent, Integer, Integer> agentInfo =
                 subpartitionInfo.getOrDefault(subpartitionId, Tuple3.of(null, 0, 0));
         Optional<Buffer> buffer = Optional.empty();
