@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 
@@ -46,6 +47,8 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
     private final List<NettyServiceProducer> serviceProducers;
 
     private final List<NettyConnectionId> nettyConnectionIds;
+
+    private final Consumer<NettyConnectionId> nettyConnectionIdReleaser;
 
     private volatile boolean isReleased = false;
 
@@ -108,9 +111,11 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
 
     @Override
     public void notifyRequiredSegmentId(int segmentId) {
-        requiredSegmentId = segmentId;
-        stopSendingData = false;
-        availabilityListener.notifyDataAvailable();
+        if (segmentId > requiredSegmentId) {
+            requiredSegmentId = segmentId;
+            stopSendingData = false;
+            availabilityListener.notifyDataAvailable();
+        }
     }
 
     @Override
