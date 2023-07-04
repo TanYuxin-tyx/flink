@@ -178,7 +178,7 @@ class SubpartitionRemoteCacheManager {
         synchronized (allBuffers) {
             for (Tuple2<Buffer, Integer> bufferAndIndex : allBuffers) {
                 Buffer buffer = bufferAndIndex.f0;
-                if (buffer.isRecycled()) {
+                if (!buffer.isRecycled()) {
                     buffer.recycleBuffer();
                 }
             }
