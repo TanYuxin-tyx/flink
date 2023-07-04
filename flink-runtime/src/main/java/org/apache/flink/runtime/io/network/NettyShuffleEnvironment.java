@@ -142,7 +142,7 @@ public class NettyShuffleEnvironment
         this.batchShuffleReadBufferPool = batchShuffleReadBufferPool;
         this.batchShuffleReadIOExecutor = batchShuffleReadIOExecutor;
         this.resourceRegistry = new TieredStorageResourceRegistry();
-        this.nettyService = new TieredStorageNettyServiceImpl(resourceRegistry);
+        this.nettyService = new TieredStorageNettyServiceImpl();
         this.isClosed = false;
     }
 
