@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -196,7 +197,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             isReleased = true;
             failScheduledReaders(
                     new ArrayList<>(allScheduledReaders.values()),
-                    new RuntimeException("Disk readers are released unexpectedly."));
+                    new RuntimeException(
+                            "Disk readers are released unexpectedly. "
+                                    + Arrays.toString(Thread.currentThread().getStackTrace())));
             partitionFileReader.release();
             bufferPool.unregisterRequester(this);
         }

@@ -113,7 +113,7 @@ public class NettyShuffleEnvironment
 
     private final TieredStorageResourceRegistry resourceRegistry;
 
-    private final TieredStorageNettyService nettyService2;
+    private final TieredStorageNettyService nettyService;
 
     private boolean isClosed;
 
@@ -142,7 +142,7 @@ public class NettyShuffleEnvironment
         this.batchShuffleReadBufferPool = batchShuffleReadBufferPool;
         this.batchShuffleReadIOExecutor = batchShuffleReadIOExecutor;
         this.resourceRegistry = new TieredStorageResourceRegistry();
-        this.nettyService2 = new TieredStorageNettyServiceImpl();
+        this.nettyService = new TieredStorageNettyServiceImpl(resourceRegistry);
         this.isClosed = false;
     }
 
@@ -246,7 +246,7 @@ public class NettyShuffleEnvironment
                                 partitionIndex,
                                 resultPartitionDeploymentDescriptors.get(partitionIndex),
                                 resourceRegistry,
-                                (TieredStorageNettyServiceImpl) nettyService2);
+                                (TieredStorageNettyServiceImpl) nettyService);
             }
 
             registerOutputMetrics(
@@ -283,7 +283,7 @@ public class NettyShuffleEnvironment
                                 igdd,
                                 partitionProducerStateProvider,
                                 inputChannelMetrics,
-                                nettyService2);
+                                nettyService);
                 InputGateID id =
                         new InputGateID(
                                 igdd.getConsumedResultId(), ownerContext.getExecutionAttemptID());
