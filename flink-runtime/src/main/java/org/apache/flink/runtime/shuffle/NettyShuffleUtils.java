@@ -78,20 +78,18 @@ public class NettyShuffleUtils {
         if (isSortShuffle) {
             min = sortShuffleMinBuffers;
         } else {
-            int numAddedBuffers;
             if (type.isHybridResultPartition() && enableTieredStoreForHybridShuffle) {
                 checkState(
                         numSortAccumulatorThreshold >= 0,
                         "Must be non-negative when enable tiered storage.");
-                numAddedBuffers =
+                min =
                         Math.min(numSubpartitions + 1, numSortAccumulatorThreshold)
                                 + HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.values().stream()
                                         .mapToInt(i -> i)
                                         .sum();
             } else {
-                numAddedBuffers = 1;
+                min = numSubpartitions + 1;
             }
-            min = numSubpartitions + numAddedBuffers;
         }
         int max =
                 type.isBounded()
