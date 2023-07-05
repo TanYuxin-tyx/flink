@@ -69,15 +69,7 @@ public class TieredStorageConfiguration {
 
     private static final Duration DEFAULT_BUFFER_REQUEST_TIMEOUT = Duration.ofMinutes(5);
 
-    private static final float DEFAULT_TIERED_STORE_BUFFER_IN_MEMORY_RATIO = 0.4f;
-
-    private static final float DEFAULT_TIERED_STORE_FLUSH_BUFFER_RATIO = 0.2f;
-
-    private static final float DEFAULT_TIERED_STORE_TRIGGER_FLUSH_RATIO = 0.8f;
-
     private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
-
-    private static final long DEFAULT_BUFFER_POLL_SIZE_CHECK_INTERVAL_MS = 1000;
 
     private static final int[] DEFAULT_MEMORY_DISK_EXCLUSIVE_BUFFERS = new int[] {100, 1, 1};
 
@@ -90,24 +82,9 @@ public class TieredStorageConfiguration {
 
     private final int maxRequestedBuffers;
 
-    private final int bufferSize;
-
-    // For Memory Tier
-    private final int configuredNetworkBuffersPerChannel;
-
-    private final float tieredStoreBufferInMemoryRatio;
-
-    private final float tieredStoreFlushBufferRatio;
-
-    private final float tieredStoreTriggerFlushRatio;
-
     private final float numBuffersTriggerFlushRatio;
 
-    private final long bufferPoolSizeCheckIntervalMs;
-
     private final int numBuffersUseSortAccumulatorThreshold;
-
-    private final String remoteStorageBasePath;
 
     private final int[] tierExclusiveBuffers;
 
@@ -117,29 +94,16 @@ public class TieredStorageConfiguration {
             int maxBuffersReadAhead,
             Duration bufferRequestTimeout,
             int maxRequestedBuffers,
-            int bufferSize,
-            float tieredStoreBufferInMemoryRatio,
-            float tieredStoreFlushBufferRatio,
-            float tieredStoreTriggerFlushRatio,
             float numBuffersTriggerFlushRatio,
-            long bufferPoolSizeCheckIntervalMs,
             int numBuffersUseSortAccumulatorThreshold,
-            String remoteStorageBasePath,
-            int configuredNetworkBuffersPerChannel,
             int[] tierExclusiveBuffers,
             TierFactory[] tierFactories) {
         this.maxBuffersReadAhead = maxBuffersReadAhead;
         this.bufferRequestTimeout = bufferRequestTimeout;
         this.maxRequestedBuffers = maxRequestedBuffers;
-        this.bufferSize = bufferSize;
-        this.tieredStoreBufferInMemoryRatio = tieredStoreBufferInMemoryRatio;
-        this.tieredStoreFlushBufferRatio = tieredStoreFlushBufferRatio;
-        this.tieredStoreTriggerFlushRatio = tieredStoreTriggerFlushRatio;
         this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
-        this.bufferPoolSizeCheckIntervalMs = bufferPoolSizeCheckIntervalMs;
         this.numBuffersUseSortAccumulatorThreshold = numBuffersUseSortAccumulatorThreshold;
-        this.remoteStorageBasePath = remoteStorageBasePath;
-        this.configuredNetworkBuffersPerChannel = configuredNetworkBuffersPerChannel;
+        // For Memory Tier
         this.tierExclusiveBuffers = tierExclusiveBuffers;
         this.tierFactories = tierFactories;
     }
@@ -158,53 +122,22 @@ public class TieredStorageConfiguration {
         return maxRequestedBuffers;
     }
 
-    /**
-     * Determine how many buffers to read ahead at most for each subpartition to prevent other
-     * consumers from starving.
-     */
+
     public int getMaxBuffersReadAhead() {
         return maxBuffersReadAhead;
     }
 
-    /**
-     * Maximum time to wait when requesting read buffers from the buffer pool before throwing an
-     * exception.
-     */
+
     public Duration getBufferRequestTimeout() {
         return bufferRequestTimeout;
-    }
-
-    public float getTieredStoreBufferInMemoryRatio() {
-        return tieredStoreBufferInMemoryRatio;
-    }
-
-    public float getTieredStoreFlushBufferRatio() {
-        return tieredStoreFlushBufferRatio;
-    }
-
-    public float getTieredStoreTriggerFlushRatio() {
-        return tieredStoreTriggerFlushRatio;
     }
 
     public float getNumBuffersTriggerFlushRatio() {
         return numBuffersTriggerFlushRatio;
     }
 
-    /** Check interval of buffer pool's size. */
-    public long getBufferPoolSizeCheckIntervalMs() {
-        return bufferPoolSizeCheckIntervalMs;
-    }
-
     public int numBuffersUseSortAccumulatorThreshold() {
         return numBuffersUseSortAccumulatorThreshold;
-    }
-
-    public String getRemoteStorageBasePath() {
-        return remoteStorageBasePath;
-    }
-
-    public int getConfiguredNetworkBuffersPerChannel() {
-        return configuredNetworkBuffersPerChannel;
     }
 
     public List<TierFactory> getTierFactories() {
@@ -221,22 +154,12 @@ public class TieredStorageConfiguration {
 
         private Duration bufferRequestTimeout = DEFAULT_BUFFER_REQUEST_TIMEOUT;
 
-        private float tieredStoreBufferInMemoryRatio = DEFAULT_TIERED_STORE_BUFFER_IN_MEMORY_RATIO;
-
-        private float tieredStoreFlushBufferRatio = DEFAULT_TIERED_STORE_FLUSH_BUFFER_RATIO;
-
-        private float tieredStoreTriggerFlushRatio = DEFAULT_TIERED_STORE_TRIGGER_FLUSH_RATIO;
-
         private float numBuffersTriggerFlushRatio = DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO;
-
-        private long bufferPoolSizeCheckIntervalMs = DEFAULT_BUFFER_POLL_SIZE_CHECK_INTERVAL_MS;
 
         private int numBuffersUseSortAccumulatorThreshold =
                 DEFAULT_NUM_BUFFERS_USE_SORT_ACCUMULATOR_THRESHOLD;
 
         private String remoteStorageBasePath = null;
-
-        private int configuredNetworkBuffersPerChannel;
 
         private TierFactory[] tierFactories;
 
@@ -256,62 +179,9 @@ public class TieredStorageConfiguration {
             this.numBuffersPerRequest = numBuffersPerRequest;
         }
 
-        public TieredStorageConfiguration.Builder setMaxBuffersReadAhead(int maxBuffersReadAhead) {
-            this.maxBuffersReadAhead = maxBuffersReadAhead;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setBufferRequestTimeout(
-                Duration bufferRequestTimeout) {
-            this.bufferRequestTimeout = bufferRequestTimeout;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setTieredStoreBufferInMemoryRatio(
-                float tieredStoreBufferInMemoryRatio) {
-            this.tieredStoreBufferInMemoryRatio = tieredStoreBufferInMemoryRatio;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setTieredStoreFlushBufferRatio(
-                float tieredStoreFlushBufferRatio) {
-            this.tieredStoreFlushBufferRatio = tieredStoreFlushBufferRatio;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setTieredStoreTriggerFlushRatio(
-                float tieredStoreTriggerFlushRatio) {
-            this.tieredStoreTriggerFlushRatio = tieredStoreTriggerFlushRatio;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setNumBuffersTriggerFlushRatio(
-                float numBuffersTriggerFlushRatio) {
-            this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setBufferPoolSizeCheckIntervalMs(
-                long bufferPoolSizeCheckIntervalMs) {
-            this.bufferPoolSizeCheckIntervalMs = bufferPoolSizeCheckIntervalMs;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setNumBuffersUseSortAccumulatorThreshold(
-                int numBuffersUseSortAccumulatorThreshold) {
-            this.numBuffersUseSortAccumulatorThreshold = numBuffersUseSortAccumulatorThreshold;
-            return this;
-        }
-
         public TieredStorageConfiguration.Builder setRemoteStorageBasePath(
                 String remoteStorageBasePath) {
             this.remoteStorageBasePath = remoteStorageBasePath;
-            return this;
-        }
-
-        public TieredStorageConfiguration.Builder setConfiguredNetworkBuffersPerChannel(
-                int configuredNetworkBuffersPerChannel) {
-            this.configuredNetworkBuffersPerChannel = configuredNetworkBuffersPerChannel;
             return this;
         }
 
@@ -407,15 +277,8 @@ public class TieredStorageConfiguration {
                     maxBuffersReadAhead,
                     bufferRequestTimeout,
                     Math.max(2 * numBuffersPerRequest, numSubpartitions),
-                    bufferSize,
-                    tieredStoreBufferInMemoryRatio,
-                    tieredStoreFlushBufferRatio,
-                    tieredStoreTriggerFlushRatio,
                     numBuffersTriggerFlushRatio,
-                    bufferPoolSizeCheckIntervalMs,
                     numBuffersUseSortAccumulatorThreshold,
-                    remoteStorageBasePath,
-                    configuredNetworkBuffersPerChannel,
                     tierExclusiveBuffers,
                     tierFactories);
         }

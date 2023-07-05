@@ -461,7 +461,6 @@ public class ResultPartitionFactory {
                 // TODO, Replace these previous two lines with the setTierSpecs
                 //                .setTierSpecs(tierConfSpecs)
                 .setRemoteStorageBasePath(remoteStorageBasePath)
-                .setConfiguredNetworkBuffersPerChannel(configuredNetworkBuffersPerChannel)
                 .build();
     }
 
