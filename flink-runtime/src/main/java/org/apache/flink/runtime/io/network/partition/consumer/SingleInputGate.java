@@ -287,7 +287,8 @@ public class SingleInputGate extends IndexedInputGate {
 
     /**
      * {@link AvailabilityAndPriorityRetriever} is used to retrieve the availability and priority
-     * status of a specific partition and subpartition.
+     * status of a specific partition and subpartition in tiered storage through {@link
+     * TieredStorageConsumerClient}.
      */
     public class AvailabilityAndPriorityRetriever {
 
@@ -305,9 +306,10 @@ public class SingleInputGate extends IndexedInputGate {
         }
 
         /**
-         * Retrieve the availability and priority status of a specific partition and subpartition.
-         * If this method is invoked, the next round of reading will be triggered for the specific
-         * subpartition.
+         * Retrieve the availability and priority status of a specific partition and subpartition
+         * through {@link TieredStorageConsumerClient}. If the subpartition in tiered storage has
+         * more available buffers or should be read with priority, the client will invoke this
+         * method.
          *
          * @param partitionId the partition id.
          * @param subpartitionId the subpartition id.
