@@ -58,7 +58,7 @@ public class HashSubpartitionBufferAccumulator {
      * The un-finished buffers to accumulate records.
      *
      * <p>Note that when the accumulator is released, these buffers should be recycled safely. To
-     * prevent buffer leaks, using a lock to ensure that any requested buffers are recycled prior to
+     * prevent buffer leaking, use a lock to ensure that any requested buffers are recycled prior to
      * releasing the accumulator.
      */
     @GuardedBy("lock")

@@ -144,10 +144,8 @@ public class SortBufferAccumulator implements BufferAccumulator {
             }
 
             // The sort buffer is empty, but we failed to write the record into it, which indicates
-            // the
-            // record is larger than the sort buffer can hold. So the record is written into
-            // multiple
-            // buffers directly.
+            // the record is larger than the sort buffer can hold. So the record is written into
+            // multiple buffers directly.
             if (!currentDataBuffer.hasRemaining()) {
                 currentDataBuffer.release();
                 writeLargeRecord(record, targetSubpartition, dataType);
