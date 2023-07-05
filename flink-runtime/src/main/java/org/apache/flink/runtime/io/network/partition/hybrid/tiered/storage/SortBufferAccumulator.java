@@ -135,25 +135,29 @@ public class SortBufferAccumulator implements BufferAccumulator {
             if (isReleased) {
                 return;
             }
+            // If the accumulator is released, the requested buffers in the new data buffer should
+            // be recycled safely
             switchCurrentDataBufferIfNeeded(isBroadcast);
-        }
 
-        if (!checkNotNull(currentDataBuffer).append(record, targetSubpartition, dataType)) {
-            return;
-        }
+            if (!checkNotNull(currentDataBuffer).append(record, targetSubpartition, dataType)) {
+                return;
+            }
 
-        // The sort buffer is empty, but we failed to write the record into it, which indicates the
-        // record is larger than the sort buffer can hold. So the record is written into multiple
-        // buffers directly.
-        if (!currentDataBuffer.hasRemaining()) {
-            currentDataBuffer.release();
-            writeLargeRecord(record, targetSubpartition, dataType);
-            return;
-        }
+            // The sort buffer is empty, but we failed to write the record into it, which indicates
+            // the
+            // record is larger than the sort buffer can hold. So the record is written into
+            // multiple
+            // buffers directly.
+            if (!currentDataBuffer.hasRemaining()) {
+                currentDataBuffer.release();
+                writeLargeRecord(record, targetSubpartition, dataType);
+                return;
+            }
 
-        flushDataBuffer();
-        checkState(record.hasRemaining(), "Empty record.");
-        receive(record, subpartitionId, dataType, isBroadcast);
+            flushDataBuffer();
+            checkState(record.hasRemaining(), "Empty record.");
+            receive(record, subpartitionId, dataType, isBroadcast);
+        }
     }
 
     /** This method can only be called by the task thread. */

@@ -54,6 +54,14 @@ public class HashSubpartitionBufferAccumulator {
 
     private final HashSubpartitionBufferAccumulatorContext bufferAccumulatorContext;
 
+    /**
+     * The un-finished buffers to accumulate records.
+     *
+     * <p>Note that when the accumulator is released, these buffers should be recycled safely. To
+     * prevent buffer leaks, using a lock to ensure that any requested buffers are recycled prior to
+     * releasing the accumulator.
+     */
+    @GuardedBy("lock")
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
 
     private final Object lock = new Object();
@@ -75,10 +83,15 @@ public class HashSubpartitionBufferAccumulator {
     // ------------------------------------------------------------------------
 
     public void append(ByteBuffer record, Buffer.DataType dataType) throws IOException {
-        if (dataType.isEvent()) {
-            writeEvent(record, dataType);
-        } else {
-            writeRecord(record, dataType);
+        synchronized (lock) {
+            if (isReleased) {
+                return;
+            }
+            if (dataType.isEvent()) {
+                writeEvent(record, dataType);
+            } else {
+                writeRecord(record, dataType);
+            }
         }
     }
 
@@ -122,80 +135,65 @@ public class HashSubpartitionBufferAccumulator {
 
     private void ensureCapacityForRecord(ByteBuffer record) {
         final int numRecordBytes = record.remaining();
-        synchronized (lock) {
-            if (isReleased) {
-                return;
-            }
-            int availableBytes =
-                    Optional.ofNullable(unfinishedBuffers.peek())
-                            .map(
-                                    currentWritingBuffer ->
-                                            currentWritingBuffer.getWritableBytes()
-                                                    + bufferSize * (unfinishedBuffers.size() - 1))
-                            .orElse(0);
+        int availableBytes =
+                Optional.ofNullable(unfinishedBuffers.peek())
+                        .map(
+                                currentWritingBuffer ->
+                                        currentWritingBuffer.getWritableBytes()
+                                                + bufferSize * (unfinishedBuffers.size() - 1))
+                        .orElse(0);
 
-            while (availableBytes < numRecordBytes) {
-                BufferBuilder bufferBuilder = bufferAccumulatorContext.requestBufferBlocking();
-                unfinishedBuffers.add(bufferBuilder);
-                availableBytes += bufferSize;
-            }
+        while (availableBytes < numRecordBytes) {
+            BufferBuilder bufferBuilder = bufferAccumulatorContext.requestBufferBlocking();
+            unfinishedBuffers.add(bufferBuilder);
+            availableBytes += bufferSize;
         }
     }
 
     private void writeRecord(ByteBuffer record) {
-        synchronized (lock) {
-            while (record.hasRemaining()) {
-                if (isReleased) {
-                    return;
-                }
-                BufferBuilder currentWritingBuffer = checkNotNull(unfinishedBuffers.peek());
-                currentWritingBuffer.append(record);
-                if (currentWritingBuffer.isFull()) {
-                    finishCurrentWritingBuffer();
-                }
+        while (record.hasRemaining()) {
+            if (isReleased) {
+                return;
+            }
+            BufferBuilder currentWritingBuffer = checkNotNull(unfinishedBuffers.peek());
+            currentWritingBuffer.append(record);
+            if (currentWritingBuffer.isFull()) {
+                finishCurrentWritingBuffer();
             }
         }
     }
 
     private void finishCurrentWritingBufferIfNotEmpty() {
-        synchronized (lock) {
-            BufferBuilder currentWritingBuffer = unfinishedBuffers.peek();
-            if (currentWritingBuffer == null
-                    || currentWritingBuffer.getWritableBytes() == bufferSize) {
-                return;
-            }
-
-            finishCurrentWritingBuffer();
+        BufferBuilder currentWritingBuffer = unfinishedBuffers.peek();
+        if (currentWritingBuffer == null || currentWritingBuffer.getWritableBytes() == bufferSize) {
+            return;
         }
+
+        finishCurrentWritingBuffer();
     }
 
     private void finishCurrentWritingBuffer() {
-        synchronized (lock) {
-            if (isReleased) {
-                return;
-            }
-            BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
-            if (currentWritingBuffer == null) {
-                return;
-            }
-            currentWritingBuffer.finish();
-            BufferConsumer bufferConsumer =
-                    currentWritingBuffer.createBufferConsumerFromBeginning();
-            Buffer buffer = bufferConsumer.build();
-            currentWritingBuffer.close();
-            bufferConsumer.close();
-            flushFinishedBuffer(buffer);
+        BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
+        if (currentWritingBuffer == null) {
+            return;
         }
+        currentWritingBuffer.finish();
+        BufferConsumer bufferConsumer = currentWritingBuffer.createBufferConsumerFromBeginning();
+        Buffer buffer = bufferConsumer.build();
+        currentWritingBuffer.close();
+        bufferConsumer.close();
+        flushFinishedBuffer(buffer);
     }
 
     private void recycleBuffers() {
         synchronized (lock) {
-            unfinishedBuffers.forEach(
-                    bufferBuilder ->
-                            bufferBuilder
-                                    .createBufferConsumerFromBeginning()
-                                    .build()
-                                    .recycleBuffer());
+            while (!unfinishedBuffers.isEmpty()) {
+                unfinishedBuffers
+                        .poll()
+                        .createBufferConsumerFromBeginning()
+                        .build()
+                        .recycleBuffer();
+            }
         }
     }
 
