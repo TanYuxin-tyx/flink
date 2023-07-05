@@ -25,7 +25,10 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
 import org.apache.flink.runtime.io.network.partition.DataBuffer;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+
+import net.jcip.annotations.GuardedBy;
 
 import javax.annotation.Nullable;
 
@@ -96,15 +99,23 @@ public class SortBufferAccumulator implements BufferAccumulator {
     /** Whether the current {@link DataBuffer} is a broadcast sort buffer. */
     private boolean isBroadcastDataBuffer;
 
+    private final Object lock = new Object();
+
+    @GuardedBy("lock")
+    private boolean isReleased;
+
     public SortBufferAccumulator(
+            TieredStoragePartitionId partitionId,
             int numSubpartitions,
             int numBuffers,
             int bufferSizeBytes,
-            TieredStorageMemoryManager memoryManager) {
+            TieredStorageMemoryManager memoryManager,
+            TieredStorageResourceRegistry resourceRegistry) {
         this.numSubpartitions = numSubpartitions;
         this.bufferSizeBytes = bufferSizeBytes;
         this.numBuffers = numBuffers;
         this.memoryManager = memoryManager;
+        resourceRegistry.registerResource(partitionId, this::releaseResources);
     }
 
     @Override
@@ -120,7 +131,13 @@ public class SortBufferAccumulator implements BufferAccumulator {
             boolean isBroadcast)
             throws IOException {
         int targetSubpartition = subpartitionId.getSubpartitionId();
-        switchCurrentDataBufferIfNeeded(isBroadcast);
+        synchronized (lock) {
+            if (isReleased) {
+                return;
+            }
+            switchCurrentDataBufferIfNeeded(isBroadcast);
+        }
+
         if (!checkNotNull(currentDataBuffer).append(record, targetSubpartition, dataType)) {
             return;
         }
@@ -139,6 +156,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         receive(record, subpartitionId, dataType, isBroadcast);
     }
 
+    /** This method can only be called by the task thread. */
     @Override
     public void close() {
         flushCurrentDataBuffer();
@@ -245,10 +263,25 @@ public class SortBufferAccumulator implements BufferAccumulator {
     }
 
     private void flushBuffer(BufferWithChannel bufferWithChannel) {
-        checkNotNull(accumulatedBufferFlusher)
-                .accept(
-                        new TieredStorageSubpartitionId(bufferWithChannel.getChannelIndex()),
-                        Collections.singletonList(bufferWithChannel.getBuffer()));
+        synchronized (lock) {
+            if (isReleased) {
+                bufferWithChannel.getBuffer().recycleBuffer();
+                return;
+            }
+            checkNotNull(accumulatedBufferFlusher)
+                    .accept(
+                            new TieredStorageSubpartitionId(bufferWithChannel.getChannelIndex()),
+                            Collections.singletonList(bufferWithChannel.getBuffer()));
+        }
+    }
+
+    private void releaseResources() {
+        synchronized (lock) {
+            if (!isReleased) {
+                close();
+                isReleased = true;
+            }
+        }
     }
 
     private void releaseFreeBuffers() {

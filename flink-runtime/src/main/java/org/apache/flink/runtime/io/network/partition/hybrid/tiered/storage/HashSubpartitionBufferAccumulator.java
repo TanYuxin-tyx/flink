@@ -27,6 +27,8 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
+import net.jcip.annotations.GuardedBy;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
@@ -56,8 +58,7 @@ public class HashSubpartitionBufferAccumulator {
 
     private final Object lock = new Object();
 
-    private boolean isClosed;
-
+    @GuardedBy("lock")
     private boolean isReleased;
 
     public HashSubpartitionBufferAccumulator(
@@ -81,12 +82,10 @@ public class HashSubpartitionBufferAccumulator {
         }
     }
 
+    /** This method can only be called by the task thread. */
     public void close() {
-        synchronized (lock) {
-            isClosed = true;
-            recycleBuffers();
-            checkState(unfinishedBuffers.isEmpty(), "There are unfinished buffers.");
-        }
+        recycleBuffers();
+        checkState(unfinishedBuffers.isEmpty(), "There are unfinished buffers.");
     }
 
     public void release() {
@@ -124,7 +123,7 @@ public class HashSubpartitionBufferAccumulator {
     private void ensureCapacityForRecord(ByteBuffer record) {
         final int numRecordBytes = record.remaining();
         synchronized (lock) {
-            if (isClosed || isReleased) {
+            if (isReleased) {
                 return;
             }
             int availableBytes =
@@ -146,7 +145,7 @@ public class HashSubpartitionBufferAccumulator {
     private void writeRecord(ByteBuffer record) {
         synchronized (lock) {
             while (record.hasRemaining()) {
-                if (isClosed || isReleased) {
+                if (isReleased) {
                     return;
                 }
                 BufferBuilder currentWritingBuffer = checkNotNull(unfinishedBuffers.peek());
@@ -172,7 +171,7 @@ public class HashSubpartitionBufferAccumulator {
 
     private void finishCurrentWritingBuffer() {
         synchronized (lock) {
-            if (isClosed || isReleased) {
+            if (isReleased) {
                 return;
             }
             BufferBuilder currentWritingBuffer = unfinishedBuffers.poll();
@@ -190,15 +189,21 @@ public class HashSubpartitionBufferAccumulator {
     }
 
     private void recycleBuffers() {
-        unfinishedBuffers.forEach(
-                bufferBuilder ->
-                        bufferBuilder.createBufferConsumerFromBeginning().build().recycleBuffer());
+        synchronized (lock) {
+            unfinishedBuffers.forEach(
+                    bufferBuilder ->
+                            bufferBuilder
+                                    .createBufferConsumerFromBeginning()
+                                    .build()
+                                    .recycleBuffer());
+        }
     }
 
     private void flushFinishedBuffer(Buffer finishedBuffer) {
         synchronized (lock) {
-            if (isClosed || isReleased) {
+            if (isReleased) {
                 finishedBuffer.recycleBuffer();
+                return;
             }
             bufferAccumulatorContext.flushAccumulatedBuffers(
                     subpartitionId, Collections.singletonList(finishedBuffer));

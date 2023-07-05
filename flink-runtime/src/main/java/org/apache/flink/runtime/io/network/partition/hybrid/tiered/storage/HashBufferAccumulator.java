@@ -50,8 +50,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class HashBufferAccumulator
         implements BufferAccumulator, HashSubpartitionBufferAccumulatorContext {
 
-    private final TieredStoragePartitionId partitionId;
-
     private final TieredStorageMemoryManager memoryManager;
 
     private final HashSubpartitionBufferAccumulator[] hashSubpartitionBufferAccumulators;
@@ -66,11 +64,10 @@ public class HashBufferAccumulator
 
     public HashBufferAccumulator(
             TieredStoragePartitionId partitionId,
-            TieredStorageResourceRegistry resourceRegistry,
             int numSubpartitions,
             int bufferSize,
-            TieredStorageMemoryManager memoryManager) {
-        this.partitionId = partitionId;
+            TieredStorageMemoryManager memoryManager,
+            TieredStorageResourceRegistry resourceRegistry) {
         this.memoryManager = memoryManager;
         this.hashSubpartitionBufferAccumulators =
                 new HashSubpartitionBufferAccumulator[numSubpartitions];

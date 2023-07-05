@@ -73,10 +73,10 @@ class HashBufferAccumulatorTest {
         try (HashBufferAccumulator bufferAccumulator =
                 new HashBufferAccumulator(
                         TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
-                        new TieredStorageResourceRegistry(),
                         1,
                         NETWORK_BUFFER_SIZE,
-                        tieredStorageMemoryManager)) {
+                        tieredStorageMemoryManager,
+                        new TieredStorageResourceRegistry())) {
             AtomicInteger numReceivedFinishedBuffer = new AtomicInteger(0);
             bufferAccumulator.setup(
                     ((subpartition, buffers) ->
@@ -123,10 +123,10 @@ class HashBufferAccumulatorTest {
         try (HashBufferAccumulator bufferAccumulator =
                 new HashBufferAccumulator(
                         TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
-                        new TieredStorageResourceRegistry(),
                         1,
                         NETWORK_BUFFER_SIZE,
-                        tieredStorageMemoryManager)) {
+                        tieredStorageMemoryManager,
+                        new TieredStorageResourceRegistry())) {
             bufferAccumulator.setup(
                     ((subpartition, buffers) -> buffers.forEach(Buffer::recycleBuffer)));
 
@@ -154,10 +154,10 @@ class HashBufferAccumulatorTest {
                                     new HashBufferAccumulator(
                                             TieredStorageIdMappingUtils.convertId(
                                                     new ResultPartitionID()),
-                                            new TieredStorageResourceRegistry(),
                                             1,
                                             NETWORK_BUFFER_SIZE,
-                                            tieredStorageMemoryManager)) {
+                                            tieredStorageMemoryManager,
+                                            new TieredStorageResourceRegistry())) {
                                 bufferAccumulator.setup(
                                         ((subpartition, buffers) ->
                                                 buffers.forEach(Buffer::recycleBuffer)));

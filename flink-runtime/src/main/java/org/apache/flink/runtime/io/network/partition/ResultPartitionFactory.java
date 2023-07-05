@@ -370,16 +370,18 @@ public class ResultPartitionFactory {
             TieredStoragePartitionId partitionId) {
         return useSortAccumulator
                 ? new SortBufferAccumulator(
+                        partitionId,
                         numSubpartitions,
                         numBuffersUseSortAccumulatorThreshold,
                         networkBufferSize,
-                        storageMemoryManager)
+                        storageMemoryManager,
+                        resourceRegistry)
                 : new HashBufferAccumulator(
                         partitionId,
-                        resourceRegistry,
                         numSubpartitions,
                         networkBufferSize,
-                        storageMemoryManager);
+                        storageMemoryManager,
+                        resourceRegistry);
     }
 
     @SuppressWarnings("checkstyle:EmptyLineSeparator")
