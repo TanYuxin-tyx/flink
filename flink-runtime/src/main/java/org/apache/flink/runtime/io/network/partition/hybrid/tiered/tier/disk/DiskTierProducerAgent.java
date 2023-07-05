@@ -43,14 +43,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.useNewBufferRecyclerAndCompressBuffer;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -90,7 +88,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             int numSubpartitions,
             int numBytesPerSegment,
             int bufferSizeBytes,
-            String dataFileBasePath,
+            Path dataFilePath,
             float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
             PartitionFileWriter partitionFileWriter,
@@ -109,7 +107,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
         this.partitionId = partitionId;
         this.numBuffersPerSegment = numBytesPerSegment / bufferSizeBytes;
         this.bufferSizeBytes = bufferSizeBytes;
-        this.dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
+        this.dataFilePath = dataFilePath;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.bufferCompressor = bufferCompressor;
         this.storageMemoryManager = storageMemoryManager;

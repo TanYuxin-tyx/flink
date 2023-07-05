@@ -33,7 +33,6 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.TIERED_STORAGE_DIR;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -44,9 +43,11 @@ public class SegmentPartitionFile {
 
     private static final Logger LOG = LoggerFactory.getLogger(SegmentPartitionFile.class);
 
-    private static final String SEGMENT_FILE_PREFIX = "seg-";
+    static final String TIERED_STORAGE_DIR = "tiered-storage";
 
-    private static final String SEGMENT_FINISH_DIR_NAME = "FINISH";
+    static final String SEGMENT_FILE_PREFIX = "seg-";
+
+    static final String SEGMENT_FINISH_DIR_NAME = "FINISH";
 
     public static SegmentPartitionFileWriter createPartitionFileWriter(
             String dataFilePath, int numSubpartitions) {

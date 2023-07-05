@@ -43,7 +43,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.DATA_FILE_SUFFIX;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFile.DATA_FILE_SUFFIX;
 
 public class DiskTierFactory implements TierFactory {
 
@@ -92,7 +92,7 @@ public class DiskTierFactory implements TierFactory {
                 numSubpartitions,
                 numBytesPerSegment,
                 bufferSizeBytes,
-                dataFileBasePath,
+                dataFilePath,
                 minReservedDiskSpaceFraction,
                 isBroadcastOnly,
                 partitionFileWriter,
