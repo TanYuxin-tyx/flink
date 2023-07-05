@@ -116,7 +116,7 @@ class SubpartitionRemoteCacheManager {
             checkState(this.segmentId == segmentId, "Wrong segment id.");
         }
         // Flush the buffers belonging to the current segment
-        int numFlushedBuffers = flushBuffers();
+        flushBuffers();
 
         PartitionFileWriter.SubpartitionBufferContext bufferContext =
                 new PartitionFileWriter.SubpartitionBufferContext(
@@ -153,12 +153,12 @@ class SubpartitionRemoteCacheManager {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private int flushBuffers() {
+    private void flushBuffers() {
         synchronized (allBuffers) {
             List<Tuple2<Buffer, Integer>> buffersToFlush = new ArrayList<>(allBuffers);
             allBuffers.clear();
             if (buffersToFlush.isEmpty()) {
-                return 0;
+                return;
             }
 
             PartitionFileWriter.SubpartitionBufferContext subpartitionBufferContext =
@@ -170,7 +170,6 @@ class SubpartitionRemoteCacheManager {
             flushCompletableFuture =
                     partitionFileWriter.write(
                             partitionId, Collections.singletonList(subpartitionBufferContext));
-            return buffersToFlush.size();
         }
     }
 
