@@ -101,13 +101,13 @@ public interface TieredStorageMemoryManager {
      */
     int numOwnerRequestedBuffer(Object owner);
 
+    void transferBufferOwnership(Object oldOwner, Object newOwner);
+
+    BufferRecycler getOwnerBufferRecycler(Object owner);
+
     /**
      * Release all the resources(if exists) and check the state of the {@link
      * TieredStorageMemoryManager}.
      */
     void release();
-
-    void transferBufferOwnership(Object oldOwner, Object newOwner);
-
-    BufferRecycler getOwnerBufferRecycler(Object owner);
 }

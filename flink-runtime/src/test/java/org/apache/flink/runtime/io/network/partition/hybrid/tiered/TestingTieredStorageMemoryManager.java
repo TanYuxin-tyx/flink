@@ -42,6 +42,10 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
 
     private final Function<Object, Integer> numOwnerRequestedBufferFunction;
 
+    private final BiConsumer<Object, Object> transferBufferOwnershipConsumer;
+
+    private final Function<Object, BufferRecycler> getOwnerBufferRecyclerFunction;
+
     private final Runnable releaseRunnable;
 
     private TestingTieredStorageMemoryManager(
@@ -50,12 +54,16 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
             Function<Object, BufferBuilder> requestBufferBlockingFunction,
             Function<Object, Integer> getMaxNonReclaimableBuffersFunction,
             Function<Object, Integer> numOwnerRequestedBufferFunction,
+            BiConsumer<Object, Object> transferBufferOwnershipConsumer,
+            Function<Object, BufferRecycler> getOwnerBufferRecyclerFunction,
             Runnable releaseRunnable) {
         this.setupConsumer = setupConsumer;
         this.listenBufferReclaimRequestConsumer = listenBufferReclaimRequestConsumer;
         this.requestBufferBlockingFunction = requestBufferBlockingFunction;
         this.getMaxNonReclaimableBuffersFunction = getMaxNonReclaimableBuffersFunction;
         this.numOwnerRequestedBufferFunction = numOwnerRequestedBufferFunction;
+        this.transferBufferOwnershipConsumer = transferBufferOwnershipConsumer;
+        this.getOwnerBufferRecyclerFunction = getOwnerBufferRecyclerFunction;
         this.releaseRunnable = releaseRunnable;
     }
 
@@ -85,16 +93,18 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
     }
 
     @Override
-    public void release() {
-        releaseRunnable.run();
+    public void transferBufferOwnership(Object oldOwner, Object newOwner) {
+        transferBufferOwnershipConsumer.accept(oldOwner, newOwner);
     }
 
     @Override
-    public void transferBufferOwnership(Object oldOwner, Object newOwner) {}
+    public BufferRecycler getOwnerBufferRecycler(Object owner) {
+        return getOwnerBufferRecyclerFunction.apply(owner);
+    }
 
     @Override
-    public BufferRecycler getOwnerBufferRecycler(Object owner) {
-        return null;
+    public void release() {
+        releaseRunnable.run();
     }
 
     /** Builder for {@link TestingTieredStorageMemoryManager}. */
@@ -110,6 +120,11 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
         private Function<Object, Integer> getMaxNonReclaimableBuffersFunction = owner -> 0;
 
         private Function<Object, Integer> numOwnerRequestedBufferFunction = owner -> 0;
+
+        private BiConsumer<Object, Object> transferBufferOwnershipConsumer =
+                (oldOwner, newOwner) -> {};
+
+        private Function<Object, BufferRecycler> getOwnerBufferRecyclerFunction = owner -> null;
 
         private Runnable releaseRunnable = () -> {};
 
@@ -145,6 +160,18 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
             return this;
         }
 
+        public TestingTieredStorageMemoryManager.Builder setTransferBufferOwnershipConsumer(
+                BiConsumer<Object, Object> transferBufferOwnershipConsumer) {
+            this.transferBufferOwnershipConsumer = transferBufferOwnershipConsumer;
+            return this;
+        }
+
+        public TestingTieredStorageMemoryManager.Builder setGetOwnerBufferRecyclerFunction(
+                Function<Object, BufferRecycler> getOwnerBufferRecyclerFunction) {
+            this.getOwnerBufferRecyclerFunction = getOwnerBufferRecyclerFunction;
+            return this;
+        }
+
         public TestingTieredStorageMemoryManager.Builder setReleaseRunnable(
                 Runnable releaseRunnable) {
             this.releaseRunnable = releaseRunnable;
@@ -158,6 +185,8 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
                     requestBufferBlockingFunction,
                     getMaxNonReclaimableBuffersFunction,
                     numOwnerRequestedBufferFunction,
+                    transferBufferOwnershipConsumer,
+                    getOwnerBufferRecyclerFunction,
                     releaseRunnable);
         }
     }
