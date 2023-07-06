@@ -54,6 +54,8 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -389,7 +391,7 @@ public class ResultPartitionFactory {
             ResultPartitionID id,
             boolean isBroadcast,
             ResultSubpartition[] subpartitions,
-            BufferCompressor bufferCompressor,
+            @Nullable BufferCompressor bufferCompressor,
             TieredStorageConfiguration storeConfiguration,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyServiceImpl nettyService,
@@ -412,7 +414,7 @@ public class ResultPartitionFactory {
             boolean isBroadcast,
             ResultSubpartition[] subpartitions,
             TieredStorageConfiguration storeConfiguration,
-            BufferCompressor bufferCompressor,
+            @Nullable BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             String dataFileBasePath,
             TieredStorageNettyService nettyService,

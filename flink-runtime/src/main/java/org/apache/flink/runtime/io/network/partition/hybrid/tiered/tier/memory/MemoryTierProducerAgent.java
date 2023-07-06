@@ -37,6 +37,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -49,7 +51,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
 
     private final int numBuffersPerSegment;
 
-    private final BufferCompressor bufferCompressor;
+    @Nullable private final BufferCompressor bufferCompressor;
 
     private final TieredStorageMemoryManager memoryManager;
 
@@ -69,7 +71,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             int numSubpartitions,
             int bufferSize,
             int numBytesPerSegment,
-            BufferCompressor bufferCompressor,
+            @Nullable BufferCompressor bufferCompressor,
             TieredStorageMemoryManager memoryManager,
             boolean isBroadcastOnly,
             TieredStorageNettyService nettyService,

@@ -27,6 +27,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 
+import javax.annotation.Nullable;
+
 import java.util.Arrays;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.updateBufferRecyclerAndCompressBuffer;
@@ -41,7 +43,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
 
     private final RemoteCacheManager cacheDataManager;
 
-    private final BufferCompressor bufferCompressor;
+    @Nullable private final BufferCompressor bufferCompressor;
 
     private final TieredStorageMemoryManager memoryManager;
 
@@ -53,7 +55,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
             int numBytesPerSegment,
             int bufferSizeBytes,
             boolean isBroadcastOnly,
-            BufferCompressor bufferCompressor,
+            @Nullable BufferCompressor bufferCompressor,
             PartitionFileWriter partitionFileWriter,
             TieredStorageMemoryManager memoryManager,
             TieredStorageResourceRegistry resourceRegistry) {

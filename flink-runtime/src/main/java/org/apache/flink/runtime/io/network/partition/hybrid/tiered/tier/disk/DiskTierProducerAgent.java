@@ -39,6 +39,8 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
+import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -65,7 +67,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     private final float minReservedDiskSpaceFraction;
 
-    private final BufferCompressor bufferCompressor;
+    @Nullable private final BufferCompressor bufferCompressor;
 
     private final TieredStorageMemoryManager memoryManager;
 
@@ -93,7 +95,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             boolean isBroadcastOnly,
             PartitionFileWriter partitionFileWriter,
             PartitionFileReader partitionFileReader,
-            BufferCompressor bufferCompressor,
+            @Nullable BufferCompressor bufferCompressor,
             TieredStorageMemoryManager memoryManager,
             TieredStorageNettyService nettyService,
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,

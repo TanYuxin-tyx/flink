@@ -184,8 +184,6 @@ public class TieredStorageProducerClientImpl implements TieredStorageProducerCli
     private void writeAccumulatedBuffer(
             TieredStorageSubpartitionId subpartitionId, Buffer accumulatedBuffer)
             throws IOException {
-        //        Buffer compressedBuffer = compressBufferIfPossible(accumulatedBuffer);
-
         if (currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()] == null) {
             chooseStorageTierToStartSegment(subpartitionId);
         }
