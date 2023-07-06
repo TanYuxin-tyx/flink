@@ -51,7 +51,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
 
     private final BufferCompressor bufferCompressor;
 
-    private final TieredStorageMemoryManager storageMemoryManager;
+    private final TieredStorageMemoryManager memoryManager;
 
     /** Record the byte number currently written to each subpartition. */
     private final int[] currentSubpartitionWriteBuffers;
@@ -70,7 +70,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             int bufferSize,
             int numBytesPerSegment,
             BufferCompressor bufferCompressor,
-            TieredStorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager memoryManager,
             boolean isBroadcastOnly,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
@@ -82,7 +82,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
 
         this.numBuffersPerSegment = numBytesPerSegment / bufferSize;
         this.bufferCompressor = bufferCompressor;
-        this.storageMemoryManager = storageMemoryManager;
+        this.memoryManager = memoryManager;
         this.currentSubpartitionWriteBuffers = new int[numSubpartitions];
         this.nettyServiceRegistered = new boolean[numSubpartitions];
         this.subpartitionProducerAgents = new MemoryTierSubpartitionProducerAgent[numSubpartitions];
@@ -103,8 +103,8 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             boolean forceUseCurrentTier) {
         boolean canStartNewSegment =
                 nettyServiceRegistered[subpartitionId.getSubpartitionId()]
-                        && (storageMemoryManager.getMaxNonReclaimableBuffers(this)
-                                        - storageMemoryManager.numOwnerRequestedBuffer(this))
+                        && (memoryManager.getMaxNonReclaimableBuffers(this)
+                                        - memoryManager.numOwnerRequestedBuffer(this))
                                 > numBuffersPerSegment;
         if (canStartNewSegment || forceUseCurrentTier) {
             subpartitionProducerAgents[subpartitionId.getSubpartitionId()].addSegmentBufferContext(
@@ -129,7 +129,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
                 updateBufferRecyclerAndCompressBuffer(
                         bufferCompressor,
                         finishedBuffer,
-                        storageMemoryManager.getOwnerBufferRecycler(this)),
+                        memoryManager.getOwnerBufferRecycler(this)),
                 subpartitionIndex);
         return true;
     }

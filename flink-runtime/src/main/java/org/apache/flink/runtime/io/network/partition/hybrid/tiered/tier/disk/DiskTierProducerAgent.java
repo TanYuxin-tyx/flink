@@ -67,7 +67,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     private final BufferCompressor bufferCompressor;
 
-    private final TieredStorageMemoryManager storageMemoryManager;
+    private final TieredStorageMemoryManager memoryManager;
 
     private final DiskIOScheduler diskIOScheduler;
 
@@ -94,7 +94,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             PartitionFileWriter partitionFileWriter,
             PartitionFileReader partitionFileReader,
             BufferCompressor bufferCompressor,
-            TieredStorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager memoryManager,
             TieredStorageNettyService nettyService,
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
             ScheduledExecutorService batchShuffleReadIOExecutor,
@@ -110,7 +110,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
         this.dataFilePath = dataFilePath;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.bufferCompressor = bufferCompressor;
-        this.storageMemoryManager = storageMemoryManager;
+        this.memoryManager = memoryManager;
         this.firstBufferIndexInSegment = new ArrayList<>();
         this.currentSubpartitionWriteBuffers = new int[numSubpartitions];
 
@@ -124,7 +124,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                 new DiskCacheManager(
                         partitionId,
                         isBroadcastOnly ? 1 : numSubpartitions,
-                        storageMemoryManager,
+                        memoryManager,
                         partitionFileWriter);
         this.diskIOScheduler =
                 new DiskIOScheduler(
@@ -174,7 +174,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                 updateBufferRecyclerAndCompressBuffer(
                         bufferCompressor,
                         finishedBuffer,
-                        storageMemoryManager.getOwnerBufferRecycler(this)),
+                        memoryManager.getOwnerBufferRecycler(this)),
                 subpartitionId);
         return true;
     }
