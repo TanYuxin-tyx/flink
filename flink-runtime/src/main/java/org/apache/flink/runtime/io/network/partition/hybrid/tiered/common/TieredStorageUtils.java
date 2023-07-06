@@ -58,13 +58,13 @@ public class TieredStorageUtils {
         if (!originalBuffer.isBuffer()) {
             return compressBufferIfPossible(bufferCompressor, originalBuffer);
         }
-        NetworkBuffer buffer =
+        return compressBufferIfPossible(
+                bufferCompressor,
                 new NetworkBuffer(
                         originalBuffer.getMemorySegment(),
                         newRecycler,
                         originalBuffer.getDataType(),
-                        originalBuffer.getSize());
-        return compressBufferIfPossible(bufferCompressor, buffer);
+                        originalBuffer.getSize()));
     }
 
     public static Buffer compressBufferIfPossible(
