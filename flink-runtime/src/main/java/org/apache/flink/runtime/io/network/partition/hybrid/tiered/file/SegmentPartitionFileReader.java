@@ -56,18 +56,18 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
      * <p>The key is partition id and subpartition id. The value is file channel and segment id.
      */
     private final Map<
-                    TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>>>
+            TieredStoragePartitionId,
+            Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>>>
             openedChannelAndSegmentIds = new HashMap<>();
 
-    private final String basePath;
+    private final String dataFilePath;
 
     private FileSystem fileSystem;
 
-    public SegmentPartitionFileReader(String basePath) {
-        this.basePath = basePath;
+    public SegmentPartitionFileReader(String dataFilePath) {
+        this.dataFilePath = dataFilePath;
         try {
-            this.fileSystem = new Path(basePath).getFileSystem();
+            this.fileSystem = new Path(dataFilePath).getFileSystem();
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to initialize the FileSystem.");
         }
@@ -139,7 +139,7 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             throws IOException {
         Path currentSegmentPath =
                 getSegmentPath(
-                        basePath, partitionId, subpartitionId.getSubpartitionId(), segmentId);
+                        dataFilePath, partitionId, subpartitionId.getSubpartitionId(), segmentId);
         if (!fileSystem.exists(currentSegmentPath)) {
             return null;
         }
@@ -152,8 +152,8 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
                 .map(Map::values)
                 .flatMap(
                         (Function<
-                                        Collection<Tuple2<ReadableByteChannel, Integer>>,
-                                        Stream<Tuple2<ReadableByteChannel, Integer>>>)
+                                Collection<Tuple2<ReadableByteChannel, Integer>>,
+                                Stream<Tuple2<ReadableByteChannel, Integer>>>)
                                 Collection::stream)
                 .filter(Objects::nonNull)
                 .forEach(

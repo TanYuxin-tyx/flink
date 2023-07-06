@@ -46,9 +46,9 @@ import static org.apache.flink.util.Preconditions.checkState;
  * remote storage. Asynchronous notifications will prevent {@link RemoteTierConsumerAgent} from
  * repeatedly attempting to read remote files and reduce CPU consumption.
  *
- * <p>It will be invoked by {@link RemoteTierConsumerAgent} to register the required segment id and
- * monitor the existence status of related segment files. If the segment file is found, it will
- * trigger the reading process of the file.
+ * <p>It will be invoked by {@link RemoteTierConsumerAgent} to watch the required segments and scan
+ * the existence status of the segments. If the segment file is found, it will notify the
+ * availability of segment's partition and subpartition.
  */
 public class RemoteStorageScanner implements Runnable {
 
@@ -82,7 +82,7 @@ public class RemoteStorageScanner implements Runnable {
 
     private FileSystem remoteFileSystem;
 
-    private AvailabilityAndPriorityNotifier retriever;
+    private AvailabilityAndPriorityNotifier notifier;
 
     private int attemptNumber = 0;
 
@@ -106,10 +106,14 @@ public class RemoteStorageScanner implements Runnable {
     }
 
     /**
-     * Watch the segment file for a specific subpartition in the {@link RemoteStorageScanner}. The
-     * segment file will not be watched if the file with a larger segment id exists, and it will
-     * replace the file with a smaller segment id that is still being scanned. This method ensures
-     * that only one segment file can be watched for each subpartition.
+     * Watch the segment for a specific subpartition in the {@link RemoteStorageScanner}.
+     *
+     * <p>If a segment with a larger or equal id already exists, the current segment won't be
+     * watched.
+     *
+     * <p>If a segment with a smaller segment id is still being watched, the current segment will
+     * replace it because the smaller segment should have been consumed. This method ensures that
+     * only one segment file can be watched for each subpartition.
      *
      * @param partitionId is the id of partition.
      * @param subpartitionId is the id of subpartition.
@@ -121,7 +125,7 @@ public class RemoteStorageScanner implements Runnable {
             int segmentId) {
         Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId> key =
                 Tuple2.of(partitionId, subpartitionId);
-        if (scannedMaxSegmentIds.getOrDefault(key, -1) > segmentId) {
+        if (scannedMaxSegmentIds.getOrDefault(key, -1) >= segmentId) {
             return;
         }
         requiredSegmentIds.put(key, segmentId);
@@ -148,8 +152,12 @@ public class RemoteStorageScanner implements Runnable {
             if (maxSegmentId >= requiredSegmentId) {
                 scanned = true;
                 iterator.remove();
-                retriever.notifyAvailableAndPriority(partitionId, subpartitionId, false);
+                notifier.notifyAvailableAndPriority(partitionId, subpartitionId, false);
             } else {
+                // The segment should be watched again because it's not found.
+                // If the segment belongs to other tiers and has been consumed, the segment will be
+                // replaced by new watched segment with larger segment id. This logic is ensured by
+                // the method {@code watchSegment}.
                 scanMaxSegmentId(partitionId, subpartitionId);
             }
         }
@@ -158,9 +166,8 @@ public class RemoteStorageScanner implements Runnable {
                 this, scanStrategy.getInterval(attemptNumber), TimeUnit.MILLISECONDS);
     }
 
-    public void registerAvailabilityAndPriorityNotifier(
-            AvailabilityAndPriorityNotifier retriever) {
-        this.retriever = retriever;
+    public void registerAvailabilityAndPriorityNotifier(AvailabilityAndPriorityNotifier retriever) {
+        this.notifier = retriever;
     }
 
     // ------------------------------------------------------------------------

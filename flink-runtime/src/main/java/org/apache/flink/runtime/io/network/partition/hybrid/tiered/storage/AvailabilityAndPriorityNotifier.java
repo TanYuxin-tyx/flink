@@ -22,16 +22,15 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 /**
- * {@link AvailabilityAndPriorityNotifier} is used to retrieve the availability and priority status
- * of a specific partition and subpartition in tiered storage through {@link
- * TieredStorageConsumerClient}.
+ * {@link AvailabilityAndPriorityNotifier} is used to notify the availability and priority status of
+ * a specific partition and subpartition in tiered storage.
  */
 public interface AvailabilityAndPriorityNotifier {
 
     /**
-     * Notify the availability and priority status of a specific partition and subpartition through
-     * {@link TieredStorageConsumerClient}. If the subpartition in tiered storage has more available
-     * buffers or should be read with priority, the client will invoke this method.
+     * Notify the availability and priority status of a specific partition and subpartition. This
+     * method will be invoked by {@link TieredStorageConsumerClient} if the subpartition in tiered
+     * storage has more available buffers or should be read with priority.
      *
      * @param partitionId the partition id.
      * @param subpartitionId the subpartition id.
