@@ -298,12 +298,10 @@ public class ResultPartitionFactory {
                                 subpartitions.length, numBuffersUseSortAccumulatorThreshold);
                 BufferAccumulator bufferAccumulator =
                         createBufferAccumulator(
-                                resourceRegistry,
                                 subpartitions.length,
                                 useSortAccumulator,
                                 numBuffersUseSortAccumulatorThreshold,
-                                storageMemoryManager,
-                                partitionId);
+                                storageMemoryManager);
                 TieredStorageProducerClientImpl tieredStorageProducerClient =
                         new TieredStorageProducerClientImpl(
                                 subpartitions.length,
@@ -364,26 +362,18 @@ public class ResultPartitionFactory {
     }
 
     private BufferAccumulator createBufferAccumulator(
-            TieredStorageResourceRegistry resourceRegistry,
             int numSubpartitions,
             boolean useSortAccumulator,
             int numBuffersUseSortAccumulatorThreshold,
-            TieredStorageMemoryManager storageMemoryManager,
-            TieredStoragePartitionId partitionId) {
+            TieredStorageMemoryManager storageMemoryManager) {
         return useSortAccumulator
                 ? new SortBufferAccumulator(
-                        partitionId,
                         numSubpartitions,
                         numBuffersUseSortAccumulatorThreshold,
                         networkBufferSize,
-                        storageMemoryManager,
-                        resourceRegistry)
+                        storageMemoryManager)
                 : new HashBufferAccumulator(
-                        partitionId,
-                        numSubpartitions,
-                        networkBufferSize,
-                        storageMemoryManager,
-                        resourceRegistry);
+                        numSubpartitions, networkBufferSize, storageMemoryManager);
     }
 
     @SuppressWarnings("checkstyle:EmptyLineSeparator")

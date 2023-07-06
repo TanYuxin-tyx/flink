@@ -50,7 +50,6 @@ public class SortBufferAccumulatorTest {
         Random random = new Random(1111);
         TieredStoragePartitionId partitionId =
                 TieredStorageIdMappingUtils.convertId(new ResultPartitionID());
-        TieredStorageSubpartitionId subpartitionId = new TieredStorageSubpartitionId(0);
         TieredStorageMemoryManager memoryManager =
                 new TestingTieredStorageMemoryManager.Builder()
                         .setRequestBufferBlockingFunction(
@@ -63,13 +62,7 @@ public class SortBufferAccumulatorTest {
 
         List<Buffer> accumulatedBuffers = new ArrayList<>();
         SortBufferAccumulator sortBufferAccumulator =
-                new SortBufferAccumulator(
-                        partitionId,
-                        numSubpartitions,
-                        1,
-                        bufferSize,
-                        memoryManager,
-                        new TieredStorageResourceRegistry());
+                new SortBufferAccumulator(numSubpartitions, 1, bufferSize, memoryManager);
         sortBufferAccumulator.setup(
                 (subpartitionIndex, buffers) -> accumulatedBuffers.addAll(buffers));
 

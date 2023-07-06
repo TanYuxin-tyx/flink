@@ -27,8 +27,6 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
-import net.jcip.annotations.GuardedBy;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
@@ -38,7 +36,6 @@ import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * {@link HashSubpartitionBufferAccumulator} accumulates the records in a subpartition.
@@ -54,20 +51,7 @@ public class HashSubpartitionBufferAccumulator {
 
     private final HashSubpartitionBufferAccumulatorContext bufferAccumulatorContext;
 
-    /**
-     * The un-finished buffers to accumulate records.
-     *
-     * <p>Note that when the accumulator is released, these buffers should be recycled safely. To
-     * prevent buffer leaking, use a lock to ensure that any requested buffers are recycled prior to
-     * releasing the accumulator.
-     */
-    @GuardedBy("lock")
     private final Queue<BufferBuilder> unfinishedBuffers = new LinkedList<>();
-
-    private final Object lock = new Object();
-
-    @GuardedBy("lock")
-    private boolean isReleased;
 
     public HashSubpartitionBufferAccumulator(
             TieredStorageSubpartitionId subpartitionId,
@@ -83,29 +67,16 @@ public class HashSubpartitionBufferAccumulator {
     // ------------------------------------------------------------------------
 
     public void append(ByteBuffer record, Buffer.DataType dataType) throws IOException {
-        synchronized (lock) {
-            if (isReleased) {
-                return;
-            }
-            if (dataType.isEvent()) {
-                writeEvent(record, dataType);
-            } else {
-                writeRecord(record, dataType);
-            }
+        if (dataType.isEvent()) {
+            writeEvent(record, dataType);
+        } else {
+            writeRecord(record, dataType);
         }
     }
 
-    /** This method can only be called by the task thread. */
     public void close() {
-        recycleBuffers();
-        checkState(unfinishedBuffers.isEmpty(), "There are unfinished buffers.");
-    }
-
-    public void release() {
-        synchronized (lock) {
-            isReleased = true;
-            recycleBuffers();
-            checkState(unfinishedBuffers.isEmpty(), "There are unfinished buffers.");
+        while (!unfinishedBuffers.isEmpty()) {
+            unfinishedBuffers.poll().close();
         }
     }
 
@@ -152,9 +123,6 @@ public class HashSubpartitionBufferAccumulator {
 
     private void writeRecord(ByteBuffer record) {
         while (record.hasRemaining()) {
-            if (isReleased) {
-                return;
-            }
             BufferBuilder currentWritingBuffer = checkNotNull(unfinishedBuffers.peek());
             currentWritingBuffer.append(record);
             if (currentWritingBuffer.isFull()) {
@@ -185,26 +153,8 @@ public class HashSubpartitionBufferAccumulator {
         flushFinishedBuffer(buffer);
     }
 
-    private void recycleBuffers() {
-        synchronized (lock) {
-            while (!unfinishedBuffers.isEmpty()) {
-                unfinishedBuffers
-                        .poll()
-                        .createBufferConsumerFromBeginning()
-                        .build()
-                        .recycleBuffer();
-            }
-        }
-    }
-
     private void flushFinishedBuffer(Buffer finishedBuffer) {
-        synchronized (lock) {
-            if (isReleased) {
-                finishedBuffer.recycleBuffer();
-                return;
-            }
-            bufferAccumulatorContext.flushAccumulatedBuffers(
-                    subpartitionId, Collections.singletonList(finishedBuffer));
-        }
+        bufferAccumulatorContext.flushAccumulatedBuffers(
+                subpartitionId, Collections.singletonList(finishedBuffer));
     }
 }
