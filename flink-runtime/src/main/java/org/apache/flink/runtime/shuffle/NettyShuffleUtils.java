@@ -21,11 +21,11 @@ package org.apache.flink.runtime.shuffle;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.consumer.GateBuffersSpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration.TieredStorageExclusiveBufferNumberSpec;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -111,8 +111,7 @@ public class NettyShuffleUtils {
             final int sortShuffleMinBuffers,
             final boolean enableTieredStoreForHybridShuffle,
             final boolean enableRemoteStorage,
-            final int numBuffersUseSortAccumulatorThreshold,
-            final List<Integer> tieredStorageTierExclusiveBuffers,
+            final TieredStorageExclusiveBufferNumberSpec tieredStorageTierExclusiveBuffers,
             final Map<IntermediateDataSetID, Integer> inputChannelNums,
             final Map<IntermediateDataSetID, Integer> partitionReuseCount,
             final Map<IntermediateDataSetID, Integer> subpartitionNums,
@@ -151,7 +150,7 @@ public class NettyShuffleUtils {
                             sortShuffleMinParallelism,
                             sortShuffleMinBuffers,
                             enableTieredStoreForHybridShuffle,
-                            calculateTieredStorageTotalBuffers(enableRemoteStorage, numBuffersUseSortAccumulatorThreshold, partitionType, tieredStorageTierExclusiveBuffers),
+                            calculateTieredStorageTotalBuffers(enableRemoteStorage, partitionType, tieredStorageTierExclusiveBuffers),
                             numSubs);
         }
 
@@ -160,21 +159,20 @@ public class NettyShuffleUtils {
 
     public static int calculateTieredStorageTotalBuffers(
             boolean enableRemoteStorage,
-            int numBuffersUseSortAccumulatorThreshold,
             ResultPartitionType type,
-            List<Integer> tieredStorageTierExclusiveBuffers){
-        int totalNumBuffer = numBuffersUseSortAccumulatorThreshold;
+            TieredStorageExclusiveBufferNumberSpec exclusiveBufferNumberSpec){
+        int totalNumBuffer = exclusiveBufferNumberSpec.getAccumulatorExclusiveBuffers();
         if(type == ResultPartitionType.HYBRID_FULL){
-            totalNumBuffer += tieredStorageTierExclusiveBuffers.get(1);
+            totalNumBuffer += exclusiveBufferNumberSpec.getDiskTierExclusiveBuffers();
             if(enableRemoteStorage){
-                totalNumBuffer += tieredStorageTierExclusiveBuffers.get(2);
+                totalNumBuffer += exclusiveBufferNumberSpec.getRemoteTierExclusiveBuffers();
             }
         }
         if(type == ResultPartitionType.HYBRID_SELECTIVE){
-            totalNumBuffer += tieredStorageTierExclusiveBuffers.get(0);
-            totalNumBuffer += tieredStorageTierExclusiveBuffers.get(1);
+            totalNumBuffer += exclusiveBufferNumberSpec.getMemoryTierExclusiveBuffers();
+            totalNumBuffer += exclusiveBufferNumberSpec.getDiskTierExclusiveBuffers();
             if(enableRemoteStorage){
-                totalNumBuffer += tieredStorageTierExclusiveBuffers.get(2);
+                totalNumBuffer += exclusiveBufferNumberSpec.getRemoteTierExclusiveBuffers();
             }
         }
         return totalNumBuffer;

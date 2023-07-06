@@ -18,7 +18,12 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.HashBufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SortBufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskIOScheduler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory.MemoryTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierFactory;
@@ -70,7 +75,7 @@ public class TieredStorageConfiguration {
 
     private final int remoteTierExclusiveBuffers;
 
-    private final int numBuffersUseSortAccumulatorThreshold;
+    private final int accumulatorExclusiveBuffers;
 
     private final int memoryTierNumBytesPerSegment;
 
@@ -80,11 +85,11 @@ public class TieredStorageConfiguration {
 
     private final float numBuffersTriggerFlushRatio;
 
-    private final int diskTierMaxBuffersReadAhead;
+    private final int diskIOSchedulerMaxBuffersReadAhead;
 
-    private final Duration diskTierBufferRequestTimeout;
+    private final Duration diskIOSchedulerRequestTimeout;
 
-    private final int diskTierMaxRequestBuffers;
+    private final int diskIOSchedulerMaxRequestBuffers;
 
     private final float minReserveSpaceFraction;
 
@@ -96,14 +101,14 @@ public class TieredStorageConfiguration {
             int memoryTierExclusiveBuffers,
             int diskTierExclusiveBuffers,
             int remoteTierExclusiveBuffers,
-            int numBuffersUseSortAccumulatorThreshold,
+            int accumulatorExclusiveBuffers,
             int memoryTierNumBytesPerSegment,
             int diskTierNumBytesPerSegment,
             int remoteTierNumBytesPerSegment,
             float numBuffersTriggerFlushRatio,
-            int diskTierMaxBuffersReadAhead,
-            Duration diskTierBufferRequestTimeout,
-            int diskTierMaxRequestBuffers,
+            int diskIOSchedulerMaxBuffersReadAhead,
+            Duration diskIOSchedulerRequestTimeout,
+            int diskIOSchedulerMaxRequestBuffers,
             float minReserveSpaceFraction,
             List<TierFactory> tierFactories) {
         this.remoteStorageBasePath = remoteStorageBasePath;
@@ -111,14 +116,14 @@ public class TieredStorageConfiguration {
         this.memoryTierExclusiveBuffers = memoryTierExclusiveBuffers;
         this.diskTierExclusiveBuffers = diskTierExclusiveBuffers;
         this.remoteTierExclusiveBuffers = remoteTierExclusiveBuffers;
-        this.numBuffersUseSortAccumulatorThreshold = numBuffersUseSortAccumulatorThreshold;
+        this.accumulatorExclusiveBuffers = accumulatorExclusiveBuffers;
         this.memoryTierNumBytesPerSegment = memoryTierNumBytesPerSegment;
         this.diskTierNumBytesPerSegment = diskTierNumBytesPerSegment;
         this.remoteTierNumBytesPerSegment = remoteTierNumBytesPerSegment;
         this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
-        this.diskTierMaxBuffersReadAhead = diskTierMaxBuffersReadAhead;
-        this.diskTierBufferRequestTimeout = diskTierBufferRequestTimeout;
-        this.diskTierMaxRequestBuffers = diskTierMaxRequestBuffers;
+        this.diskIOSchedulerMaxBuffersReadAhead = diskIOSchedulerMaxBuffersReadAhead;
+        this.diskIOSchedulerRequestTimeout = diskIOSchedulerRequestTimeout;
+        this.diskIOSchedulerMaxRequestBuffers = diskIOSchedulerMaxRequestBuffers;
         this.minReserveSpaceFraction = minReserveSpaceFraction;
         this.tierFactories = tierFactories;
     }
@@ -139,68 +144,153 @@ public class TieredStorageConfiguration {
                 .setRemoteStorageBasePath(remoteStorageBasePath);
     }
 
+    /**
+     * Get the base path on remote storage.
+     *
+     * @return string if the remote storage path is configured otherwise null.
+     */
     public String getRemoteStorageBasePath() {
         return remoteStorageBasePath;
     }
 
+    /**
+     * Get the buffer size in tiered storage.
+     *
+     * @return the buffer size.
+     */
     public int getTieredStorageBufferSize() {
         return tieredStorageBufferSize;
     }
 
+    /**
+     * Get exclusive buffer number of memory tier.
+     *
+     * @return the buffer number.
+     */
     public int getMemoryTierExclusiveBuffers() {
         return memoryTierExclusiveBuffers;
     }
 
+    /**
+     * Get exclusive buffer number of disk tier.
+     *
+     * @return the buffer number.
+     */
     public int getDiskTierExclusiveBuffers() {
         return diskTierExclusiveBuffers;
     }
 
+    /**
+     * Get exclusive buffer number of remote tier.
+     *
+     * @return the buffer number.
+     */
     public int getRemoteTierExclusiveBuffers() {
         return remoteTierExclusiveBuffers;
     }
 
-    public int getNumBuffersUseSortAccumulatorThreshold() {
-        return numBuffersUseSortAccumulatorThreshold;
+    /**
+     * Get exclusive buffer number of accumulator.
+     *
+     * <p>The buffer number is used to compare with the subpartition number to determine the type of
+     * {@link BufferAccumulator}.
+     *
+     * <p>If the exclusive buffer number is larger than (subpartitionNum + 1), the accumulator will
+     * use {@link HashBufferAccumulator}. If the exclusive buffer number is equal to or smaller than
+     * (subpartitionNum + 1), the accumulator will use {@link SortBufferAccumulator}
+     *
+     * @return the buffer number.
+     */
+    public int getAccumulatorExclusiveBuffers() {
+        return accumulatorExclusiveBuffers;
     }
 
+    /**
+     * Get the segment size of memory tier.
+     *
+     * @return segment size.
+     */
     public int getMemoryTierNumBytesPerSegment() {
         return memoryTierNumBytesPerSegment;
     }
 
+    /**
+     * Get the segment size of disk tier.
+     *
+     * @return segment size.
+     */
     public int getDiskTierNumBytesPerSegment() {
         return diskTierNumBytesPerSegment;
     }
 
+    /**
+     * Get the segment size of remote tier.
+     *
+     * @return segment size.
+     */
     public int getRemoteTierNumBytesPerSegment() {
         return remoteTierNumBytesPerSegment;
     }
 
+    /**
+     * When the number of buffers that have been requested exceeds this threshold, trigger the
+     * flushing operation in each {@link TierProducerAgent}.
+     *
+     * @return flush ratio.
+     */
     public float getNumBuffersTriggerFlushRatio() {
         return numBuffersTriggerFlushRatio;
     }
 
-    public int getDiskTierMaxBuffersReadAhead() {
-        return diskTierMaxBuffersReadAhead;
+    /**
+     * The number of buffers to read ahead at most for each subpartition in {@link DiskIOScheduler},
+     * which can be used to prevent other consumers from starving.
+     *
+     * @return buffer number.
+     */
+    public int getDiskIOSchedulerMaxBuffersReadAhead() {
+        return diskIOSchedulerMaxBuffersReadAhead;
     }
 
-    public Duration getDiskTierBufferRequestTimeout() {
-        return diskTierBufferRequestTimeout;
+    /**
+     * Maximum time to wait when requesting read buffers from the buffer pool before throwing an
+     * exception in {@link DiskIOScheduler}.
+     *
+     * @return timeout duration.
+     */
+    public Duration getDiskIOSchedulerBufferRequestTimeout() {
+        return diskIOSchedulerRequestTimeout;
     }
 
-    public int getDiskTierMaxRequestBuffers() {
-        return diskTierMaxRequestBuffers;
+    /**
+     * Maximum buffer number that can be allocated to a single {@link DiskIOScheduler}.
+     *
+     * @return buffer number.
+     */
+    public int getDiskTierIOSchedulerMaxRequestBuffers() {
+        return diskIOSchedulerMaxRequestBuffers;
     }
 
+    /**
+     * Minimum reserved disk space fraction in disk tier.
+     *
+     * @return the fraction.
+     */
     public float getMinReserveSpaceFraction() {
         return minReserveSpaceFraction;
     }
 
-    public List<Integer> getTieredStorageTierExclusiveBuffers() {
-        List<Integer> exclusiveBuffers = new ArrayList<>();
-        exclusiveBuffers.add(memoryTierExclusiveBuffers);
-        exclusiveBuffers.add(diskTierExclusiveBuffers);
-        exclusiveBuffers.add(remoteTierExclusiveBuffers);
-        return exclusiveBuffers;
+    /**
+     * Get the exclusive buffer number of each tier.
+     *
+     * @return the {@link TieredStorageExclusiveBufferNumberSpec}.
+     */
+    public TieredStorageExclusiveBufferNumberSpec getTieredStorageExclusiveBufferNumberSpec() {
+        return new TieredStorageExclusiveBufferNumberSpec(
+                memoryTierExclusiveBuffers,
+                diskTierExclusiveBuffers,
+                remoteTierExclusiveBuffers,
+                accumulatorExclusiveBuffers);
     }
 
     public List<TierFactory> getTierFactories() {
@@ -355,6 +445,48 @@ public class TieredStorageConfiguration {
                                 remoteStorageBasePath));
             }
             return tierFactories;
+        }
+    }
+
+    /**
+     * {@link TieredStorageExclusiveBufferNumberSpec} is used to specific the exclusive buffer
+     * number of each tier in tiered storage
+     */
+    public static class TieredStorageExclusiveBufferNumberSpec {
+
+        private final int memoryTierExclusiveBuffers;
+
+        private final int diskTierExclusiveBuffers;
+
+        private final int remoteTierExclusiveBuffers;
+
+        private final int accumulatorExclusiveBuffers;
+
+        public TieredStorageExclusiveBufferNumberSpec(
+                int memoryTierExclusiveBuffers,
+                int diskTierExclusiveBuffers,
+                int remoteTierExclusiveBuffers,
+                int accumulatorExclusiveBuffers) {
+            this.memoryTierExclusiveBuffers = memoryTierExclusiveBuffers;
+            this.diskTierExclusiveBuffers = diskTierExclusiveBuffers;
+            this.remoteTierExclusiveBuffers = remoteTierExclusiveBuffers;
+            this.accumulatorExclusiveBuffers = accumulatorExclusiveBuffers;
+        }
+
+        public int getMemoryTierExclusiveBuffers() {
+            return memoryTierExclusiveBuffers;
+        }
+
+        public int getDiskTierExclusiveBuffers() {
+            return diskTierExclusiveBuffers;
+        }
+
+        public int getRemoteTierExclusiveBuffers() {
+            return remoteTierExclusiveBuffers;
+        }
+
+        public int getAccumulatorExclusiveBuffers() {
+            return accumulatorExclusiveBuffers;
         }
     }
 }

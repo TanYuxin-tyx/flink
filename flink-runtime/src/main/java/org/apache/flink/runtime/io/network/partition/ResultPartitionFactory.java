@@ -326,7 +326,7 @@ public class ResultPartitionFactory {
 
                 TieredStoragePartitionId partitionId = TieredStorageIdMappingUtils.convertId(id);
                 int numBuffersUseSortAccumulatorThreshold =
-                        tieredStorageConfiguration.getNumBuffersUseSortAccumulatorThreshold();
+                        tieredStorageConfiguration.getAccumulatorExclusiveBuffers();
                 boolean useSortAccumulator =
                         useSortBufferAccumulator(
                                 subpartitions.length, numBuffersUseSortAccumulatorThreshold);
@@ -731,9 +731,8 @@ public class ResultPartitionFactory {
                             true,
                             calculateTieredStorageTotalBuffers(
                                     configuration.getRemoteStorageBasePath() != null,
-                                    configuration.getNumBuffersUseSortAccumulatorThreshold(),
                                     type,
-                                    configuration.getTieredStorageTierExclusiveBuffers()),
+                                    configuration.getTieredStorageExclusiveBufferNumberSpec()),
                             type);
 
             return bufferPoolFactory.createBufferPool(

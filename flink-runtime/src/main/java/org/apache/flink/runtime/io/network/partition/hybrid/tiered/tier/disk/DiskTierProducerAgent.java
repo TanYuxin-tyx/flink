@@ -133,9 +133,9 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         partitionId,
                         batchShuffleReadBufferPool,
                         batchShuffleReadIOExecutor,
-                        storeConfiguration.getDiskTierMaxRequestBuffers(),
-                        storeConfiguration.getDiskTierBufferRequestTimeout(),
-                        storeConfiguration.getDiskTierMaxBuffersReadAhead(),
+                        storeConfiguration.getDiskTierIOSchedulerMaxRequestBuffers(),
+                        storeConfiguration.getDiskIOSchedulerBufferRequestTimeout(),
+                        storeConfiguration.getDiskIOSchedulerMaxBuffersReadAhead(),
                         nettyService,
                         this::retrieveFirstBufferIndexInSegment,
                         partitionFileReader);

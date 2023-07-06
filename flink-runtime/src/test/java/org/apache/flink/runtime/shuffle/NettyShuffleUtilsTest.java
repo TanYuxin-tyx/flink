@@ -34,6 +34,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateBuilder;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.util.TestLogger;
@@ -43,7 +44,6 @@ import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableMap;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -96,6 +96,12 @@ public class NettyShuffleUtilsTest extends TestLogger {
         Map<IntermediateDataSetID, ResultPartitionType> inputPartitionTypes =
                 ImmutableMap.of(ids1, PIPELINED_BOUNDED, ids2, BLOCKING);
 
+        TieredStorageConfiguration.TieredStorageExclusiveBufferNumberSpec tieredStorageExclusiveBufferNumberSpec = new TieredStorageConfiguration.TieredStorageExclusiveBufferNumberSpec(
+                0,
+                0,
+                0,
+                0);
+
         int numTotalBuffers =
                 NettyShuffleUtils.computeNetworkBuffersForAnnouncing(
                         numBuffersPerChannel,
@@ -105,8 +111,7 @@ public class NettyShuffleUtilsTest extends TestLogger {
                         numSortShuffleMinBuffers,
                         enableTieredStoreForHybridShuffle,
                         false,
-                        numBuffersUseSortAccumulatorThreshold,
-                        new ArrayList<>(),
+                        tieredStorageExclusiveBufferNumberSpec,
                         numInputChannels,
                         partitionReuseCount,
                         subpartitionNums,

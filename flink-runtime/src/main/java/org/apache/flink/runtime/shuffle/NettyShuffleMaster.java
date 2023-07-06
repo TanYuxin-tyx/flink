@@ -37,7 +37,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -175,13 +174,11 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
     public MemorySize computeShuffleMemorySizeForTask(TaskInputsOutputsDescriptor desc) {
         checkNotNull(desc);
 
-        boolean enableTieredStoreForHybridShuffle = tieredStorageConfiguration != null;
-        boolean enableRemoteStorageInTieredStore = baseRemoteStoragePath != null;
-        int numBuffersUseSortAccumulatorThreshold = 0;
-        List<Integer> tieredStorageTierExclusiveBuffers = new ArrayList<>();
-        if(enableTieredStoreForHybridShuffle){
-            numBuffersUseSortAccumulatorThreshold = tieredStorageConfiguration.getNumBuffersUseSortAccumulatorThreshold();
-            tieredStorageTierExclusiveBuffers = tieredStorageConfiguration.getTieredStorageTierExclusiveBuffers();
+        boolean enableTieredStorageForHybridShuffle = tieredStorageConfiguration != null;
+        boolean enableRemoteStorageInTieredStorage = baseRemoteStoragePath != null;
+        TieredStorageConfiguration.TieredStorageExclusiveBufferNumberSpec tieredStorageTierExclusiveBuffers = null;
+        if(enableTieredStorageForHybridShuffle){
+            tieredStorageTierExclusiveBuffers = tieredStorageConfiguration.getTieredStorageExclusiveBufferNumberSpec();
         }
         int numRequiredNetworkBuffers =
                 NettyShuffleUtils.computeNetworkBuffersForAnnouncing(
@@ -190,9 +187,8 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                         maxRequiredBuffersPerGate,
                         sortShuffleMinParallelism,
                         sortShuffleMinBuffers,
-                        enableTieredStoreForHybridShuffle,
-                        enableRemoteStorageInTieredStore,
-                        numBuffersUseSortAccumulatorThreshold,
+                        enableTieredStorageForHybridShuffle,
+                        enableRemoteStorageInTieredStorage,
                         tieredStorageTierExclusiveBuffers,
                         desc.getInputChannelNums(),
                         desc.getPartitionReuseCount(),
