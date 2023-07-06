@@ -18,7 +18,14 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory.MemoryTierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierFactory;
+
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Configuration for tiered storage. */
 public class TieredStorageConfiguration2 {
@@ -51,33 +58,37 @@ public class TieredStorageConfiguration2 {
 
     private static final float DEFAULT_MIN_RESERVE_SPACE_FRACTION = 0.05f;
 
-    private String remoteStorageBasePath;
+    private static final boolean DEFAULT_IS_HYBRID_SELECTIVE = true;
 
-    private int tieredStorageBufferSize;
+    private final String remoteStorageBasePath;
 
-    private int memoryTierExclusiveBuffers;
+    private final int tieredStorageBufferSize;
 
-    private int diskTierExclusiveBuffers;
+    private final int memoryTierExclusiveBuffers;
 
-    private int remoteTierExclusiveBuffers;
+    private final int diskTierExclusiveBuffers;
 
-    private int numBuffersUseSortAccumulatorThreshold;
+    private final int remoteTierExclusiveBuffers;
 
-    private int memoryTierNumBytesPerSegment;
+    private final int numBuffersUseSortAccumulatorThreshold;
 
-    private int diskTierNumBytesPerSegment;
+    private final int memoryTierNumBytesPerSegment;
 
-    private int remoteTierNumBytesPerSegment;
+    private final int diskTierNumBytesPerSegment;
 
-    private float numBuffersTriggerFlushRatio;
+    private final int remoteTierNumBytesPerSegment;
 
-    private int diskTierMaxBuffersReadAhead;
+    private final float numBuffersTriggerFlushRatio;
 
-    private Duration diskTierBufferRequestTimeout;
+    private final int diskTierMaxBuffersReadAhead;
 
-    private int diskTierMaxRequestBuffers;
+    private final Duration diskTierBufferRequestTimeout;
 
-    private float minReserveSpaceFraction;
+    private final int diskTierMaxRequestBuffers;
+
+    private final float minReserveSpaceFraction;
+
+    private final List<TierFactory> tierFactories;
 
     public TieredStorageConfiguration2(
             String remoteStorageBasePath,
@@ -93,7 +104,8 @@ public class TieredStorageConfiguration2 {
             int diskTierMaxBuffersReadAhead,
             Duration diskTierBufferRequestTimeout,
             int diskTierMaxRequestBuffers,
-            float minReserveSpaceFraction) {
+            float minReserveSpaceFraction,
+            List<TierFactory> tierFactories) {
         this.remoteStorageBasePath = remoteStorageBasePath;
         this.tieredStorageBufferSize = tieredStorageBufferSize;
         this.memoryTierExclusiveBuffers = memoryTierExclusiveBuffers;
@@ -108,12 +120,21 @@ public class TieredStorageConfiguration2 {
         this.diskTierBufferRequestTimeout = diskTierBufferRequestTimeout;
         this.diskTierMaxRequestBuffers = diskTierMaxRequestBuffers;
         this.minReserveSpaceFraction = minReserveSpaceFraction;
+        this.tierFactories = tierFactories;
     }
 
-    public static Builder builder() {
-        return new TieredStorageConfiguration2.Builder();
+    public static Builder builder(int tieredStorageBufferSize, String remoteStorageBasePath) {
+        return new TieredStorageConfiguration2.Builder()
+                .setTieredStorageBufferSize(tieredStorageBufferSize)
+                .setRemoteStorageBasePath(remoteStorageBasePath);
     }
 
+    public static Builder builder(int tieredStorageBufferSize, int diskTierMaxRequestBuffers, String remoteStorageBasePath) {
+        return new TieredStorageConfiguration2.Builder()
+                .setTieredStorageBufferSize(tieredStorageBufferSize)
+                .setDiskTierMaxRequestBuffers(diskTierMaxRequestBuffers)
+                .setRemoteStorageBasePath(remoteStorageBasePath);
+    }
 
     public String getRemoteStorageBasePath() {
         return remoteStorageBasePath;
@@ -171,6 +192,10 @@ public class TieredStorageConfiguration2 {
         return minReserveSpaceFraction;
     }
 
+    public List<TierFactory> getTierFactories() {
+        return tierFactories;
+    }
+
     public static class Builder {
 
         private String remoteStorageBasePath = DEFAULT_REMOTE_STORAGE_BASE_PATH;
@@ -201,6 +226,8 @@ public class TieredStorageConfiguration2 {
         private int diskTierMaxRequestBuffers = DEFAULT_DISK_TIER_MAX_REQUEST_BUFFERS;
 
         private float minReserveSpaceFraction = DEFAULT_MIN_RESERVE_SPACE_FRACTION;
+
+        private boolean isHybridSelective = DEFAULT_IS_HYBRID_SELECTIVE;
 
         public Builder setRemoteStorageBasePath(String remoteStorageBasePath) {
             this.remoteStorageBasePath = remoteStorageBasePath;
@@ -273,6 +300,11 @@ public class TieredStorageConfiguration2 {
             return this;
         }
 
+        public Builder setHybridSelective(boolean hybridSelective) {
+            this.isHybridSelective = hybridSelective;
+            return this;
+        }
+
         public TieredStorageConfiguration2 build() {
             return new TieredStorageConfiguration2(
                     remoteStorageBasePath,
@@ -288,7 +320,30 @@ public class TieredStorageConfiguration2 {
                     diskTierMaxBuffersReadAhead,
                     diskTierBufferRequestTimeout,
                     diskTierMaxRequestBuffers,
-                    minReserveSpaceFraction);
+                    minReserveSpaceFraction,
+                    createDefaultFactories());
+        }
+
+        private List<TierFactory> createDefaultFactories() {
+            List<TierFactory> tierFactories = new ArrayList<>();
+            if (isHybridSelective) {
+                tierFactories.add(
+                        new MemoryTierFactory(
+                                memoryTierNumBytesPerSegment, tieredStorageBufferSize));
+            }
+            tierFactories.add(
+                    new DiskTierFactory(
+                            diskTierNumBytesPerSegment,
+                            tieredStorageBufferSize,
+                            minReserveSpaceFraction));
+            if (remoteStorageBasePath != null) {
+                tierFactories.add(
+                        new RemoteTierFactory(
+                                remoteTierNumBytesPerSegment,
+                                tieredStorageBufferSize,
+                                remoteStorageBasePath));
+            }
+            return tierFactories;
         }
     }
 }

@@ -30,6 +30,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
@@ -44,6 +45,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Tiere
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory.MemoryTierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierFactory;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -59,8 +63,11 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
+
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** Factory for {@link ResultPartition} to use in {@link NettyShuffleEnvironment}. */
 public class ResultPartitionFactory {
@@ -154,7 +161,10 @@ public class ResultPartitionFactory {
         this.hybridShuffleSpilledIndexSegmentSize = hybridShuffleSpilledIndexSegmentSize;
         this.hybridShuffleNumRetainedInMemoryRegionsMax =
                 hybridShuffleNumRetainedInMemoryRegionsMax;
-        this.remoteStorageBasePath = remoteStorageBasePath;
+        this.remoteStorageBasePath =
+                remoteStorageBasePath == null || remoteStorageBasePath.length() == 0
+                        ? null
+                        : remoteStorageBasePath;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.tieredStoreTiers = tieredStoreTiers;
         this.enableTieredStoreForHybridShuffle = enableTieredStoreForHybridShuffle;
@@ -272,27 +282,54 @@ public class ResultPartitionFactory {
                 || type == ResultPartitionType.HYBRID_SELECTIVE) {
 
             if (enableTieredStoreForHybridShuffle) {
-                TieredStorageConfiguration storageConfiguration =
-                        getStoreConfiguration(numberOfSubpartitions, type);
+
+                TieredStorageConfiguration2 tieredStorageConfiguration =
+                        TieredStorageConfiguration2.builder(
+                                        networkBufferSize,
+                                        Math.max(
+                                                2
+                                                        * batchShuffleReadBufferPool
+                                                                .getNumBuffersPerRequest(),
+                                                numberOfSubpartitions),
+                                        remoteStorageBasePath)
+                                .setHybridSelective(type == ResultPartitionType.HYBRID_SELECTIVE)
+                                .build();
+
+                // TieredStorageConfiguration storageConfiguration =
+                //        getStoreConfiguration(numberOfSubpartitions, type);
 
                 TieredStorageMemoryManager storageMemoryManager =
                         new TieredStorageMemoryManagerImpl(
-                                storageConfiguration.getNumBuffersTriggerFlushRatio(), true);
+                                tieredStorageConfiguration.getNumBuffersTriggerFlushRatio(), true);
+
+                List<TierFactory> tierFactories =
+                        filterTierFactories(
+                                tieredStorageConfiguration.getTierFactories(),
+                                this.tieredStoreTiers);
+
+                int[] tierExclusiveBuffers = new int[tierFactories.size()];
+                for (int index = 0; index < tierFactories.size(); ++index) {
+                    tierExclusiveBuffers[index] =
+                            getTierExclusiveBuffer(
+                                    tierFactories.get(index), tieredStorageConfiguration);
+                }
 
                 List<TierProducerAgent> tierProducerAgents =
-                        createTierStorages(
+                        createTierProducerAgents(
                                 id,
                                 isBroadcast,
                                 subpartitions,
+                                tierFactories,
+                                tieredStorageConfiguration,
                                 bufferCompressor,
-                                storageConfiguration,
                                 storageMemoryManager,
+                                channelManager.createChannel().getPath(),
                                 nettyService,
                                 resourceRegistry);
 
                 TieredStoragePartitionId partitionId = TieredStorageIdMappingUtils.convertId(id);
                 int numBuffersUseSortAccumulatorThreshold =
-                        storageConfiguration.numBuffersUseSortAccumulatorThreshold();
+                        tieredStorageConfiguration.getNumBuffersUseSortAccumulatorThreshold();
                 boolean useSortAccumulator =
                         useSortBufferAccumulator(
                                 subpartitions.length, numBuffersUseSortAccumulatorThreshold);
@@ -323,7 +360,7 @@ public class ResultPartitionFactory {
                                 bufferAccumulator,
                                 tierProducerAgents,
                                 storageMemoryManager,
-                                storageConfiguration.getTierExclusiveBuffers(),
+                                tierExclusiveBuffers,
                                 bufferCompressor,
                                 tieredStorageProducerClient,
                                 createBufferPoolFactory(
@@ -377,40 +414,41 @@ public class ResultPartitionFactory {
     }
 
     @SuppressWarnings("checkstyle:EmptyLineSeparator")
-    private List<TierProducerAgent> createTierStorages(
-            ResultPartitionID id,
-            boolean isBroadcast,
-            ResultSubpartition[] subpartitions,
-            @Nullable BufferCompressor bufferCompressor,
-            TieredStorageConfiguration storeConfiguration,
-            TieredStorageMemoryManager storageMemoryManager,
-            TieredStorageNettyServiceImpl nettyService,
-            TieredStorageResourceRegistry resourceRegistry) {
-        String dataFileBasePath = channelManager.createChannel().getPath();
-        return createTierProducerAgents(
-                id,
-                isBroadcast,
-                subpartitions,
-                storeConfiguration,
-                bufferCompressor,
-                storageMemoryManager,
-                dataFileBasePath,
-                nettyService,
-                resourceRegistry);
-    }
+    // private List<TierProducerAgent> createTierStorages(
+    //        ResultPartitionID id,
+    //        boolean isBroadcast,
+    //        ResultSubpartition[] subpartitions,
+    //        @Nullable BufferCompressor bufferCompressor,
+    //        TieredStorageConfiguration2 storeConfiguration,
+    //        TieredStorageMemoryManager storageMemoryManager,
+    //        TieredStorageNettyServiceImpl nettyService,
+    //        TieredStorageResourceRegistry resourceRegistry) {
+    //    String dataFileBasePath = channelManager.createChannel().getPath();
+    //    return createTierProducerAgents(
+    //            id,
+    //            isBroadcast,
+    //            subpartitions,
+    //            storeConfiguration,
+    //            bufferCompressor,
+    //            storageMemoryManager,
+    //            dataFileBasePath,
+    //            nettyService,
+    //            resourceRegistry);
+    // }
 
-    public List<TierProducerAgent> createTierProducerAgents(
+    private List<TierProducerAgent> createTierProducerAgents(
             ResultPartitionID id,
             boolean isBroadcast,
             ResultSubpartition[] subpartitions,
-            TieredStorageConfiguration storeConfiguration,
+            List<TierFactory> tierFactories,
+            TieredStorageConfiguration2 storeConfiguration,
             @Nullable BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             String dataFileBasePath,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
         List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
-        for (TierFactory tierFactory : storeConfiguration.getTierFactories()) {
+        for (TierFactory tierFactory : tierFactories) {
             TieredStoragePartitionId partitionId = TieredStorageIdMappingUtils.convertId(id);
             tierProducerAgents.add(
                     tierFactory.createProducerAgent(
@@ -427,6 +465,138 @@ public class ResultPartitionFactory {
                             resourceRegistry));
         }
         return tierProducerAgents;
+    }
+
+    private List<TierFactory> filterTierFactories(
+            List<TierFactory> tierFactories, String tierType) {
+        List<TierFactory> result = new ArrayList<>();
+        switch (tierType) {
+            case "MEMORY":
+                throw new IllegalArgumentException("Only memory tier is not supported.");
+            case "DISK":
+                if (tierFactories.size() != 1 && tierFactories.size() != 2) {
+                    throw new IllegalArgumentException(
+                            "Tier factories is not legal."
+                                    + Arrays.toString(tierFactories.toArray()));
+                }
+                if (tierFactories.size() == 1) {
+                    result.add(tierFactories.get(0));
+                }
+                if (tierFactories.size() == 2) {
+                    result.add(tierFactories.get(1));
+                }
+                checkState(result.size() == 1);
+                checkState(result.get(0).getClass() == DiskTierFactory.class);
+                return result;
+            case "REMOTE":
+                if (tierFactories.size() != 2 && tierFactories.size() != 3) {
+                    throw new IllegalArgumentException(
+                            "Tier factories is not legal."
+                                    + Arrays.toString(tierFactories.toArray()));
+                }
+                if (tierFactories.size() == 2) {
+                    result.add(tierFactories.get(1));
+                }
+                if (tierFactories.size() == 3) {
+                    result.add(tierFactories.get(2));
+                }
+                checkState(result.size() == 1);
+                checkState(result.get(0).getClass() == RemoteTierFactory.class);
+                return result;
+            case "MEMORY_DISK":
+                if (tierFactories.size() != 1 && tierFactories.size() != 2) {
+                    throw new IllegalArgumentException(
+                            "Tier factories is not legal."
+                                    + Arrays.toString(tierFactories.toArray()));
+                }
+                result.addAll(tierFactories);
+                if (result.size() == 1) {
+                    checkState(result.get(0).getClass() == DiskTierFactory.class);
+                }
+                if (result.size() == 2) {
+                    checkState(result.get(0).getClass() == MemoryTierFactory.class);
+                    checkState(result.get(1).getClass() == DiskTierFactory.class);
+                }
+                return result;
+            case "MEMORY_REMOTE":
+                if (tierFactories.size() != 2 && tierFactories.size() != 3) {
+                    throw new IllegalArgumentException(
+                            "Tier factories is not legal."
+                                    + Arrays.toString(tierFactories.toArray()));
+                }
+
+                if (tierFactories.size() == 2) {
+                    result.add(tierFactories.get(1));
+                }
+
+                if (tierFactories.size() == 3) {
+                    result.add(tierFactories.get(0));
+                    result.add(tierFactories.get(2));
+                }
+
+                if (result.size() == 1) {
+                    checkState(result.get(0).getClass() == RemoteTierFactory.class);
+                }
+                if (result.size() == 2) {
+                    checkState(result.get(0).getClass() == MemoryTierFactory.class);
+                    checkState(result.get(1).getClass() == RemoteTierFactory.class);
+                }
+                return result;
+            case "MEMORY_DISK_REMOTE":
+                if (tierFactories.size() != 2 && tierFactories.size() != 3) {
+                    throw new IllegalArgumentException(
+                            "Tier factories is not legal."
+                                    + Arrays.toString(tierFactories.toArray()));
+                }
+                result.addAll(tierFactories);
+
+                if (result.size() == 2) {
+                    checkState(result.get(0).getClass() == DiskTierFactory.class);
+                    checkState(result.get(1).getClass() == RemoteTierFactory.class);
+                }
+                if (result.size() == 3) {
+                    checkState(result.get(0).getClass() == MemoryTierFactory.class);
+                    checkState(result.get(1).getClass() == DiskTierFactory.class);
+                    checkState(result.get(2).getClass() == RemoteTierFactory.class);
+                }
+                return result;
+            case "DISK_REMOTE":
+                if (tierFactories.size() != 2 && tierFactories.size() != 3) {
+                    throw new IllegalArgumentException(
+                            "Tier factories is not legal."
+                                    + Arrays.toString(tierFactories.toArray()));
+                }
+                if (tierFactories.size() == 2) {
+                    result.add(tierFactories.get(0));
+                    result.add(tierFactories.get(1));
+                }
+
+                if (tierFactories.size() == 3) {
+                    result.add(tierFactories.get(1));
+                    result.add(tierFactories.get(2));
+                }
+                checkState(result.get(0).getClass() == DiskTierFactory.class);
+                checkState(result.get(1).getClass() == RemoteTierFactory.class);
+                return result;
+            default:
+                throw new IllegalArgumentException("Illegal tiers combinations for tiered store.");
+        }
+    }
+
+    int getTierExclusiveBuffer(TierFactory tierFactory, TieredStorageConfiguration2 configuration) {
+        if (tierFactory.getClass() == MemoryTierFactory.class) {
+            return configuration.getMemoryTierExclusiveBuffers();
+        }
+
+        if (tierFactory.getClass() == DiskTierFactory.class) {
+            return configuration.getMemoryTierExclusiveBuffers();
+        }
+
+        if (tierFactory.getClass() == RemoteTierFactory.class) {
+            return configuration.getMemoryTierExclusiveBuffers();
+        }
+
+        throw new RuntimeException("Unsupported factories" + tierFactory.getClass());
     }
 
     private HybridShuffleConfiguration getHybridShuffleConfiguration(

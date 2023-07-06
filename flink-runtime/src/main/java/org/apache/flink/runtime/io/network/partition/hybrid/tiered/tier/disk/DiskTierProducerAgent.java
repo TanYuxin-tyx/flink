@@ -24,7 +24,7 @@ import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.PartitionNotFoundException;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
@@ -100,7 +100,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             TieredStorageNettyService nettyService,
             BatchShuffleReadBufferPool batchShuffleReadBufferPool,
             ScheduledExecutorService batchShuffleReadIOExecutor,
-            TieredStorageConfiguration storeConfiguration,
+            TieredStorageConfiguration2 storeConfiguration,
             TieredStorageResourceRegistry resourceRegistry) {
         checkArgument(
                 numBytesPerSegment >= bufferSizeBytes,
@@ -133,9 +133,9 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         partitionId,
                         batchShuffleReadBufferPool,
                         batchShuffleReadIOExecutor,
-                        storeConfiguration.getMaxRequestedBuffers(),
-                        storeConfiguration.getBufferRequestTimeout(),
-                        storeConfiguration.getMaxBuffersReadAhead(),
+                        storeConfiguration.getDiskTierMaxRequestBuffers(),
+                        storeConfiguration.getDiskTierBufferRequestTimeout(),
+                        storeConfiguration.getDiskTierMaxBuffersReadAhead(),
                         nettyService,
                         this::retrieveFirstBufferIndexInSegment,
                         partitionFileReader);
