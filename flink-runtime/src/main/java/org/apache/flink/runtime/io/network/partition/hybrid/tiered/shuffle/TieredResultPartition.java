@@ -135,7 +135,8 @@ public class TieredResultPartition extends ResultPartition {
         List<TieredStorageMemorySpec> storageMemorySpecs = createTieredStorageMemorySpecs();
         storageMemoryManager.setup(bufferPool, storageMemorySpecs);
         resourceRegistry.registerResource(storagePartitionId, tieredStorageProducerClient::release);
-        resourceRegistry.registerResource(storagePartitionId, storageMemoryManager::release);
+        resourceRegistry.registerLastReleasedResource(
+                storagePartitionId, storageMemoryManager::release);
     }
 
     private List<TieredStorageMemorySpec> createTieredStorageMemorySpecs() {

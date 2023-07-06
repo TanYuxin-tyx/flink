@@ -20,8 +20,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageDataIdentifier;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class TieredStorageResourceRegistry {
 
-    private final Map<TieredStorageDataIdentifier, List<TieredStorageResource>>
+    private final Map<TieredStorageDataIdentifier, Deque<TieredStorageResource>>
             registeredResources = new ConcurrentHashMap<>();
 
     /**
@@ -43,8 +43,21 @@ public class TieredStorageResourceRegistry {
     public void registerResource(
             TieredStorageDataIdentifier owner, TieredStorageResource tieredResource) {
         registeredResources
-                .computeIfAbsent(owner, (ignore) -> new ArrayList<>())
-                .add(tieredResource);
+                .computeIfAbsent(owner, (ignore) -> new LinkedList<>())
+                .addFirst(tieredResource);
+    }
+
+    /**
+     * Register a new resource which will be released at the last order for the given owner.
+     *
+     * @param owner identifier of the data that the resource corresponds to.
+     * @param tieredResource the tiered storage resources to be registered.
+     */
+    public void registerLastReleasedResource(
+            TieredStorageDataIdentifier owner, TieredStorageResource tieredResource) {
+        registeredResources
+                .computeIfAbsent(owner, (ignore) -> new LinkedList<>())
+                .addLast(tieredResource);
     }
 
     /**
@@ -53,10 +66,10 @@ public class TieredStorageResourceRegistry {
      * @param owner identifier of the data that the resources correspond to.
      */
     public void clearResourceFor(TieredStorageDataIdentifier owner) {
-        List<TieredStorageResource> cleanersForOwner = registeredResources.remove(owner);
+        Deque<TieredStorageResource> cleanersForOwner = registeredResources.remove(owner);
 
-        if (cleanersForOwner != null) {
-            cleanersForOwner.forEach(TieredStorageResource::release);
+        while (cleanersForOwner != null && !cleanersForOwner.isEmpty()) {
+            cleanersForOwner.pollFirst().release();
         }
     }
 }
