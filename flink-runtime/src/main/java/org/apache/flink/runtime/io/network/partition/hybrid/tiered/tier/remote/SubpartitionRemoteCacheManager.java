@@ -151,7 +151,6 @@ class SubpartitionRemoteCacheManager {
     /** Release all buffers. */
     void release() {
         synchronized (allBuffers) {
-            recycleBuffers();
             checkState(allBuffers.isEmpty(), "Leaking buffers.");
         }
         partitionFileWriter.release();
@@ -178,14 +177,6 @@ class SubpartitionRemoteCacheManager {
             flushCompletableFuture =
                     partitionFileWriter.write(
                             partitionId, Collections.singletonList(subpartitionBufferContext));
-        }
-    }
-
-    private void recycleBuffers() {
-        synchronized (allBuffers) {
-            while (!allBuffers.isEmpty()) {
-                allBuffers.poll().f0.recycleBuffer();
-            }
         }
     }
 }
