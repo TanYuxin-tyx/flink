@@ -30,7 +30,6 @@ import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
@@ -67,6 +66,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static org.apache.flink.runtime.shuffle.NettyShuffleUtils.calculateTieredStorageTotalBuffers;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** Factory for {@link ResultPartition} to use in {@link NettyShuffleEnvironment}. */
@@ -283,8 +283,8 @@ public class ResultPartitionFactory {
 
             if (enableTieredStoreForHybridShuffle) {
 
-                TieredStorageConfiguration2 tieredStorageConfiguration =
-                        TieredStorageConfiguration2.builder(
+                TieredStorageConfiguration tieredStorageConfiguration =
+                        TieredStorageConfiguration.builder(
                                         networkBufferSize,
                                         Math.max(
                                                 2
@@ -294,9 +294,6 @@ public class ResultPartitionFactory {
                                         remoteStorageBasePath)
                                 .setHybridSelective(type == ResultPartitionType.HYBRID_SELECTIVE)
                                 .build();
-
-                // TieredStorageConfiguration storageConfiguration =
-                //        getStoreConfiguration(numberOfSubpartitions, type);
 
                 TieredStorageMemoryManager storageMemoryManager =
                         new TieredStorageMemoryManagerImpl(
@@ -363,10 +360,10 @@ public class ResultPartitionFactory {
                                 tierExclusiveBuffers,
                                 bufferCompressor,
                                 tieredStorageProducerClient,
-                                createBufferPoolFactory(
+                                createTieredStorageBufferPoolFactory(
                                         numberOfSubpartitions,
-                                        numBuffersUseSortAccumulatorThreshold,
-                                        type),
+                                        type,
+                                        tieredStorageConfiguration),
                                 resourceRegistry,
                                 nettyService);
             } else {
@@ -441,7 +438,7 @@ public class ResultPartitionFactory {
             boolean isBroadcast,
             ResultSubpartition[] subpartitions,
             List<TierFactory> tierFactories,
-            TieredStorageConfiguration2 storeConfiguration,
+            TieredStorageConfiguration storeConfiguration,
             @Nullable BufferCompressor bufferCompressor,
             TieredStorageMemoryManager storageMemoryManager,
             String dataFileBasePath,
@@ -583,7 +580,7 @@ public class ResultPartitionFactory {
         }
     }
 
-    int getTierExclusiveBuffer(TierFactory tierFactory, TieredStorageConfiguration2 configuration) {
+    int getTierExclusiveBuffer(TierFactory tierFactory, TieredStorageConfiguration configuration) {
         if (tierFactory.getClass() == MemoryTierFactory.class) {
             return configuration.getMemoryTierExclusiveBuffers();
         }
@@ -609,20 +606,6 @@ public class ResultPartitionFactory {
                                 : HybridShuffleConfiguration.SpillingStrategyType.SELECTIVE)
                 .setSpilledIndexSegmentSize(hybridShuffleSpilledIndexSegmentSize)
                 .setNumRetainedInMemoryRegionsMax(hybridShuffleNumRetainedInMemoryRegionsMax)
-                .build();
-    }
-
-    private TieredStorageConfiguration getStoreConfiguration(
-            int numberOfSubpartitions, ResultPartitionType type) {
-
-        return TieredStorageConfiguration.builder(
-                        numberOfSubpartitions,
-                        networkBufferSize,
-                        batchShuffleReadBufferPool.getNumBuffersPerRequest())
-                .setTierTypes(tieredStoreTiers, type, remoteStorageBasePath)
-                // TODO, Replace these previous two lines with the setTierSpecs
-                //                .setTierSpecs(tierConfSpecs)
-                .setRemoteStorageBasePath(remoteStorageBasePath)
                 .build();
     }
 
@@ -720,8 +703,37 @@ public class ResultPartitionFactory {
                             sortShuffleMinParallelism,
                             sortShuffleMinBuffers,
                             numberOfSubpartitions,
-                            numBuffersOfSortAccumulatorThreshold,
-                            enableTieredStoreForHybridShuffle,
+                            false,
+                            0,
+                            type);
+
+            return bufferPoolFactory.createBufferPool(
+                    pair.getLeft(),
+                    pair.getRight(),
+                    numberOfSubpartitions,
+                    maxBuffersPerChannel,
+                    isOverdraftBufferNeeded(type) ? maxOverdraftBuffersPerGate : 0);
+        };
+    }
+
+    SupplierWithException<BufferPool, IOException> createTieredStorageBufferPoolFactory(
+            int numberOfSubpartitions,
+            ResultPartitionType type,
+            TieredStorageConfiguration configuration) {
+        return () -> {
+            Pair<Integer, Integer> pair =
+                    NettyShuffleUtils.getMinMaxNetworkBuffersPerResultPartition(
+                            configuredNetworkBuffersPerChannel,
+                            floatingNetworkBuffersPerGate,
+                            sortShuffleMinParallelism,
+                            sortShuffleMinBuffers,
+                            numberOfSubpartitions,
+                            true,
+                            calculateTieredStorageTotalBuffers(
+                                    configuration.getRemoteStorageBasePath() != null,
+                                    configuration.getNumBuffersUseSortAccumulatorThreshold(),
+                                    type,
+                                    configuration.getTieredStorageTierExclusiveBuffers()),
                             type);
 
             return bufferPoolFactory.createBufferPool(

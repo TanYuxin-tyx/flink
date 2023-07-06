@@ -35,11 +35,15 @@ import org.apache.flink.runtime.util.ConfigurationParserUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -60,17 +64,12 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
 
     private final int networkBufferSize;
 
-    private final TieredStorageResourceRegistry resourceRegistry;
+    @Nullable private TieredStorageConfiguration tieredStorageConfiguration;
 
-    private final TieredStorageMasterClient tieredStorageMasterClient;
+    @Nullable private TieredStorageMasterClient tieredStorageMasterClient;
 
-    private final String tieredStoreTiers;
 
-    private final String baseRemoteStoragePath;
-
-    private final boolean enableTieredStoreForHybridShuffle;
-
-    private final int numBuffersUseSortAccumulatorThreshold;
+    @Nullable private String baseRemoteStoragePath;
 
     public NettyShuffleMaster(Configuration conf) {
         checkNotNull(conf);
@@ -87,20 +86,6 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
         sortShuffleMinBuffers =
                 conf.getInteger(NettyShuffleEnvironmentOptions.NETWORK_SORT_SHUFFLE_MIN_BUFFERS);
         networkBufferSize = ConfigurationParserUtils.getPageSize(conf);
-        baseRemoteStoragePath =
-                conf.getString(
-                        NettyShuffleEnvironmentOptions
-                                .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_PATH);
-        enableTieredStoreForHybridShuffle =
-                conf.getBoolean(
-                        NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE);
-        resourceRegistry = new TieredStorageResourceRegistry();
-        tieredStoreTiers = conf.get(NettyShuffleEnvironmentOptions.TIERED_STORE_TIERS);
-        TieredStorageConfiguration storageConfiguration = getStorageConfiguration();
-        List<TierMasterAgent> tieredMasterClients = createTieredMasterClients(storageConfiguration);
-        numBuffersUseSortAccumulatorThreshold =
-                storageConfiguration.numBuffersUseSortAccumulatorThreshold();
-        tieredStorageMasterClient = new TieredStorageMasterClient(tieredMasterClients);
         checkArgument(
                 !maxRequiredBuffersPerGate.isPresent() || maxRequiredBuffersPerGate.get() >= 1,
                 String.format(
@@ -112,22 +97,29 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                 String.format(
                         "The configured floating buffer should be at least 1, please increase the value of %s.",
                         NettyShuffleEnvironmentOptions.NETWORK_EXTRA_BUFFERS_PER_GATE.key()));
+
+        boolean enableTieredStorage = conf.getBoolean(NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORE);
+        if (enableTieredStorage) {
+            baseRemoteStoragePath =
+                    conf.getString(
+                            NettyShuffleEnvironmentOptions
+                                    .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_PATH);
+            TieredStorageConfiguration tieredStorageConfiguration =
+                    TieredStorageConfiguration.builder(networkBufferSize, baseRemoteStoragePath)
+                            .build();
+            TieredStorageResourceRegistry resourceRegistry = new TieredStorageResourceRegistry();
+            List<TierMasterAgent> tieredMasterClients =
+                    createTieredMasterClients(tieredStorageConfiguration, resourceRegistry);
+            tieredStorageMasterClient = new TieredStorageMasterClient(tieredMasterClients);
+        }
     }
 
     private List<TierMasterAgent> createTieredMasterClients(
-            TieredStorageConfiguration storeConfiguration) {
+            TieredStorageConfiguration storeConfiguration,
+            TieredStorageResourceRegistry resourceRegistry) {
         return storeConfiguration.getTierFactories().stream()
                 .map(tierFactory -> tierFactory.createMasterAgent(resourceRegistry))
                 .collect(Collectors.toList());
-    }
-
-    private TieredStorageConfiguration getStorageConfiguration() {
-        return TieredStorageConfiguration.builder()
-                // TODO, this is only for it case tests and configured tests. Remove this set tier
-                // types and use the default tier factories in the tiered storage factory
-                .setTierTypes(tieredStoreTiers, baseRemoteStoragePath)
-                .setRemoteStorageBasePath(baseRemoteStoragePath)
-                .build();
     }
 
     @Override
@@ -148,16 +140,18 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                                 producerDescriptor, partitionDescriptor.getConnectionIndex()),
                         resultPartitionID,
                         partitionDescriptor.isBroadcast());
-
-        tieredStorageMasterClient.register(resultPartitionID);
-
+        if (tieredStorageMasterClient != null) {
+            tieredStorageMasterClient.register(resultPartitionID);
+        }
         return CompletableFuture.completedFuture(shuffleDeploymentDescriptor);
     }
 
     @Override
     public void releasePartitionExternally(ShuffleDescriptor shuffleDescriptor) {
         ResultPartitionID resultPartitionID = shuffleDescriptor.getResultPartitionID();
-        tieredStorageMasterClient.release(resultPartitionID);
+        if (tieredStorageMasterClient != null) {
+            tieredStorageMasterClient.release(resultPartitionID);
+        }
     }
 
     private static PartitionConnectionInfo createConnectionInfo(
@@ -181,6 +175,14 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
     public MemorySize computeShuffleMemorySizeForTask(TaskInputsOutputsDescriptor desc) {
         checkNotNull(desc);
 
+        boolean enableTieredStoreForHybridShuffle = tieredStorageConfiguration != null;
+        boolean enableRemoteStorageInTieredStore = baseRemoteStoragePath != null;
+        int numBuffersUseSortAccumulatorThreshold = 0;
+        List<Integer> tieredStorageTierExclusiveBuffers = new ArrayList<>();
+        if(enableTieredStoreForHybridShuffle){
+            numBuffersUseSortAccumulatorThreshold = tieredStorageConfiguration.getNumBuffersUseSortAccumulatorThreshold();
+            tieredStorageTierExclusiveBuffers = tieredStorageConfiguration.getTieredStorageTierExclusiveBuffers();
+        }
         int numRequiredNetworkBuffers =
                 NettyShuffleUtils.computeNetworkBuffersForAnnouncing(
                         buffersPerInputChannel,
@@ -189,7 +191,9 @@ public class NettyShuffleMaster implements ShuffleMaster<NettyShuffleDescriptor>
                         sortShuffleMinParallelism,
                         sortShuffleMinBuffers,
                         enableTieredStoreForHybridShuffle,
+                        enableRemoteStorageInTieredStore,
                         numBuffersUseSortAccumulatorThreshold,
+                        tieredStorageTierExclusiveBuffers,
                         desc.getInputChannelNums(),
                         desc.getPartitionReuseCount(),
                         desc.getSubpartitionNums(),

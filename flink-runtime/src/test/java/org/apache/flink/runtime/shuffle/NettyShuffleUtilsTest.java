@@ -43,6 +43,7 @@ import org.apache.flink.shaded.guava30.com.google.common.collect.ImmutableMap;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -103,7 +104,9 @@ public class NettyShuffleUtilsTest extends TestLogger {
                         sortShuffleMinParallelism,
                         numSortShuffleMinBuffers,
                         enableTieredStoreForHybridShuffle,
+                        false,
                         numBuffersUseSortAccumulatorThreshold,
+                        new ArrayList<>(),
                         numInputChannels,
                         partitionReuseCount,
                         subpartitionNums,

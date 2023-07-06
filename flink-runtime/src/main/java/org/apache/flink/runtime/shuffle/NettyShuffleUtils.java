@@ -25,11 +25,11 @@ import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.partition.consumer.InputGateSpecUtils.createGateBuffersSpec;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration.HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -68,8 +68,8 @@ public class NettyShuffleUtils {
             final int sortShuffleMinParallelism,
             final int sortShuffleMinBuffers,
             final int numSubpartitions,
-            final int numSortAccumulatorThreshold,
             final boolean enableTieredStoreForHybridShuffle,
+            int tieredStorageTotalExclusiveBuffers,
             final ResultPartitionType type) {
         boolean isSortShuffle =
                 type.isBlockingOrBlockingPersistentResultPartition()
@@ -80,13 +80,9 @@ public class NettyShuffleUtils {
         } else {
             if (type.isHybridResultPartition() && enableTieredStoreForHybridShuffle) {
                 checkState(
-                        numSortAccumulatorThreshold >= 0,
+                        tieredStorageTotalExclusiveBuffers >= 0,
                         "Must be non-negative when enable tiered storage.");
-                min =
-                        Math.min(numSubpartitions + 1, numSortAccumulatorThreshold)
-                                + HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.values().stream()
-                                        .mapToInt(i -> i)
-                                        .sum();
+                min = Math.min(numSubpartitions + 1, tieredStorageTotalExclusiveBuffers);
             } else {
                 min = numSubpartitions + 1;
             }
@@ -106,6 +102,7 @@ public class NettyShuffleUtils {
         return Pair.of(min, Math.max(min, max));
     }
 
+
     public static int computeNetworkBuffersForAnnouncing(
             final int numBuffersPerChannel,
             final int numFloatingBuffersPerGate,
@@ -113,7 +110,9 @@ public class NettyShuffleUtils {
             final int sortShuffleMinParallelism,
             final int sortShuffleMinBuffers,
             final boolean enableTieredStoreForHybridShuffle,
+            final boolean enableRemoteStorage,
             final int numBuffersUseSortAccumulatorThreshold,
+            final List<Integer> tieredStorageTierExclusiveBuffers,
             final Map<IntermediateDataSetID, Integer> inputChannelNums,
             final Map<IntermediateDataSetID, Integer> partitionReuseCount,
             final Map<IntermediateDataSetID, Integer> subpartitionNums,
@@ -152,12 +151,36 @@ public class NettyShuffleUtils {
                             sortShuffleMinParallelism,
                             sortShuffleMinBuffers,
                             enableTieredStoreForHybridShuffle,
-                            numBuffersUseSortAccumulatorThreshold,
+                            calculateTieredStorageTotalBuffers(enableRemoteStorage, numBuffersUseSortAccumulatorThreshold, partitionType, tieredStorageTierExclusiveBuffers),
                             numSubs);
         }
 
         return requirementForInputs + requirementForOutputs;
     }
+
+    public static int calculateTieredStorageTotalBuffers(
+            boolean enableRemoteStorage,
+            int numBuffersUseSortAccumulatorThreshold,
+            ResultPartitionType type,
+            List<Integer> tieredStorageTierExclusiveBuffers){
+        int totalNumBuffer = numBuffersUseSortAccumulatorThreshold;
+        if(type == ResultPartitionType.HYBRID_FULL){
+            totalNumBuffer += tieredStorageTierExclusiveBuffers.get(1);
+            if(enableRemoteStorage){
+                totalNumBuffer += tieredStorageTierExclusiveBuffers.get(2);
+            }
+        }
+        if(type == ResultPartitionType.HYBRID_SELECTIVE){
+            totalNumBuffer += tieredStorageTierExclusiveBuffers.get(0);
+            totalNumBuffer += tieredStorageTierExclusiveBuffers.get(1);
+            if(enableRemoteStorage){
+                totalNumBuffer += tieredStorageTierExclusiveBuffers.get(2);
+            }
+        }
+        return totalNumBuffer;
+    }
+
+
 
     private static int getNumBuffersToAnnounceForInputGate(
             ResultPartitionType type,
@@ -184,7 +207,7 @@ public class NettyShuffleUtils {
             int sortShuffleMinParallelism,
             int sortShuffleMinBuffers,
             boolean enableTieredStoreForHybridShuffle,
-            int numBuffersUseSortAccumulatorThreshold,
+            int tieredStorageTotalExclusiveBuffers,
             int numSubpartitions) {
 
         Pair<Integer, Integer> minAndMax =
@@ -194,8 +217,8 @@ public class NettyShuffleUtils {
                         sortShuffleMinParallelism,
                         sortShuffleMinBuffers,
                         numSubpartitions,
-                        numBuffersUseSortAccumulatorThreshold,
                         enableTieredStoreForHybridShuffle,
+                        tieredStorageTotalExclusiveBuffers,
                         type);
 
         // In order to avoid network buffer request timeout (see FLINK-12852), we announce

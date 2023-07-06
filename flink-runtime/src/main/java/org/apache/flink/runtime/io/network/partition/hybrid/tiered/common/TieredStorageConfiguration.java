@@ -18,338 +18,343 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.common;
 
-import org.apache.flink.configuration.Configuration;
-import org.apache.flink.configuration.NettyShuffleEnvironmentOptions;
-import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory.MemoryTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierFactory;
 
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
-import static org.apache.flink.runtime.io.network.partition.ResultPartitionType.HYBRID_SELECTIVE;
-
-/** The configuration for TieredStore. */
+/** Configuration for tiered storage. */
 public class TieredStorageConfiguration {
 
-    /** TODO, only for tests, this should be removed. */
-    protected enum TierType {
-        IN_MEM,
-        IN_DISK,
-        IN_REMOTE,
-    }
+    private static final String DEFAULT_REMOTE_STORAGE_BASE_PATH = null;
 
-    public static final Map<TierType, Integer> HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS =
-            new HashMap<>();
+    private static final int DEFAULT_TIERED_STORAGE_BUFFER_SIZE = 32 * 1024;
 
-    static {
-        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TierType.IN_MEM, 100);
-        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TierType.IN_DISK, 1);
-        HYBRID_SHUFFLE_TIER_EXCLUSIVE_BUFFERS.put(TierType.IN_REMOTE, 1);
-    }
+    private static final int DEFAULT_MEMORY_TIER_EXCLUSIVE_BUFFERS = 100;
 
-    private static final int DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT = 10 * 32 * 1024; // 320 K
+    private static final int DEFAULT_DISK_TIER_EXCLUSIVE_BUFFERS = 1;
 
-    private static final int DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT = 8 * 1024 * 1024; // 8 M
+    private static final int DEFAULT_REMOTE_TIER_EXCLUSIVE_BUFFERS = 1;
 
-    private static final int DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT =
-            32 * 1024 * 1; // 32 k is only for test, expect 8M
+    private static final int DEFAULT_NUM_BUFFERS_USE_SORT_ACCUMULATOR_THRESHOLD = 512;
+
+    private static final int DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT = 320 * 1024;
+
+    private static final int DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT = 8 * 1024 * 1024;
+
+    private static final int DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT = 8 * 1024 * 1024;
+
+    private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.5f;
+
+    private static final int DEFAULT_DISK_TIER_MAX_BUFFERS_READ_AHEAD = 5;
+
+    private static final Duration DEFAULT_DISK_TIER_BUFFER_REQUEST_TIMEOUT = Duration.ofMinutes(5);
+
+    private static final int DEFAULT_DISK_TIER_MAX_REQUEST_BUFFERS = 1000;
 
     private static final float DEFAULT_MIN_RESERVE_SPACE_FRACTION = 0.05f;
 
-    private static final int DEFAULT_MAX_BUFFERS_READ_AHEAD = 5;
+    private static final boolean DEFAULT_IS_HYBRID_SELECTIVE = true;
 
-    private static final int DEFAULT_NUM_BUFFERS_USE_SORT_ACCUMULATOR_THRESHOLD =
-            99; // TODO chang to 512
+    private final String remoteStorageBasePath;
 
-    private static final Duration DEFAULT_BUFFER_REQUEST_TIMEOUT = Duration.ofMinutes(5);
+    private final int tieredStorageBufferSize;
 
-    private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
+    private final int memoryTierExclusiveBuffers;
 
-    private static final int[] DEFAULT_MEMORY_DISK_EXCLUSIVE_BUFFERS = new int[] {100, 1, 1};
+    private final int diskTierExclusiveBuffers;
 
-    private static final int[] DEFAULT_MEMORY_DISK_REMOTE_EXCLUSIVE_BUFFERS =
-            new int[] {100, 1, 1, 1};
-
-    private final int maxBuffersReadAhead;
-
-    private final Duration bufferRequestTimeout;
-
-    private final int maxRequestedBuffers;
-
-    private final float numBuffersTriggerFlushRatio;
+    private final int remoteTierExclusiveBuffers;
 
     private final int numBuffersUseSortAccumulatorThreshold;
 
-    private final int[] tierExclusiveBuffers;
+    private final int memoryTierNumBytesPerSegment;
 
-    private final TierFactory[] tierFactories;
+    private final int diskTierNumBytesPerSegment;
 
-    private TieredStorageConfiguration(
-            int maxBuffersReadAhead,
-            Duration bufferRequestTimeout,
-            int maxRequestedBuffers,
-            float numBuffersTriggerFlushRatio,
+    private final int remoteTierNumBytesPerSegment;
+
+    private final float numBuffersTriggerFlushRatio;
+
+    private final int diskTierMaxBuffersReadAhead;
+
+    private final Duration diskTierBufferRequestTimeout;
+
+    private final int diskTierMaxRequestBuffers;
+
+    private final float minReserveSpaceFraction;
+
+    private final List<TierFactory> tierFactories;
+
+    public TieredStorageConfiguration(
+            String remoteStorageBasePath,
+            int tieredStorageBufferSize,
+            int memoryTierExclusiveBuffers,
+            int diskTierExclusiveBuffers,
+            int remoteTierExclusiveBuffers,
             int numBuffersUseSortAccumulatorThreshold,
-            int[] tierExclusiveBuffers,
-            TierFactory[] tierFactories) {
-        this.maxBuffersReadAhead = maxBuffersReadAhead;
-        this.bufferRequestTimeout = bufferRequestTimeout;
-        this.maxRequestedBuffers = maxRequestedBuffers;
-        this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
+            int memoryTierNumBytesPerSegment,
+            int diskTierNumBytesPerSegment,
+            int remoteTierNumBytesPerSegment,
+            float numBuffersTriggerFlushRatio,
+            int diskTierMaxBuffersReadAhead,
+            Duration diskTierBufferRequestTimeout,
+            int diskTierMaxRequestBuffers,
+            float minReserveSpaceFraction,
+            List<TierFactory> tierFactories) {
+        this.remoteStorageBasePath = remoteStorageBasePath;
+        this.tieredStorageBufferSize = tieredStorageBufferSize;
+        this.memoryTierExclusiveBuffers = memoryTierExclusiveBuffers;
+        this.diskTierExclusiveBuffers = diskTierExclusiveBuffers;
+        this.remoteTierExclusiveBuffers = remoteTierExclusiveBuffers;
         this.numBuffersUseSortAccumulatorThreshold = numBuffersUseSortAccumulatorThreshold;
-        // For Memory Tier
-        this.tierExclusiveBuffers = tierExclusiveBuffers;
+        this.memoryTierNumBytesPerSegment = memoryTierNumBytesPerSegment;
+        this.diskTierNumBytesPerSegment = diskTierNumBytesPerSegment;
+        this.remoteTierNumBytesPerSegment = remoteTierNumBytesPerSegment;
+        this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
+        this.diskTierMaxBuffersReadAhead = diskTierMaxBuffersReadAhead;
+        this.diskTierBufferRequestTimeout = diskTierBufferRequestTimeout;
+        this.diskTierMaxRequestBuffers = diskTierMaxRequestBuffers;
+        this.minReserveSpaceFraction = minReserveSpaceFraction;
         this.tierFactories = tierFactories;
     }
 
-    public static TieredStorageConfiguration.Builder builder() {
-        return new TieredStorageConfiguration.Builder();
+    public static Builder builder(int tieredStorageBufferSize, String remoteStorageBasePath) {
+        return new TieredStorageConfiguration.Builder()
+                .setTieredStorageBufferSize(tieredStorageBufferSize)
+                .setRemoteStorageBasePath(remoteStorageBasePath);
     }
 
-    public static TieredStorageConfiguration.Builder builder(
-            int numSubpartitions, int bufferSize, int numBuffersPerRequest) {
-        return new TieredStorageConfiguration.Builder(
-                numSubpartitions, bufferSize, numBuffersPerRequest);
+    public static Builder builder(
+            int tieredStorageBufferSize,
+            int diskTierMaxRequestBuffers,
+            String remoteStorageBasePath) {
+        return new TieredStorageConfiguration.Builder()
+                .setTieredStorageBufferSize(tieredStorageBufferSize)
+                .setDiskTierMaxRequestBuffers(diskTierMaxRequestBuffers)
+                .setRemoteStorageBasePath(remoteStorageBasePath);
     }
 
-    public int getMaxRequestedBuffers() {
-        return maxRequestedBuffers;
+    public String getRemoteStorageBasePath() {
+        return remoteStorageBasePath;
     }
 
-
-    public int getMaxBuffersReadAhead() {
-        return maxBuffersReadAhead;
+    public int getTieredStorageBufferSize() {
+        return tieredStorageBufferSize;
     }
 
+    public int getMemoryTierExclusiveBuffers() {
+        return memoryTierExclusiveBuffers;
+    }
 
-    public Duration getBufferRequestTimeout() {
-        return bufferRequestTimeout;
+    public int getDiskTierExclusiveBuffers() {
+        return diskTierExclusiveBuffers;
+    }
+
+    public int getRemoteTierExclusiveBuffers() {
+        return remoteTierExclusiveBuffers;
+    }
+
+    public int getNumBuffersUseSortAccumulatorThreshold() {
+        return numBuffersUseSortAccumulatorThreshold;
+    }
+
+    public int getMemoryTierNumBytesPerSegment() {
+        return memoryTierNumBytesPerSegment;
+    }
+
+    public int getDiskTierNumBytesPerSegment() {
+        return diskTierNumBytesPerSegment;
+    }
+
+    public int getRemoteTierNumBytesPerSegment() {
+        return remoteTierNumBytesPerSegment;
     }
 
     public float getNumBuffersTriggerFlushRatio() {
         return numBuffersTriggerFlushRatio;
     }
 
-    public int numBuffersUseSortAccumulatorThreshold() {
-        return numBuffersUseSortAccumulatorThreshold;
+    public int getDiskTierMaxBuffersReadAhead() {
+        return diskTierMaxBuffersReadAhead;
+    }
+
+    public Duration getDiskTierBufferRequestTimeout() {
+        return diskTierBufferRequestTimeout;
+    }
+
+    public int getDiskTierMaxRequestBuffers() {
+        return diskTierMaxRequestBuffers;
+    }
+
+    public float getMinReserveSpaceFraction() {
+        return minReserveSpaceFraction;
+    }
+
+    public List<Integer> getTieredStorageTierExclusiveBuffers() {
+        List<Integer> exclusiveBuffers = new ArrayList<>();
+        exclusiveBuffers.add(memoryTierExclusiveBuffers);
+        exclusiveBuffers.add(diskTierExclusiveBuffers);
+        exclusiveBuffers.add(remoteTierExclusiveBuffers);
+        return exclusiveBuffers;
     }
 
     public List<TierFactory> getTierFactories() {
-        return Arrays.asList(tierFactories);
+        return tierFactories;
     }
 
-    public int[] getTierExclusiveBuffers() {
-        return tierExclusiveBuffers;
-    }
-
-    /** Builder for {@link TieredStorageConfiguration}. */
     public static class Builder {
-        private int maxBuffersReadAhead = DEFAULT_MAX_BUFFERS_READ_AHEAD;
 
-        private Duration bufferRequestTimeout = DEFAULT_BUFFER_REQUEST_TIMEOUT;
+        private String remoteStorageBasePath = DEFAULT_REMOTE_STORAGE_BASE_PATH;
 
-        private float numBuffersTriggerFlushRatio = DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO;
+        private int tieredStorageBufferSize = DEFAULT_TIERED_STORAGE_BUFFER_SIZE;
+
+        private int memoryTierExclusiveBuffers = DEFAULT_MEMORY_TIER_EXCLUSIVE_BUFFERS;
+
+        private int diskTierExclusiveBuffers = DEFAULT_DISK_TIER_EXCLUSIVE_BUFFERS;
+
+        private int remoteTierExclusiveBuffers = DEFAULT_REMOTE_TIER_EXCLUSIVE_BUFFERS;
 
         private int numBuffersUseSortAccumulatorThreshold =
                 DEFAULT_NUM_BUFFERS_USE_SORT_ACCUMULATOR_THRESHOLD;
 
-        private String remoteStorageBasePath = null;
+        private int memoryTierNumBytesPerSegment = DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT;
 
-        private TierFactory[] tierFactories;
+        private int diskTierNumBytesPerSegment = DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT;
 
-        private int[] tierExclusiveBuffers;
+        private int remoteTierNumBytesPerSegment = DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT;
 
-        private int numSubpartitions;
+        private float numBuffersTriggerFlushRatio = DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO;
 
-        private int bufferSize;
+        private int diskTierMaxBuffersReadAhead = DEFAULT_DISK_TIER_MAX_BUFFERS_READ_AHEAD;
 
-        private int numBuffersPerRequest;
+        private Duration diskTierBufferRequestTimeout = DEFAULT_DISK_TIER_BUFFER_REQUEST_TIMEOUT;
 
-        private Builder() {}
+        private int diskTierMaxRequestBuffers = DEFAULT_DISK_TIER_MAX_REQUEST_BUFFERS;
 
-        private Builder(int numSubpartitions, int bufferSize, int numBuffersPerRequest) {
-            this.numSubpartitions = numSubpartitions;
-            this.bufferSize = bufferSize;
-            this.numBuffersPerRequest = numBuffersPerRequest;
-        }
+        private float minReserveSpaceFraction = DEFAULT_MIN_RESERVE_SPACE_FRACTION;
 
-        public TieredStorageConfiguration.Builder setRemoteStorageBasePath(
-                String remoteStorageBasePath) {
+        private boolean isHybridSelective = DEFAULT_IS_HYBRID_SELECTIVE;
+
+        public Builder setRemoteStorageBasePath(String remoteStorageBasePath) {
             this.remoteStorageBasePath = remoteStorageBasePath;
             return this;
         }
 
-        /** Only for test. This method will be removed in the production code. */
-        public TieredStorageConfiguration.Builder setTierTypes(
-                String configuredStoreTiers,
-                ResultPartitionType partitionType,
-                String remoteStorageBasePath) {
-            TierType[] tierTypes = getConfiguredTierTypes(configuredStoreTiers, partitionType);
-            tierFactories = getTierFactories(tierTypes, bufferSize, remoteStorageBasePath);
-            tierExclusiveBuffers = new int[tierTypes.length];
-
-            for (int i = 0; i < tierTypes.length; i++) {
-                tierExclusiveBuffers[i] = tierTypes[i] == TierType.IN_MEM ? 100 : 1;
-            }
+        public Builder setTieredStorageBufferSize(int tieredStorageBufferSize) {
+            this.tieredStorageBufferSize = tieredStorageBufferSize;
             return this;
         }
 
-        /** Only for test. This method will be removed in the production code. */
-        public TieredStorageConfiguration.Builder setTierTypes(
-                String configuredStoreTiers, String remoteStorageBasePath) {
-            TierType[] tierTypes = getConfiguredTierTypes(configuredStoreTiers);
-            tierFactories = getTierFactories(tierTypes, bufferSize, remoteStorageBasePath);
+        public Builder setMemoryTierExclusiveBuffers(int memoryTierExclusiveBuffers) {
+            this.memoryTierExclusiveBuffers = memoryTierExclusiveBuffers;
             return this;
         }
 
-        /** Only for test. */
-        private TierType[] getConfiguredTierTypes(String configuredStoreTiers) {
-            switch (configuredStoreTiers) {
-                case "MEMORY":
-                    return createTierTypes(TierType.IN_MEM);
-                case "DISK":
-                    return createTierTypes(TierType.IN_DISK);
-                case "REMOTE":
-                    return createTierTypes(TierType.IN_REMOTE);
-                case "MEMORY_DISK":
-                    return createTierTypes(TierType.IN_MEM, TierType.IN_DISK);
-                case "MEMORY_REMOTE":
-                    return createTierTypes(TierType.IN_MEM, TierType.IN_REMOTE);
-                case "MEMORY_DISK_REMOTE":
-                    return createTierTypes(TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE);
-                case "DISK_REMOTE":
-                    return createTierTypes(TierType.IN_DISK, TierType.IN_REMOTE);
-                default:
-                    throw new IllegalArgumentException(
-                            "Illegal tiers combinations for tiered store.");
-            }
+        public Builder setDiskTierExclusiveBuffers(int diskTierExclusiveBuffers) {
+            this.diskTierExclusiveBuffers = diskTierExclusiveBuffers;
+            return this;
         }
 
-        private TierType[] getConfiguredTierTypes(
-                String configuredStoreTiers, ResultPartitionType partitionType) {
-            switch (configuredStoreTiers) {
-                case "MEMORY":
-                    return createTierTypes(TierType.IN_MEM);
-                case "DISK":
-                    return createTierTypes(TierType.IN_DISK);
-                case "REMOTE":
-                    return createTierTypes(TierType.IN_REMOTE);
-                case "MEMORY_DISK":
-                    return partitionType == HYBRID_SELECTIVE
-                            ? createTierTypes(TierType.IN_MEM, TierType.IN_DISK)
-                            : createTierTypes(TierType.IN_DISK);
-                case "MEMORY_REMOTE":
-                    return partitionType == HYBRID_SELECTIVE
-                            ? createTierTypes(TierType.IN_MEM, TierType.IN_REMOTE)
-                            : createTierTypes(TierType.IN_REMOTE);
-                case "MEMORY_DISK_REMOTE":
-                    return partitionType == HYBRID_SELECTIVE
-                            ? createTierTypes(TierType.IN_MEM, TierType.IN_DISK, TierType.IN_REMOTE)
-                            : createTierTypes(TierType.IN_DISK, TierType.IN_REMOTE);
-
-                case "DISK_REMOTE":
-                    return createTierTypes(TierType.IN_DISK, TierType.IN_REMOTE);
-                default:
-                    throw new IllegalArgumentException(
-                            "Illegal tiers combinations for tiered store.");
-            }
+        public Builder setRemoteTierExclusiveBuffers(int remoteTierExclusiveBuffers) {
+            this.remoteTierExclusiveBuffers = remoteTierExclusiveBuffers;
+            return this;
         }
 
-        private TierType[] createTierTypes(TierType... tierTypes) {
-            return tierTypes;
+        public Builder setNumBuffersUseSortAccumulatorThreshold(
+                int numBuffersUseSortAccumulatorThreshold) {
+            this.numBuffersUseSortAccumulatorThreshold = numBuffersUseSortAccumulatorThreshold;
+            return this;
+        }
+
+        public Builder setMemoryTierNumBytesPerSegment(int memoryTierNumBytesPerSegment) {
+            this.memoryTierNumBytesPerSegment = memoryTierNumBytesPerSegment;
+            return this;
+        }
+
+        public Builder setDiskTierNumBytesPerSegment(int diskTierNumBytesPerSegment) {
+            this.diskTierNumBytesPerSegment = diskTierNumBytesPerSegment;
+            return this;
+        }
+
+        public Builder setRemoteTierNumBytesPerSegment(int remoteTierNumBytesPerSegment) {
+            this.remoteTierNumBytesPerSegment = remoteTierNumBytesPerSegment;
+            return this;
+        }
+
+        public Builder setNumBuffersTriggerFlushRatio(float numBuffersTriggerFlushRatio) {
+            this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
+            return this;
+        }
+
+        public Builder setDiskTierMaxBuffersReadAhead(int diskTierMaxBuffersReadAhead) {
+            this.diskTierMaxBuffersReadAhead = diskTierMaxBuffersReadAhead;
+            return this;
+        }
+
+        public Builder setDiskTierBufferRequestTimeout(Duration diskTierBufferRequestTimeout) {
+            this.diskTierBufferRequestTimeout = diskTierBufferRequestTimeout;
+            return this;
+        }
+
+        public Builder setDiskTierMaxRequestBuffers(int diskTierMaxRequestBuffers) {
+            this.diskTierMaxRequestBuffers = diskTierMaxRequestBuffers;
+            return this;
+        }
+
+        public Builder setMinReserveSpaceFraction(float minReserveSpaceFraction) {
+            this.minReserveSpaceFraction = minReserveSpaceFraction;
+            return this;
+        }
+
+        public Builder setHybridSelective(boolean hybridSelective) {
+            this.isHybridSelective = hybridSelective;
+            return this;
         }
 
         public TieredStorageConfiguration build() {
-            if (tierFactories == null) {
-                this.tierFactories = getDefaultTierFactories(remoteStorageBasePath, bufferSize);
-            }
-            if (tierExclusiveBuffers == null) {
-                this.tierExclusiveBuffers = getDefaultExclusiveBuffers(remoteStorageBasePath);
-            }
-
             return new TieredStorageConfiguration(
-                    maxBuffersReadAhead,
-                    bufferRequestTimeout,
-                    Math.max(2 * numBuffersPerRequest, numSubpartitions),
-                    numBuffersTriggerFlushRatio,
+                    remoteStorageBasePath,
+                    tieredStorageBufferSize,
+                    memoryTierExclusiveBuffers,
+                    diskTierExclusiveBuffers,
+                    remoteTierExclusiveBuffers,
                     numBuffersUseSortAccumulatorThreshold,
-                    tierExclusiveBuffers,
-                    tierFactories);
+                    memoryTierNumBytesPerSegment,
+                    diskTierNumBytesPerSegment,
+                    remoteTierNumBytesPerSegment,
+                    numBuffersTriggerFlushRatio,
+                    diskTierMaxBuffersReadAhead,
+                    diskTierBufferRequestTimeout,
+                    diskTierMaxRequestBuffers,
+                    minReserveSpaceFraction,
+                    createDefaultFactories());
         }
-    }
 
-    // Only for tests
-    private static TierFactory[] getTierFactories(
-            TierType[] tierTypes, int bufferSize, String remoteStorageBasePath) {
-        TierFactory[] tierFactories = new TierFactory[tierTypes.length];
-        for (int i = 0; i < tierTypes.length; i++) {
-            tierFactories[i] = createTierFactory(tierTypes[i], bufferSize, remoteStorageBasePath);
-        }
-        return tierFactories;
-    }
-
-    private static TierFactory createTierFactory(
-            TierType tierType, int bufferSize, String remoteStorageBasePath) {
-        switch (tierType) {
-            case IN_MEM:
-                return new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT, bufferSize);
-            case IN_DISK:
-                return new DiskTierFactory(
-                        DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
-                        bufferSize,
-                        DEFAULT_MIN_RESERVE_SPACE_FRACTION);
-            case IN_REMOTE:
-                return new RemoteTierFactory(
-                        DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT,
-                        bufferSize,
-                        remoteStorageBasePath);
-            default:
-                throw new IllegalArgumentException("Illegal tier type " + tierType);
-        }
-    }
-
-    private static TierFactory[] getDefaultTierFactories(
-            String remoteStorageBasePath, int bufferSize) {
-        return remoteStorageBasePath == null
-                ? new TierFactory[] {
-                    new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT, bufferSize),
+        private List<TierFactory> createDefaultFactories() {
+            List<TierFactory> tierFactories = new ArrayList<>();
+            if (isHybridSelective) {
+                tierFactories.add(
+                        new MemoryTierFactory(
+                                memoryTierNumBytesPerSegment, tieredStorageBufferSize));
+            }
+            tierFactories.add(
                     new DiskTierFactory(
-                            DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
-                            bufferSize,
-                            DEFAULT_MIN_RESERVE_SPACE_FRACTION)
-                }
-                : new TierFactory[] {
-                    new MemoryTierFactory(DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT, bufferSize),
-                    new DiskTierFactory(
-                            DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT,
-                            bufferSize,
-                            DEFAULT_MIN_RESERVE_SPACE_FRACTION),
-                    new RemoteTierFactory(
-                            DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT,
-                            bufferSize,
-                            remoteStorageBasePath)
-                };
-    }
-
-    private static int[] getDefaultExclusiveBuffers(String baseDfsHomePath) {
-        return baseDfsHomePath == null
-                ? DEFAULT_MEMORY_DISK_EXCLUSIVE_BUFFERS
-                : DEFAULT_MEMORY_DISK_REMOTE_EXCLUSIVE_BUFFERS;
-    }
-
-    public static TieredStorageConfiguration fromConfiguration(Configuration conf) {
-        String remoteStorageBasePath =
-                conf.getString(
-                        NettyShuffleEnvironmentOptions
-                                .NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_PATH);
-        TieredStorageConfiguration.Builder builder = new TieredStorageConfiguration.Builder();
-        builder.setRemoteStorageBasePath(remoteStorageBasePath);
-        return builder.build();
+                            diskTierNumBytesPerSegment,
+                            tieredStorageBufferSize,
+                            minReserveSpaceFraction));
+            if (remoteStorageBasePath != null) {
+                tierFactories.add(
+                        new RemoteTierFactory(
+                                remoteTierNumBytesPerSegment,
+                                tieredStorageBufferSize,
+                                remoteStorageBasePath));
+            }
+            return tierFactories;
+        }
     }
 }
