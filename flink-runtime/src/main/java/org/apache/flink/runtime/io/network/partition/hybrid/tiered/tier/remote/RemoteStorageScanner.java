@@ -48,7 +48,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  *
  * <p>It will be invoked by {@link RemoteTierConsumerAgent} to watch the required segments and scan
  * the existence status of the segments. If the segment file is found, it will notify the
- * availability of segment's partition and subpartition.
+ * availability of segment file.
  */
 public class RemoteStorageScanner implements Runnable {
 
@@ -136,7 +136,7 @@ public class RemoteStorageScanner implements Runnable {
         scannerExecutor.shutdownNow();
     }
 
-    /** Iterate the registered segment ids and check related file status. */
+    /** Iterate the watched segment ids and check related file status. */
     @Override
     public void run() {
         Iterator<Map.Entry<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>, Integer>>
@@ -156,8 +156,8 @@ public class RemoteStorageScanner implements Runnable {
             } else {
                 // The segment should be watched again because it's not found.
                 // If the segment belongs to other tiers and has been consumed, the segment will be
-                // replaced by new watched segment with larger segment id. This logic is ensured by
-                // the method {@code watchSegment}.
+                // replaced by newly watched segment with larger segment id. This logic is ensured
+                // by the method {@code watchSegment}.
                 scanMaxSegmentId(partitionId, subpartitionId);
             }
         }
