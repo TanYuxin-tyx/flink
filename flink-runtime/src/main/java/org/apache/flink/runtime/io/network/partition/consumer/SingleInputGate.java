@@ -45,6 +45,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityAndPriorityNotifier;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
@@ -278,24 +279,19 @@ public class SingleInputGate extends IndexedInputGate {
         this.tieredStorageConsumerSpecs = tieredStorageConsumerSpecs;
         this.tieredStorageConsumerClient = consumerClient;
         if (tieredStorageConsumerClient != null) {
-            this.tieredStorageConsumerClient.registerAvailabilityAndPriorityRetriever(
-                    new AvailabilityAndPriorityRetriever());
+            this.tieredStorageConsumerClient.registerAvailabilityAndPriorityNotifier(
+                    new AvailabilityAndPriorityNotifierImpl());
             ((TieredStorageNettyServiceImpl) nettyService)
                     .setupInputChannels(tieredStorageConsumerSpecs, createInputChannelSuppliers());
         }
     }
 
-    /**
-     * {@link AvailabilityAndPriorityRetriever} is used to retrieve the availability and priority
-     * status of a specific partition and subpartition in tiered storage through {@link
-     * TieredStorageConsumerClient}.
-     */
-    public class AvailabilityAndPriorityRetriever {
+    private class AvailabilityAndPriorityNotifierImpl implements AvailabilityAndPriorityNotifier {
 
         private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
                 channelIndexes;
 
-        public AvailabilityAndPriorityRetriever() {
+        public AvailabilityAndPriorityNotifierImpl() {
             this.channelIndexes = new HashMap<>();
             for (int index = 0; index < checkNotNull(tieredStorageConsumerSpecs).size(); index++) {
                 TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
@@ -305,31 +301,14 @@ public class SingleInputGate extends IndexedInputGate {
             }
         }
 
-        /**
-         * Retrieve the availability and priority status of a specific partition and subpartition
-         * through {@link TieredStorageConsumerClient}. If the subpartition in tiered storage has
-         * more available buffers or should be read with priority, the client will invoke this
-         * method.
-         *
-         * @param partitionId the partition id.
-         * @param subpartitionId the subpartition id.
-         * @param isPriority the subpartition will be consumed with priority if the value is true
-         *     otherwise not.
-         * @param priorityBufferSequenceNumber the sequence number of priority buffer, which will be
-         *     recorded to prevent repeated notification for the same priority buffer.
-         */
-        public void retrieveAvailableAndPriority(
+        public void notifyAvailableAndPriority(
                 TieredStoragePartitionId partitionId,
                 TieredStorageSubpartitionId subpartitionId,
-                boolean isPriority,
-                Integer priorityBufferSequenceNumber) {
-            int channelIndex = channelIndexes.get(partitionId).get(subpartitionId);
-            if (isPriority) {
-                queueChannel(channels[channelIndex], priorityBufferSequenceNumber, false);
-                lastPrioritySequenceNumber[channelIndex] = priorityBufferSequenceNumber;
-            } else {
-                queueChannel(channels[channelIndex], null, false);
-            }
+                boolean isPriority) {
+            queueChannel(
+                    channels[channelIndexes.get(partitionId).get(subpartitionId)],
+                    null,
+                    isPriority);
         }
     }
 

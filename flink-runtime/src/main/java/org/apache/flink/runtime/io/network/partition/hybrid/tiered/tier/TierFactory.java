@@ -27,7 +27,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -56,7 +55,5 @@ public interface TierFactory {
                             Map<
                                     TieredStorageSubpartitionId,
                                     CompletableFuture<NettyConnectionReader>>>
-                    readers,
-            RemoteStorageScanner remoteStorageScanner,
-            int remoteBufferSize);
+                    readers);
 }

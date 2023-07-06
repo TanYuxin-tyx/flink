@@ -49,11 +49,15 @@ public class RemoteTierFactory implements TierFactory {
 
     private final String remoteStorageBasePath;
 
+    private final RemoteStorageScanner remoteStorageScanner;
+
     public RemoteTierFactory(
             int numBytesPerSegment, int bufferSizeBytes, String remoteStorageBasePath) {
         this.numBytesPerSegment = numBytesPerSegment;
         this.bufferSizeBytes = bufferSizeBytes;
         this.remoteStorageBasePath = remoteStorageBasePath;
+        this.remoteStorageScanner =
+                new RemoteStorageScanner(getTieredStoragePath(remoteStorageBasePath));
     }
 
     @Override
@@ -96,13 +100,11 @@ public class RemoteTierFactory implements TierFactory {
                             Map<
                                     TieredStorageSubpartitionId,
                                     CompletableFuture<NettyConnectionReader>>>
-                    readers,
-            RemoteStorageScanner remoteStorageScanner,
-            int remoteBufferSize) {
+                    readers) {
         PartitionFileReader partitionFileReader =
                 SegmentPartitionFile.createPartitionFileReader(
                         getTieredStoragePath(remoteStorageBasePath));
         return new RemoteTierConsumerAgent(
-                remoteStorageScanner, partitionFileReader, remoteBufferSize);
+                remoteStorageScanner, partitionFileReader, bufferSizeBytes);
     }
 }

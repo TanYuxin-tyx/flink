@@ -18,29 +18,27 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
-import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
-import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate.AvailabilityAndPriorityRetriever;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityAndPriorityNotifier;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
-import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentFinishDirPath;
 import static org.apache.flink.util.Preconditions.checkArgument;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -55,10 +53,10 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class RemoteStorageScanner implements Runnable {
 
     /** The initial scan interval is 100ms. */
-    private static final int INITIAL_SCAN_INTERVAL = 100;
+    private static final int INITIAL_SCAN_INTERVAL_MS = 100;
 
     /** The max scan interval is 10000ms. */
-    private static final int MAX_SCAN_INTERVAL = 10_000;
+    private static final int MAX_SCAN_INTERVAL_MS = 10_000;
 
     /** Executor to scan the existence status of segment files on remote storage. */
     private final ScheduledExecutorService scannerExecutor =
@@ -67,18 +65,15 @@ public class RemoteStorageScanner implements Runnable {
                             .setNameFormat("remote storage file scanner")
                             .build());
 
-    /**
-     * Tuple3 containing partition id and subpartition id and segment id. The tuple3 is stored in
-     * queue and indicates the required segment file.
-     */
-    private final Queue<Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer>>
+    /** The key is partition id and subpartition id, the value is required segment id. */
+    private final Map<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>, Integer>
             requiredSegmentIds;
 
     /**
      * The key is partition id and subpartition id, the value is max id of written segment files in
      * the subpartition.
      */
-    private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
+    private final Map<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>, Integer>
             scannedMaxSegmentIds;
 
     private final String baseRemoteStoragePath;
@@ -87,15 +82,15 @@ public class RemoteStorageScanner implements Runnable {
 
     private FileSystem remoteFileSystem;
 
-    private AvailabilityAndPriorityRetriever retriever;
+    private AvailabilityAndPriorityNotifier retriever;
 
     private int attemptNumber = 0;
 
     public RemoteStorageScanner(String baseRemoteStoragePath) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
-        this.requiredSegmentIds = new LinkedBlockingDeque<>();
-        this.scannedMaxSegmentIds = new HashMap<>();
-        this.scanStrategy = new ScanStrategy(INITIAL_SCAN_INTERVAL, MAX_SCAN_INTERVAL);
+        this.requiredSegmentIds = new ConcurrentHashMap<>();
+        this.scannedMaxSegmentIds = new ConcurrentHashMap<>();
+        this.scanStrategy = new ScanStrategy(INITIAL_SCAN_INTERVAL_MS, MAX_SCAN_INTERVAL_MS);
         try {
             this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
@@ -111,18 +106,25 @@ public class RemoteStorageScanner implements Runnable {
     }
 
     /**
-     * Register a segment id to the {@link RemoteStorageScanner}. If the scanner discovers the
-     * segment file exists, it will trigger the reading process of the segment file.
+     * Watch the segment file for a specific subpartition in the {@link RemoteStorageScanner}. The
+     * segment file will not be watched if the file with a larger segment id exists, and it will
+     * replace the file with a smaller segment id that is still being scanned. This method ensures
+     * that only one segment file can be watched for each subpartition.
      *
      * @param partitionId is the id of partition.
      * @param subpartitionId is the id of subpartition.
      * @param segmentId is the id of segment.
      */
-    public void registerSegmentId(
+    public void watchSegment(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
-        requiredSegmentIds.add(Tuple3.of(partitionId, subpartitionId, segmentId));
+        Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId> key =
+                Tuple2.of(partitionId, subpartitionId);
+        if (scannedMaxSegmentIds.getOrDefault(key, -1) > segmentId) {
+            return;
+        }
+        requiredSegmentIds.put(key, segmentId);
     }
 
     /** Close the executor. */
@@ -133,24 +135,22 @@ public class RemoteStorageScanner implements Runnable {
     /** Iterate the registered segment ids and check related file status. */
     @Override
     public void run() {
-        int segmentFileNumber = requiredSegmentIds.size();
+        Iterator<Map.Entry<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>, Integer>>
+                iterator = requiredSegmentIds.entrySet().iterator();
         boolean scanned = false;
-        while (segmentFileNumber-- > 0) {
-            Tuple3<TieredStoragePartitionId, TieredStorageSubpartitionId, Integer> ids =
-                    checkNotNull(requiredSegmentIds.poll());
-            TieredStoragePartitionId partitionId = ids.f0;
-            TieredStorageSubpartitionId subpartitionId = ids.f1;
-            int requiredSegmentId = ids.f2;
-            int maxSegmentId =
-                    scannedMaxSegmentIds
-                            .computeIfAbsent(partitionId, ignore -> new HashMap<>())
-                            .getOrDefault(subpartitionId, -1);
+        while (iterator.hasNext()) {
+            Map.Entry<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>, Integer> ids =
+                    iterator.next();
+            TieredStoragePartitionId partitionId = ids.getKey().f0;
+            TieredStorageSubpartitionId subpartitionId = ids.getKey().f1;
+            int requiredSegmentId = ids.getValue();
+            int maxSegmentId = scannedMaxSegmentIds.getOrDefault(ids.getKey(), -1);
             if (maxSegmentId >= requiredSegmentId) {
                 scanned = true;
-                retriever.retrieveAvailableAndPriority(partitionId, subpartitionId, false, null);
+                iterator.remove();
+                retriever.notifyAvailableAndPriority(partitionId, subpartitionId, false);
             } else {
                 scanMaxSegmentId(partitionId, subpartitionId);
-                requiredSegmentIds.add(ids);
             }
         }
         attemptNumber = scanned ? 0 : attemptNumber + 1;
@@ -158,8 +158,8 @@ public class RemoteStorageScanner implements Runnable {
                 this, scanStrategy.getInterval(attemptNumber), TimeUnit.MILLISECONDS);
     }
 
-    public void registerAvailabilityAndPriorityRetriever(
-            AvailabilityAndPriorityRetriever retriever) {
+    public void registerAvailabilityAndPriorityNotifier(
+            AvailabilityAndPriorityNotifier retriever) {
         this.retriever = retriever;
     }
 
@@ -193,9 +193,9 @@ public class RemoteStorageScanner implements Runnable {
             return;
         }
         checkState(fileStatuses.length == 1);
-        scannedMaxSegmentIds
-                .computeIfAbsent(partitionId, ignore -> new HashMap<>())
-                .put(subpartitionId, Integer.parseInt(fileStatuses[0].getPath().getName()));
+        scannedMaxSegmentIds.put(
+                Tuple2.of(partitionId, subpartitionId),
+                Integer.parseInt(fileStatuses[0].getPath().getName()));
     }
 
     /**
@@ -208,7 +208,7 @@ public class RemoteStorageScanner implements Runnable {
 
         private final int maxScanInterval;
 
-        public ScanStrategy(int initialScanInterval, int maxScanInterval) {
+        private ScanStrategy(int initialScanInterval, int maxScanInterval) {
             checkArgument(
                     initialScanInterval > 0,
                     "initialScanInterval must be positive, was %s",
@@ -225,7 +225,7 @@ public class RemoteStorageScanner implements Runnable {
             this.maxScanInterval = maxScanInterval;
         }
 
-        public long getInterval(int attempt) {
+        private long getInterval(int attempt) {
             checkArgument(attempt >= 0, "attempt must not be negative (%s)", attempt);
             final long interval = initialScanInterval * Math.round(Math.pow(2, attempt));
             return interval >= 0 && interval < maxScanInterval ? interval : maxScanInterval;

@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityAndPriorityNotifier;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
@@ -47,11 +48,13 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
      * <p>The key is partition id and subpartition id. The value is buffer index and segment id.
      */
     private final Map<
-            TieredStoragePartitionId,
-            Map<TieredStorageSubpartitionId, Tuple2<Integer, Integer>>>
+                    TieredStoragePartitionId,
+                    Map<TieredStorageSubpartitionId, Tuple2<Integer, Integer>>>
             currentBufferIndexAndSegmentIds;
 
     private final int bufferSizeBytes;
+
+    private AvailabilityAndPriorityNotifier notifier;
 
     RemoteTierConsumerAgent(
             RemoteStorageScanner remoteStorageScanner,
@@ -80,10 +83,9 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         int currentBufferIndex = bufferIndexAndSegmentId.f0;
         int currentSegmentId = bufferIndexAndSegmentId.f1;
         if (segmentId != currentSegmentId) {
-            remoteStorageScanner.registerSegmentId(partitionId, subpartitionId, segmentId);
+            remoteStorageScanner.watchSegment(partitionId, subpartitionId, segmentId);
         }
-        MemorySegment memorySegment =
-                MemorySegmentFactory.allocateUnpooledSegment(bufferSizeBytes);
+        MemorySegment memorySegment = MemorySegmentFactory.allocateUnpooledSegment(bufferSizeBytes);
         Buffer buffer = null;
         try {
             buffer =
@@ -101,9 +103,17 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             currentBufferIndexAndSegmentIds
                     .get(partitionId)
                     .put(subpartitionId, Tuple2.of(++currentBufferIndex, segmentId));
+            notifier.notifyAvailableAndPriority(
+                    partitionId, subpartitionId, buffer.getDataType().hasPriority());
             return Optional.of(buffer);
         }
         return Optional.empty();
+    }
+
+    @Override
+    public void registerAvailabilityAndPriorityNotifier(AvailabilityAndPriorityNotifier notifier) {
+        this.notifier = notifier;
+        remoteStorageScanner.registerAvailabilityAndPriorityNotifier(notifier);
     }
 
     @Override

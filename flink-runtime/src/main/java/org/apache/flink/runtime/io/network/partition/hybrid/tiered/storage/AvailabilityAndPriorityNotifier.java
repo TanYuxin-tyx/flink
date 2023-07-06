@@ -16,45 +16,30 @@
  * limitations under the License.
  */
 
-package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
+package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityAndPriorityNotifier;
-
-import java.io.IOException;
-import java.util.Optional;
 
 /**
- * The {@link TierConsumerAgent} is the consumer agent of each tier in tiered store, which could
- * read data from responding tier.
+ * {@link AvailabilityAndPriorityNotifier} is used to retrieve the availability and priority status
+ * of a specific partition and subpartition in tiered storage through {@link
+ * TieredStorageConsumerClient}.
  */
-public interface TierConsumerAgent {
-
-    /** Start the consumer agent. */
-    void start();
+public interface AvailabilityAndPriorityNotifier {
 
     /**
-     * Get buffer from the consumer agent.
+     * Notify the availability and priority status of a specific partition and subpartition through
+     * {@link TieredStorageConsumerClient}. If the subpartition in tiered storage has more available
+     * buffers or should be read with priority, the client will invoke this method.
      *
-     * @param partitionId the id of partition.
-     * @param subpartitionId the id of subpartition.
-     * @param segmentId the id of segment.
-     * @return buffer
+     * @param partitionId the partition id.
+     * @param subpartitionId the subpartition id.
+     * @param isPriority the subpartition will be consumed with priority if the value is true
+     *     otherwise not.
      */
-    Optional<Buffer> getNextBuffer(
+    void notifyAvailableAndPriority(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
-            int segmentId);
-
-    /**
-     * Register the notifier to notify the availability and priority status of a subpartition.
-     *
-     * @param notifier to notify availability and priority.
-     */
-    void registerAvailabilityAndPriorityNotifier(AvailabilityAndPriorityNotifier notifier);
-
-    /** Close the consumer agent. */
-    void close() throws IOException;
+            boolean isPriority);
 }

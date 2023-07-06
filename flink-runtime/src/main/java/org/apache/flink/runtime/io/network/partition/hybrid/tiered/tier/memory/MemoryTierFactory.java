@@ -31,7 +31,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierCons
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -87,9 +86,7 @@ public class MemoryTierFactory implements TierFactory {
                             Map<
                                     TieredStorageSubpartitionId,
                                     CompletableFuture<NettyConnectionReader>>>
-                    readers,
-            RemoteStorageScanner remoteStorageScanner,
-            int remoteBufferSize) {
+                    readers) {
         return new MemoryTierConsumerAgent(readers);
     }
 }

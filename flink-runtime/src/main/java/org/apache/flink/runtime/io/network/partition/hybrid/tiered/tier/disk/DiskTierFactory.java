@@ -35,7 +35,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierCons
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierMasterAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -113,9 +112,7 @@ public class DiskTierFactory implements TierFactory {
                             Map<
                                     TieredStorageSubpartitionId,
                                     CompletableFuture<NettyConnectionReader>>>
-                    readers,
-            RemoteStorageScanner remoteStorageScanner,
-            int remoteBufferSize) {
+                    readers) {
         return new DiskTierConsumerAgent(readers);
     }
 }

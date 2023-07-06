@@ -39,8 +39,6 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
@@ -182,7 +180,6 @@ public class SingleInputGateFactory {
         RemoteStorageScanner remoteStorageScanner = null;
         List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs = null;
         TieredStorageConsumerClient tieredStorageConsumerClient = null;
-        PartitionFileReader reader = null;
         if (enableTieredStore) {
             tieredStorageConsumerSpecs = new ArrayList<>();
             for (ShuffleDescriptor shuffleDescriptor : shuffleDescriptors) {
@@ -201,17 +198,13 @@ public class SingleInputGateFactory {
             if (remoteStorageBasePath != null) {
                 String basePath = getTieredStoragePath(remoteStorageBasePath);
                 remoteStorageScanner = new RemoteStorageScanner(basePath);
-                reader = SegmentPartitionFile.createPartitionFileReader(basePath);
             }
 
             tieredStorageConsumerClient =
                     new TieredStorageConsumerClient(
                             tieredStorageConsumerSpecs,
                             nettyService,
-                            remoteStorageBasePath,
-                            remoteStorageScanner,
-                            reader,
-                            networkBufferSize);
+                            remoteStorageBasePath);
         }
 
         SingleInputGate inputGate =

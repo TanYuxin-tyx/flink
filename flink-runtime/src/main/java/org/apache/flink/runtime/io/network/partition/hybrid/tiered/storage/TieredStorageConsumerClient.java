@@ -1,18 +1,15 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
-import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate.AvailabilityAndPriorityRetriever;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory.MemoryTierFactory;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierFactory;
 
 import java.io.IOException;
@@ -31,34 +28,22 @@ public class TieredStorageConsumerClient {
     private final List<TierConsumerAgent> tierConsumerAgents;
 
     /**
-     * The key includes {@link TieredStoragePartitionId} and {@link TieredStorageSubpartitionId}.
-     * The value includes the current consumer agent, segment number, and sequence number of buffer.
+     * This map is used to record the consumer agent being used and the id of segment being read for
+     * each data source, which is represented by {@link TieredStoragePartitionId} and {@link
+     * TieredStorageSubpartitionId}.
      */
     private final Map<
                     TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, Tuple3<TierConsumerAgent, Integer, Integer>>>
-            currentConsumerInfo = new HashMap<>();
-
-    private final RemoteStorageScanner remoteStorageScanner;
-
-    private AvailabilityAndPriorityRetriever retriever;
+                    Map<TieredStorageSubpartitionId, Tuple2<TierConsumerAgent, Integer>>>
+            currentConsumerAgentAndSegmentIds = new HashMap<>();
 
     public TieredStorageConsumerClient(
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
             TieredStorageNettyService nettyService,
-            String remoteStorageBasePath,
-            RemoteStorageScanner remoteStorageScanner,
-            PartitionFileReader partitionFileReader,
-            int remoteBufferSize) {
-        this.tierFactories = createTierFactories(remoteStorageBasePath);
-        this.remoteStorageScanner = remoteStorageScanner;
+            String baseRemoteStoragePath) {
+        this.tierFactories = createTierFactories(baseRemoteStoragePath);
         this.tierConsumerAgents =
-                createTierConsumerAgents(
-                        tieredStorageConsumerSpecs,
-                        nettyService,
-                        remoteStorageScanner,
-                        partitionFileReader,
-                        remoteBufferSize);
+                createTierConsumerAgents(tieredStorageConsumerSpecs, nettyService);
     }
 
     public void start() {
@@ -69,46 +54,49 @@ public class TieredStorageConsumerClient {
 
     public Optional<Buffer> getNextBuffer(
             TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
-        Map<TieredStorageSubpartitionId, Tuple3<TierConsumerAgent, Integer, Integer>>
-                subpartitionInfo =
-                        currentConsumerInfo.computeIfAbsent(partitionId, ignore -> new HashMap<>());
-        Tuple3<TierConsumerAgent, Integer, Integer> agentInfo =
-                subpartitionInfo.getOrDefault(subpartitionId, Tuple3.of(null, 0, 0));
+        Tuple2<TierConsumerAgent, Integer> currentConsumerAgentAndSegmentId =
+                currentConsumerAgentAndSegmentIds
+                        .computeIfAbsent(partitionId, ignore -> new HashMap<>())
+                        .getOrDefault(subpartitionId, Tuple2.of(null, 0));
         Optional<Buffer> buffer = Optional.empty();
-        if (agentInfo.f0 == null) {
+        if (currentConsumerAgentAndSegmentId.f0 == null) {
             for (TierConsumerAgent tierConsumerAgent : tierConsumerAgents) {
-                buffer = tierConsumerAgent.getNextBuffer(partitionId, subpartitionId, agentInfo.f1);
+                buffer =
+                        tierConsumerAgent.getNextBuffer(
+                                partitionId, subpartitionId, currentConsumerAgentAndSegmentId.f1);
                 if (buffer.isPresent()) {
-                    agentInfo.setField(tierConsumerAgent, 0);
+                    currentConsumerAgentAndSegmentIds
+                            .get(partitionId)
+                            .put(
+                                    subpartitionId,
+                                    Tuple2.of(
+                                            tierConsumerAgent,
+                                            currentConsumerAgentAndSegmentId.f1));
                     break;
                 }
             }
         } else {
-            buffer = agentInfo.f0.getNextBuffer(partitionId, subpartitionId, agentInfo.f1);
+            buffer =
+                    currentConsumerAgentAndSegmentId.f0.getNextBuffer(
+                            partitionId, subpartitionId, currentConsumerAgentAndSegmentId.f1);
         }
         if (!buffer.isPresent()) {
             return Optional.empty();
         }
         Buffer bufferData = buffer.get();
-        retriever.retrieveAvailableAndPriority(
-                partitionId, subpartitionId, bufferData.getDataType().hasPriority(), agentInfo.f2);
-        agentInfo.setField(agentInfo.f2 + 1, 2);
-        subpartitionInfo.put(subpartitionId, agentInfo);
         if (bufferData.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
-            agentInfo.setField(null, 0);
-            agentInfo.setField(agentInfo.f1 + 1, 1);
-            subpartitionInfo.put(subpartitionId, agentInfo);
+            currentConsumerAgentAndSegmentIds
+                    .get(partitionId)
+                    .put(subpartitionId, Tuple2.of(null, currentConsumerAgentAndSegmentId.f1 + 1));
             bufferData.recycleBuffer();
             return getNextBuffer(partitionId, subpartitionId);
         }
         return Optional.of(bufferData);
     }
 
-    public void registerAvailabilityAndPriorityRetriever(
-            AvailabilityAndPriorityRetriever retriever) {
-        this.retriever = retriever;
-        if (remoteStorageScanner != null) {
-            remoteStorageScanner.registerAvailabilityAndPriorityRetriever(retriever);
+    public void registerAvailabilityAndPriorityNotifier(AvailabilityAndPriorityNotifier notifier) {
+        for (TierConsumerAgent tierConsumerAgent : tierConsumerAgents) {
+            tierConsumerAgent.registerAvailabilityAndPriorityNotifier(notifier);
         }
     }
 
@@ -123,17 +111,14 @@ public class TieredStorageConsumerClient {
         tierFactories.add(new MemoryTierFactory(0, 0));
         tierFactories.add(new DiskTierFactory(0, 0, 0));
         if (remoteStorageBasePath != null) {
-            tierFactories.add(new RemoteTierFactory(0, 0, remoteStorageBasePath));
+            tierFactories.add(new RemoteTierFactory(0, 32 * 1024, remoteStorageBasePath));
         }
         return tierFactories;
     }
 
     private List<TierConsumerAgent> createTierConsumerAgents(
             List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
-            TieredStorageNettyService nettyService,
-            RemoteStorageScanner remoteStorageScanner,
-            PartitionFileReader partitionFileReader,
-            int remoteBufferSize) {
+            TieredStorageNettyService nettyService) {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
         Map<
                         TieredStoragePartitionId,
@@ -150,9 +135,7 @@ public class TieredStorageConsumerClient {
         }
 
         for (TierFactory tierFactory : tierFactories) {
-            tierConsumerAgents.add(
-                    tierFactory.createConsumerAgent(
-                            nettyConnectionReaders, remoteStorageScanner, remoteBufferSize));
+            tierConsumerAgents.add(tierFactory.createConsumerAgent(nettyConnectionReaders));
         }
         return tierConsumerAgents;
     }

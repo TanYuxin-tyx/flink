@@ -22,7 +22,9 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityAndPriorityNotifier;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
+import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.util.Map;
@@ -36,6 +38,8 @@ public class DiskTierConsumerAgent implements TierConsumerAgent {
                     TieredStoragePartitionId,
                     Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
             readers;
+
+    private AvailabilityAndPriorityNotifier notifier;
 
     public DiskTierConsumerAgent(
             Map<
@@ -53,15 +57,26 @@ public class DiskTierConsumerAgent implements TierConsumerAgent {
     }
 
     @Override
+    public void registerAvailabilityAndPriorityNotifier(AvailabilityAndPriorityNotifier notifier) {
+        this.notifier = notifier;
+    }
+
+    @Override
     public Optional<Buffer> getNextBuffer(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
+        Optional<Buffer> buffer = Optional.empty();
         try {
-            return readers.get(partitionId).get(subpartitionId).get().readBuffer(segmentId);
+            buffer = readers.get(partitionId).get(subpartitionId).get().readBuffer(segmentId);
         } catch (InterruptedException | ExecutionException e) {
-            throw new RuntimeException(e);
+            ExceptionUtils.rethrow(e, "Failed to read buffer from disk tier.");
         }
+        buffer.ifPresent(
+                value ->
+                        notifier.notifyAvailableAndPriority(
+                                partitionId, subpartitionId, value.getDataType().hasPriority()));
+        return buffer;
     }
 
     @Override

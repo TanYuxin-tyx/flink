@@ -82,22 +82,28 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             MemorySegment memorySegment,
             BufferRecycler recycler)
             throws IOException {
+
+        // Get the channel of the segment file for a subpartition.
         Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>> subpartitionInfo =
                 openedChannelAndSegmentIds.computeIfAbsent(partitionId, ignore -> new HashMap<>());
         Tuple2<ReadableByteChannel, Integer> fileChannelAndSegmentId =
                 subpartitionInfo.getOrDefault(subpartitionId, Tuple2.of(null, -1));
         ReadableByteChannel channel = fileChannelAndSegmentId.f0;
+
+        // Create the channel if there is a new segment file for a subpartition.
         if (channel == null || fileChannelAndSegmentId.f1 != segmentId) {
             if (channel != null) {
                 channel.close();
             }
             channel = openNewChannel(partitionId, subpartitionId, segmentId);
             if (channel == null) {
+                // return null if the segment file doesn't exist.
                 return null;
             }
             subpartitionInfo.put(subpartitionId, Tuple2.of(channel, segmentId));
         }
 
+        // Try to read a buffer from the channel.
         reusedHeaderBuffer.clear();
         int bufferHeaderResult = channel.read(reusedHeaderBuffer);
         if (bufferHeaderResult == -1) {
