@@ -53,7 +53,7 @@ public class TieredStorageUtils {
         bufferWithHeaders[index + 1] = buffer.getNioBufferReadable();
     }
 
-    public static Buffer useNewBufferRecyclerAndCompressBuffer(
+    public static Buffer updateBufferRecyclerAndCompressBuffer(
             BufferCompressor bufferCompressor, Buffer originalBuffer, BufferRecycler newRecycler) {
         if (!originalBuffer.isBuffer()) {
             return compressBufferIfPossible(bufferCompressor, originalBuffer);

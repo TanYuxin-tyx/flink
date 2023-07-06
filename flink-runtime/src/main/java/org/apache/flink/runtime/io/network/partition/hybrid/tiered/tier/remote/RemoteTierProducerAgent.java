@@ -29,7 +29,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProd
 
 import java.util.Arrays;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.useNewBufferRecyclerAndCompressBuffer;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.updateBufferRecyclerAndCompressBuffer;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** The DataManager of DFS. */
@@ -98,7 +98,7 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
         }
         currentSubpartitionWriteBuffers[subpartitionId]++;
         cacheDataManager.appendBuffer(
-                useNewBufferRecyclerAndCompressBuffer(
+                updateBufferRecyclerAndCompressBuffer(
                         bufferCompressor, buffer, memoryManager.getOwnerBufferRecycler(this)),
                 subpartitionId);
         return true;

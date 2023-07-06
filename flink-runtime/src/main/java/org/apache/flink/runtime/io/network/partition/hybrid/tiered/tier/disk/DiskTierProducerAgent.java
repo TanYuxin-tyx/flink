@@ -49,7 +49,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.useNewBufferRecyclerAndCompressBuffer;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.updateBufferRecyclerAndCompressBuffer;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** The DataManager of LOCAL file. */
@@ -171,7 +171,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
         }
         currentSubpartitionWriteBuffers[subpartitionId]++;
         emitBuffer(
-                useNewBufferRecyclerAndCompressBuffer(
+                updateBufferRecyclerAndCompressBuffer(
                         bufferCompressor,
                         finishedBuffer,
                         storageMemoryManager.getOwnerBufferRecycler(this)),
