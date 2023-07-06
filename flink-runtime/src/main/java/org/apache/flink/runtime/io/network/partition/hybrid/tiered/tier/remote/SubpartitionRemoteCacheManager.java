@@ -148,7 +148,6 @@ class SubpartitionRemoteCacheManager {
         flushBuffers();
     }
 
-    /** Release all buffers. */
     void release() {
         synchronized (allBuffers) {
             checkState(allBuffers.isEmpty(), "Leaking buffers.");
