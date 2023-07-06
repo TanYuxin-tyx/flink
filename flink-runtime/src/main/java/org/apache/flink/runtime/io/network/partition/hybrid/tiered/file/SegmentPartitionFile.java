@@ -141,10 +141,6 @@ public class SegmentPartitionFile {
     }
 
     public static void deletePathQuietly(String toDelete) {
-        if (toDelete == null) {
-            return;
-        }
-
         try {
             Path toRemovePath = new Path(toDelete);
             FileSystem fs = toRemovePath.getFileSystem();

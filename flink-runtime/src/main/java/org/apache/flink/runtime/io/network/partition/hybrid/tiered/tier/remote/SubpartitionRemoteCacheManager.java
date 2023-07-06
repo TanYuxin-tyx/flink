@@ -55,11 +55,12 @@ class SubpartitionRemoteCacheManager {
 
     /**
      * All the buffers. The first field of the tuple is the buffer, while the second field of the
-     * buffer is the buffer index.
+     * tuple is the buffer index.
      *
-     * <p>Note that this field can be accessed by the task thread or the write IO thread, so the
+     * <p>Note that this field can be accessed by the task thread or the flushing thread, so the
      * thread safety should be ensured.
      */
+    @GuardedBy("allBuffers")
     private final Deque<Tuple2<Buffer, Integer>> allBuffers = new LinkedList<>();
 
     private CompletableFuture<Void> flushCompletableFuture = FutureUtils.completedVoidFuture();
@@ -112,9 +113,10 @@ class SubpartitionRemoteCacheManager {
     }
 
     void finishSegment(int segmentId) {
-        synchronized (allBuffers) {
-            checkState(this.segmentId == segmentId, "Wrong segment id.");
-        }
+        // Only task thread can modify the segmentId, and the method can only be called by the task
+        // thread, so accessing segmentId is not guarded here.
+        //noinspection FieldAccessNotGuarded
+        checkState(this.segmentId == segmentId, "Wrong segment id.");
         // Flush the buffers belonging to the current segment
         flushBuffers();
 
@@ -128,6 +130,10 @@ class SubpartitionRemoteCacheManager {
         // buffer context
         flushCompletableFuture =
                 partitionFileWriter.write(partitionId, Collections.singletonList(bufferContext));
+
+        // Only task thread can add buffers, and the method can only be called by the task thread,
+        // so accessing allBuffers is not guarded here.
+        //noinspection FieldAccessNotGuarded
         checkState(allBuffers.isEmpty(), "Leaking buffers.");
     }
 
@@ -144,8 +150,10 @@ class SubpartitionRemoteCacheManager {
 
     /** Release all buffers. */
     void release() {
-        recycleBuffers();
-        checkState(allBuffers.isEmpty(), "Leaking buffers.");
+        synchronized (allBuffers) {
+            recycleBuffers();
+            checkState(allBuffers.isEmpty(), "Leaking buffers.");
+        }
         partitionFileWriter.release();
     }
 
@@ -155,9 +163,9 @@ class SubpartitionRemoteCacheManager {
 
     private void flushBuffers() {
         synchronized (allBuffers) {
-            List<Tuple2<Buffer, Integer>> buffersToFlush = new ArrayList<>(allBuffers);
+            List<Tuple2<Buffer, Integer>> allBuffersToFlush = new ArrayList<>(allBuffers);
             allBuffers.clear();
-            if (buffersToFlush.isEmpty()) {
+            if (allBuffersToFlush.isEmpty()) {
                 return;
             }
 
@@ -166,7 +174,7 @@ class SubpartitionRemoteCacheManager {
                             subpartitionId,
                             Collections.singletonList(
                                     new PartitionFileWriter.SegmentBufferContext(
-                                            segmentId, buffersToFlush, false)));
+                                            segmentId, allBuffersToFlush, false)));
             flushCompletableFuture =
                     partitionFileWriter.write(
                             partitionId, Collections.singletonList(subpartitionBufferContext));
@@ -175,13 +183,9 @@ class SubpartitionRemoteCacheManager {
 
     private void recycleBuffers() {
         synchronized (allBuffers) {
-            for (Tuple2<Buffer, Integer> bufferAndIndex : allBuffers) {
-                Buffer buffer = bufferAndIndex.f0;
-                if (!buffer.isRecycled()) {
-                    buffer.recycleBuffer();
-                }
+            while (!allBuffers.isEmpty()) {
+                allBuffers.poll().f0.recycleBuffer();
             }
-            allBuffers.clear();
         }
     }
 }

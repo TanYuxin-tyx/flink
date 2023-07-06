@@ -31,7 +31,6 @@ import org.apache.flink.util.concurrent.FutureUtils;
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
@@ -45,7 +44,6 @@ import java.util.concurrent.TimeoutException;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateBufferWithHeaders;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentPath;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.writeSegmentFinishFile;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -66,7 +64,7 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadExecutor(
                     new ThreadFactoryBuilder()
-                            .setNameFormat("Hash partition file flush thread")
+                            .setNameFormat("Segment partition file flush thread")
                             .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
                             .build());
     private final String basePath;
@@ -88,18 +86,19 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
         buffersToWrite.forEach(
                 subpartitionBuffers -> {
                     int subpartitionId = subpartitionBuffers.getSubpartitionId();
-                    List<SegmentBufferContext> multiSegmentBuffers =
+                    List<SegmentBufferContext> segmentBufferContexts =
                             subpartitionBuffers.getSegmentBufferContexts();
-                    multiSegmentBuffers.forEach(
-                            segmentBuffers -> {
+                    segmentBufferContexts.forEach(
+                            segmentBufferContext -> {
                                 CompletableFuture<Void> flushSuccessNotifier =
                                         new CompletableFuture<>();
                                 ioExecutor.execute(
-                                        flushOrFinishSegmentRunnable(
-                                                partitionId,
-                                                subpartitionId,
-                                                segmentBuffers,
-                                                flushSuccessNotifier));
+                                        () ->
+                                                flushOrFinishSegment(
+                                                        partitionId,
+                                                        subpartitionId,
+                                                        segmentBufferContext,
+                                                        flushSuccessNotifier));
                                 completableFutures.add(flushSuccessNotifier);
                             });
                 });
@@ -131,25 +130,23 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private Runnable flushOrFinishSegmentRunnable(
+    private void flushOrFinishSegment(
             TieredStoragePartitionId partitionId,
             int subpartitionId,
-            SegmentBufferContext segmentBuffers,
+            SegmentBufferContext segmentBufferContext,
             CompletableFuture<Void> flushSuccessNotifier) {
-        int segmentId = segmentBuffers.getSegmentId();
-        List<Tuple2<Buffer, Integer>> buffersToFlush = segmentBuffers.getBufferAndIndexes();
-        boolean isFinishSegment = segmentBuffers.isSegmentFinished();
-        checkState(!buffersToFlush.isEmpty() || isFinishSegment);
+        int segmentId = segmentBufferContext.getSegmentId();
+        List<Tuple2<Buffer, Integer>> buffersToFlush = segmentBufferContext.getBufferAndIndexes();
+        boolean isSegmentFinished = segmentBufferContext.isSegmentFinished();
+        checkState(!buffersToFlush.isEmpty() || isSegmentFinished);
 
-        return () -> {
-            if (buffersToFlush.size() > 0) {
-                flush(partitionId, subpartitionId, segmentId, buffersToFlush, flushSuccessNotifier);
-            }
-            if (isFinishSegment) {
-                writeFinishSegmentFile(
-                        partitionId, subpartitionId, segmentId, flushSuccessNotifier);
-            }
-        };
+        if (buffersToFlush.size() > 0) {
+            flush(partitionId, subpartitionId, segmentId, buffersToFlush);
+        }
+        if (isSegmentFinished) {
+            writeSegmentFinishFile(partitionId, subpartitionId, segmentId);
+        }
+        flushSuccessNotifier.complete(null);
     }
 
     /** This method is only called by the flushing thread. */
@@ -157,8 +154,7 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
             TieredStoragePartitionId partitionId,
             int subpartitionId,
             int segmentId,
-            List<Tuple2<Buffer, Integer>> buffersToFlush,
-            CompletableFuture<Void> flushSuccessNotifier) {
+            List<Tuple2<Buffer, Integer>> buffersToFlush) {
         try {
             writeBuffers(
                     partitionId,
@@ -167,7 +163,6 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
                     buffersToFlush,
                     getTotalBytes(buffersToFlush));
             buffersToFlush.forEach(bufferToFlush -> bufferToFlush.f0.recycleBuffer());
-            flushSuccessNotifier.complete(null);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
         }
@@ -180,13 +175,11 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
      *
      * <p>Note that the method is only called by the flushing thread.
      */
-    private void writeFinishSegmentFile(
-            TieredStoragePartitionId partitionId,
-            int subpartitionId,
-            int segmentId,
-            CompletableFuture<Void> flushSuccessNotifier) {
+    private void writeSegmentFinishFile(
+            TieredStoragePartitionId partitionId, int subpartitionId, int segmentId) {
         try {
-            writeSegmentFinishFile(basePath, partitionId, subpartitionId, segmentId);
+            SegmentPartitionFile.writeSegmentFinishFile(
+                    basePath, partitionId, subpartitionId, segmentId);
             WritableByteChannel channel = subpartitionChannels[subpartitionId];
             if (channel != null) {
                 channel.close();
@@ -195,7 +188,6 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
         }
-        flushSuccessNotifier.complete(null);
     }
 
     private long getTotalBytes(List<Tuple2<Buffer, Integer>> buffersToFlush) {
@@ -215,7 +207,15 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
             List<Tuple2<Buffer, Integer>> buffersToFlush,
             long expectedBytes)
             throws IOException {
-        ByteBuffer[] bufferWithHeaders = generateBufferWithHeaders(buffersToFlush);
+        WritableByteChannel currentChannel =
+                getOrInitSubpartitionChannel(partitionId, subpartitionId, segmentId);
+        SegmentPartitionFile.writeBuffers(
+                currentChannel, expectedBytes, generateBufferWithHeaders(buffersToFlush));
+    }
+
+    private WritableByteChannel getOrInitSubpartitionChannel(
+            TieredStoragePartitionId partitionId, int subpartitionId, int segmentId)
+            throws IOException {
         WritableByteChannel currentChannel = subpartitionChannels[subpartitionId];
         if (currentChannel == null) {
             Path writingSegmentPath =
@@ -224,10 +224,8 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
             currentChannel =
                     Channels.newChannel(
                             fs.create(writingSegmentPath, FileSystem.WriteMode.NO_OVERWRITE));
-            SegmentPartitionFile.writeBuffers(currentChannel, expectedBytes, bufferWithHeaders);
             subpartitionChannels[subpartitionId] = currentChannel;
-        } else {
-            SegmentPartitionFile.writeBuffers(currentChannel, expectedBytes, bufferWithHeaders);
         }
+        return currentChannel;
     }
 }
