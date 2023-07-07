@@ -28,9 +28,6 @@ import org.apache.flink.util.FatalExitExceptionHandler;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import javax.annotation.Nullable;
 
 import java.util.ArrayList;
@@ -58,10 +55,17 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManager {
 
-    private static final Logger LOG = LoggerFactory.getLogger(TieredStorageMemoryManagerImpl.class);
+    /**
+     * The initial delay time in milliseconds to wait before running the task to check whether to
+     * reclaim buffers.
+     */
+    public static final int RECLAIM_BUFFERS_THREAD_INITIAL_DELAY_MS = 10;
 
-    /** Time to wait for requesting new buffers before triggering buffer reclaiming. */
-    private static final int INITIAL_REQUEST_BUFFER_TIMEOUT_FOR_RECLAIMING_MS = 50;
+    /**
+     * The period time in milliseconds for the checking task execution, used to control the
+     * frequency of checking whether to reclaim buffers.
+     */
+    public static final int RECLAIM_BUFFERS_THREAD_PERIOD_MS = 50;
 
     /** The tiered storage memory specs of each memory user owner. */
     private final Map<Object, TieredStorageMemorySpec> tieredMemorySpecs;
@@ -133,7 +137,10 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
                                     .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
                                     .build());
             this.executor.scheduleAtFixedRate(
-                    this::reclaimBuffersIfNeeded, 10, 50, TimeUnit.MILLISECONDS);
+                    this::reclaimBuffersIfNeeded,
+                    RECLAIM_BUFFERS_THREAD_INITIAL_DELAY_MS,
+                    RECLAIM_BUFFERS_THREAD_PERIOD_MS,
+                    TimeUnit.MILLISECONDS);
         }
     }
 
