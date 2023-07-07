@@ -42,7 +42,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteStorageScanner;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.metrics.MetricNames;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
@@ -70,7 +69,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.partition.consumer.InputGateSpecUtils.createGateBuffersSpec;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getTieredStoragePath;
 import static org.apache.flink.runtime.shuffle.ShuffleUtils.applyWithShuffleTypeCheck;
 
 /** Factory for {@link SingleInputGate} to use in {@link NettyShuffleEnvironment}. */
@@ -177,7 +175,6 @@ public class SingleInputGateFactory {
                 calculateNumChannels(igdd.getShuffleDescriptors().length, subpartitionIndexRange);
 
         ShuffleDescriptor[] shuffleDescriptors = igdd.getShuffleDescriptors();
-        RemoteStorageScanner remoteStorageScanner = null;
         List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs = null;
         TieredStorageConsumerClient tieredStorageConsumerClient = null;
         if (enableTieredStore) {
@@ -195,11 +192,6 @@ public class SingleInputGateFactory {
                             new TieredStorageConsumerSpec(partitionId, subpartitionId));
                 }
             }
-            if (remoteStorageBasePath != null) {
-                String basePath = getTieredStoragePath(remoteStorageBasePath);
-                remoteStorageScanner = new RemoteStorageScanner(basePath);
-            }
-
             tieredStorageConsumerClient =
                     new TieredStorageConsumerClient(
                             tieredStorageConsumerSpecs,

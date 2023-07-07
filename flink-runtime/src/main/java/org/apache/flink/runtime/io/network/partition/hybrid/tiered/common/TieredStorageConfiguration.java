@@ -32,7 +32,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Configuration for tiered storage. */
+/** Configurations for tiered storage. */
 public class TieredStorageConfiguration {
 
     private static final String DEFAULT_REMOTE_STORAGE_BASE_PATH = null;
