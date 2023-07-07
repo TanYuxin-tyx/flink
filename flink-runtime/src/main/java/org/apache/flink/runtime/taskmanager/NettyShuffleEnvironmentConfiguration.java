@@ -44,6 +44,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORAGE;
+import static org.apache.flink.configuration.NettyShuffleEnvironmentOptions.NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_PATH;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** Configuration object for the network stack. */
@@ -396,9 +398,15 @@ public class NettyShuffleEnvironmentConfiguration {
                         "The configured floating buffer should be at least 1, please increase the value of %s.",
                         NettyShuffleEnvironmentOptions.NETWORK_EXTRA_BUFFERS_PER_GATE.key()));
 
-        // TODO: use TieredStorageConfiguration.fromConfiguration() when enabling the feature
         TieredStorageConfiguration tieredStorageConfiguration = null;
-
+        if (configuration.getBoolean(NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORAGE)) {
+            tieredStorageConfiguration =
+                    TieredStorageConfiguration.builder(
+                                    pageSize,
+                                    configuration.getString(
+                                            NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_PATH))
+                            .build();
+        }
         return new NettyShuffleEnvironmentConfiguration(
                 numberOfNetworkBuffers,
                 pageSize,

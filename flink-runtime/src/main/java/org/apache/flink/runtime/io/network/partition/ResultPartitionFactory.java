@@ -28,6 +28,25 @@ import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.BufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.HashBufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SortBufferAccumulator;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManager;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemoryManagerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageMemorySpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClient;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory.MemoryTierFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory.MemoryTierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -38,9 +57,15 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** Factory for {@link ResultPartition} to use in {@link NettyShuffleEnvironment}. */
 public class ResultPartitionFactory {
@@ -83,6 +108,12 @@ public class ResultPartitionFactory {
 
     private final int maxOverdraftBuffersPerGate;
 
+    @Nullable private final TieredStorageConfiguration tieredStorageConfiguration;
+
+    @Nullable TieredStorageNettyServiceImpl tieredStorageNettyService;
+
+    @Nullable TieredStorageResourceRegistry tieredStorageResourceRegistry;
+
     public ResultPartitionFactory(
             ResultPartitionManager partitionManager,
             FileChannelManager channelManager,
@@ -101,7 +132,10 @@ public class ResultPartitionFactory {
             boolean sslEnabled,
             int maxOverdraftBuffersPerGate,
             int hybridShuffleSpilledIndexSegmentSize,
-            long hybridShuffleNumRetainedInMemoryRegionsMax) {
+            long hybridShuffleNumRetainedInMemoryRegionsMax,
+            @Nullable TieredStorageConfiguration tieredStorageConfiguration,
+            @Nullable TieredStorageNettyServiceImpl tieredStorageNettyService,
+            @Nullable TieredStorageResourceRegistry tieredStorageResourceRegistry) {
 
         this.partitionManager = partitionManager;
         this.channelManager = channelManager;
@@ -122,6 +156,9 @@ public class ResultPartitionFactory {
         this.hybridShuffleSpilledIndexSegmentSize = hybridShuffleSpilledIndexSegmentSize;
         this.hybridShuffleNumRetainedInMemoryRegionsMax =
                 hybridShuffleNumRetainedInMemoryRegionsMax;
+        this.tieredStorageConfiguration = tieredStorageConfiguration;
+        this.tieredStorageNettyService = tieredStorageNettyService;
+        this.tieredStorageResourceRegistry = tieredStorageResourceRegistry;
     }
 
     public ResultPartition create(
@@ -227,23 +264,80 @@ public class ResultPartitionFactory {
             }
         } else if (type == ResultPartitionType.HYBRID_FULL
                 || type == ResultPartitionType.HYBRID_SELECTIVE) {
-            partition =
-                    new HsResultPartition(
-                            taskNameWithSubtaskAndId,
-                            partitionIndex,
-                            id,
-                            type,
-                            subpartitions.length,
-                            maxParallelism,
-                            batchShuffleReadBufferPool,
-                            batchShuffleReadIOExecutor,
-                            partitionManager,
-                            channelManager.createChannel().getPath(),
-                            networkBufferSize,
-                            getHybridShuffleConfiguration(numberOfSubpartitions, type),
-                            bufferCompressor,
-                            isBroadcast,
-                            bufferPoolFactory);
+            if (tieredStorageConfiguration != null) {
+                // Create memory manager.
+                TieredStorageMemoryManager memoryManager =
+                        new TieredStorageMemoryManagerImpl(
+                                checkNotNull(tieredStorageConfiguration)
+                                        .getNumBuffersTriggerFlushRatio(),
+                                true);
+
+                // Create buffer accumulator.
+                int accumulatorExclusiveBufferNum =
+                        tieredStorageConfiguration.getAccumulatorExclusiveBuffers();
+                BufferAccumulator bufferAccumulator =
+                        createBufferAccumulator(
+                                numberOfSubpartitions,
+                                accumulatorExclusiveBufferNum,
+                                memoryManager);
+
+                // Create producer agents.
+                List<TierProducerAgent> tierProducerAgents =
+                        createTierProducerAgents(
+                                numberOfSubpartitions,
+                                isBroadcast,
+                                type == ResultPartitionType.HYBRID_SELECTIVE,
+                                TieredStorageIdMappingUtils.convertId(id),
+                                memoryManager);
+
+                List<TieredStorageMemorySpec> storageMemorySpecs =
+                        createTieredStorageMemorySpecs(
+                                numberOfSubpartitions, bufferAccumulator, tierProducerAgents);
+
+                // Create producer client.
+                TieredStorageProducerClient tieredStorageProducerClient =
+                        new TieredStorageProducerClient(
+                                numberOfSubpartitions,
+                                isBroadcast,
+                                bufferAccumulator,
+                                bufferCompressor,
+                                tierProducerAgents);
+
+                // Create tiered result partition.
+                return new TieredResultPartition(
+                        taskNameWithSubtaskAndId,
+                        partitionIndex,
+                        id,
+                        type,
+                        numberOfSubpartitions,
+                        maxParallelism,
+                        partitionManager,
+                        bufferCompressor,
+                        bufferPoolFactory,
+                        tieredStorageProducerClient,
+                        tieredStorageResourceRegistry,
+                        tieredStorageNettyService,
+                        storageMemorySpecs,
+                        memoryManager);
+            } else {
+                partition =
+                        new HsResultPartition(
+                                taskNameWithSubtaskAndId,
+                                partitionIndex,
+                                id,
+                                type,
+                                subpartitions.length,
+                                maxParallelism,
+                                batchShuffleReadBufferPool,
+                                batchShuffleReadIOExecutor,
+                                partitionManager,
+                                channelManager.createChannel().getPath(),
+                                networkBufferSize,
+                                getHybridShuffleConfiguration(numberOfSubpartitions, type),
+                                bufferCompressor,
+                                isBroadcast,
+                                bufferPoolFactory);
+            }
         } else {
             throw new IllegalArgumentException("Unrecognized ResultPartitionType: " + type);
         }
@@ -251,6 +345,42 @@ public class ResultPartitionFactory {
         LOG.debug("{}: Initialized {}", taskNameWithSubtaskAndId, this);
 
         return partition;
+    }
+
+    private List<TieredStorageMemorySpec> createTieredStorageMemorySpecs(
+            int numberOfSubpartitions,
+            BufferAccumulator bufferAccumulator,
+            List<TierProducerAgent> tierProducerAgents) {
+        List<TieredStorageMemorySpec> tieredStorageMemorySpecs = new ArrayList<>();
+        tieredStorageMemorySpecs.add(
+                new TieredStorageMemorySpec(
+                        bufferAccumulator, Math.min(numberOfSubpartitions + 1, 512)));
+        for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
+            if (tierProducerAgent.getClass() == MemoryTierProducerAgent.class) {
+                tieredStorageMemorySpecs.add(
+                        new TieredStorageMemorySpec(
+                                tierProducerAgent,
+                                checkNotNull(tieredStorageConfiguration)
+                                        .getMemoryTierExclusiveBuffers()));
+            }
+
+            if (tierProducerAgent.getClass() == DiskTierProducerAgent.class) {
+                tieredStorageMemorySpecs.add(
+                        new TieredStorageMemorySpec(
+                                tierProducerAgent,
+                                checkNotNull(tieredStorageConfiguration)
+                                        .getDiskTierExclusiveBuffers()));
+            }
+
+            if (tierProducerAgent.getClass() == RemoteTierProducerAgent.class) {
+                tieredStorageMemorySpecs.add(
+                        new TieredStorageMemorySpec(
+                                tierProducerAgent,
+                                checkNotNull(tieredStorageConfiguration)
+                                        .getRemoteTierExclusiveBuffers()));
+            }
+        }
+        return tieredStorageMemorySpecs;
     }
 
     private HybridShuffleConfiguration getHybridShuffleConfiguration(
@@ -264,6 +394,55 @@ public class ResultPartitionFactory {
                 .setSpilledIndexSegmentSize(hybridShuffleSpilledIndexSegmentSize)
                 .setNumRetainedInMemoryRegionsMax(hybridShuffleNumRetainedInMemoryRegionsMax)
                 .build();
+    }
+
+    private BufferAccumulator createBufferAccumulator(
+            int numSubpartitions,
+            int accumulatorExclusiveBufferNum,
+            TieredStorageMemoryManager storageMemoryManager) {
+        int bufferSize = checkNotNull(tieredStorageConfiguration).getTieredStorageBufferSize();
+        return (numSubpartitions + 1) > accumulatorExclusiveBufferNum
+                ? new SortBufferAccumulator(
+                        numSubpartitions,
+                        accumulatorExclusiveBufferNum,
+                        bufferSize,
+                        storageMemoryManager)
+                : new HashBufferAccumulator(numSubpartitions, bufferSize, storageMemoryManager);
+    }
+
+    private List<TierProducerAgent> createTierProducerAgents(
+            int numSubpartitions,
+            boolean isBroadcastOnly,
+            boolean isHybridSelective,
+            TieredStoragePartitionId partitionID,
+            TieredStorageMemoryManager memoryManager) {
+        List<TierFactory> tierFactories =
+                checkNotNull(tieredStorageConfiguration).getTierFactories();
+        List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
+        for (TierFactory tierFactory : tierFactories) {
+            if (!isHybridSelective && tierFactory.getClass() == MemoryTierFactory.class) {
+                continue;
+            }
+            tierProducerAgents.add(
+                    tierFactory.createProducerAgent(
+                            numSubpartitions,
+                            partitionID,
+                            channelManager.createChannel().getPath(),
+                            isBroadcastOnly,
+                            memoryManager,
+                            checkNotNull(tieredStorageNettyService),
+                            checkNotNull(tieredStorageResourceRegistry),
+                            batchShuffleReadBufferPool,
+                            batchShuffleReadIOExecutor,
+                            Math.max(
+                                    2 * batchShuffleReadBufferPool.getNumBuffersPerRequest(),
+                                    numSubpartitions),
+                            checkNotNull(tieredStorageConfiguration)
+                                    .getDiskIOSchedulerBufferRequestTimeout(),
+                            checkNotNull(tieredStorageConfiguration)
+                                    .getDiskIOSchedulerMaxBuffersReadAhead()));
+        }
+        return tierProducerAgents;
     }
 
     private static void initializeBoundedBlockingPartitions(

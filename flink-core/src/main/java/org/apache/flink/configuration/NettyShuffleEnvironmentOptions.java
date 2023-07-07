@@ -19,6 +19,7 @@
 package org.apache.flink.configuration;
 
 import org.apache.flink.annotation.Experimental;
+import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.annotation.docs.Documentation;
 
@@ -368,7 +369,7 @@ public class NettyShuffleEnvironmentOptions {
 
     /** The timeout for requesting exclusive buffers for each channel. */
     @Documentation.ExcludeFromDocumentation(
-            "This option is purely implementation related, and may be removed as the implementation changes.")
+            "This option will be available to users once the new architecture is ready.")
     public static final ConfigOption<Long> NETWORK_EXCLUSIVE_BUFFERS_REQUEST_TIMEOUT_MILLISECONDS =
             key("taskmanager.network.memory.exclusive-buffers-request-timeout-ms")
                     .longType()
@@ -378,6 +379,30 @@ public class NettyShuffleEnvironmentOptions {
                                     + "the number of required buffers is not the same for local buffer pools, there may be deadlock cases that the upstream"
                                     + "tasks have occupied all the buffers and the downstream tasks are waiting for the exclusive buffers. The timeout breaks"
                                     + "the tie by failing the request of exclusive buffers and ask users to increase the number of total buffers.");
+
+    @Documentation.ExcludeFromDocumentation(
+            "This option will be available to users once the new architecture is ready.")
+    @Experimental
+    @Internal
+    public static final ConfigOption<Boolean> NETWORK_HYBRID_SHUFFLE_ENABLE_TIERED_STORAGE =
+            ConfigOptions.key("taskmanager.network.hybrid-shuffle.enable-tiered-storage")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "The option is used to enable tiered storage architecture for hybrid shuffle mode.");
+
+    @Documentation.ExcludeFromDocumentation(
+            "This option will be available to users once the new architecture is ready.")
+    @Experimental
+    @Internal
+    public static final ConfigOption<String> NETWORK_HYBRID_SHUFFLE_REMOTE_STORAGE_BASE_PATH =
+            key("taskmanager.network.hybrid-shuffle.remote.path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The base home path of remote storage for remote tier. If the option is configured, "
+                                    + "Hybrid Shuffle will use the remote storage path as a supplement to the"
+                                    + "local disks. If not configured, the remote storage will not be used.");
 
     @Documentation.Section(Documentation.Sections.ALL_TASK_MANAGER_NETWORK)
     public static final ConfigOption<String> NETWORK_BLOCKING_SHUFFLE_TYPE =

@@ -32,6 +32,9 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionFactory;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.NettyShuffleMaster;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironmentContext;
@@ -193,6 +196,14 @@ public class NettyShuffleServiceFactory
 
         registerShuffleMetrics(metricGroup, networkBufferPool);
 
+        TieredStorageConfiguration tieredStorageConfiguration =
+                config.getTieredStorageConfiguration();
+        TieredStorageNettyServiceImpl tieredStorageNettyService = null;
+        TieredStorageResourceRegistry tieredStorageResourceRegistry = null;
+        if (tieredStorageConfiguration != null) {
+            tieredStorageNettyService = new TieredStorageNettyServiceImpl();
+            tieredStorageResourceRegistry = new TieredStorageResourceRegistry();
+        }
         ResultPartitionFactory resultPartitionFactory =
                 new ResultPartitionFactory(
                         resultPartitionManager,
@@ -212,7 +223,10 @@ public class NettyShuffleServiceFactory
                         config.isSSLEnabled(),
                         config.getMaxOverdraftBuffersPerGate(),
                         config.getHybridShuffleSpilledIndexSegmentSize(),
-                        config.getHybridShuffleNumRetainedInMemoryRegionsMax());
+                        config.getHybridShuffleNumRetainedInMemoryRegionsMax(),
+                        tieredStorageConfiguration,
+                        tieredStorageNettyService,
+                        tieredStorageResourceRegistry);
 
         SingleInputGateFactory singleInputGateFactory =
                 new SingleInputGateFactory(
@@ -222,7 +236,7 @@ public class NettyShuffleServiceFactory
                         resultPartitionManager,
                         taskEventPublisher,
                         networkBufferPool,
-                        config.getTieredStorageConfiguration());
+                        tieredStorageConfiguration);
 
         return new NettyShuffleEnvironment(
                 taskExecutorResourceId,
