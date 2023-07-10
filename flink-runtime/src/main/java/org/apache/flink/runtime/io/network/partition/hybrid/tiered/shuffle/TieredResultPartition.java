@@ -236,6 +236,11 @@ public class TieredResultPartition extends ResultPartition {
     }
 
     @Override
+    public CompletableFuture<?> getAvailableFuture() {
+        return AVAILABLE;
+    }
+
+    @Override
     protected void releaseInternal() {
         resourceRegistry.clearResourceFor(storagePartitionId);
     }
