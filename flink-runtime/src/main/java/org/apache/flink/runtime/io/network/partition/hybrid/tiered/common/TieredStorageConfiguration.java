@@ -61,6 +61,10 @@ public class TieredStorageConfiguration {
 
     private static final int DEFAULT_DISK_TIER_MAX_REQUEST_BUFFERS = 1000;
 
+    private static final int DEFAULT_DISK_TIER_NUM_SPILLED_INDEX_SEGMENT_SIZE = 100 * 1024;
+
+    private static final long DEFAULT_DISK_TIER_NUM_RETAINED_IN_MEMORY_REGIONS_MAX = 1024 * 1024L;
+
     private static final float DEFAULT_MIN_RESERVE_SPACE_FRACTION = 0.05f;
 
     private final String remoteStorageBasePath;
@@ -329,6 +333,11 @@ public class TieredStorageConfiguration {
 
         private int diskTierMaxRequestBuffers = DEFAULT_DISK_TIER_MAX_REQUEST_BUFFERS;
 
+        private int numSpilledIndexSegmentSize = DEFAULT_DISK_TIER_NUM_SPILLED_INDEX_SEGMENT_SIZE;
+
+        private long numRetainedInMemoryRegionsMax =
+                DEFAULT_DISK_TIER_NUM_RETAINED_IN_MEMORY_REGIONS_MAX;
+
         private float minReserveSpaceFraction = DEFAULT_MIN_RESERVE_SPACE_FRACTION;
 
         public Builder setRemoteStorageBasePath(String remoteStorageBasePath) {
@@ -402,6 +411,16 @@ public class TieredStorageConfiguration {
             return this;
         }
 
+        public Builder setNumSpilledIndexSegmentSize(int numSpilledIndexSegmentSize) {
+            this.numSpilledIndexSegmentSize = numSpilledIndexSegmentSize;
+            return this;
+        }
+
+        public Builder setNumRetainedInMemoryRegionsMax(long numRetainedInMemoryRegionsMax) {
+            this.numRetainedInMemoryRegionsMax = numRetainedInMemoryRegionsMax;
+            return this;
+        }
+
         public TieredStorageConfiguration build() {
             return new TieredStorageConfiguration(
                     remoteStorageBasePath,
@@ -429,6 +448,8 @@ public class TieredStorageConfiguration {
                     new DiskTierFactory(
                             diskTierNumBytesPerSegment,
                             tieredStorageBufferSize,
+                            numSpilledIndexSegmentSize,
+                            numRetainedInMemoryRegionsMax,
                             minReserveSpaceFraction));
             if (remoteStorageBasePath != null) {
                 tierFactories.add(

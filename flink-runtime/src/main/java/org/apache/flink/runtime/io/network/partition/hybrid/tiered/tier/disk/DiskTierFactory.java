@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFile.DATA_FILE_SUFFIX;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFile.INDEX_FILE_SUFFIX;
 
 /** The implementation of {@link TierFactory} for disk tier. */
 public class DiskTierFactory implements TierFactory {
@@ -49,12 +50,22 @@ public class DiskTierFactory implements TierFactory {
 
     private final int bufferSizeBytes;
 
+    private final int numSpilledIndexSegmentSize;
+
+    private final long numRetainedInMemoryRegionsMax;
+
     private final float minReservedDiskSpaceFraction;
 
     public DiskTierFactory(
-            int numBytesPerSegment, int bufferSizeBytes, float minReservedDiskSpaceFraction) {
+            int numBytesPerSegment,
+            int bufferSizeBytes,
+            int numSpilledIndexSegmentSize,
+            long numRetainedInMemoryRegionsMax,
+            float minReservedDiskSpaceFraction) {
         this.numBytesPerSegment = numBytesPerSegment;
         this.bufferSizeBytes = bufferSizeBytes;
+        this.numSpilledIndexSegmentSize = numSpilledIndexSegmentSize;
+        this.numRetainedInMemoryRegionsMax = numRetainedInMemoryRegionsMax;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
     }
 
@@ -78,7 +89,11 @@ public class DiskTierFactory implements TierFactory {
             Duration bufferRequestTimeout,
             int maxBufferReadAhead) {
         ProducerMergedPartitionFileIndex partitionFileIndex =
-                new ProducerMergedPartitionFileIndex(isBroadcastOnly ? 1 : numSubpartitions);
+                new ProducerMergedPartitionFileIndex(
+                        isBroadcastOnly ? 1 : numSubpartitions,
+                        Paths.get(dataFileBasePath + INDEX_FILE_SUFFIX),
+                        numSpilledIndexSegmentSize,
+                        numRetainedInMemoryRegionsMax);
         Path dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         ProducerMergedPartitionFileWriter partitionFileWriter =
                 ProducerMergedPartitionFile.createPartitionFileWriter(

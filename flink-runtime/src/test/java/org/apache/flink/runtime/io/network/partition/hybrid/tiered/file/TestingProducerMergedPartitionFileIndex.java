@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -37,10 +38,17 @@ public class TestingProducerMergedPartitionFileIndex extends ProducerMergedParti
 
     private TestingProducerMergedPartitionFileIndex(
             int numSubpartitions,
+            Path indexFilePath,
+            int spilledIndexSegmentSize,
+            long numRetainedInMemoryRegionsMax,
             Consumer<List<FlushedBuffer>> addBuffersConsumer,
             BiFunction<TieredStorageSubpartitionId, Integer, Optional<Region>> getRegionFunction,
             Runnable releaseRunnable) {
-        super(numSubpartitions);
+        super(
+                numSubpartitions,
+                indexFilePath,
+                spilledIndexSegmentSize,
+                numRetainedInMemoryRegionsMax);
         this.addBuffersConsumer = addBuffersConsumer;
         this.getRegionFunction = getRegionFunction;
         this.releaseRunnable = releaseRunnable;
@@ -66,6 +74,12 @@ public class TestingProducerMergedPartitionFileIndex extends ProducerMergedParti
 
         private int numSubpartitions = 1;
 
+        private Path indexFilePath = null;
+
+        private int spilledIndexSegmentSize = 256;
+
+        private long numRetainedInMemoryRegionsMax = Long.MAX_VALUE;
+
         private Consumer<List<FlushedBuffer>> addBuffersConsumer = flushedBuffers -> {};
 
         private BiFunction<TieredStorageSubpartitionId, Integer, Optional<Region>>
@@ -78,6 +92,24 @@ public class TestingProducerMergedPartitionFileIndex extends ProducerMergedParti
         public TestingProducerMergedPartitionFileIndex.Builder setNumSubpartitions(
                 int numSubpartitions) {
             this.numSubpartitions = numSubpartitions;
+            return this;
+        }
+
+        public TestingProducerMergedPartitionFileIndex.Builder setIndexFilePath(
+                Path indexFilePath) {
+            this.indexFilePath = indexFilePath;
+            return this;
+        }
+
+        public TestingProducerMergedPartitionFileIndex.Builder setSpilledIndexSegmentSize(
+                int spilledIndexSegmentSize) {
+            this.spilledIndexSegmentSize = spilledIndexSegmentSize;
+            return this;
+        }
+
+        public TestingProducerMergedPartitionFileIndex.Builder setNumRetainedInMemoryRegionsMax(
+                long numRetainedInMemoryRegionsMax) {
+            this.numRetainedInMemoryRegionsMax = numRetainedInMemoryRegionsMax;
             return this;
         }
 
@@ -102,7 +134,13 @@ public class TestingProducerMergedPartitionFileIndex extends ProducerMergedParti
 
         public TestingProducerMergedPartitionFileIndex build() {
             return new TestingProducerMergedPartitionFileIndex(
-                    numSubpartitions, addBuffersConsumer, getRegionFunction, releaseRunnable);
+                    numSubpartitions,
+                    indexFilePath,
+                    spilledIndexSegmentSize,
+                    numRetainedInMemoryRegionsMax,
+                    addBuffersConsumer,
+                    getRegionFunction,
+                    releaseRunnable);
         }
     }
 }

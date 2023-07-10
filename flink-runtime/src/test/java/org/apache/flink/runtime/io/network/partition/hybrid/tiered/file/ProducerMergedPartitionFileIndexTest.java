@@ -21,8 +21,11 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -35,13 +38,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Tests for {@link ProducerMergedPartitionFileIndex}. */
 class ProducerMergedPartitionFileIndexTest {
 
+    private Path indexFilePath;
+
+    @BeforeEach
+    void before(@TempDir Path tempDir) {
+        this.indexFilePath = tempDir.resolve(".index");
+    }
+
     @Test
     void testAddBufferAndGetRegion() {
         int numSubpartitions = 5;
         int numBuffersPerSubpartition = 10;
 
         ProducerMergedPartitionFileIndex partitionFileIndex =
-                new ProducerMergedPartitionFileIndex(numSubpartitions);
+                new ProducerMergedPartitionFileIndex(
+                        numSubpartitions, indexFilePath, 256, Long.MAX_VALUE);
 
         List<ProducerMergedPartitionFileIndex.FlushedBuffer> flushedBuffers = new ArrayList<>();
         Tuple2<Integer, Integer> numExpectedRegionsAndMaxBufferIndex =
