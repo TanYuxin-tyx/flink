@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
@@ -32,23 +33,23 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import static org.apache.flink.util.Preconditions.checkNotNull;
+
 /** The data client is used to fetch data from memory tier. */
 public class MemoryTierConsumerAgent implements TierConsumerAgent {
     private final Map<
-                    TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
-            readers;
+            TieredStoragePartitionId,
+            Map<TieredStorageSubpartitionId, Tuple2<CompletableFuture<NettyConnectionReader>, Integer>>>
+            nettyConnectionReaders;
 
     private AvailabilityAndPriorityNotifier notifier;
 
     public MemoryTierConsumerAgent(
             Map<
-                            TieredStoragePartitionId,
-                            Map<
-                                    TieredStorageSubpartitionId,
-                                    CompletableFuture<NettyConnectionReader>>>
-                    readers) {
-        this.readers = readers;
+                    TieredStoragePartitionId,
+                    Map<TieredStorageSubpartitionId, Tuple2<CompletableFuture<NettyConnectionReader>, Integer>>>
+                    nettyConnectionReaders) {
+        this.nettyConnectionReaders = nettyConnectionReaders;
     }
 
     @Override
@@ -67,18 +68,26 @@ public class MemoryTierConsumerAgent implements TierConsumerAgent {
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
         Optional<Buffer> buffer = Optional.empty();
+        Tuple2<CompletableFuture<NettyConnectionReader>, Integer> readerAndBufferIndex =
+                nettyConnectionReaders.get(partitionId).get(subpartitionId);
         try {
-            buffer = readers.get(partitionId).get(subpartitionId).get().readBuffer(segmentId);
+            buffer = readerAndBufferIndex.f0.get().readBuffer(segmentId);
         } catch (InterruptedException | ExecutionException e) {
             ExceptionUtils.rethrow(e, "Failed to read buffer from memory tier.");
         }
         buffer.ifPresent(
-                value ->
-                        notifier.notifyAvailableAndPriority(
-                                partitionId, subpartitionId, value.getDataType().hasPriority()));
+                value -> {
+                    boolean isPriority = value.getDataType().hasPriority();
+                    checkNotNull(notifier)
+                            .notifyAvailableAndPriority(
+                                    partitionId,
+                                    subpartitionId,
+                                    isPriority,
+                                    isPriority ? readerAndBufferIndex.f1 : null);
+                    readerAndBufferIndex.f1 += 1;
+                });
         return buffer;
     }
-
     @Override
     public void close() throws IOException {
         // nothing to do.

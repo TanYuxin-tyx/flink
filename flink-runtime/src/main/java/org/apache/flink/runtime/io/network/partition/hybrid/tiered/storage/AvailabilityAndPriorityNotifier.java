@@ -36,9 +36,11 @@ public interface AvailabilityAndPriorityNotifier {
      * @param subpartitionId the subpartition id.
      * @param isPriority the subpartition will be consumed with priority if the value is true
      *     otherwise not.
+     * @param prioritySequenceNumber the sequence number of priority buffer.
      */
     void notifyAvailableAndPriority(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
-            boolean isPriority);
+            boolean isPriority,
+            Integer prioritySequenceNumber);
 }

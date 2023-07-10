@@ -304,10 +304,11 @@ public class SingleInputGate extends IndexedInputGate {
         public void notifyAvailableAndPriority(
                 TieredStoragePartitionId partitionId,
                 TieredStorageSubpartitionId subpartitionId,
-                boolean isPriority) {
+                boolean isPriority,
+                Integer prioritySequenceNumber) {
             queueChannel(
                     channels[channelIndexes.get(partitionId).get(subpartitionId)],
-                    null,
+                    prioritySequenceNumber,
                     isPriority);
         }
     }

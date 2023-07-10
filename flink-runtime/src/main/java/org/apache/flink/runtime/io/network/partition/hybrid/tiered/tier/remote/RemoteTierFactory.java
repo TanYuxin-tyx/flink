@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
@@ -94,10 +95,8 @@ public class RemoteTierFactory implements TierFactory {
     @Override
     public TierConsumerAgent createConsumerAgent(
             Map<
-                            TieredStoragePartitionId,
-                            Map<
-                                    TieredStorageSubpartitionId,
-                                    CompletableFuture<NettyConnectionReader>>>
+                    TieredStoragePartitionId,
+                    Map<TieredStorageSubpartitionId, Tuple2<CompletableFuture<NettyConnectionReader>, Integer>>>
                     readers) {
         RemoteStorageScanner remoteStorageScanner =
                 new RemoteStorageScanner(getTieredStoragePath(remoteStorageBasePath));

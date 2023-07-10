@@ -30,10 +30,14 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.Avail
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+
+import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The data client is used to fetch data from remote tier. */
 public class RemoteTierConsumerAgent implements TierConsumerAgent {
@@ -48,13 +52,13 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
      * <p>The key is partition id and subpartition id. The value is buffer index and segment id.
      */
     private final Map<
-                    TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, Tuple2<Integer, Integer>>>
+            TieredStoragePartitionId,
+            Map<TieredStorageSubpartitionId, Tuple2<Integer, Integer>>>
             currentBufferIndexAndSegmentIds;
 
     private final int bufferSizeBytes;
 
-    private AvailabilityAndPriorityNotifier notifier;
+    @Nullable private AvailabilityAndPriorityNotifier notifier;
 
     RemoteTierConsumerAgent(
             RemoteStorageScanner remoteStorageScanner,
@@ -76,6 +80,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
+        // Get current segment id and buffer index.
         Tuple2<Integer, Integer> bufferIndexAndSegmentId =
                 currentBufferIndexAndSegmentIds
                         .computeIfAbsent(partitionId, ignore -> new HashMap<>())
@@ -85,6 +90,8 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         if (segmentId != currentSegmentId) {
             remoteStorageScanner.watchSegment(partitionId, subpartitionId, segmentId);
         }
+
+        // Read buffer from the partition file in remote storage.
         MemorySegment memorySegment = MemorySegmentFactory.allocateUnpooledSegment(bufferSizeBytes);
         Buffer buffer = null;
         try {
@@ -100,11 +107,15 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }
         if (buffer != null) {
+            boolean isPriority = buffer.getDataType().hasPriority();
+            checkNotNull(notifier).notifyAvailableAndPriority(
+                    partitionId,
+                    subpartitionId,
+                    isPriority,
+                    isPriority ? currentBufferIndex : null);
             currentBufferIndexAndSegmentIds
                     .get(partitionId)
                     .put(subpartitionId, Tuple2.of(++currentBufferIndex, segmentId));
-            notifier.notifyAvailableAndPriority(
-                    partitionId, subpartitionId, buffer.getDataType().hasPriority());
             return Optional.of(buffer);
         }
         return Optional.empty();

@@ -38,6 +38,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentFinishDirPath;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentPath;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -80,29 +81,34 @@ public class RemoteStorageScanner implements Runnable {
 
     private final ScanStrategy scanStrategy;
 
-    private FileSystem remoteFileSystem;
+    private final FileSystem remoteFileSystem;
 
     private AvailabilityAndPriorityNotifier notifier;
 
-    private int attemptNumber = 0;
+    private int currentIntervalMs = INITIAL_SCAN_INTERVAL_MS;
 
     public RemoteStorageScanner(String baseRemoteStoragePath) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
         this.requiredSegmentIds = new ConcurrentHashMap<>();
         this.scannedMaxSegmentIds = new ConcurrentHashMap<>();
-        this.scanStrategy = new ScanStrategy(INITIAL_SCAN_INTERVAL_MS, MAX_SCAN_INTERVAL_MS);
+        this.scanStrategy = new ScanStrategy(MAX_SCAN_INTERVAL_MS);
+        this.remoteFileSystem = createFileSystem();
+    }
+
+    private FileSystem createFileSystem() {
+        FileSystem fileSystem = null;
         try {
-            this.remoteFileSystem = new Path(baseRemoteStoragePath).getFileSystem();
+            fileSystem = new Path(baseRemoteStoragePath).getFileSystem();
         } catch (IOException e) {
             ExceptionUtils.rethrow(
                     e, "Failed to initialize file system on the path: " + baseRemoteStoragePath);
         }
+        return fileSystem;
     }
 
     /** Start the executor. */
     public void start() {
-        scannerExecutor.schedule(
-                this, scanStrategy.getInterval(attemptNumber), TimeUnit.MILLISECONDS);
+        scannerExecutor.schedule(this, currentIntervalMs, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -149,10 +155,11 @@ public class RemoteStorageScanner implements Runnable {
             TieredStorageSubpartitionId subpartitionId = ids.getKey().f1;
             int requiredSegmentId = ids.getValue();
             int maxSegmentId = scannedMaxSegmentIds.getOrDefault(ids.getKey(), -1);
-            if (maxSegmentId >= requiredSegmentId) {
+            if (maxSegmentId >= requiredSegmentId
+                    && checkSegmentExist(partitionId, subpartitionId, requiredSegmentId)) {
                 scanned = true;
                 iterator.remove();
-                notifier.notifyAvailableAndPriority(partitionId, subpartitionId, false);
+                notifier.notifyAvailableAndPriority(partitionId, subpartitionId, false, null);
             } else {
                 // The segment should be watched again because it's not found.
                 // If the segment belongs to other tiers and has been consumed, the segment will be
@@ -161,9 +168,9 @@ public class RemoteStorageScanner implements Runnable {
                 scanMaxSegmentId(partitionId, subpartitionId);
             }
         }
-        attemptNumber = scanned ? 0 : attemptNumber + 1;
-        scannerExecutor.schedule(
-                this, scanStrategy.getInterval(attemptNumber), TimeUnit.MILLISECONDS);
+        currentIntervalMs =
+                scanned ? INITIAL_SCAN_INTERVAL_MS : scanStrategy.getInterval(currentIntervalMs);
+        start();
     }
 
     public void registerAvailabilityAndPriorityNotifier(AvailabilityAndPriorityNotifier retriever) {
@@ -205,37 +212,44 @@ public class RemoteStorageScanner implements Runnable {
                 Integer.parseInt(fileStatuses[0].getPath().getName()));
     }
 
+    private boolean checkSegmentExist(
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId) {
+        Path segmentPath =
+                getSegmentPath(
+                        baseRemoteStoragePath,
+                        partitionId,
+                        subpartitionId.getSubpartitionId(),
+                        segmentId);
+        boolean isExist;
+        try {
+            isExist = remoteFileSystem.exists(segmentPath);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to check segment file. " + segmentPath, e);
+        }
+        return isExist;
+    }
+
     /**
      * The strategy is used to decide the scan interval of {@link RemoteStorageScanner}. The
-     * interval will be updated exponentially and restricted by max value.
+     * interval will be updated at a double rate and restricted by max value.
      */
     private static class ScanStrategy {
 
-        private final int initialScanInterval;
-
         private final int maxScanInterval;
 
-        private ScanStrategy(int initialScanInterval, int maxScanInterval) {
-            checkArgument(
-                    initialScanInterval > 0,
-                    "initialScanInterval must be positive, was %s",
-                    initialScanInterval);
+        private ScanStrategy(int maxScanInterval) {
             checkArgument(
                     maxScanInterval > 0,
                     "maxScanInterval must be positive, was %s",
                     maxScanInterval);
-            checkArgument(
-                    initialScanInterval <= maxScanInterval,
-                    "initialScanInterval must be lower than or equal to maxScanInterval",
-                    maxScanInterval);
-            this.initialScanInterval = initialScanInterval;
             this.maxScanInterval = maxScanInterval;
         }
 
-        private long getInterval(int attempt) {
-            checkArgument(attempt >= 0, "attempt must not be negative (%s)", attempt);
-            final long interval = initialScanInterval * Math.round(Math.pow(2, attempt));
-            return interval >= 0 && interval < maxScanInterval ? interval : maxScanInterval;
+        private int getInterval(int currentInterval) {
+            int nextInterval = currentInterval * 2;
+            return Math.min(nextInterval, maxScanInterval);
         }
     }
 }

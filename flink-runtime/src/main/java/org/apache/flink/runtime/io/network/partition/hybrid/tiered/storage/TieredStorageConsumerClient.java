@@ -122,7 +122,9 @@ public class TieredStorageConsumerClient {
         List<TierConsumerAgent> tierConsumerAgents = new ArrayList<>();
         Map<
                         TieredStoragePartitionId,
-                        Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
+                        Map<
+                                TieredStorageSubpartitionId,
+                                Tuple2<CompletableFuture<NettyConnectionReader>, Integer>>>
                 nettyConnectionReaders = new HashMap<>();
         for (TieredStorageConsumerSpec spec : tieredStorageConsumerSpecs) {
             TieredStoragePartitionId partitionId = spec.getPartitionId();
@@ -131,7 +133,8 @@ public class TieredStorageConsumerClient {
                     .computeIfAbsent(partitionId, ignore -> new HashMap<>())
                     .put(
                             subpartitionId,
-                            nettyService.registerConsumer(partitionId, subpartitionId));
+                            Tuple2.of(
+                                    nettyService.registerConsumer(partitionId, subpartitionId), 0));
         }
 
         for (TierFactory tierFactory : tierFactories) {
