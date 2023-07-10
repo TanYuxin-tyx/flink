@@ -67,11 +67,21 @@ public class NettyShuffleUtils {
             final int sortShuffleMinParallelism,
             final int sortShuffleMinBuffers,
             final int numSubpartitions,
+            final boolean enableTieredStorage,
+            final int tieredStoreExclusiveBuffers,
             final ResultPartitionType type) {
         boolean isSortShuffle =
                 type.isBlockingOrBlockingPersistentResultPartition()
                         && numSubpartitions >= sortShuffleMinParallelism;
-        int min = isSortShuffle ? sortShuffleMinBuffers : numSubpartitions + 1;
+        int min;
+        if (isSortShuffle) {
+            min = sortShuffleMinBuffers;
+        } else {
+            min =
+                    enableTieredStorage
+                            ? Math.min(tieredStoreExclusiveBuffers, numSubpartitions + 1)
+                            : (numSubpartitions + 1);
+        }
         int max =
                 type.isBounded()
                         ? numSubpartitions * configuredNetworkBuffersPerChannel
@@ -93,6 +103,8 @@ public class NettyShuffleUtils {
             final Optional<Integer> maxRequiredBuffersPerGate,
             final int sortShuffleMinParallelism,
             final int sortShuffleMinBuffers,
+            boolean enableTieredStorage,
+            final int tieredStoreExclusiveBuffers,
             final Map<IntermediateDataSetID, Integer> inputChannelNums,
             final Map<IntermediateDataSetID, Integer> partitionReuseCount,
             final Map<IntermediateDataSetID, Integer> subpartitionNums,
@@ -129,6 +141,8 @@ public class NettyShuffleUtils {
                             numFloatingBuffersPerGate,
                             sortShuffleMinParallelism,
                             sortShuffleMinBuffers,
+                            enableTieredStorage,
+                            tieredStoreExclusiveBuffers,
                             numSubs);
         }
 
@@ -157,6 +171,8 @@ public class NettyShuffleUtils {
             int floatingBuffersPerGate,
             int sortShuffleMinParallelism,
             int sortShuffleMinBuffers,
+            boolean enableTieredStorage,
+            int tieredStoreExclusiveBuffers,
             int numSubpartitions) {
 
         Pair<Integer, Integer> minAndMax =
@@ -166,6 +182,8 @@ public class NettyShuffleUtils {
                         sortShuffleMinParallelism,
                         sortShuffleMinBuffers,
                         numSubpartitions,
+                        enableTieredStorage,
+                        tieredStoreExclusiveBuffers,
                         type);
 
         // In order to avoid network buffer request timeout (see FLINK-12852), we announce
