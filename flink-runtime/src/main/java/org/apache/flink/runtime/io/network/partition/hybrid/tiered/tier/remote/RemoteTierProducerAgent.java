@@ -31,7 +31,6 @@ import javax.annotation.Nullable;
 
 import java.util.Arrays;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.updateBufferRecyclerAndCompressBuffer;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** The DataManager of DFS. */
@@ -92,17 +91,15 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     public void release() {}
 
     @Override
-    public boolean tryWrite(int subpartitionId, Buffer buffer) {
+    public boolean tryWrite(int subpartitionId, Buffer buffer, Object bufferOwner) {
         if (currentSubpartitionWriteBuffers[subpartitionId] + 1 > numBuffersPerSegment) {
             cacheDataManager.finishSegment(subpartitionId);
             currentSubpartitionWriteBuffers[subpartitionId] = 0;
             return false;
         }
         currentSubpartitionWriteBuffers[subpartitionId]++;
-        cacheDataManager.appendBuffer(
-                updateBufferRecyclerAndCompressBuffer(
-                        bufferCompressor, buffer, memoryManager.getOwnerBufferRecycler(this)),
-                subpartitionId);
+        memoryManager.transferBufferOwnership(bufferOwner, this, buffer);
+        cacheDataManager.appendBuffer(buffer, subpartitionId);
         return true;
     }
 

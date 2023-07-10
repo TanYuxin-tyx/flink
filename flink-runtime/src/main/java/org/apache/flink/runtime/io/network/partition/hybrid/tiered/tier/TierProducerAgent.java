@@ -33,7 +33,7 @@ public interface TierProducerAgent {
     boolean tryStartNewSegment(
             TieredStorageSubpartitionId subpartitionId, int segmentId, boolean forceUseCurrentTier);
 
-    boolean tryWrite(int consumerId, Buffer finishedBuffer);
+    boolean tryWrite(int consumerId, Buffer finishedBuffer, Object bufferOwner);
 
     void close();
 }

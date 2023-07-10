@@ -87,6 +87,8 @@ public interface Buffer {
      */
     BufferRecycler getRecycler();
 
+    void setRecycler(BufferRecycler bufferRecycler);
+
     /**
      * Releases this buffer once, i.e. reduces the reference count and recycles the buffer if the
      * reference count reaches <tt>0</tt>.
@@ -291,9 +293,7 @@ public interface Buffer {
          */
         RECOVERY_COMPLETION(false, true, true, false, false),
 
-        /**
-         * Indicates that this buffer contains the segment meta information for Tiered Store.
-         */
+        /** Indicates that this buffer contains the segment meta information for Tiered Store. */
         END_OF_SEGMENT(false, true, false, false, false);
 
         private final boolean isBuffer;

@@ -22,7 +22,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
-import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
 
@@ -218,26 +217,11 @@ public class TieredStorageMemoryManagerImplTest {
         assertThat(storageMemoryManager.numOwnerRequestedBuffer(this)).isEqualTo(1);
 
         Object newOwner = new Object();
-        storageMemoryManager.transferBufferOwnership(this, newOwner);
+        storageMemoryManager.transferBufferOwnership(
+                this, newOwner, bufferBuilder.createBufferConsumerFromBeginning().build());
         assertThat(storageMemoryManager.numOwnerRequestedBuffer(this)).isEqualTo(0);
         assertThat(storageMemoryManager.numOwnerRequestedBuffer(newOwner)).isEqualTo(1);
         bufferBuilder.close();
-    }
-
-    @Test
-    void testGetBufferRecycler() throws IOException {
-        TieredStorageMemoryManagerImpl storageMemoryManager =
-                createStorageMemoryManager(
-                        1, Collections.singletonList(new TieredStorageMemorySpec(this, 0)));
-        BufferBuilder bufferBuilder = storageMemoryManager.requestBufferBlocking(this);
-        BufferRecycler bufferRecycler = storageMemoryManager.getOwnerBufferRecycler(this);
-        Buffer buffer =
-                new NetworkBuffer(
-                        bufferBuilder.createBufferConsumer().build().getMemorySegment(),
-                        bufferRecycler);
-        assertThat(storageMemoryManager.numOwnerRequestedBuffer(this)).isEqualTo(1);
-        buffer.recycleBuffer();
-        assertThat(storageMemoryManager.numOwnerRequestedBuffer(this)).isEqualTo(0);
     }
 
     @Test

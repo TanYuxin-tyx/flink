@@ -51,7 +51,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.updateBufferRecyclerAndCompressBuffer;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** The DataManager of LOCAL file. */
@@ -164,7 +163,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     }
 
     @Override
-    public boolean tryWrite(int subpartitionId, Buffer finishedBuffer) {
+    public boolean tryWrite(int subpartitionId, Buffer finishedBuffer, Object bufferOwner) {
         if (currentSubpartitionWriteBuffers[subpartitionId] != 0
                 && currentSubpartitionWriteBuffers[subpartitionId] + 1 > numBuffersPerSegment) {
             emitEndOfSegmentEvent(subpartitionId);
@@ -172,12 +171,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             return false;
         }
         currentSubpartitionWriteBuffers[subpartitionId]++;
-        emitBuffer(
-                updateBufferRecyclerAndCompressBuffer(
-                        bufferCompressor,
-                        finishedBuffer,
-                        memoryManager.getOwnerBufferRecycler(this)),
-                subpartitionId);
+        memoryManager.transferBufferOwnership(bufferOwner, this, finishedBuffer);
+        emitBuffer(finishedBuffer, subpartitionId);
         return true;
     }
 

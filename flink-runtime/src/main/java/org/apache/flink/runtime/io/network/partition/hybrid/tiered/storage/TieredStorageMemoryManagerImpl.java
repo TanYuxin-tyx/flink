@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
@@ -210,7 +211,10 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     }
 
     @Override
-    public void transferBufferOwnership(Object oldOwner, Object newOwner) {
+    public void transferBufferOwnership(Object oldOwner, Object newOwner, Buffer buffer) {
+        if (!buffer.isBuffer()) {
+            return;
+        }
         AtomicInteger numOldOwnerRequested = numOwnerRequestedBuffers.get(oldOwner);
         if (numOldOwnerRequested == null) {
             throw new RuntimeException("Failed to transfer buffer ownership for " + oldOwner);
@@ -219,14 +223,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
         numOwnerRequestedBuffers
                 .computeIfAbsent(newOwner, ignore -> new AtomicInteger(0))
                 .incrementAndGet();
-    }
-
-    @Override
-    public BufferRecycler getOwnerBufferRecycler(Object owner) {
-        return memorySegment -> {
-            bufferPool.recycle(memorySegment);
-            decNumRequestedBuffer(owner);
-        };
+        buffer.setRecycler(getOwnerBufferRecycler(newOwner));
     }
 
     @Override
@@ -286,6 +283,13 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     private void recycleBuffer(Object owner, MemorySegment buffer) {
         bufferPool.recycle(buffer);
         decNumRequestedBuffer(owner);
+    }
+
+    private BufferRecycler getOwnerBufferRecycler(Object owner) {
+        return memorySegment -> {
+            bufferPool.recycle(memorySegment);
+            decNumRequestedBuffer(owner);
+        };
     }
 
     private void checkIsInitialized() {

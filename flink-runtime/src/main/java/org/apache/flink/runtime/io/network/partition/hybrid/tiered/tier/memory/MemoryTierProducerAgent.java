@@ -43,7 +43,6 @@ import java.io.IOException;
 import java.util.Arrays;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.updateBufferRecyclerAndCompressBuffer;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /** The DataManager of LOCAL file. */
@@ -119,7 +118,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
     public void release() {}
 
     @Override
-    public boolean tryWrite(int subpartitionIndex, Buffer finishedBuffer) {
+    public boolean tryWrite(int subpartitionIndex, Buffer finishedBuffer, Object bufferOwner) {
         if (currentSubpartitionWriteBuffers[subpartitionIndex] != 0
                 && currentSubpartitionWriteBuffers[subpartitionIndex] + 1 > numBuffersPerSegment) {
             appendEndOfSegmentEvent(subpartitionIndex);
@@ -127,12 +126,8 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             return false;
         }
         currentSubpartitionWriteBuffers[subpartitionIndex]++;
-        addFinishedBuffer(
-                updateBufferRecyclerAndCompressBuffer(
-                        bufferCompressor,
-                        finishedBuffer,
-                        memoryManager.getOwnerBufferRecycler(this)),
-                subpartitionIndex);
+        memoryManager.transferBufferOwnership(bufferOwner, this, finishedBuffer);
+        addFinishedBuffer(finishedBuffer, subpartitionIndex);
         return true;
     }
 
