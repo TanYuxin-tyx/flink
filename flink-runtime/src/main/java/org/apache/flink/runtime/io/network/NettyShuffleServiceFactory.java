@@ -201,8 +201,8 @@ public class NettyShuffleServiceFactory
         TieredStorageNettyServiceImpl tieredStorageNettyService = null;
         TieredStorageResourceRegistry tieredStorageResourceRegistry = null;
         if (tieredStorageConfiguration != null) {
-            tieredStorageNettyService = new TieredStorageNettyServiceImpl();
             tieredStorageResourceRegistry = new TieredStorageResourceRegistry();
+            tieredStorageNettyService = new TieredStorageNettyServiceImpl(tieredStorageResourceRegistry);
         }
         ResultPartitionFactory resultPartitionFactory =
                 new ResultPartitionFactory(
@@ -236,7 +236,9 @@ public class NettyShuffleServiceFactory
                         resultPartitionManager,
                         taskEventPublisher,
                         networkBufferPool,
-                        tieredStorageConfiguration);
+                        tieredStorageConfiguration,
+                        tieredStorageNettyService
+                );
 
         return new NettyShuffleEnvironment(
                 taskExecutorResourceId,

@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -56,15 +57,28 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     // ------------------------------------
 
     private final Map<
-            TieredStoragePartitionId,
-            Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
+                    TieredStoragePartitionId,
+                    Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
             registeredNettyConnectionReaders = new HashMap<>();
+
+    private final TieredStorageResourceRegistry resourceRegistry;
+
+    public TieredStorageNettyServiceImpl(TieredStorageResourceRegistry resourceRegistry) {
+        this.resourceRegistry = resourceRegistry;
+    }
 
     @Override
     public void registerProducer(
             TieredStoragePartitionId partitionId, NettyServiceProducer serviceProducer) {
         registeredServiceProducers
-                .computeIfAbsent(partitionId, ignore -> new ArrayList<>())
+                .computeIfAbsent(
+                        partitionId,
+                        ignore -> {
+                            final TieredStoragePartitionId id = partitionId;
+                            resourceRegistry.registerResource(
+                                    id, () -> registeredServiceProducers.remove(id));
+                            return new ArrayList<>();
+                        })
                 .add(serviceProducer);
     }
 

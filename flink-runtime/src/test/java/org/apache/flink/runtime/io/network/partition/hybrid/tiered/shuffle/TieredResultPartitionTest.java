@@ -185,6 +185,8 @@ class TieredResultPartitionTest {
             int numSubpartitions, BufferPool bufferPool, boolean isBroadcastOnly)
             throws IOException {
         TestingTierProducerAgent tierProducerAgent = new TestingTierProducerAgent.Builder().build();
+        TieredStorageResourceRegistry tieredStorageResourceRegistry =
+                new TieredStorageResourceRegistry();
         TieredResultPartition tieredResultPartition =
                 new TieredResultPartition(
                         "TieredStoreResultPartitionTest",
@@ -202,8 +204,8 @@ class TieredResultPartitionTest {
                                 new TestingBufferAccumulator(),
                                 null,
                                 Collections.singletonList(tierProducerAgent)),
-                        new TieredStorageResourceRegistry(),
-                        new TieredStorageNettyServiceImpl(),
+                        tieredStorageResourceRegistry,
+                        new TieredStorageNettyServiceImpl(tieredStorageResourceRegistry),
                         Collections.emptyList(),
                         new TestingTieredStorageMemoryManager.Builder().build());
         taskIOMetricGroup =
