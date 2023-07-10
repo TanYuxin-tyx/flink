@@ -143,7 +143,7 @@ class GateBuffersSpecTest {
     void testConfiguredMaxRequiredBuffersPerGate(ResultPartitionType partitionType) {
         Optional<Integer> emptyConfig = Optional.empty();
         int effectiveMaxRequiredBuffers =
-                getEffectiveMaxRequiredBuffersPerGate(partitionType, emptyConfig);
+                getEffectiveMaxRequiredBuffersPerGate(partitionType, emptyConfig, false);
         int expectEffectiveMaxRequiredBuffers =
                 isPipelinedOrHybridResultPartition(partitionType)
                         ? InputGateSpecUtils.DEFAULT_MAX_REQUIRED_BUFFERS_PER_GATE_FOR_STREAM
@@ -152,7 +152,7 @@ class GateBuffersSpecTest {
 
         Optional<Integer> configuredMaxRequiredBuffers = Optional.of(100);
         effectiveMaxRequiredBuffers =
-                getEffectiveMaxRequiredBuffersPerGate(partitionType, configuredMaxRequiredBuffers);
+                getEffectiveMaxRequiredBuffersPerGate(partitionType, configuredMaxRequiredBuffers, false);
         assertThat(effectiveMaxRequiredBuffers).isEqualTo(configuredMaxRequiredBuffers.get());
     }
 
@@ -184,7 +184,8 @@ class GateBuffersSpecTest {
                 numExclusiveBuffersPerChannel,
                 8,
                 partitionType,
-                numInputChannels);
+                numInputChannels,
+                false);
     }
 
     private static Optional<Integer> getMaxRequiredBuffersPerGate(

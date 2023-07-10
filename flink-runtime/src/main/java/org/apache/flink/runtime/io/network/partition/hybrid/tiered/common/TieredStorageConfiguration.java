@@ -284,16 +284,15 @@ public class TieredStorageConfiguration {
     }
 
     /**
-     * Get the exclusive buffer number of each tier.
+     * Get the total exclusive buffer number.
      *
-     * @return the {@link TieredStorageExclusiveBufferNumberSpec}.
+     * @return the total exclusive buffer number.
      */
-    public TieredStorageExclusiveBufferNumberSpec getTieredStorageExclusiveBufferNumberSpec() {
-        return new TieredStorageExclusiveBufferNumberSpec(
-                memoryTierExclusiveBuffers,
-                diskTierExclusiveBuffers,
-                remoteTierExclusiveBuffers,
-                accumulatorExclusiveBuffers);
+    public int getTotalExclusiveBuffers() {
+        return memoryTierExclusiveBuffers
+                + diskTierExclusiveBuffers
+                + remoteTierExclusiveBuffers
+                + accumulatorExclusiveBuffers;
     }
 
     public List<TierFactory> getTierFactories() {
@@ -439,48 +438,6 @@ public class TieredStorageConfiguration {
                                 remoteStorageBasePath));
             }
             return tierFactories;
-        }
-    }
-
-    /**
-     * {@link TieredStorageExclusiveBufferNumberSpec} is used to specific the exclusive buffer
-     * number of each tier in tiered storage.
-     */
-    public static class TieredStorageExclusiveBufferNumberSpec {
-
-        private final int memoryTierExclusiveBuffers;
-
-        private final int diskTierExclusiveBuffers;
-
-        private final int remoteTierExclusiveBuffers;
-
-        private final int accumulatorExclusiveBuffers;
-
-        public TieredStorageExclusiveBufferNumberSpec(
-                int memoryTierExclusiveBuffers,
-                int diskTierExclusiveBuffers,
-                int remoteTierExclusiveBuffers,
-                int accumulatorExclusiveBuffers) {
-            this.memoryTierExclusiveBuffers = memoryTierExclusiveBuffers;
-            this.diskTierExclusiveBuffers = diskTierExclusiveBuffers;
-            this.remoteTierExclusiveBuffers = remoteTierExclusiveBuffers;
-            this.accumulatorExclusiveBuffers = accumulatorExclusiveBuffers;
-        }
-
-        public int getMemoryTierExclusiveBuffers() {
-            return memoryTierExclusiveBuffers;
-        }
-
-        public int getDiskTierExclusiveBuffers() {
-            return diskTierExclusiveBuffers;
-        }
-
-        public int getRemoteTierExclusiveBuffers() {
-            return remoteTierExclusiveBuffers;
-        }
-
-        public int getAccumulatorExclusiveBuffers() {
-            return accumulatorExclusiveBuffers;
         }
     }
 }
