@@ -255,7 +255,10 @@ public class ResultPartitionBuilder {
                         sslEnabled,
                         maxOverdraftBuffersPerGate,
                         hybridShuffleSpilledIndexSegmentSize,
-                        hybridShuffleNumRetainedInMemoryRegionsMax);
+                        hybridShuffleNumRetainedInMemoryRegionsMax,
+                        null,
+                        null,
+                        null);
 
         SupplierWithException<BufferPool, IOException> factory =
                 bufferPoolFactory.orElseGet(

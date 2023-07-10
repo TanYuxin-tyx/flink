@@ -164,7 +164,10 @@ class ResultPartitionFactoryTest {
                         false,
                         0,
                         256,
-                        Long.MAX_VALUE);
+                        Long.MAX_VALUE,
+                        null,
+                        null,
+                        null);
 
         final ResultPartitionDeploymentDescriptor descriptor =
                 new ResultPartitionDeploymentDescriptor(
