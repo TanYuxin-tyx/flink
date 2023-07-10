@@ -209,6 +209,26 @@ public class TieredStorageMemoryManagerImplTest {
     }
 
     @Test
+    void testTransferBufferOwnership() throws IOException {
+        TieredStorageMemoryManagerImpl storageMemoryManager =
+                createStorageMemoryManager(
+                        1, Collections.singletonList(new TieredStorageMemorySpec(this, 0)));
+        BufferBuilder bufferBuilder = storageMemoryManager.requestBufferBlocking(this);
+        assertThat(storageMemoryManager.numOwnerRequestedBuffer(this)).isEqualTo(1);
+
+        BufferConsumer bufferConsumer = bufferBuilder.createBufferConsumerFromBeginning();
+        Buffer buffer = bufferConsumer.build();
+        bufferBuilder.close();
+        bufferConsumer.close();
+        Object newOwner = new Object();
+        storageMemoryManager.transferBufferOwnership(this, newOwner, buffer);
+        assertThat(storageMemoryManager.numOwnerRequestedBuffer(this)).isEqualTo(0);
+        assertThat(storageMemoryManager.numOwnerRequestedBuffer(newOwner)).isEqualTo(1);
+        buffer.recycleBuffer();
+        assertThat(storageMemoryManager.numOwnerRequestedBuffer(newOwner)).isEqualTo(0);
+    }
+
+    @Test
     void testReleaseBeforeRecyclingBuffers() throws IOException {
         int numBuffers = 5;
 

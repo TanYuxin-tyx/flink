@@ -109,7 +109,8 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
     }
 
     @Override
-    public boolean tryWrite(TieredStorageSubpartitionId subpartitionId, Buffer finishedBuffer) {
+    public boolean tryWrite(
+            TieredStorageSubpartitionId subpartitionId, Buffer finishedBuffer, Object bufferOwner) {
         int subpartitionIndex = subpartitionId.getSubpartitionId();
         if (currentSubpartitionWriteBuffers[subpartitionIndex] != 0
                 && currentSubpartitionWriteBuffers[subpartitionIndex] + 1 > numBuffersPerSegment) {
@@ -117,6 +118,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             currentSubpartitionWriteBuffers[subpartitionIndex] = 0;
             return false;
         }
+        memoryManager.transferBufferOwnership(bufferOwner, this, finishedBuffer);
         currentSubpartitionWriteBuffers[subpartitionIndex]++;
         addFinishedBuffer(finishedBuffer, subpartitionIndex);
         return true;

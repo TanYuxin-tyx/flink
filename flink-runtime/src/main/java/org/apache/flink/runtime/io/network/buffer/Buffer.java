@@ -88,6 +88,13 @@ public interface Buffer {
     BufferRecycler getRecycler();
 
     /**
+     * Sets the buffer's recycler.
+     *
+     * @param bufferRecycler the new buffer recycler
+     */
+    void setRecycler(BufferRecycler bufferRecycler);
+
+    /**
      * Releases this buffer once, i.e. reduces the reference count and recycles the buffer if the
      * reference count reaches <tt>0</tt>.
      *

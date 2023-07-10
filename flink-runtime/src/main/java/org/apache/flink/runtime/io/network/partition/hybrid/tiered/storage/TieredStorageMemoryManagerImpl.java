@@ -19,8 +19,10 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
+import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
@@ -201,6 +203,22 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     }
 
     @Override
+    public void transferBufferOwnership(Object oldOwner, Object newOwner, Buffer buffer) {
+        if (!buffer.isBuffer()) {
+            return;
+        }
+        AtomicInteger numOldOwnerRequested = numOwnerRequestedBuffers.get(oldOwner);
+        if (numOldOwnerRequested == null) {
+            throw new RuntimeException("Failed to transfer buffer ownership for " + oldOwner);
+        }
+        checkState(numOldOwnerRequested.decrementAndGet() >= 0);
+        numOwnerRequestedBuffers
+                .computeIfAbsent(newOwner, ignore -> new AtomicInteger(0))
+                .incrementAndGet();
+        buffer.setRecycler(getOwnerBufferRecycler(newOwner));
+    }
+
+    @Override
     public void release() {
         checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
         if (executor != null) {
@@ -274,6 +292,13 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     private void recycleBuffer(Object owner, MemorySegment buffer) {
         bufferPool.recycle(buffer);
         decNumRequestedBuffer(owner);
+    }
+
+    private BufferRecycler getOwnerBufferRecycler(Object owner) {
+        return memorySegment -> {
+            bufferPool.recycle(memorySegment);
+            decNumRequestedBuffer(owner);
+        };
     }
 
     private void checkIsInitialized() {

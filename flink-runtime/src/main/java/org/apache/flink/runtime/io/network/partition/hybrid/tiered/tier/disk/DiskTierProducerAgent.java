@@ -63,6 +63,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     private final float minReservedDiskSpaceFraction;
 
+    private final TieredStorageMemoryManager memoryManager;
+
     private final DiskCacheManager diskCacheManager;
 
     /**
@@ -89,7 +91,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             boolean isBroadcastOnly,
             PartitionFileWriter partitionFileWriter,
             PartitionFileReader partitionFileReader,
-            TieredStorageMemoryManager storageMemoryManager,
+            TieredStorageMemoryManager memoryManager,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry,
             BatchShuffleReadBufferPool bufferPool,
@@ -106,6 +108,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
         this.bufferSizeBytes = bufferSizeBytes;
         this.dataFilePath = dataFilePath;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
+        this.memoryManager = memoryManager;
         this.firstBufferIndexInSegment = new ArrayList<>();
         this.currentSubpartitionWriteBuffers = new int[numSubpartitions];
 
@@ -119,7 +122,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                 new DiskCacheManager(
                         partitionId,
                         isBroadcastOnly ? 1 : numSubpartitions,
-                        storageMemoryManager,
+                        memoryManager,
                         partitionFileWriter);
 
         this.diskIOScheduler =
@@ -156,7 +159,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     }
 
     @Override
-    public boolean tryWrite(TieredStorageSubpartitionId subpartitionId, Buffer finishedBuffer) {
+    public boolean tryWrite(
+            TieredStorageSubpartitionId subpartitionId, Buffer finishedBuffer, Object bufferOwner) {
         int subpartitionIndex = subpartitionId.getSubpartitionId();
         if (currentSubpartitionWriteBuffers[subpartitionIndex] != 0
                 && currentSubpartitionWriteBuffers[subpartitionIndex] + 1 > numBuffersPerSegment) {
@@ -164,6 +168,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             currentSubpartitionWriteBuffers[subpartitionIndex] = 0;
             return false;
         }
+        memoryManager.transferBufferOwnership(bufferOwner, this, finishedBuffer);
         currentSubpartitionWriteBuffers[subpartitionIndex]++;
         emitBuffer(finishedBuffer, subpartitionIndex);
         return true;
