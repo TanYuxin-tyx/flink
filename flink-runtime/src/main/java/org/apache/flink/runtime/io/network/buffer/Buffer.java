@@ -87,6 +87,11 @@ public interface Buffer {
      */
     BufferRecycler getRecycler();
 
+    /**
+     * Sets the buffer's recycler.
+     *
+     * @param bufferRecycler the new buffer recycler
+     */
     void setRecycler(BufferRecycler bufferRecycler);
 
     /**
