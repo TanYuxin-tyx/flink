@@ -68,6 +68,7 @@ public class NettyShuffleUtilsTest extends TestLogger {
         Optional<Integer> maxRequiredBuffersPerGate = Optional.of(Integer.MAX_VALUE);
         int sortShuffleMinParallelism = 8;
         int numSortShuffleMinBuffers = 12;
+        int tieredStoreExclusiveBuffers = 0;
 
         IntermediateDataSetID ids1 = new IntermediateDataSetID();
         IntermediateDataSetID ids2 = new IntermediateDataSetID();
@@ -99,6 +100,8 @@ public class NettyShuffleUtilsTest extends TestLogger {
                         maxRequiredBuffersPerGate,
                         sortShuffleMinParallelism,
                         numSortShuffleMinBuffers,
+                        false,
+                        tieredStoreExclusiveBuffers,
                         numInputChannels,
                         partitionReuseCount,
                         subpartitionNums,

@@ -495,6 +495,10 @@ public class ResultPartitionFactory {
                             sortShuffleMinParallelism,
                             sortShuffleMinBuffers,
                             numberOfSubpartitions,
+                            tieredStorageConfiguration != null,
+                            tieredStorageConfiguration != null
+                                    ? tieredStorageConfiguration.getTotalExclusiveBufferNum()
+                                    : 0,
                             type);
 
             return bufferPoolFactory.createBufferPool(
