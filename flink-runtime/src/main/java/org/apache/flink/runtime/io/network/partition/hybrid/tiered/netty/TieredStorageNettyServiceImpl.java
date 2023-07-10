@@ -21,22 +21,28 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
 import org.apache.flink.runtime.io.network.partition.consumer.InputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 
+import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The default implementation of {@link TieredStorageNettyService}. */
@@ -49,17 +55,15 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     private final Map<TieredStoragePartitionId, List<NettyServiceProducer>>
             registeredServiceProducers = new ConcurrentHashMap<>();
 
-    private final Map<NettyConnectionId, BufferAvailabilityListener>
-            registeredAvailabilityListeners = new ConcurrentHashMap<>();
-
     // ------------------------------------
     //          For consumer side
     // ------------------------------------
 
+    /** The initialization in consumer side is thread-safe. */
     private final Map<
                     TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
-            registeredNettyConnectionReaders = new HashMap<>();
+                    Map<TieredStorageSubpartitionId, List<NettyConnectionReaderRegistration>>>
+            nettyConnectionReaderRegistrations = new HashMap<>();
 
     private final TieredStorageResourceRegistry resourceRegistry;
 
@@ -85,9 +89,20 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     @Override
     public CompletableFuture<NettyConnectionReader> registerConsumer(
             TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
-        return registeredNettyConnectionReaders
-                .computeIfAbsent(partitionId, ignored -> new HashMap<>())
-                .computeIfAbsent(subpartitionId, ignored -> new CompletableFuture<>());
+
+        List<NettyConnectionReaderRegistration> registrations =
+                getReaderRegistration(partitionId, subpartitionId);
+        for (NettyConnectionReaderRegistration registration : registrations) {
+            Optional<CompletableFuture<NettyConnectionReader>> futureOpt =
+                    registration.trySetConsumer();
+            if (futureOpt.isPresent()) {
+                return futureOpt.get();
+            }
+        }
+
+        NettyConnectionReaderRegistration registration = new NettyConnectionReaderRegistration();
+        registrations.add(registration);
+        return registration.trySetConsumer().get();
     }
 
     /**
@@ -111,12 +126,11 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
         List<NettyConnectionId> nettyConnectionIds = new ArrayList<>();
         for (NettyServiceProducer serviceProducer : serviceProducers) {
             LinkedBlockingQueue<NettyPayload> queue = new LinkedBlockingQueue<>();
-            NettyConnectionWriterImpl writer = new NettyConnectionWriterImpl(queue);
+            NettyConnectionWriterImpl writer =
+                    new NettyConnectionWriterImpl(queue, availabilityListener);
             serviceProducer.connectionEstablished(subpartitionId, writer);
             nettyConnectionIds.add(writer.getNettyConnectionId());
             queues.add(queue);
-            registeredAvailabilityListeners.put(
-                    writer.getNettyConnectionId(), availabilityListener);
         }
         return new TieredStorageResultSubpartitionView(
                 availabilityListener,
@@ -126,32 +140,137 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
     }
 
     /**
-     * Notify the {@link ResultSubpartitionView} to send buffer.
+     * Set up input channels in {@link SingleInputGate}. The method will be invoked by the akka rpc
+     * thread at first, and then the method {@link
+     * TieredStorageNettyService#registerConsumer(TieredStoragePartitionId,
+     * TieredStorageSubpartitionId)} will be invoked by the same thread sequentially, which ensures
+     * thread safety.
      *
-     * @param connectionId connection id indicates the id of connection.
+     * @param tieredStorageConsumerSpecs specs indicates {@link TieredResultPartition} and {@link
+     *     TieredStorageSubpartitionId}.
+     * @param inputChannelProviders it provides input channels for subpartitions.
      */
-    public void notifyResultSubpartitionViewSendBuffer(NettyConnectionId connectionId) {
-        BufferAvailabilityListener listener = registeredAvailabilityListeners.get(connectionId);
-        if (listener != null) {
-            listener.notifyDataAvailable();
+    public void setupInputChannels(
+            List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
+            List<Supplier<InputChannel>> inputChannelProviders) {
+        checkState(tieredStorageConsumerSpecs.size() == inputChannelProviders.size());
+        for (int index = 0; index < tieredStorageConsumerSpecs.size(); ++index) {
+            setupInputChannel(
+                    index,
+                    tieredStorageConsumerSpecs.get(index).getPartitionId(),
+                    tieredStorageConsumerSpecs.get(index).getSubpartitionId(),
+                    inputChannelProviders.get(index));
         }
     }
 
-    public void setupInputChannels(
-            List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs,
-            List<Supplier<InputChannel>> inputChannelProviders,
-            NettyConnectionReaderAvailabilityAndPriorityHelper helper) {
-        checkState(tieredStorageConsumerSpecs.size() == inputChannelProviders.size());
-        for (int index = 0; index < tieredStorageConsumerSpecs.size(); ++index) {
-            TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
-            TieredStoragePartitionId partitionId = spec.getPartitionId();
-            TieredStorageSubpartitionId subpartitionId = spec.getSubpartitionId();
-            registeredNettyConnectionReaders
-                    .remove(partitionId)
-                    .remove(subpartitionId)
-                    .complete(
-                            new NettyConnectionReaderImpl(
-                                    index, inputChannelProviders.get(index), helper));
+    private void setupInputChannel(
+            int index,
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            Supplier<InputChannel> inputChannelProvider) {
+        List<NettyConnectionReaderRegistration> registrations =
+                getReaderRegistration(partitionId, subpartitionId);
+        boolean hasSetChannel = false;
+        for (NettyConnectionReaderRegistration registration : registrations) {
+            if (registration.trySetChannel(index, inputChannelProvider)) {
+                hasSetChannel = true;
+            }
+        }
+        if (hasSetChannel) {
+            removeRegistration(partitionId, subpartitionId);
+            return;
+        }
+
+        NettyConnectionReaderRegistration registration = new NettyConnectionReaderRegistration();
+        registration.trySetChannel(index, inputChannelProvider);
+        registrations.add(registration);
+    }
+
+    private void removeRegistration(
+            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
+        Map<TieredStorageSubpartitionId, List<NettyConnectionReaderRegistration>>
+                subpartitionRegistrations = nettyConnectionReaderRegistrations.get(partitionId);
+        subpartitionRegistrations.remove(subpartitionId);
+        if (subpartitionRegistrations.isEmpty()) {
+            nettyConnectionReaderRegistrations.remove(partitionId);
+        }
+    }
+
+    private List<NettyConnectionReaderRegistration> getReaderRegistration(
+            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
+        return nettyConnectionReaderRegistrations
+                .computeIfAbsent(partitionId, (ignore) -> new HashMap<>())
+                .computeIfAbsent(subpartitionId, (ignore) -> new ArrayList<>());
+    }
+
+    /**
+     * This class is used for pairing input channels with data consumers. Each registration consists
+     * of exactly 1 input channel and exactly 1 data consumer. Upon both input channel and data
+     * consumer are set, it creates a {@link NettyConnectionReader} through with the data consumer
+     * reads data from the input channel.
+     */
+    private static class NettyConnectionReaderRegistration {
+
+        /** This can be negative iff channel is not yet set. */
+        private int channelIndex = -1;
+
+        /** This can be null iff channel is not yet set. */
+        @Nullable private Supplier<InputChannel> channelSupplier;
+
+        /** This can be null iff reader is not yet set. */
+        @Nullable private CompletableFuture<NettyConnectionReader> readerFuture;
+
+        /**
+         * Try to set input channel.
+         *
+         * @param channelIndex the index of channel.
+         * @param channelSupplier supplier to provide channel.
+         * @return true if the channel is successfully set, or false if the registration already has
+         *     an input channel.
+         */
+        public boolean trySetChannel(int channelIndex, Supplier<InputChannel> channelSupplier) {
+            if (isChannelSet()) {
+                return false;
+            }
+
+            checkArgument(channelIndex >= 0);
+            this.channelIndex = channelIndex;
+            this.channelSupplier = checkNotNull(channelSupplier);
+
+            tryCreateNettyConnectionReader();
+
+            return true;
+        }
+
+        /**
+         * Try to set data consumer.
+         *
+         * @return a future that provides the netty connection reader upon its created, or empty if
+         *     the registration already has a consumer.
+         */
+        public Optional<CompletableFuture<NettyConnectionReader>> trySetConsumer() {
+            if (!isReaderSet()) {
+                this.readerFuture = new CompletableFuture<>();
+                return Optional.of(readerFuture);
+            }
+
+            tryCreateNettyConnectionReader();
+
+            return Optional.empty();
+        }
+
+        void tryCreateNettyConnectionReader() {
+            if (isChannelSet() && isReaderSet()) {
+                readerFuture.complete(new NettyConnectionReaderImpl(channelSupplier));
+            }
+        }
+
+        private boolean isChannelSet() {
+            return channelIndex >= 0;
+        }
+
+        private boolean isReaderSet() {
+            return readerFuture != null;
         }
     }
 }

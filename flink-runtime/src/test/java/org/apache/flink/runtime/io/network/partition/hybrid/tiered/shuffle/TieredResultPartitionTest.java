@@ -32,10 +32,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionManager;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TestingBufferAccumulator;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TestingTierProducerAgent;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.TestingTieredStorageMemoryManager;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageProducerClient;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.metrics.groups.UnregisteredMetricGroups;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
@@ -185,8 +182,6 @@ class TieredResultPartitionTest {
             int numSubpartitions, BufferPool bufferPool, boolean isBroadcastOnly)
             throws IOException {
         TestingTierProducerAgent tierProducerAgent = new TestingTierProducerAgent.Builder().build();
-        TieredStorageResourceRegistry tieredStorageResourceRegistry =
-                new TieredStorageResourceRegistry();
         TieredResultPartition tieredResultPartition =
                 new TieredResultPartition(
                         "TieredStoreResultPartitionTest",
@@ -203,11 +198,7 @@ class TieredResultPartitionTest {
                                 isBroadcastOnly,
                                 new TestingBufferAccumulator(),
                                 null,
-                                Collections.singletonList(tierProducerAgent)),
-                        tieredStorageResourceRegistry,
-                        new TieredStorageNettyServiceImpl(tieredStorageResourceRegistry),
-                        Collections.emptyList(),
-                        new TestingTieredStorageMemoryManager.Builder().build());
+                                Collections.singletonList(tierProducerAgent)), null, null, null, null);
         taskIOMetricGroup =
                 UnregisteredMetricGroups.createUnregisteredTaskMetricGroup().getIOMetricGroup();
         tieredResultPartition.setup();
