@@ -197,8 +197,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
 
     @Override
     public int numOwnerRequestedBuffer(Object owner) {
-        Integer numRequestedBuffer = numOwnerRequestedBuffers.get(owner);
-        return numRequestedBuffer == null ? 0 : numRequestedBuffer;
+        return numOwnerRequestedBuffers.getOrDefault(owner, 0);
     }
 
     @Override

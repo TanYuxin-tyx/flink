@@ -90,6 +90,11 @@ public interface Buffer {
     /**
      * Sets the buffer's recycler.
      *
+     * <p>Note that updating the recycler is an unsafe operation and this method cannot guarantee
+     * thread safety. It is important for the caller to fully understand the consequences of calling
+     * this method. Incorrectly updating the buffer recycler can result in a leak of the buffer due
+     * to using a wrong recycler to recycle buffer. Therefore, be careful when calling this method.
+     *
      * @param bufferRecycler the new buffer recycler
      */
     void setRecycler(BufferRecycler bufferRecycler);
