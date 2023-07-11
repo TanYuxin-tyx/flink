@@ -126,7 +126,9 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             return false;
         }
         currentSubpartitionWriteBuffers[subpartitionIndex]++;
-        memoryManager.transferBufferOwnership(bufferOwner, this, finishedBuffer);
+        if (finishedBuffer.isBuffer()) {
+            memoryManager.transferBufferOwnership(bufferOwner, this, finishedBuffer);
+        }
         addFinishedBuffer(finishedBuffer, subpartitionIndex);
         return true;
     }

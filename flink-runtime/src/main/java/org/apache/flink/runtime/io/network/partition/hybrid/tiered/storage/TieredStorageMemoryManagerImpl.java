@@ -22,7 +22,6 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
-import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
@@ -35,6 +34,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -56,17 +56,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManager {
 
-    /**
-     * The initial delay time in milliseconds to wait before running the task to check whether to
-     * reclaim buffers.
-     */
-    public static final int RECLAIM_BUFFERS_THREAD_INITIAL_DELAY_MS = 10;
-
-    /**
-     * The period time in milliseconds for the checking task execution, used to control the
-     * frequency of checking whether to reclaim buffers.
-     */
-    public static final int RECLAIM_BUFFERS_THREAD_PERIOD_MS = 50;
+    /** Time to wait for requesting new buffers before triggering buffer reclaiming. */
+    private static final int INITIAL_REQUEST_BUFFER_TIMEOUT_FOR_RECLAIMING_MS = 50;
 
     /** The tiered storage memory specs of each memory user owner. */
     private final Map<Object, TieredStorageMemorySpec> tieredMemorySpecs;
@@ -93,7 +84,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
      * The number of requested buffers from {@link BufferPool} for each memory owner. This field
      * should be thread-safe because it can be touched both by the task thread and the netty thread.
      */
-    private final Map<Object, AtomicInteger> numOwnerRequestedBuffers;
+    private final Map<Object, Integer> numOwnerRequestedBuffers;
 
     /**
      * This is for triggering buffer reclaiming while blocked on requesting new buffers.
@@ -130,19 +121,6 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
         this.numOwnerRequestedBuffers = new ConcurrentHashMap<>();
         this.bufferReclaimRequestListeners = new ArrayList<>();
         this.isInitialized = false;
-        if (mayReclaimBuffer) {
-            this.executor =
-                    Executors.newSingleThreadScheduledExecutor(
-                            new ThreadFactoryBuilder()
-                                    .setNameFormat("buffer reclaim checker")
-                                    .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
-                                    .build());
-            this.executor.scheduleAtFixedRate(
-                    this::reclaimBuffersIfNeeded,
-                    RECLAIM_BUFFERS_THREAD_INITIAL_DELAY_MS,
-                    RECLAIM_BUFFERS_THREAD_PERIOD_MS,
-                    TimeUnit.MILLISECONDS);
-        }
     }
 
     @Override
@@ -153,6 +131,15 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
                     !tieredMemorySpecs.containsKey(memorySpec.getOwner()),
                     "Duplicated memory spec.");
             tieredMemorySpecs.put(memorySpec.getOwner(), memorySpec);
+        }
+
+        if (mayReclaimBuffer) {
+            this.executor =
+                    Executors.newSingleThreadScheduledExecutor(
+                            new ThreadFactoryBuilder()
+                                    .setNameFormat("buffer reclaim checker")
+                                    .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
+                                    .build());
         }
 
         this.isInitialized = true;
@@ -169,12 +156,16 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
 
         reclaimBuffersIfNeeded();
 
+        CompletableFuture<Void> requestBufferFuture = new CompletableFuture<>();
+        scheduleCheckRequestBufferFuture(
+                requestBufferFuture, INITIAL_REQUEST_BUFFER_TIMEOUT_FOR_RECLAIMING_MS);
         MemorySegment memorySegment = null;
         try {
             memorySegment = bufferPool.requestMemorySegmentBlocking();
         } catch (InterruptedException e) {
             ExceptionUtils.rethrow(e);
         }
+        requestBufferFuture.complete(null);
 
         incNumRequestedBuffer(owner);
         return new BufferBuilder(
@@ -206,34 +197,21 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
 
     @Override
     public int numOwnerRequestedBuffer(Object owner) {
-        AtomicInteger numRequestedBuffer = numOwnerRequestedBuffers.get(owner);
-        return numRequestedBuffer == null ? 0 : numRequestedBuffer.get();
+        Integer numRequestedBuffer = numOwnerRequestedBuffers.get(owner);
+        return numRequestedBuffer == null ? 0 : numRequestedBuffer;
     }
 
     @Override
     public void transferBufferOwnership(Object oldOwner, Object newOwner, Buffer buffer) {
-        if (!buffer.isBuffer()) {
-            return;
-        }
-        AtomicInteger numOldOwnerRequested = numOwnerRequestedBuffers.get(oldOwner);
-        if (numOldOwnerRequested == null) {
-            throw new RuntimeException("Failed to transfer buffer ownership for " + oldOwner);
-        }
-        checkState(numOldOwnerRequested.decrementAndGet() >= 0);
-        numOwnerRequestedBuffers
-                .computeIfAbsent(newOwner, ignore -> new AtomicInteger(0))
-                .incrementAndGet();
-        buffer.setRecycler(getOwnerBufferRecycler(newOwner));
+        checkState(buffer.isBuffer(), "Only buffer supports transfer ownership.");
+        decNumRequestedBuffer(oldOwner);
+        incNumRequestedBuffer(newOwner);
+        buffer.setRecycler(memorySegment -> recycleBuffer(newOwner, memorySegment));
     }
 
     @Override
     public void release() {
         checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
-        numOwnerRequestedBuffers.forEach(
-                (owner, numOwnerRequestedBuffer) ->
-                        checkState(
-                                numOwnerRequestedBuffer.get() == 0,
-                                "Leaking buffers for " + owner.getClass()));
         if (executor != null) {
             executor.shutdown();
             try {
@@ -247,17 +225,38 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
         }
     }
 
+    private void scheduleCheckRequestBufferFuture(
+            CompletableFuture<Void> requestBufferFuture, long delayMs) {
+        if (!mayReclaimBuffer || requestBufferFuture.isDone()) {
+            return;
+        }
+        checkNotNull(executor)
+                .schedule(
+                        // The delay time will be doubled after each check to avoid checking the
+                        // future too frequently.
+                        () -> internalCheckRequestBufferFuture(requestBufferFuture, delayMs * 2),
+                        delayMs,
+                        TimeUnit.MILLISECONDS);
+    }
+
+    private void internalCheckRequestBufferFuture(
+            CompletableFuture<Void> requestBufferFuture, long delayForNextCheckMs) {
+        if (requestBufferFuture.isDone()) {
+            return;
+        }
+        reclaimBuffersIfNeeded();
+        scheduleCheckRequestBufferFuture(requestBufferFuture, delayForNextCheckMs);
+    }
+
     private void incNumRequestedBuffer(Object owner) {
-        numOwnerRequestedBuffers
-                .computeIfAbsent(owner, ignore -> new AtomicInteger(0))
-                .incrementAndGet();
+        numOwnerRequestedBuffers.compute(
+                owner, (ignore, numRequested) -> numRequested == null ? 1 : numRequested + 1);
         numRequestedBuffers.incrementAndGet();
     }
 
     private void decNumRequestedBuffer(Object owner) {
-        numOwnerRequestedBuffers
-                .computeIfAbsent(owner, ignore -> new AtomicInteger(0))
-                .decrementAndGet();
+        numOwnerRequestedBuffers.compute(
+                owner, (ignore, numRequested) -> checkNotNull(numRequested) - 1);
         numRequestedBuffers.decrementAndGet();
     }
 
@@ -283,13 +282,6 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     private void recycleBuffer(Object owner, MemorySegment buffer) {
         bufferPool.recycle(buffer);
         decNumRequestedBuffer(owner);
-    }
-
-    private BufferRecycler getOwnerBufferRecycler(Object owner) {
-        return memorySegment -> {
-            bufferPool.recycle(memorySegment);
-            decNumRequestedBuffer(owner);
-        };
     }
 
     private void checkIsInitialized() {

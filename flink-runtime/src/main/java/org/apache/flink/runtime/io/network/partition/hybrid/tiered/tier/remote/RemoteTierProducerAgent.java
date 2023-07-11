@@ -98,7 +98,9 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
             return false;
         }
         currentSubpartitionWriteBuffers[subpartitionId]++;
-        memoryManager.transferBufferOwnership(bufferOwner, this, buffer);
+        if (buffer.isBuffer()) {
+            memoryManager.transferBufferOwnership(bufferOwner, this, buffer);
+        }
         cacheDataManager.appendBuffer(buffer, subpartitionId);
         return true;
     }

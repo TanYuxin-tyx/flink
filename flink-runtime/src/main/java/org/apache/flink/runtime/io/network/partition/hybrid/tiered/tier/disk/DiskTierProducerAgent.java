@@ -171,7 +171,9 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             return false;
         }
         currentSubpartitionWriteBuffers[subpartitionId]++;
-        memoryManager.transferBufferOwnership(bufferOwner, this, finishedBuffer);
+        if (finishedBuffer.isBuffer()) {
+            memoryManager.transferBufferOwnership(bufferOwner, this, finishedBuffer);
+        }
         emitBuffer(finishedBuffer, subpartitionId);
         return true;
     }
