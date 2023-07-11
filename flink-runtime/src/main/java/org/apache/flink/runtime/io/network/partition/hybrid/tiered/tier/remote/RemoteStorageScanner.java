@@ -85,7 +85,7 @@ public class RemoteStorageScanner implements Runnable {
 
     private AvailabilityAndPriorityNotifier notifier;
 
-    private int currentIntervalMs = INITIAL_SCAN_INTERVAL_MS;
+    private int lastInterval = INITIAL_SCAN_INTERVAL_MS;
 
     public RemoteStorageScanner(String baseRemoteStoragePath) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
@@ -108,7 +108,7 @@ public class RemoteStorageScanner implements Runnable {
 
     /** Start the executor. */
     public void start() {
-        scannerExecutor.schedule(this, currentIntervalMs, TimeUnit.MILLISECONDS);
+        scannerExecutor.schedule(this, lastInterval, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -131,10 +131,14 @@ public class RemoteStorageScanner implements Runnable {
             int segmentId) {
         Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId> key =
                 Tuple2.of(partitionId, subpartitionId);
-        if (scannedMaxSegmentIds.getOrDefault(key, -1) >= segmentId) {
-            return;
-        }
-        requiredSegmentIds.put(key, segmentId);
+        scannedMaxSegmentIds.compute(
+                key,
+                (segmentKey, maxSegmentId) -> {
+                    if (maxSegmentId == null || maxSegmentId < segmentId) {
+                        requiredSegmentIds.put(segmentKey, segmentId);
+                    }
+                    return maxSegmentId;
+                });
     }
 
     /** Close the executor. */
@@ -168,8 +172,7 @@ public class RemoteStorageScanner implements Runnable {
                 scanMaxSegmentId(partitionId, subpartitionId);
             }
         }
-        currentIntervalMs =
-                scanned ? INITIAL_SCAN_INTERVAL_MS : scanStrategy.getInterval(currentIntervalMs);
+        lastInterval = scanned ? INITIAL_SCAN_INTERVAL_MS : scanStrategy.getInterval(lastInterval);
         start();
     }
 
@@ -235,11 +238,11 @@ public class RemoteStorageScanner implements Runnable {
      * The strategy is used to decide the scan interval of {@link RemoteStorageScanner}. The
      * interval will be updated at a double rate and restricted by max value.
      */
-    private static class ScanStrategy {
+    static class ScanStrategy {
 
         private final int maxScanInterval;
 
-        private ScanStrategy(int maxScanInterval) {
+        ScanStrategy(int maxScanInterval) {
             checkArgument(
                     maxScanInterval > 0,
                     "maxScanInterval must be positive, was %s",
@@ -247,9 +250,8 @@ public class RemoteStorageScanner implements Runnable {
             this.maxScanInterval = maxScanInterval;
         }
 
-        private int getInterval(int currentInterval) {
-            int nextInterval = currentInterval * 2;
-            return Math.min(nextInterval, maxScanInterval);
+        int getInterval(int lastInterval) {
+            return Math.min(lastInterval * 2, maxScanInterval);
         }
     }
 }
