@@ -26,18 +26,14 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityAndPriorityNotifier;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityNotifier;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
 import org.apache.flink.util.ExceptionUtils;
-
-import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-
-import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** The data client is used to fetch data from remote tier. */
 public class RemoteTierConsumerAgent implements TierConsumerAgent {
@@ -58,9 +54,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
     private final int bufferSizeBytes;
 
-    @Nullable private AvailabilityAndPriorityNotifier notifier;
-
-    RemoteTierConsumerAgent(
+    public RemoteTierConsumerAgent(
             RemoteStorageScanner remoteStorageScanner,
             PartitionFileReader partitionFileReader,
             int bufferSizeBytes) {
@@ -107,12 +101,6 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }
         if (buffer != null) {
-            boolean isPriority = buffer.getDataType().hasPriority();
-            checkNotNull(notifier).notifyAvailableAndPriority(
-                    partitionId,
-                    subpartitionId,
-                    isPriority,
-                    isPriority ? currentBufferIndex : null);
             currentBufferIndexAndSegmentIds
                     .get(partitionId)
                     .put(subpartitionId, Tuple2.of(++currentBufferIndex, segmentId));
@@ -122,8 +110,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
     }
 
     @Override
-    public void registerAvailabilityAndPriorityNotifier(AvailabilityAndPriorityNotifier notifier) {
-        this.notifier = notifier;
+    public void registerAvailabilityAndPriorityNotifier(AvailabilityNotifier notifier) {
         remoteStorageScanner.registerAvailabilityAndPriorityNotifier(notifier);
     }
 

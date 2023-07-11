@@ -18,14 +18,12 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory;
 
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionReader;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityAndPriorityNotifier;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityNotifier;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierConsumerAgent;
-import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.util.Map;
@@ -33,33 +31,31 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import static org.apache.flink.util.Preconditions.checkNotNull;
-
 /** The data client is used to fetch data from memory tier. */
 public class MemoryTierConsumerAgent implements TierConsumerAgent {
     private final Map<
             TieredStoragePartitionId,
-            Map<TieredStorageSubpartitionId, Tuple2<CompletableFuture<NettyConnectionReader>, Integer>>>
+            Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
             nettyConnectionReaders;
-
-    private AvailabilityAndPriorityNotifier notifier;
 
     public MemoryTierConsumerAgent(
             Map<
                     TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, Tuple2<CompletableFuture<NettyConnectionReader>, Integer>>>
+                    Map<
+                            TieredStorageSubpartitionId,
+                            CompletableFuture<NettyConnectionReader>>>
                     nettyConnectionReaders) {
         this.nettyConnectionReaders = nettyConnectionReaders;
     }
 
     @Override
     public void start() {
-        // nothing to do.
+        // noop
     }
 
     @Override
-    public void registerAvailabilityAndPriorityNotifier(AvailabilityAndPriorityNotifier notifier) {
-        this.notifier = notifier;
+    public void registerAvailabilityAndPriorityNotifier(AvailabilityNotifier notifier) {
+        // noop
     }
 
     @Override
@@ -67,29 +63,19 @@ public class MemoryTierConsumerAgent implements TierConsumerAgent {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId) {
-        Optional<Buffer> buffer = Optional.empty();
-        Tuple2<CompletableFuture<NettyConnectionReader>, Integer> readerAndBufferIndex =
-                nettyConnectionReaders.get(partitionId).get(subpartitionId);
         try {
-            buffer = readerAndBufferIndex.f0.get().readBuffer(segmentId);
+            return nettyConnectionReaders
+                    .get(partitionId)
+                    .get(subpartitionId)
+                    .get()
+                    .readBuffer(segmentId);
         } catch (InterruptedException | ExecutionException e) {
-            ExceptionUtils.rethrow(e, "Failed to read buffer from memory tier.");
+            throw new RuntimeException("Failed to get next buffer.", e);
         }
-        buffer.ifPresent(
-                value -> {
-                    boolean isPriority = value.getDataType().hasPriority();
-                    checkNotNull(notifier)
-                            .notifyAvailableAndPriority(
-                                    partitionId,
-                                    subpartitionId,
-                                    isPriority,
-                                    isPriority ? readerAndBufferIndex.f1 : null);
-                    readerAndBufferIndex.f1 += 1;
-                });
-        return buffer;
     }
+
     @Override
     public void close() throws IOException {
-        // nothing to do.
+        // noop
     }
 }

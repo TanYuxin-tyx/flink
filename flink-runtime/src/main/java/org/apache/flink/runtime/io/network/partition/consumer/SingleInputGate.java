@@ -45,7 +45,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityAndPriorityNotifier;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityNotifier;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerClient;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageConsumerSpec;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
@@ -225,6 +225,9 @@ public class SingleInputGate extends IndexedInputGate {
     // The subpartition ids in tiered storage will be null if the tiered storage is not enabled.
     @Nullable private final List<TieredStorageConsumerSpec> tieredStorageConsumerSpecs;
 
+    // The availability notifier will be null if the tiered storage is not enabled.
+    @Nullable private AvailabilityNotifier availabilityNotifier;
+
     private boolean shouldDrainOnEndOfData = true;
 
     public SingleInputGate(
@@ -279,19 +282,20 @@ public class SingleInputGate extends IndexedInputGate {
         this.tieredStorageConsumerSpecs = tieredStorageConsumerSpecs;
         this.tieredStorageConsumerClient = consumerClient;
         if (tieredStorageConsumerClient != null) {
-            this.tieredStorageConsumerClient.registerAvailabilityAndPriorityNotifier(
-                    new AvailabilityAndPriorityNotifierImpl());
             ((TieredStorageNettyServiceImpl) nettyService)
                     .setupInputChannels(tieredStorageConsumerSpecs, createInputChannelSuppliers());
+            this.availabilityNotifier = new AvailabilityNotifierImpl();
+            tieredStorageConsumerClient.registerAvailabilityNotifier(availabilityNotifier);
         }
     }
 
-    private class AvailabilityAndPriorityNotifierImpl implements AvailabilityAndPriorityNotifier {
+    /** The default implementation of {@link AvailabilityNotifier}. */
+    private class AvailabilityNotifierImpl implements AvailabilityNotifier {
 
         private final Map<TieredStoragePartitionId, Map<TieredStorageSubpartitionId, Integer>>
                 channelIndexes;
 
-        public AvailabilityAndPriorityNotifierImpl() {
+        public AvailabilityNotifierImpl() {
             this.channelIndexes = new HashMap<>();
             for (int index = 0; index < checkNotNull(tieredStorageConsumerSpecs).size(); index++) {
                 TieredStorageConsumerSpec spec = tieredStorageConsumerSpecs.get(index);
@@ -301,15 +305,10 @@ public class SingleInputGate extends IndexedInputGate {
             }
         }
 
-        public void notifyAvailableAndPriority(
-                TieredStoragePartitionId partitionId,
-                TieredStorageSubpartitionId subpartitionId,
-                boolean isPriority,
-                Integer prioritySequenceNumber) {
+        public void notifyAvailable(
+                TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId) {
             queueChannel(
-                    channels[channelIndexes.get(partitionId).get(subpartitionId)],
-                    prioritySequenceNumber,
-                    isPriority);
+                    channels[channelIndexes.get(partitionId).get(subpartitionId)], null, false);
         }
     }
 
@@ -896,10 +895,24 @@ public class SingleInputGate extends IndexedInputGate {
     }
 
     private Optional<Buffer> readBufferFromTieredStore(InputChannel inputChannel) {
-        TieredStorageConsumerSpec spec =
+        TieredStorageConsumerSpec tieredStorageConsumerSpec =
                 checkNotNull(tieredStorageConsumerSpecs).get(inputChannel.getChannelIndex());
-        return checkNotNull(tieredStorageConsumerClient)
-                .getNextBuffer(spec.getPartitionId(), spec.getSubpartitionId());
+        // If the data is available in specific partition and subpartition, read buffer through
+        // consumer client.
+        Optional<Buffer> buffer =
+                checkNotNull(tieredStorageConsumerClient)
+                        .getNextBuffer(
+                                tieredStorageConsumerSpec.getPartitionId(),
+                                tieredStorageConsumerSpec.getSubpartitionId());
+        // The data will be unavailable until an empty buffer is read from specific partition and
+        // subpartition.
+        buffer.ifPresent(
+                result ->
+                        queueChannel(
+                                checkNotNull(inputChannel),
+                                null,
+                                result.getDataType().hasPriority()));
+        return buffer;
     }
 
     private boolean enabledTieredStore() {
@@ -1050,7 +1063,16 @@ public class SingleInputGate extends IndexedInputGate {
     // ------------------------------------------------------------------------
 
     public void notifyChannelNonEmpty(InputChannel channel) {
-        queueChannel(checkNotNull(channel), null, false);
+        if (tieredStorageConsumerClient != null) {
+            TieredStorageConsumerSpec tieredStorageConsumerSpec =
+                    checkNotNull(tieredStorageConsumerSpecs).get(channel.getChannelIndex());
+            checkNotNull(availabilityNotifier)
+                    .notifyAvailable(
+                            tieredStorageConsumerSpec.getPartitionId(),
+                            tieredStorageConsumerSpec.getSubpartitionId());
+        } else {
+            queueChannel(checkNotNull(channel), null, false);
+        }
     }
 
     /**

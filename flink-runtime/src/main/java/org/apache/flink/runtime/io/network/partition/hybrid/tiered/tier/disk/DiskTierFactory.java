@@ -112,7 +112,7 @@ public class DiskTierFactory implements TierFactory {
     public TierConsumerAgent createConsumerAgent(
             Map<
                     TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, Tuple2<CompletableFuture<NettyConnectionReader>, Integer>>>
+                    Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
                     readers) {
         return new DiskTierConsumerAgent(readers);
     }

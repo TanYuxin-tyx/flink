@@ -94,11 +94,12 @@ public class TieredStorageConsumerClient {
         return Optional.of(bufferData);
     }
 
-    public void registerAvailabilityAndPriorityNotifier(AvailabilityAndPriorityNotifier notifier) {
+    public void registerAvailabilityNotifier(AvailabilityNotifier notifier) {
         for (TierConsumerAgent tierConsumerAgent : tierConsumerAgents) {
             tierConsumerAgent.registerAvailabilityAndPriorityNotifier(notifier);
         }
     }
+
 
     public void close() throws IOException {
         for (TierConsumerAgent tierConsumerAgent : tierConsumerAgents) {
@@ -124,7 +125,7 @@ public class TieredStorageConsumerClient {
                         TieredStoragePartitionId,
                         Map<
                                 TieredStorageSubpartitionId,
-                                Tuple2<CompletableFuture<NettyConnectionReader>, Integer>>>
+                                CompletableFuture<NettyConnectionReader>>>
                 nettyConnectionReaders = new HashMap<>();
         for (TieredStorageConsumerSpec spec : tieredStorageConsumerSpecs) {
             TieredStoragePartitionId partitionId = spec.getPartitionId();
@@ -133,8 +134,7 @@ public class TieredStorageConsumerClient {
                     .computeIfAbsent(partitionId, ignore -> new HashMap<>())
                     .put(
                             subpartitionId,
-                            Tuple2.of(
-                                    nettyService.registerConsumer(partitionId, subpartitionId), 0));
+                                    nettyService.registerConsumer(partitionId, subpartitionId));
         }
 
         for (TierFactory tierFactory : tierFactories) {

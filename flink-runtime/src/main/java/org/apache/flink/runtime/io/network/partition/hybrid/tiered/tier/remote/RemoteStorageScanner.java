@@ -24,7 +24,7 @@ import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityAndPriorityNotifier;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityNotifier;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -83,7 +83,7 @@ public class RemoteStorageScanner implements Runnable {
 
     private final FileSystem remoteFileSystem;
 
-    private AvailabilityAndPriorityNotifier notifier;
+    private AvailabilityNotifier notifier;
 
     private int lastInterval = INITIAL_SCAN_INTERVAL_MS;
 
@@ -163,7 +163,7 @@ public class RemoteStorageScanner implements Runnable {
                     && checkSegmentExist(partitionId, subpartitionId, requiredSegmentId)) {
                 scanned = true;
                 iterator.remove();
-                notifier.notifyAvailableAndPriority(partitionId, subpartitionId, false, null);
+                notifier.notifyAvailable(partitionId, subpartitionId);
             } else {
                 // The segment should be watched again because it's not found.
                 // If the segment belongs to other tiers and has been consumed, the segment will be
@@ -176,7 +176,7 @@ public class RemoteStorageScanner implements Runnable {
         start();
     }
 
-    public void registerAvailabilityAndPriorityNotifier(AvailabilityAndPriorityNotifier retriever) {
+    public void registerAvailabilityAndPriorityNotifier(AvailabilityNotifier retriever) {
         this.notifier = retriever;
     }
 

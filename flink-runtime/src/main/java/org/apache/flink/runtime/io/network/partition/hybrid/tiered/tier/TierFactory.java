@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier;
 
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageConfiguration;
@@ -55,6 +54,6 @@ public interface TierFactory {
     TierConsumerAgent createConsumerAgent(
             Map<
                     TieredStoragePartitionId,
-                    Map<TieredStorageSubpartitionId, Tuple2<CompletableFuture<NettyConnectionReader>, Integer>>>
+                    Map<TieredStorageSubpartitionId, CompletableFuture<NettyConnectionReader>>>
                     readers);
 }
