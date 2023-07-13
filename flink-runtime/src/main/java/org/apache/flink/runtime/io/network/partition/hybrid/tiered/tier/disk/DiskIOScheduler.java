@@ -31,7 +31,6 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyCo
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyServiceProducer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.util.FatalExitExceptionHandler;
 
 import org.slf4j.Logger;
@@ -117,10 +116,10 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     private boolean isRunning;
 
     @GuardedBy("lock")
-    private volatile int numRequestedBuffers;
+    private int numRequestedBuffers;
 
     @GuardedBy("lock")
-    private volatile boolean isReleased;
+    private boolean isReleased;
 
     public DiskIOScheduler(
             TieredStoragePartitionId partitionId,
@@ -194,7 +193,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 return;
             }
             isReleased = true;
-            allScheduledReaders.clear();
+            failScheduledReaders(
+                    new ArrayList<>(allScheduledReaders.values()),
+                    new RuntimeException("Disk readers are released unexpectedly."));
             partitionFileReader.release();
             bufferPool.unregisterRequester(this);
         }
@@ -303,7 +304,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             if (!isRunning
                     && !allScheduledReaders.isEmpty()
                     && numRequestedBuffers + bufferPool.getNumBuffersPerRequest()
-                            <= maxRequestedBuffers
+                    <= maxRequestedBuffers
                     && numRequestedBuffers < bufferPool.getAverageBuffersPerRequester()) {
                 isRunning = true;
                 ioExecutor.execute(
@@ -367,13 +368,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 Buffer buffer;
                 try {
                     if ((buffer =
-                                    partitionFileReader.readBuffer(
-                                            partitionId,
-                                            subpartitionId,
-                                            nextSegmentId,
-                                            nextBufferIndex,
-                                            memorySegment,
-                                            recycler))
+                            partitionFileReader.readBuffer(
+                                    partitionId,
+                                    subpartitionId,
+                                    nextSegmentId,
+                                    nextBufferIndex,
+                                    memorySegment,
+                                    recycler))
                             == null) {
                         buffers.add(memorySegment);
                         break;
@@ -406,7 +407,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     nextSegmentId < 0
                             ? Long.MAX_VALUE
                             : partitionFileReader.getPriority(
-                                    partitionId, subpartitionId, nextSegmentId, nextBufferIndex);
+                            partitionId, subpartitionId, nextSegmentId, nextBufferIndex);
         }
 
         private void writeToNettyConnectionWriter(NettyPayload nettyPayload) {
@@ -421,9 +422,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         }
 
         private void notifyAvailable() {
-            ((TieredStorageNettyServiceImpl) nettyService)
-                    .notifyResultSubpartitionViewSendBuffer(
-                            nettyConnectionWriter.getNettyConnectionId());
+            nettyConnectionWriter.notifyAvailable();
         }
 
         private void failReader(Throwable failureCause) {
@@ -432,9 +431,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             }
             isFailed = true;
             nettyConnectionWriter.close(failureCause);
-            ((TieredStorageNettyServiceImpl) nettyService)
-                    .notifyResultSubpartitionViewSendBuffer(
-                            nettyConnectionWriter.getNettyConnectionId());
+            nettyConnectionWriter.notifyAvailable();
         }
 
         private void updateSegmentId() {

@@ -22,22 +22,28 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyConnectionWriter;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.NettyPayload;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyService;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
+
+import javax.annotation.Nullable;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
-/** TODO. */
-public class MemoryTierSubpartitionProducerAgent {
+/** The subpartition producer agent for the memory tier. */
+class MemoryTierSubpartitionProducerAgent {
 
     private final int subpartitionId;
 
-    private int finishedBufferIndex;
-
     private final TieredStorageNettyService nettyService;
 
-    private NettyConnectionWriter nettyConnectionWriter;
+    /**
+     * The {@link NettyConnectionWriter} is used to write buffers to the netty connection.
+     *
+     * <p>Note that this field can be null before the netty connection is established.
+     */
+    @Nullable private volatile NettyConnectionWriter nettyConnectionWriter;
 
-    public MemoryTierSubpartitionProducerAgent(
+    private int finishedBufferIndex;
+
+    MemoryTierSubpartitionProducerAgent(
             int subpartitionId, TieredStorageNettyService nettyService) {
         this.subpartitionId = subpartitionId;
         this.nettyService = nettyService;
@@ -47,19 +53,9 @@ public class MemoryTierSubpartitionProducerAgent {
     //  Called by MemoryTierProducerAgent
     // ------------------------------------------------------------------------
 
-    public void registerNettyService(NettyConnectionWriter nettyConnectionWriter) {
+    void connectionEstablished(NettyConnectionWriter nettyConnectionWriter) {
         this.nettyConnectionWriter = nettyConnectionWriter;
     }
-
-    public void release() {
-        if (nettyConnectionWriter != null) {
-            nettyConnectionWriter.close(null);
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    //  Internal Methods
-    // ------------------------------------------------------------------------
 
     void addFinishedBuffer(Buffer buffer) {
         NettyPayload toAddBuffer =
@@ -67,19 +63,26 @@ public class MemoryTierSubpartitionProducerAgent {
         addFinishedBuffer(toAddBuffer);
     }
 
-    void addSegmentBufferContext(int segmentId) {
+    void updateSegmentId(int segmentId) {
         NettyPayload segmentNettyPayload = NettyPayload.newSegment(segmentId);
         addFinishedBuffer(segmentNettyPayload);
     }
 
+    void release() {
+        if (nettyConnectionWriter != null) {
+            checkNotNull(nettyConnectionWriter).close(null);
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    //  Internal Methods
+    // ------------------------------------------------------------------------
+
     private void addFinishedBuffer(NettyPayload nettyPayload) {
         finishedBufferIndex++;
         checkNotNull(nettyConnectionWriter).writeBuffer(nettyPayload);
-        if (nettyConnectionWriter.numQueuedBuffers() <= 1
-                && nettyService.getClass() == TieredStorageNettyServiceImpl.class) {
-            ((TieredStorageNettyServiceImpl) nettyService)
-                    .notifyResultSubpartitionViewSendBuffer(
-                            nettyConnectionWriter.getNettyConnectionId());
+        if (checkNotNull(nettyConnectionWriter).numQueuedBuffers() <= 1) {
+            checkNotNull(nettyConnectionWriter).notifyAvailable();
         }
     }
 }

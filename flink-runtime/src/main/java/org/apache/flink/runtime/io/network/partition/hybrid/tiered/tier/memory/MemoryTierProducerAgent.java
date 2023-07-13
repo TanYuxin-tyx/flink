@@ -108,7 +108,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
                                         - memoryManager.numOwnerRequestedBuffer(this))
                                 > numBuffersPerSegment;
         if (canStartNewSegment || forceUseCurrentTier) {
-            subpartitionProducerAgents[subpartitionId.getSubpartitionId()].addSegmentBufferContext(
+            subpartitionProducerAgents[subpartitionId.getSubpartitionId()].updateSegmentId(
                     segmentId);
         }
         return canStartNewSegment || forceUseCurrentTier;
@@ -137,7 +137,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
     public void connectionEstablished(
             TieredStorageSubpartitionId subpartitionId,
             NettyConnectionWriter nettyConnectionWriter) {
-        this.subpartitionProducerAgents[subpartitionId.getSubpartitionId()].registerNettyService(
+        this.subpartitionProducerAgents[subpartitionId.getSubpartitionId()].connectionEstablished(
                 nettyConnectionWriter);
         nettyServiceRegistered[subpartitionId.getSubpartitionId()] = true;
     }

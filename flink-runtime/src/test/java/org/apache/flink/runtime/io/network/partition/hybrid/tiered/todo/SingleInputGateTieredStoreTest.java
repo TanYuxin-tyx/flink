@@ -1416,7 +1416,7 @@ public class SingleInputGateTieredStoreTest extends InputGateTestBase {
                         gateDesc,
                         SingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
                         newUnregisteredInputChannelMetrics(),
-                        new TieredStorageNettyServiceImpl());
+                        new TieredStorageNettyServiceImpl(null));
     }
 
     private static Map<InputGateID, SingleInputGate> createInputGateWithLocalChannels(

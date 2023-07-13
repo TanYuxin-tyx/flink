@@ -283,7 +283,7 @@ public class StreamNetworkBenchmarkEnvironment<T extends IOReadableWritable> {
                         gateDescriptor,
                         SingleInputGateBuilder.NO_OP_PRODUCER_CHECKER,
                         newUnregisteredInputChannelMetrics(),
-                        new TieredStorageNettyServiceImpl());
+                        new TieredStorageNettyServiceImpl(null));
 
         return new InputGateWithMetrics(singleGate, new SimpleCounter());
     }

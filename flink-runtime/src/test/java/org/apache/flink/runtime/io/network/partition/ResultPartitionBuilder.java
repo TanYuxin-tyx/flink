@@ -301,6 +301,6 @@ public class ResultPartitionBuilder {
                 numTargetKeyGroups,
                 isBroadcast,
                 new TieredStorageResourceRegistry(),
-                new TieredStorageNettyServiceImpl());
+                new TieredStorageNettyServiceImpl(null));
     }
 }

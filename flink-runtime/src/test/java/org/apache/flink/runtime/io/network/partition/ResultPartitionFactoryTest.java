@@ -187,7 +187,7 @@ class ResultPartitionFactoryTest {
 
         final ResultPartition partition =
                 factory.create(
-                        new JobID(), "test", 0, descriptor, new TieredStorageResourceRegistry(), new TieredStorageNettyServiceImpl());
+                        new JobID(), "test", 0, descriptor, new TieredStorageResourceRegistry(), new TieredStorageNettyServiceImpl(null));
         manager.registerResultPartition(partition);
 
         return partition;
