@@ -24,6 +24,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
+import org.apache.flink.runtime.io.network.partition.hybrid.region.FileRegionManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
@@ -40,7 +41,6 @@ import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.positionToNextBuffer;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
-import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFileIndex.Region;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -192,7 +192,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             Tuple2<TieredStorageSubpartitionId, Integer> cacheKey, boolean removeKey) {
         BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
         if (bufferOffsetCache == null) {
-            Optional<Region> regionOpt = dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
+            Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> regionOpt =
+                    dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
             return regionOpt.map(region -> new BufferOffsetCache(cacheKey.f1, region));
         } else {
             if (removeKey) {
@@ -209,15 +210,15 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      * includes file offset of the buffer index, the region containing the buffer index and next
      * buffer index to consume.
      */
-    private class BufferOffsetCache {
+    private class BufferOffsetCache<T extends FileRegionManager.Region> {
 
-        private final Region region;
+        private final T region;
 
         private long fileOffset;
 
         private int nextBufferIndex;
 
-        private BufferOffsetCache(int bufferIndex, Region region) {
+        private BufferOffsetCache(int bufferIndex, T region) {
             this.nextBufferIndex = bufferIndex;
             this.region = region;
             moveFileOffsetToBuffer(bufferIndex);

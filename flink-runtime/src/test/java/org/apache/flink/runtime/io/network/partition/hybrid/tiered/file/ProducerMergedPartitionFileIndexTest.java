@@ -102,7 +102,7 @@ class ProducerMergedPartitionFileIndexTest {
         for (int i = 0; i < numSubpartitions; i++) {
             subpartitionFirstBufferIndexes.add(new HashSet<>());
             for (int j = 0; j <= maxBufferIndex; j++) {
-                Optional<ProducerMergedPartitionFileIndex.Region> region =
+                Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> region =
                         partitionFileIndex.getRegion(new TieredStorageSubpartitionId(i), j);
                 if (region.isPresent()) {
                     subpartitionFirstBufferIndexes.get(i).add(region.get().getFirstBufferIndex());

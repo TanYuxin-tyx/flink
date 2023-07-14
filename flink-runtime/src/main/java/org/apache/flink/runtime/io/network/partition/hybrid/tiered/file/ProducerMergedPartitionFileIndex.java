@@ -18,7 +18,10 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
-import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
+import org.apache.flink.runtime.io.network.partition.hybrid.HsRegionWriteReadUtils;
+import org.apache.flink.runtime.io.network.partition.hybrid.region.FileDataIndexCache;
+import org.apache.flink.runtime.io.network.partition.hybrid.region.FileDataIndexSpilledRegionManagerImpl;
+import org.apache.flink.runtime.io.network.partition.hybrid.region.FileRegionManager;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.IOUtils;
@@ -27,7 +30,6 @@ import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -37,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.flink.runtime.io.network.partition.hybrid.HsRegionWriteReadUtils.allocateAndConfigureBuffer;
 import static org.apache.flink.util.Preconditions.checkArgument;
 
 /**
@@ -46,7 +49,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  *
  * <p>For efficiency, buffers from the same subpartition that are both logically (i.e. index in the
  * subpartition) and physically (i.e. offset in the file) consecutive are combined into a {@link
- * Region}.
+ * FileRegionManager.Region}.
  *
  * <pre>For example, the following buffers (indicated by subpartitionId-bufferIndex):
  *   1-1, 1-2, 1-3, 2-1, 2-2, 2-5, 1-4, 1-5, 2-6
@@ -65,23 +68,26 @@ public class ProducerMergedPartitionFileIndex {
      * to ensure the thread safety.
      */
     @GuardedBy("lock")
-    private final ProducerMergedPartitionFileIndexCache indexCache;
+    private final FileDataIndexCache<FixedSizeRegion> indexCache;
 
     private final Object lock = new Object();
 
     public ProducerMergedPartitionFileIndex(
             int numSubpartitions,
             Path indexFilePath,
-            int spilledIndexSegmentSize,
+            int regionGroupSizeInBytes,
             long numRetainedInMemoryRegionsMax) {
         this.indexFilePath = indexFilePath;
         this.indexCache =
-                new ProducerMergedPartitionFileIndexCache(
+                new FileDataIndexCache<>(
                         numSubpartitions,
                         indexFilePath,
                         numRetainedInMemoryRegionsMax,
-                        new ProducerMergedPartitionFileIndexFlushManager.Factory(
-                                spilledIndexSegmentSize, numRetainedInMemoryRegionsMax));
+                        new FileDataIndexSpilledRegionManagerImpl.Factory<>(
+                                regionGroupSizeInBytes,
+                                numRetainedInMemoryRegionsMax,
+                                FixedSizeRegion.REGION_SIZE,
+                                ProducerMergedPartitionFileRegionManagerImpl.INSTANCE));
     }
 
     /**
@@ -95,20 +101,21 @@ public class ProducerMergedPartitionFileIndex {
             return;
         }
 
-        Map<Integer, List<Region>> convertedRegions = convertToRegions(buffers);
+        Map<Integer, List<FixedSizeRegion>> convertedRegions = convertToRegions(buffers);
         synchronized (lock) {
             convertedRegions.forEach(indexCache::put);
         }
     }
 
     /**
-     * Get the subpartition's {@link Region} containing the specific buffer index.
+     * Get the subpartition's {@link FixedSizeRegion} containing the specific buffer index.
      *
      * @param subpartitionId the subpartition id
      * @param bufferIndex the buffer index
      * @return the region containing the buffer index, or return emtpy if the region is not found.
      */
-    Optional<Region> getRegion(TieredStorageSubpartitionId subpartitionId, int bufferIndex) {
+    Optional<FixedSizeRegion> getRegion(
+            TieredStorageSubpartitionId subpartitionId, int bufferIndex) {
         synchronized (lock) {
             return indexCache.get(subpartitionId.getSubpartitionId(), bufferIndex);
         }
@@ -129,8 +136,9 @@ public class ProducerMergedPartitionFileIndex {
     //  Internal Methods
     // ------------------------------------------------------------------------
 
-    private static Map<Integer, List<Region>> convertToRegions(List<FlushedBuffer> buffers) {
-        Map<Integer, List<Region>> subpartitionRegionMap = new HashMap<>();
+    private static Map<Integer, List<FixedSizeRegion>> convertToRegions(
+            List<FlushedBuffer> buffers) {
+        Map<Integer, List<FixedSizeRegion>> subpartitionRegionMap = new HashMap<>();
         Iterator<FlushedBuffer> iterator = buffers.iterator();
         FlushedBuffer firstBufferInRegion = iterator.next();
         FlushedBuffer lastBufferInRegion = firstBufferInRegion;
@@ -154,7 +162,7 @@ public class ProducerMergedPartitionFileIndex {
     private static void addRegionToMap(
             FlushedBuffer firstBufferInRegion,
             FlushedBuffer lastBufferInRegion,
-            Map<Integer, List<Region>> subpartitionRegionMap) {
+            Map<Integer, List<FixedSizeRegion>> subpartitionRegionMap) {
         checkArgument(
                 firstBufferInRegion.getSubpartitionId() == lastBufferInRegion.getSubpartitionId());
         checkArgument(firstBufferInRegion.getBufferIndex() <= lastBufferInRegion.getBufferIndex());
@@ -162,61 +170,12 @@ public class ProducerMergedPartitionFileIndex {
         subpartitionRegionMap
                 .computeIfAbsent(firstBufferInRegion.getSubpartitionId(), ArrayList::new)
                 .add(
-                        new Region(
+                        new FixedSizeRegion(
                                 firstBufferInRegion.getBufferIndex(),
                                 firstBufferInRegion.getFileOffset(),
                                 lastBufferInRegion.getBufferIndex()
                                         - firstBufferInRegion.getBufferIndex()
                                         + 1));
-    }
-
-    /**
-     * Allocate a buffer with specific size and configure it to native order.
-     *
-     * @param bufferSize the size of buffer to allocate.
-     * @return a native order buffer with expected size.
-     */
-    public static ByteBuffer allocateAndConfigureBuffer(int bufferSize) {
-        ByteBuffer buffer = ByteBuffer.allocateDirect(bufferSize);
-        buffer.order(ByteOrder.nativeOrder());
-        return buffer;
-    }
-
-    /**
-     * Write {@link Region} to {@link FileChannel}.
-     *
-     * @param channel the file's channel to write.
-     * @param regionBuffer the buffer to write {@link Region}'s header.
-     * @param region the region to be written to channel.
-     */
-    public static void writeRegionToFile(
-            FileChannel channel, ByteBuffer regionBuffer, Region region) throws IOException {
-        // write header buffer.
-        regionBuffer.clear();
-        regionBuffer.putInt(region.getFirstBufferIndex());
-        regionBuffer.putInt(region.getNumBuffers());
-        regionBuffer.putLong(region.getRegionFileOffset());
-        regionBuffer.flip();
-        BufferReaderWriterUtil.writeBuffers(channel, regionBuffer.capacity(), regionBuffer);
-    }
-
-    /**
-     * Read {@link Region} from {@link FileChannel}.
-     *
-     * @param channel the channel to read.
-     * @param regionBuffer the buffer to read {@link Region}'s header.
-     * @param position position to start read.
-     * @return the {@link Region} that read from this channel.
-     */
-    public static Region readRegionFromFile(
-            FileChannel channel, ByteBuffer regionBuffer, long position) throws IOException {
-        regionBuffer.clear();
-        BufferReaderWriterUtil.readByteBufferFully(channel, regionBuffer, position);
-        regionBuffer.flip();
-        int firstBufferIndex = regionBuffer.getInt();
-        int numBuffers = regionBuffer.getInt();
-        long firstBufferOffset = regionBuffer.getLong();
-        return new Region(firstBufferIndex, firstBufferOffset, numBuffers);
     }
 
     // ------------------------------------------------------------------------
@@ -254,6 +213,38 @@ public class ProducerMergedPartitionFileIndex {
     }
 
     /**
+     * The implementation of {@link FileRegionManager} to writing a region to the file or reading a
+     * region from the file.
+     *
+     * <p>Note that this type of region's length is fixed.
+     */
+    static class ProducerMergedPartitionFileRegionManagerImpl<T extends FileRegionManager.Region>
+            implements FileRegionManager<T> {
+
+        /** Reusable buffer used to read and write the immutable part of region. */
+        private final ByteBuffer regionBuffer =
+                allocateAndConfigureBuffer(FixedSizeRegion.REGION_SIZE);
+
+        static final FileRegionManager<FixedSizeRegion> INSTANCE =
+                new ProducerMergedPartitionFileRegionManagerImpl<>();
+
+        private ProducerMergedPartitionFileRegionManagerImpl() {}
+
+        @Override
+        public void writeRegionToFile(FileChannel channel, T region) throws IOException {
+            HsRegionWriteReadUtils.writeFixedSizeRegionToFile(channel, regionBuffer, region);
+        }
+
+        @Override
+        public T readRegionFromFile(FileChannel channel, long fileOffset) throws IOException {
+            FileRegionManager.Region region =
+                    HsRegionWriteReadUtils.readFixedSizeRegionFromFile(
+                            channel, regionBuffer, fileOffset);
+            return (T) region;
+        }
+    }
+
+    /**
      * Represents a series of buffers that are:
      *
      * <ul>
@@ -261,13 +252,15 @@ public class ProducerMergedPartitionFileIndex {
      *   <li>Logically (i.e. buffer index) consecutive
      *   <li>Physically (i.e. offset in the file) consecutive
      * </ul>
+     *
+     * <p>Note that the region has a fixed size.
      */
-    static class Region {
+    public static class FixedSizeRegion implements FileRegionManager.Region {
 
         /**
          * The region size is fixed, including firstBufferIndex, regionFileOffset and numBuffers.
          */
-        static final int REGION_SIZE = Integer.BYTES + Long.BYTES + Integer.BYTES;
+        public static final int REGION_SIZE = Integer.BYTES + Long.BYTES + Integer.BYTES;
 
         /** The buffer index of first buffer. */
         private final int firstBufferIndex;
@@ -278,25 +271,35 @@ public class ProducerMergedPartitionFileIndex {
         /** The number of buffers that the region contains. */
         private final int numBuffers;
 
-        Region(int firstBufferIndex, long regionFileOffset, int numBuffers) {
+        public FixedSizeRegion(int firstBufferIndex, long regionFileOffset, int numBuffers) {
             this.firstBufferIndex = firstBufferIndex;
             this.regionFileOffset = regionFileOffset;
             this.numBuffers = numBuffers;
         }
 
-        boolean containBuffer(int bufferIndex) {
+        @Override
+        public boolean containBuffer(int bufferIndex) {
             return bufferIndex >= firstBufferIndex && bufferIndex < firstBufferIndex + numBuffers;
         }
 
-        long getRegionFileOffset() {
+        /** Get the total size in bytes of this region, including the fields and the buffers. */
+        @Override
+        public int getSize() {
+            return REGION_SIZE + numBuffers;
+        }
+
+        @Override
+        public long getRegionFileOffset() {
             return regionFileOffset;
         }
 
-        int getNumBuffers() {
+        @Override
+        public int getNumBuffers() {
             return numBuffers;
         }
 
-        int getFirstBufferIndex() {
+        @Override
+        public int getFirstBufferIndex() {
             return firstBufferIndex;
         }
     }
