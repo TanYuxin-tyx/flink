@@ -202,7 +202,8 @@ public class NettyShuffleServiceFactory
         TieredStorageResourceRegistry tieredStorageResourceRegistry = null;
         if (tieredStorageConfiguration != null) {
             tieredStorageResourceRegistry = new TieredStorageResourceRegistry();
-            tieredStorageNettyService = new TieredStorageNettyServiceImpl(tieredStorageResourceRegistry);
+            tieredStorageNettyService =
+                    new TieredStorageNettyServiceImpl(tieredStorageResourceRegistry);
         }
         ResultPartitionFactory resultPartitionFactory =
                 new ResultPartitionFactory(
@@ -222,7 +223,7 @@ public class NettyShuffleServiceFactory
                         config.sortShuffleMinParallelism(),
                         config.isSSLEnabled(),
                         config.getMaxOverdraftBuffersPerGate(),
-                        config.getHybridShuffleSpilledIndexSegmentSize(),
+                        config.getHybridShuffleSpilledIndexRegionGroupSize(),
                         config.getHybridShuffleNumRetainedInMemoryRegionsMax(),
                         tieredStorageConfiguration,
                         tieredStorageNettyService,
@@ -237,8 +238,7 @@ public class NettyShuffleServiceFactory
                         taskEventPublisher,
                         networkBufferPool,
                         tieredStorageConfiguration,
-                        tieredStorageNettyService
-                );
+                        tieredStorageNettyService);
 
         return new NettyShuffleEnvironment(
                 taskExecutorResourceId,

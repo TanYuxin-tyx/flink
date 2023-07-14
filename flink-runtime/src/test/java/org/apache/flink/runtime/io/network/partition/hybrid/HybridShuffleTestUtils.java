@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsFileDataIndexImpl.InternalRegion;
+import org.apache.flink.runtime.io.network.partition.hybrid.region.FileRegionManager;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -100,10 +101,15 @@ public class HybridShuffleTestUtils {
         return regions;
     }
 
-    public static void assertRegionEquals(InternalRegion expected, InternalRegion region) {
+    public static void assertRegionEquals(
+            FileRegionManager.Region expected, FileRegionManager.Region region) {
         assertThat(region.getFirstBufferIndex()).isEqualTo(expected.getFirstBufferIndex());
-        assertThat(region.getFirstBufferOffset()).isEqualTo(expected.getFirstBufferOffset());
-        assertThat(region.getNumBuffers()).isEqualTo(region.getNumBuffers());
-        assertThat(region.getReleased()).isEqualTo(region.getReleased());
+        assertThat(region.getRegionFileOffset()).isEqualTo(expected.getRegionFileOffset());
+        assertThat(region.getNumBuffers()).isEqualTo(expected.getNumBuffers());
+        if (expected instanceof InternalRegion) {
+            assertThat(region).isInstanceOf(InternalRegion.class);
+            assertThat(((InternalRegion) region).getReleased())
+                    .isEqualTo(((InternalRegion) expected).getReleased());
+        }
     }
 }
