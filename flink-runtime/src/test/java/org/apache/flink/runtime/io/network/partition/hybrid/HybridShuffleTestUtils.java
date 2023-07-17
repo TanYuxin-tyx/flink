@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsFileDataIndexImpl.InternalRegion;
 import org.apache.flink.runtime.io.network.partition.hybrid.index.FileDataIndexRegionHelper;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.ProducerMergedPartitionFileIndex;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -81,6 +82,12 @@ public class HybridShuffleTestUtils {
                 firstBufferOffset,
                 numBuffersPerRegion,
                 new boolean[numBuffersPerRegion]);
+    }
+
+    public static FileDataIndexRegionHelper.Region createSingleFixedSizeRegion(
+            int firstBufferIndex, long firstBufferOffset, int numBuffersPerRegion) {
+        return new ProducerMergedPartitionFileIndex.FixedSizeRegion(
+                firstBufferIndex, firstBufferOffset, numBuffersPerRegion);
     }
 
     public static List<InternalRegion> createAllUnreleasedRegions(

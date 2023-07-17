@@ -31,7 +31,7 @@ public class TestingProducerMergedPartitionFileIndex extends ProducerMergedParti
 
     private final Consumer<List<FlushedBuffer>> addBuffersConsumer;
 
-    private final BiFunction<TieredStorageSubpartitionId, Integer, Optional<Region>>
+    private final BiFunction<TieredStorageSubpartitionId, Integer, Optional<FixedSizeRegion>>
             getRegionFunction;
 
     private final Runnable releaseRunnable;
@@ -39,15 +39,16 @@ public class TestingProducerMergedPartitionFileIndex extends ProducerMergedParti
     private TestingProducerMergedPartitionFileIndex(
             int numSubpartitions,
             Path indexFilePath,
-            int spilledIndexSegmentSize,
+            int regionGroupSizeInBytes,
             long numRetainedInMemoryRegionsMax,
             Consumer<List<FlushedBuffer>> addBuffersConsumer,
-            BiFunction<TieredStorageSubpartitionId, Integer, Optional<Region>> getRegionFunction,
+            BiFunction<TieredStorageSubpartitionId, Integer, Optional<FixedSizeRegion>>
+                    getRegionFunction,
             Runnable releaseRunnable) {
         super(
                 numSubpartitions,
                 indexFilePath,
-                spilledIndexSegmentSize,
+                regionGroupSizeInBytes,
                 numRetainedInMemoryRegionsMax);
         this.addBuffersConsumer = addBuffersConsumer;
         this.getRegionFunction = getRegionFunction;
@@ -60,7 +61,8 @@ public class TestingProducerMergedPartitionFileIndex extends ProducerMergedParti
     }
 
     @Override
-    Optional<Region> getRegion(TieredStorageSubpartitionId subpartitionId, int bufferIndex) {
+    Optional<FixedSizeRegion> getRegion(
+            TieredStorageSubpartitionId subpartitionId, int bufferIndex) {
         return getRegionFunction.apply(subpartitionId, bufferIndex);
     }
 
@@ -76,13 +78,13 @@ public class TestingProducerMergedPartitionFileIndex extends ProducerMergedParti
 
         private Path indexFilePath = null;
 
-        private int spilledIndexSegmentSize = 256;
+        private int regionGroupSizeInBytes = 256;
 
         private long numRetainedInMemoryRegionsMax = Long.MAX_VALUE;
 
         private Consumer<List<FlushedBuffer>> addBuffersConsumer = flushedBuffers -> {};
 
-        private BiFunction<TieredStorageSubpartitionId, Integer, Optional<Region>>
+        private BiFunction<TieredStorageSubpartitionId, Integer, Optional<FixedSizeRegion>>
                 getRegionFunction = (tieredStorageSubpartitionId, integer) -> Optional.empty();
 
         private Runnable releaseRunnable = () -> {};
@@ -101,9 +103,9 @@ public class TestingProducerMergedPartitionFileIndex extends ProducerMergedParti
             return this;
         }
 
-        public TestingProducerMergedPartitionFileIndex.Builder setSpilledIndexSegmentSize(
-                int spilledIndexSegmentSize) {
-            this.spilledIndexSegmentSize = spilledIndexSegmentSize;
+        public TestingProducerMergedPartitionFileIndex.Builder setRegionGroupSizeInBytes(
+                int regionGroupSizeInBytes) {
+            this.regionGroupSizeInBytes = regionGroupSizeInBytes;
             return this;
         }
 
@@ -120,7 +122,7 @@ public class TestingProducerMergedPartitionFileIndex extends ProducerMergedParti
         }
 
         public TestingProducerMergedPartitionFileIndex.Builder setGetRegionFunction(
-                BiFunction<TieredStorageSubpartitionId, Integer, Optional<Region>>
+                BiFunction<TieredStorageSubpartitionId, Integer, Optional<FixedSizeRegion>>
                         getRegionFunction) {
             this.getRegionFunction = getRegionFunction;
             return this;
@@ -136,7 +138,7 @@ public class TestingProducerMergedPartitionFileIndex extends ProducerMergedParti
             return new TestingProducerMergedPartitionFileIndex(
                     numSubpartitions,
                     indexFilePath,
-                    spilledIndexSegmentSize,
+                    regionGroupSizeInBytes,
                     numRetainedInMemoryRegionsMax,
                     addBuffersConsumer,
                     getRegionFunction,

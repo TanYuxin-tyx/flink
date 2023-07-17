@@ -50,7 +50,7 @@ public class DiskTierFactory implements TierFactory {
 
     private final int bufferSizeBytes;
 
-    private final int numSpilledIndexSegmentSize;
+    private final int regionGroupSizeInBytes;
 
     private final long numRetainedInMemoryRegionsMax;
 
@@ -59,12 +59,12 @@ public class DiskTierFactory implements TierFactory {
     public DiskTierFactory(
             int numBytesPerSegment,
             int bufferSizeBytes,
-            int numSpilledIndexSegmentSize,
+            int regionGroupSizeInBytes,
             long numRetainedInMemoryRegionsMax,
             float minReservedDiskSpaceFraction) {
         this.numBytesPerSegment = numBytesPerSegment;
         this.bufferSizeBytes = bufferSizeBytes;
-        this.numSpilledIndexSegmentSize = numSpilledIndexSegmentSize;
+        this.regionGroupSizeInBytes = regionGroupSizeInBytes;
         this.numRetainedInMemoryRegionsMax = numRetainedInMemoryRegionsMax;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
     }
@@ -92,7 +92,7 @@ public class DiskTierFactory implements TierFactory {
                 new ProducerMergedPartitionFileIndex(
                         isBroadcastOnly ? 1 : numSubpartitions,
                         Paths.get(dataFileBasePath + INDEX_FILE_SUFFIX),
-                        numSpilledIndexSegmentSize,
+                        regionGroupSizeInBytes,
                         numRetainedInMemoryRegionsMax);
         Path dataFilePath = Paths.get(dataFileBasePath + DATA_FILE_SUFFIX);
         ProducerMergedPartitionFileWriter partitionFileWriter =
