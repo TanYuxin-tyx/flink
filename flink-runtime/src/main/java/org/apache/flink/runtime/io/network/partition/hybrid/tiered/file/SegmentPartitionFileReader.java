@@ -111,7 +111,7 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             openedChannelAndSegmentIds.get(partitionId).remove(subpartitionId);
             return new NetworkBuffer(memorySegment, recycler, Buffer.DataType.END_OF_SEGMENT);
         }
-        reusedHeaderBuffer.rewind();
+        reusedHeaderBuffer.flip();
         BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
         int dataBufferResult = channel.read(memorySegment.wrap(0, header.getLength()));
         if (dataBufferResult != header.getLength()) {
