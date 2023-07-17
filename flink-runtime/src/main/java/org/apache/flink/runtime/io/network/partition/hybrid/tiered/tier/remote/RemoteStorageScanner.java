@@ -26,8 +26,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.AvailabilityNotifier;
 import org.apache.flink.util.ExceptionUtils;
+import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 
-import org.apache.flink.shaded.guava30.com.google.common.util.concurrent.ThreadFactoryBuilder;
+import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -40,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentFinishDirPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentPath;
 import static org.apache.flink.util.Preconditions.checkArgument;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -61,10 +63,8 @@ public class RemoteStorageScanner implements Runnable {
 
     /** Executor to scan the existence status of segment files on remote storage. */
     private final ScheduledExecutorService scannerExecutor =
-            Executors.newSingleThreadScheduledExecutor(
-                    new ThreadFactoryBuilder()
-                            .setNameFormat("remote storage file scanner")
-                            .build());
+            Executors.newScheduledThreadPool(
+                    1, new ExecutorThreadFactory("remote storage scanner"));
 
     /** The key is partition id and subpartition id, the value is required segment id. */
     private final Map<Tuple2<TieredStoragePartitionId, TieredStorageSubpartitionId>, Integer>
@@ -83,7 +83,7 @@ public class RemoteStorageScanner implements Runnable {
 
     private final FileSystem remoteFileSystem;
 
-    private AvailabilityNotifier notifier;
+    @Nullable private AvailabilityNotifier notifier;
 
     private int lastInterval = INITIAL_SCAN_INTERVAL_MS;
 
@@ -163,7 +163,7 @@ public class RemoteStorageScanner implements Runnable {
                     && checkSegmentExist(partitionId, subpartitionId, requiredSegmentId)) {
                 scanned = true;
                 iterator.remove();
-                notifier.notifyAvailable(partitionId, subpartitionId);
+                checkNotNull(notifier).notifyAvailable(partitionId, subpartitionId);
             } else {
                 // The segment should be watched again because it's not found.
                 // If the segment belongs to other tiers and has been consumed, the segment will be

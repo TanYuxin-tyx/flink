@@ -98,6 +98,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                             memorySegment,
                             FreeingBufferRecycler.INSTANCE);
         } catch (IOException e) {
+            memorySegment.free();
             ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }
         if (buffer != null) {
