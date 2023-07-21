@@ -39,7 +39,8 @@ public interface TierProducerAgent extends AutoCloseable {
      * @param segmentId id of the new segment
      * @return true if the segment can be started, false otherwise.
      */
-    boolean tryStartNewSegment(TieredStorageSubpartitionId subpartitionId, int segmentId);
+    boolean tryStartNewSegment(
+            TieredStorageSubpartitionId subpartitionId, int segmentId, StringBuilder sb);
 
     /**
      * Writes the finished {@link Buffer} to the consumer.

@@ -24,9 +24,11 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.SortB
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskIOScheduler;
-import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory.MemoryTierFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierFactory;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -34,6 +36,8 @@ import java.util.List;
 
 /** Configurations for the Tiered Storage. */
 public class TieredStorageConfiguration {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TieredStorageConfiguration.class);
 
     private static final String DEFAULT_REMOTE_STORAGE_BASE_PATH = null;
 
@@ -288,6 +292,11 @@ public class TieredStorageConfiguration {
     }
 
     public List<TierFactory> getTierFactories() {
+        StringBuilder sb = new StringBuilder();
+        for (TierFactory tierFactory : tierFactories) {
+            sb.append(tierFactory.getClass().toString()).append(" ");
+        }
+        LOG.info("tierFactories num: " + tierFactories.size() + " " + sb.toString());
         return tierFactories;
     }
 
@@ -431,14 +440,14 @@ public class TieredStorageConfiguration {
             tierFactories.add(
                     new MemoryTierFactory(memoryTierNumBytesPerSegment, tieredStorageBufferSize));
             tierExclusiveBuffers.add(memoryTierExclusiveBuffers);
-            tierFactories.add(
-                    new DiskTierFactory(
-                            diskTierNumBytesPerSegment,
-                            tieredStorageBufferSize,
-                            minReserveDiskSpaceFraction,
-                            regionGroupSizeInBytes,
-                            numRetainedInMemoryRegionsMax));
-            tierExclusiveBuffers.add(diskTierExclusiveBuffers);
+            //            tierFactories.add(
+            //                    new DiskTierFactory(
+            //                            diskTierNumBytesPerSegment,
+            //                            tieredStorageBufferSize,
+            //                            minReserveDiskSpaceFraction,
+            //                            regionGroupSizeInBytes,
+            //                            numRetainedInMemoryRegionsMax));
+            //            tierExclusiveBuffers.add(diskTierExclusiveBuffers);
             if (remoteStorageBasePath != null) {
                 tierFactories.add(
                         new RemoteTierFactory(

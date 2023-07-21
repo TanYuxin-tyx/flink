@@ -24,6 +24,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -38,6 +41,8 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** Client of the Tiered Storage used by the producer. */
 public class TieredStorageProducerClient {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TieredStorageProducerClient.class);
 
     private final boolean isBroadcastOnly;
 
@@ -196,14 +201,16 @@ public class TieredStorageProducerClient {
         int segmentIndex = currentSubpartitionSegmentId[subpartitionIndex];
         int nextSegmentIndex = segmentIndex + 1;
 
+        StringBuilder sb = new StringBuilder();
         for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
-            if (tierProducerAgent.tryStartNewSegment(subpartitionId, nextSegmentIndex)) {
+            if (tierProducerAgent.tryStartNewSegment(subpartitionId, nextSegmentIndex, sb)) {
                 // Update the segment index and the chosen storage tier for the subpartition.
                 currentSubpartitionSegmentId[subpartitionIndex] = nextSegmentIndex;
                 currentSubpartitionTierAgent[subpartitionIndex] = tierProducerAgent;
                 return;
             }
         }
+        LOG.info("tierProducerAgents " + tierProducerAgents.size() + " " + sb);
         throw new IOException("Failed to choose a storage tier to start a new segment.");
     }
 
