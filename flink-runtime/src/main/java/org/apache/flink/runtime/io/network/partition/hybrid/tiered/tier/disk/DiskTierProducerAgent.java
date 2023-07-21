@@ -141,7 +141,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     }
 
     @Override
-    public boolean tryStartNewSegment(TieredStorageSubpartitionId subpartitionId, int segmentId) {
+    public boolean tryStartNewSegment(
+            TieredStorageSubpartitionId subpartitionId, int segmentId, StringBuilder sb) {
         File filePath = dataFilePath.toFile();
         boolean canStartNewSegment =
                 filePath.getUsableSpace() - ((long) numBuffersPerSegment) * bufferSizeBytes
@@ -153,6 +154,17 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                             diskCacheManager.getBufferIndex(subpartitionId.getSubpartitionId()),
                             segmentId);
             diskCacheManager.startSegment(subpartitionId.getSubpartitionId(), segmentId);
+        } else {
+            sb.append(getClass())
+                    .append("can start new seg: ")
+                    .append(canStartNewSegment)
+                    .append(
+                            filePath.getUsableSpace()
+                                    - ((long) numBuffersPerSegment) * bufferSizeBytes)
+                    .append(" ")
+                    .append((long) (filePath.getTotalSpace() * minReservedDiskSpaceFraction))
+                    .append(" ")
+                    .append(minReservedDiskSpaceFraction);
         }
         return canStartNewSegment;
     }

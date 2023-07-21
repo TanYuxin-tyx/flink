@@ -95,7 +95,8 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
     }
 
     @Override
-    public boolean tryStartNewSegment(TieredStorageSubpartitionId subpartitionId, int segmentId) {
+    public boolean tryStartNewSegment(
+            TieredStorageSubpartitionId subpartitionId, int segmentId, StringBuilder sb) {
         boolean canStartNewSegment =
                 nettyConnectionEstablished[subpartitionId.getSubpartitionId()]
                         && (memoryManager.getMaxNonReclaimableBuffers(this)
@@ -104,6 +105,23 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
         if (canStartNewSegment) {
             subpartitionProducerAgents[subpartitionId.getSubpartitionId()].updateSegmentId(
                     segmentId);
+        } else {
+            sb.append(getClass())
+                    .append("can start new seg: ")
+                    .append(canStartNewSegment)
+                    .append(" ")
+                    .append("nettyConnectionEstablished[subpartitionId.getSubpartitionId()]")
+                    .append(nettyConnectionEstablished[subpartitionId.getSubpartitionId()])
+                    .append(" ")
+                    .append(
+                            "memoryManager.getMaxNonReclaimableBuffers(this)- memoryManager.numOwnerRequestedBuffer(this)")
+                    .append(
+                            memoryManager.getMaxNonReclaimableBuffers(this)
+                                    - memoryManager.numOwnerRequestedBuffer(this))
+                    .append(" ")
+                    .append("numBuffersPerSegment")
+                    .append(" ")
+                    .append(numBuffersPerSegment);
         }
         return canStartNewSegment;
     }

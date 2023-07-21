@@ -48,7 +48,8 @@ public class TestingTierProducerAgent implements TierProducerAgent {
     }
 
     @Override
-    public boolean tryStartNewSegment(TieredStorageSubpartitionId subpartitionId, int segmentId) {
+    public boolean tryStartNewSegment(
+            TieredStorageSubpartitionId subpartitionId, int segmentId, StringBuilder sb) {
         return tryStartNewSegmentSupplier.apply(subpartitionId, segmentId);
     }
 
