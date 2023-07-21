@@ -53,13 +53,13 @@ public class TieredStorageConfiguration {
 
     private static final int DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT = 8 * 1024 * 1024;
 
-    private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.5f;
+    private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
 
     private static final int DEFAULT_DISK_TIER_MAX_BUFFERS_READ_AHEAD = 5;
 
     private static final Duration DEFAULT_DISK_TIER_BUFFER_REQUEST_TIMEOUT = Duration.ofMinutes(5);
 
-    private static final float DEFAULT_MIN_RESERVE_SPACE_FRACTION = 0.05f;
+    private static final float DEFAULT_MIN_RESERVE_SPACE_FRACTION = 1f;
 
     private static final int DEFAULT_REGION_GROUP_SIZE_IN_BYTES = 1024;
 
