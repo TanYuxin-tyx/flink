@@ -152,6 +152,9 @@ under the License.
 								<relocation>
 									<pattern>org.apache.hadoop</pattern>
 									<shadedPattern>org.apache.flink.fs.shaded.hadoop3.org.apache.hadoop</shadedPattern>
+									<excludes>
+										<exclude>org.apache.hadoop.security.*</exclude>
+									</excludes>
 								</relocation>
 								<!-- relocate the OSS dependencies -->
 								<relocation>
