@@ -435,9 +435,7 @@ public class TieredStorageConfiguration {
                     new DiskTierFactory(
                             diskTierNumBytesPerSegment,
                             tieredStorageBufferSize,
-                            minReserveDiskSpaceFraction,
-                            regionGroupSizeInBytes,
-                            numRetainedInMemoryRegionsMax));
+                            minReserveDiskSpaceFraction));
             tierExclusiveBuffers.add(diskTierExclusiveBuffers);
             if (remoteStorageBasePath != null) {
                 tierFactories.add(

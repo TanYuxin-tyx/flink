@@ -232,7 +232,7 @@ public class NettyShuffleServiceFactory
                         config.sortShuffleMinParallelism(),
                         config.isSSLEnabled(),
                         config.getMaxOverdraftBuffersPerGate(),
-                        config.getHybridShuffleSpilledIndexRegionGroupSize(),
+                        config.getHybridShuffleSpilledIndexSegmentSize(),
                         config.getHybridShuffleNumRetainedInMemoryRegionsMax(),
                         tieredResultPartitionFactory);
 

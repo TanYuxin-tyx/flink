@@ -287,7 +287,7 @@ public class ResultPartitionFactory {
                         resultPartitionType == ResultPartitionType.HYBRID_FULL
                                 ? HybridShuffleConfiguration.SpillingStrategyType.FULL
                                 : HybridShuffleConfiguration.SpillingStrategyType.SELECTIVE)
-                .setRegionGroupSizeInBytes(hybridShuffleSpilledIndexRegionGroupSize)
+                .setSpilledIndexSegmentSize(hybridShuffleSpilledIndexRegionGroupSize)
                 .setNumRetainedInMemoryRegionsMax(hybridShuffleNumRetainedInMemoryRegionsMax)
                 .build();
     }

@@ -381,7 +381,8 @@ public class NettyShuffleEnvironmentConfiguration {
 
         int hybridShuffleSpilledIndexSegmentSize =
                 configuration.get(
-                        NettyShuffleEnvironmentOptions.HYBRID_SHUFFLE_SPILLED_INDEX_SEGMENT_SIZE);
+                        NettyShuffleEnvironmentOptions
+                                .HYBRID_SHUFFLE_SPILLED_INDEX_REGION_GROUP_SIZE);
 
         long hybridShuffleNumRetainedInMemoryRegionsMax =
                 configuration.get(
