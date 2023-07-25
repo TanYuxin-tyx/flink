@@ -225,7 +225,8 @@ public class SinkTransformationTranslatorITCase extends TestLogger {
     }
 
     private StreamNode findCommitter(StreamGraph streamGraph) {
-        return findNodeName(streamGraph, name -> name.contains("Committer"));
+        return findNodeName(
+                streamGraph, name -> name.contains("Committer") && !name.contains("Global"));
     }
 
     private StreamNode findGlobalCommitter(StreamGraph streamGraph) {

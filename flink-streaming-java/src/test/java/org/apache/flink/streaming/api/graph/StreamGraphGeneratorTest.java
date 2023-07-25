@@ -50,6 +50,8 @@ import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.AbstractUdfStreamOperator;
 import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
+import org.apache.flink.streaming.api.operators.OperatorAttributes;
+import org.apache.flink.streaming.api.operators.OperatorAttributesBuilder;
 import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.operators.OutputTypeConfigurable;
 import org.apache.flink.streaming.api.operators.StreamOperator;
@@ -960,6 +962,51 @@ public class StreamGraphGeneratorTest extends TestLogger {
         verifyCacheConsumeNode(env, upstreamParallelism, cacheTransformation);
     }
 
+    @Test
+    public void testTransformOutputEOFOperator() {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        DataStream<Integer> source = env.fromElements(1, 10);
+        NoOpOutputEOFOperator<Integer> outputEOFOperator = new NoOpOutputEOFOperator<>();
+        source.keyBy(value -> value)
+                .transform("OutputEOFOperator", BasicTypeInfo.INT_TYPE_INFO, outputEOFOperator)
+                .addSink(new DiscardingSink<>());
+        StreamGraph streamGraph = env.getStreamGraph();
+        streamGraph
+                .getStreamNodes()
+                .forEach(
+                        node -> {
+                            if (node.getOperatorName().startsWith("OutputEOFOperator")) {
+                                Assertions.assertThat(node.getInputRequirements().get(0))
+                                        .isEqualTo(StreamConfig.InputRequirement.SORTED);
+                            }
+                        });
+    }
+
+    @Test
+    public void testTransformOutputEOFAndInternalSortOperator() {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        DataStream<Integer> source = env.fromElements(1, 10);
+        OutputEOFAndHasInternalSortOperator<Integer> outputEOFOperator =
+                new OutputEOFAndHasInternalSortOperator<>();
+        source.keyBy(value -> value)
+                .transform(
+                        "OutputEOFAndHasInternalSortOperator",
+                        BasicTypeInfo.INT_TYPE_INFO,
+                        outputEOFOperator)
+                .addSink(new DiscardingSink<>());
+        StreamGraph streamGraph = env.getStreamGraph();
+        streamGraph
+                .getStreamNodes()
+                .forEach(
+                        node -> {
+                            if (node.getOperatorName()
+                                    .startsWith("OutputEOFAndHasInternalSortOperator")) {
+                                Assertions.assertThat(node.getInputRequirements().get(0))
+                                        .isEqualTo(StreamConfig.InputRequirement.PASS_THROUGH);
+                            }
+                        });
+    }
+
     private void verifyCacheProduceNode(
             int upstreamParallelism,
             CacheTransformation<Integer> cacheTransformation,
@@ -1068,6 +1115,35 @@ public class StreamGraphGeneratorTest extends TestLogger {
         @Override
         public void processElement(StreamRecord<T> element) throws Exception {
             output.collect(element);
+        }
+    }
+
+    static class NoOpOutputEOFOperator<T> extends AbstractStreamOperator<T>
+            implements OneInputStreamOperator<T, T> {
+        @Override
+        public void processElement(StreamRecord<T> element) throws Exception {
+            output.collect(element);
+        }
+
+        @Override
+        public OperatorAttributes getOperatorAttributes() {
+            return new OperatorAttributesBuilder().setOutputOnEOF(true).build();
+        }
+    }
+
+    static class OutputEOFAndHasInternalSortOperator<T> extends AbstractStreamOperator<T>
+            implements OneInputStreamOperator<T, T> {
+        @Override
+        public void processElement(StreamRecord<T> element) throws Exception {
+            output.collect(element);
+        }
+
+        @Override
+        public OperatorAttributes getOperatorAttributes() {
+            return new OperatorAttributesBuilder()
+                    .setOutputOnEOF(true)
+                    .setInternalSorterSupported(true)
+                    .build();
         }
     }
 

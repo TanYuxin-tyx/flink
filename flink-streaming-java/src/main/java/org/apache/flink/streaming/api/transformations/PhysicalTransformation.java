@@ -76,4 +76,16 @@ public abstract class PhysicalTransformation<T> extends Transformation<T> {
             boolean supportsConcurrentExecutionAttempts) {
         this.supportsConcurrentExecutionAttempts = supportsConcurrentExecutionAttempts;
     }
+
+    public boolean isOutputOnEOF() {
+        return false;
+    }
+
+    public boolean isOutputOnCheckpoint() {
+        return false;
+    }
+
+    public boolean isInternalSorterSupported() {
+        return false;
+    }
 }

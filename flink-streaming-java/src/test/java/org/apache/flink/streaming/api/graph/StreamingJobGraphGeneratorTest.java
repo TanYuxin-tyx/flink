@@ -26,6 +26,7 @@ import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
+import org.apache.flink.api.common.functions.RichCoGroupFunction;
 import org.apache.flink.api.common.io.InputFormat;
 import org.apache.flink.api.common.io.OutputFormat;
 import org.apache.flink.api.common.operators.MailboxExecutor;
@@ -80,6 +81,8 @@ import org.apache.flink.streaming.api.datastream.IterativeStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.ProcessFunction;
+import org.apache.flink.streaming.api.functions.co.CoProcessFunction;
 import org.apache.flink.streaming.api.functions.sink.DiscardingSink;
 import org.apache.flink.streaming.api.functions.sink.PrintSink;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
@@ -91,6 +94,9 @@ import org.apache.flink.streaming.api.operators.ChainingStrategy;
 import org.apache.flink.streaming.api.operators.CoordinatedOperatorFactory;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperatorFactory;
+import org.apache.flink.streaming.api.operators.OperatorAttributes;
+import org.apache.flink.streaming.api.operators.OperatorAttributesBuilder;
+import org.apache.flink.streaming.api.operators.ProcessOperator;
 import org.apache.flink.streaming.api.operators.SimpleOperatorFactory;
 import org.apache.flink.streaming.api.operators.SourceOperatorFactory;
 import org.apache.flink.streaming.api.operators.StreamMap;
@@ -103,6 +109,7 @@ import org.apache.flink.streaming.api.transformations.MultipleInputTransformatio
 import org.apache.flink.streaming.api.transformations.OneInputTransformation;
 import org.apache.flink.streaming.api.transformations.PartitionTransformation;
 import org.apache.flink.streaming.api.transformations.StreamExchangeMode;
+import org.apache.flink.streaming.api.windowing.assigners.EndOfStreamWindows;
 import org.apache.flink.streaming.runtime.partitioner.BroadcastPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.ForwardPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.RebalancePartitioner;
@@ -1008,6 +1015,170 @@ class StreamingJobGraphGeneratorTest {
                 verticesSorted.get(3) /* keyBy */, ResultPartitionType.BLOCKING);
         assertHasOutputPartitionType(
                 verticesSorted.get(4) /* forward - sink */, ResultPartitionType.BLOCKING);
+    }
+
+    @Test
+    void testOverwriteOperatorAttributesPartitionTypes() {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setRuntimeMode(RuntimeExecutionMode.STREAMING);
+        env.setParallelism(1);
+        env.disableOperatorChaining();
+        DataStream<Integer> source1 = env.fromElements(1);
+        DataStream<Integer> source2 = env.fromElements(1);
+        ProcessFunction<Integer, Integer> processFunction =
+                new ProcessFunction<Integer, Integer>() {
+                    private static final long serialVersionUID = 1L;
+
+                    @Override
+                    public void processElement(
+                            Integer value,
+                            ProcessFunction<Integer, Integer>.Context ctx,
+                            Collector<Integer> out)
+                            throws Exception {}
+                };
+        source1.transform(
+                        "Process1",
+                        BasicTypeInfo.INT_TYPE_INFO,
+                        new TestOutputEOFProcessOperator<>(env.clean(processFunction)))
+                .connect(source2)
+                .process(
+                        new CoProcessFunction<Integer, Integer, Integer>() {
+                            @Override
+                            public void processElement1(
+                                    Integer value, Context ctx, Collector<Integer> out)
+                                    throws Exception {}
+
+                            @Override
+                            public void processElement2(
+                                    Integer value, Context ctx, Collector<Integer> out)
+                                    throws Exception {}
+                        })
+                .addSink(new DiscardingSink());
+
+        JobGraph jobGraph = StreamingJobGraphGenerator.createJobGraph(env.getStreamGraph());
+        List<JobVertex> verticesSorted = jobGraph.getVerticesSortedTopologicallyFromSources();
+        assertHasOutputPartitionType(
+                verticesSorted.get(0) /* source1 -> process */, ResultPartitionType.BLOCKING);
+        assertHasOutputPartitionType(
+                verticesSorted.get(1) /* source2 -> coProcess */,
+                ResultPartitionType.PIPELINED_BOUNDED);
+        assertHasOutputPartitionType(
+                verticesSorted.get(2) /* process -> coProcess */, ResultPartitionType.BLOCKING);
+        assertHasOutputPartitionType(
+                verticesSorted.get(3) /* coProcess -> process */,
+                ResultPartitionType.PIPELINED_BOUNDED);
+    }
+
+    @Test
+    void testChainedPartitionTypesInEndOfStreamWindows() {
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setRuntimeMode(RuntimeExecutionMode.STREAMING);
+        env.setParallelism(1);
+        DataStream<Tuple2<Integer, String>> data1 =
+                env.fromElements(
+                        new Tuple2<>(1, "hello"), new Tuple2<>(2, "what's"), new Tuple2<>(2, "up"));
+        DataStream<Tuple2<Integer, String>> data2 =
+                env.fromElements(
+                        new Tuple2<>(1, "not"), new Tuple2<>(1, "much"), new Tuple2<>(2, "really"));
+        data1.map(
+                        new MapFunction<Tuple2<Integer, String>, Tuple2<Integer, String>>() {
+                            @Override
+                            public Tuple2<Integer, String> map(Tuple2<Integer, String> value)
+                                    throws Exception {
+                                return value;
+                            }
+                        })
+                .coGroup(data2)
+                .where(tuple -> tuple.f0)
+                .equalTo(tuple -> tuple.f0)
+                .window(EndOfStreamWindows.get())
+                .apply(new CustomCoGroupFunction())
+                .map(
+                        new MapFunction<Integer, Integer>() {
+                            @Override
+                            public Integer map(Integer value) throws Exception {
+                                return value + 1;
+                            }
+                        })
+                .keyBy(value -> value)
+                .addSink(new DiscardingSink<>());
+
+        JobGraph jobGraph = StreamingJobGraphGenerator.createJobGraph(env.getStreamGraph());
+        List<JobVertex> verticesSorted = jobGraph.getVerticesSortedTopologicallyFromSources();
+        assertHasOutputPartitionType(
+                verticesSorted.get(0) /* source - forward */, ResultPartitionType.BLOCKING);
+        assertHasOutputPartitionType(
+                verticesSorted.get(1) /* source - forward */, ResultPartitionType.BLOCKING);
+        assertHasOutputPartitionType(
+                verticesSorted.get(2) /* coGroup and map */, ResultPartitionType.BLOCKING);
+    }
+
+    @Test
+    void testPartitionTypesInEndOfStreamWindows() {
+        // OutputBlocking will be transferred from outputEOF node to the downstream nodes in the
+        // same chain and all of its upstream nodes.
+        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        env.setRuntimeMode(RuntimeExecutionMode.STREAMING);
+        env.setParallelism(1);
+        env.disableOperatorChaining();
+        DataStream<Tuple2<Integer, String>> data1 =
+                env.fromElements(
+                        new Tuple2<>(1, "hello"), new Tuple2<>(2, "what's"), new Tuple2<>(2, "up"));
+        DataStream<Tuple2<Integer, String>> data2 =
+                env.fromElements(
+                        new Tuple2<>(1, "not"), new Tuple2<>(1, "much"), new Tuple2<>(2, "really"));
+        data1.map(
+                        new MapFunction<Tuple2<Integer, String>, Tuple2<Integer, String>>() {
+                            @Override
+                            public Tuple2<Integer, String> map(Tuple2<Integer, String> value)
+                                    throws Exception {
+                                return value;
+                            }
+                        })
+                .coGroup(data2)
+                .where(tuple -> tuple.f0)
+                .equalTo(tuple -> tuple.f0)
+                .window(EndOfStreamWindows.get())
+                .apply(new CustomCoGroupFunction())
+                .map(
+                        new MapFunction<Integer, Integer>() {
+                            @Override
+                            public Integer map(Integer value) throws Exception {
+                                return value + 1;
+                            }
+                        })
+                .keyBy(value -> value)
+                .addSink(new DiscardingSink<>());
+
+        JobGraph jobGraph = StreamingJobGraphGenerator.createJobGraph(env.getStreamGraph());
+        List<JobVertex> verticesSorted = jobGraph.getVerticesSortedTopologicallyFromSources();
+        assertHasOutputPartitionType(
+                verticesSorted.get(0) /* source - forward */, ResultPartitionType.BLOCKING);
+        assertHasOutputPartitionType(
+                verticesSorted.get(1) /* source - forward */, ResultPartitionType.BLOCKING);
+        assertHasOutputPartitionType(verticesSorted.get(2) /* map */, ResultPartitionType.BLOCKING);
+        assertHasOutputPartitionType(
+                verticesSorted.get(3) /* CoGroup */, ResultPartitionType.BLOCKING);
+        assertHasOutputPartitionType(
+                verticesSorted.get(4) /* Map */, ResultPartitionType.PIPELINED_BOUNDED);
+    }
+
+    private static class CustomCoGroupFunction
+            extends RichCoGroupFunction<Tuple2<Integer, String>, Tuple2<Integer, String>, Integer> {
+        @Override
+        public void coGroup(
+                Iterable<Tuple2<Integer, String>> iterableA,
+                Iterable<Tuple2<Integer, String>> iterableB,
+                Collector<Integer> collector) {
+            int sum = 0;
+            for (Tuple2<Integer, String> next : iterableA) {
+                sum += next.f0;
+            }
+            for (Tuple2<Integer, String> next : iterableB) {
+                sum += next.f0;
+            }
+            collector.collect(sum);
+        }
     }
 
     private void assertHasOutputPartitionType(
@@ -2650,6 +2821,18 @@ class StreamingJobGraphGeneratorTest {
         @Override
         public Set<AbstractID> listCompletedClusterDatasets() {
             return new HashSet<>(completedClusterDatasetIds);
+        }
+    }
+
+    private static class TestOutputEOFProcessOperator<IN, OUT> extends ProcessOperator<IN, OUT> {
+        public TestOutputEOFProcessOperator(ProcessFunction<IN, OUT> function) {
+            super(function);
+            chainingStrategy = ChainingStrategy.ALWAYS;
+        }
+
+        @Override
+        public OperatorAttributes getOperatorAttributes() {
+            return new OperatorAttributesBuilder().setOutputOnEOF(true).build();
         }
     }
 }

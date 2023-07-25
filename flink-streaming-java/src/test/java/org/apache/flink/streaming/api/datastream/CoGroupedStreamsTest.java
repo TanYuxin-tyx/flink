@@ -21,6 +21,7 @@ import org.apache.flink.api.common.functions.CoGroupFunction;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.windowing.assigners.EndOfStreamWindows;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
@@ -78,6 +79,22 @@ public class CoGroupedStreamsTest {
                         .window(tsAssigner)
                         .allowedLateness(lateness);
 
+        Assert.assertEquals(
+                lateness.toMilliseconds(), withLateness.getAllowedLateness().toMilliseconds());
+    }
+
+    @Test
+    public void testEndOfStreamWindowsCoGroup() {
+        Time lateness = Time.milliseconds(42L);
+
+        CoGroupedStreams.WithWindow<String, String, String, TimeWindow> withLateness =
+                dataStream1
+                        .coGroup(dataStream2)
+                        .where(keySelector)
+                        .equalTo(keySelector)
+                        .window(EndOfStreamWindows.get())
+                        .allowedLateness(lateness);
+        withLateness.apply(coGroupFunction, BasicTypeInfo.STRING_TYPE_INFO);
         Assert.assertEquals(
                 lateness.toMilliseconds(), withLateness.getAllowedLateness().toMilliseconds());
     }
