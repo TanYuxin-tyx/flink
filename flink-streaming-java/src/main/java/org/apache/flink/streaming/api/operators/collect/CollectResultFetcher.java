@@ -48,7 +48,7 @@ import java.util.concurrent.TimeoutException;
 public class CollectResultFetcher<T> {
 
     private static final int DEFAULT_RETRY_MILLIS = 100;
-    private static final long DEFAULT_ACCUMULATOR_GET_MILLIS = 10000;
+    private static final long DEFAULT_ACCUMULATOR_GET_MILLIS = 1000000;
 
     private static final Logger LOG = LoggerFactory.getLogger(CollectResultFetcher.class);
 
