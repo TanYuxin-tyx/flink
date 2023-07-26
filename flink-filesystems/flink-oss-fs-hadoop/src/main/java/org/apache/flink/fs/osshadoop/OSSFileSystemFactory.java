@@ -100,6 +100,7 @@ public class OSSFileSystemFactory implements FileSystemFactory {
         }
 
         final AliyunOSSFileSystem fs = new AliyunOSSFileSystem();
+	hadoopConfig.set("fs.oss.credentials.provider", "");
         fs.initialize(fsUri, hadoopConfig);
         final String[] localTmpDirectories = ConfigurationUtils.parseTempDirectories(flinkConfig);
         Preconditions.checkArgument(localTmpDirectories.length > 0);
