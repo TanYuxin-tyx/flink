@@ -46,7 +46,6 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.S
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentPath;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
-import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * The {@link RemoteStorageScanner} is introduced to notify asynchronously for file reading on
@@ -230,10 +229,9 @@ public class RemoteStorageScanner implements Runnable {
             throw new RuntimeException(
                     "Failed to list the segment finish file. " + segmentFinishDir, e);
         }
-        if (fileStatuses.length == 0) {
+        if (fileStatuses.length != 1) {
             return;
         }
-        checkState(fileStatuses.length == 1);
         scannedMaxSegmentIds.put(
                 Tuple2.of(partitionId, subpartitionId),
                 Integer.parseInt(fileStatuses[0].getPath().getName()));
