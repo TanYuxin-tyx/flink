@@ -29,6 +29,9 @@ import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FatalExitExceptionHandler;
 import org.apache.flink.util.concurrent.ExecutorThreadFactory;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -55,6 +58,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  * availability of segment file.
  */
 public class RemoteStorageScanner implements Runnable {
+
+    private static final Logger LOG = LoggerFactory.getLogger(RemoteStorageScanner.class);
 
     /** The initial scan interval is 100ms. */
     private static final int INITIAL_SCAN_INTERVAL_MS = 100;
@@ -87,6 +92,8 @@ public class RemoteStorageScanner implements Runnable {
     @Nullable private AvailabilityNotifier notifier;
 
     private int lastInterval = INITIAL_SCAN_INTERVAL_MS;
+
+    private int maxErrorRetryNumber = 0;
 
     public RemoteStorageScanner(String baseRemoteStoragePath) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
@@ -242,11 +249,16 @@ public class RemoteStorageScanner implements Runnable {
                         partitionId,
                         subpartitionId.getSubpartitionId(),
                         segmentId);
-        boolean isExist;
+        boolean isExist = false;
         try {
             isExist = remoteFileSystem.exists(segmentPath);
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to check segment file. " + segmentPath, e);
+            maxErrorRetryNumber = 0;
+        } catch (Throwable t) {
+            maxErrorRetryNumber++;
+            LOG.error("RemoteStorageScanner fails to check segment file: " + t);
+            if (maxErrorRetryNumber > 100) {
+                throw new RuntimeException("Failed to check segment file. " + segmentPath, t);
+            }
         }
         return isExist;
     }
