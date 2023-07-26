@@ -109,7 +109,11 @@ public class RemoteStorageScanner implements Runnable {
 
     /** Start the executor. */
     public void start() {
-        scannerExecutor.schedule(this, lastInterval, TimeUnit.MILLISECONDS);
+        synchronized (scannerExecutor) {
+            if (!scannerExecutor.isShutdown()) {
+                scannerExecutor.schedule(this, lastInterval, TimeUnit.MILLISECONDS);
+            }
+        }
     }
 
     /**
@@ -144,7 +148,9 @@ public class RemoteStorageScanner implements Runnable {
 
     /** Close the executor. */
     public void close() {
-        scannerExecutor.shutdownNow();
+        synchronized (scannerExecutor) {
+            scannerExecutor.shutdownNow();
+        }
     }
 
     /** Iterate the watched segment ids and check related file status. */
