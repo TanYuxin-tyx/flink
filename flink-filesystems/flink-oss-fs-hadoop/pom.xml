@@ -61,10 +61,6 @@ under the License.
 			<optional>${flink.markBundledAsOptional}</optional>
 			<exclusions>
 				<exclusion>
-					<groupId>com.aliyun.oss</groupId>
-					<artifactId>aliyun-oss-sdk</artifactId>
-				</exclusion>
-				<exclusion>
 					<!-- provided by flink-fs-hadoop-shaded -->
 					<groupId>org.apache.hadoop</groupId>
 					<artifactId>hadoop-common</artifactId>
@@ -80,18 +76,6 @@ under the License.
 			</exclusions>
 		</dependency>
 
-		<dependency>
-			<groupId>com.aliyun.oss</groupId>
-			<artifactId>aliyun-sdk-oss</artifactId>
-			<version>${fs.oss.sdk.version}</version>
-			<optional>${flink.markBundledAsOptional}</optional>
-			<exclusions>
-				<exclusion>
-					<groupId>javax.xml.bind</groupId>
-					<artifactId>jaxb-api</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
 
 		<dependency>
 			<!-- Hadoop requires jaxb-api for javax.xml.bind.JAXBException -->
