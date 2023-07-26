@@ -226,6 +226,9 @@ public class RemoteStorageScanner implements Runnable {
             }
             fileStatuses = remoteFileSystem.listStatus(segmentFinishDir);
         } catch (IOException e) {
+            if (e instanceof java.io.FileNotFoundException) {
+                return;
+            }
             throw new RuntimeException(
                     "Failed to list the segment finish file. " + segmentFinishDir, e);
         }
