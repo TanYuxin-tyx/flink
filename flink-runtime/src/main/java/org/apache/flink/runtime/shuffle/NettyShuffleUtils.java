@@ -69,6 +69,7 @@ public class NettyShuffleUtils {
             final int numSubpartitions,
             final boolean enableTieredStorage,
             final int tieredStoreExclusiveBuffers,
+            final int numBuffersUseSortAccumulatorThreshold,
             final ResultPartitionType type) {
         boolean isSortShuffle =
                 type.isBlockingOrBlockingPersistentResultPartition()
@@ -77,10 +78,17 @@ public class NettyShuffleUtils {
         if (isSortShuffle) {
             min = sortShuffleMinBuffers;
         } else {
-            min =
-                    enableTieredStorage
-                            ? Math.min(tieredStoreExclusiveBuffers, numSubpartitions + 1)
-                            : (numSubpartitions + 1);
+            if (!enableTieredStorage) {
+                min = numSubpartitions + 1;
+            } else {
+                if ((numSubpartitions + 1) > numBuffersUseSortAccumulatorThreshold) {
+                    // The sort accumulator is used.
+                    min = numBuffersUseSortAccumulatorThreshold + tieredStoreExclusiveBuffers;
+                } else {
+                    // The hash accumulator is used.
+                    min = tieredStoreExclusiveBuffers + numSubpartitions + 1;
+                }
+            }
         }
         int max =
                 type.isBounded()
@@ -178,6 +186,7 @@ public class NettyShuffleUtils {
                         sortShuffleMinBuffers,
                         numSubpartitions,
                         false,
+                        0,
                         0,
                         type);
 

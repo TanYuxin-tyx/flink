@@ -47,11 +47,11 @@ public class TieredStorageConfiguration {
 
     private static final int DEFAULT_NUM_BUFFERS_USE_SORT_ACCUMULATOR_THRESHOLD = 512;
 
-    private static final int DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT = 320 * 1024;
+    private static final int DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT = 2 * 32 * 1024;
 
-    private static final int DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT = 8 * 1024 * 1024;
+    private static final int DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT = 8 * 32 * 1024;
 
-    private static final int DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT = 8 * 1024 * 1024;
+    private static final int DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT = 8 * 32 * 1024;
 
     private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
 
@@ -75,7 +75,7 @@ public class TieredStorageConfiguration {
 
     private final int remoteTierExclusiveBuffers;
 
-    private final int accumulatorExclusiveBuffers;
+    private final int numBuffersUseSortAccumulatorThreshold;
 
     private final int memoryTierNumBytesPerSegment;
 
@@ -101,7 +101,7 @@ public class TieredStorageConfiguration {
             int memoryTierExclusiveBuffers,
             int diskTierExclusiveBuffers,
             int remoteTierExclusiveBuffers,
-            int accumulatorExclusiveBuffers,
+            int numBuffersUseSortAccumulatorThreshold,
             int memoryTierNumBytesPerSegment,
             int diskTierNumBytesPerSegment,
             int remoteTierNumBytesPerSegment,
@@ -116,7 +116,7 @@ public class TieredStorageConfiguration {
         this.memoryTierExclusiveBuffers = memoryTierExclusiveBuffers;
         this.diskTierExclusiveBuffers = diskTierExclusiveBuffers;
         this.remoteTierExclusiveBuffers = remoteTierExclusiveBuffers;
-        this.accumulatorExclusiveBuffers = accumulatorExclusiveBuffers;
+        this.numBuffersUseSortAccumulatorThreshold = numBuffersUseSortAccumulatorThreshold;
         this.memoryTierNumBytesPerSegment = memoryTierNumBytesPerSegment;
         this.diskTierNumBytesPerSegment = diskTierNumBytesPerSegment;
         this.remoteTierNumBytesPerSegment = remoteTierNumBytesPerSegment;
@@ -185,7 +185,7 @@ public class TieredStorageConfiguration {
     }
 
     /**
-     * Get exclusive buffer number of accumulator.
+     * Get the buffer number threshold to decide whether to use sort accumulator.
      *
      * <p>The buffer number is used to compare with the subpartition number to determine the type of
      * {@link BufferAccumulator}.
@@ -196,8 +196,8 @@ public class TieredStorageConfiguration {
      *
      * @return the buffer number.
      */
-    public int getAccumulatorExclusiveBuffers() {
-        return accumulatorExclusiveBuffers;
+    public int getNumBuffersUseSortAccumulatorThreshold() {
+        return numBuffersUseSortAccumulatorThreshold;
     }
 
     /**
@@ -272,8 +272,7 @@ public class TieredStorageConfiguration {
      * @return the total exclusive buffer number.
      */
     public int getTotalExclusiveBufferNum() {
-        return accumulatorExclusiveBuffers
-                + memoryTierExclusiveBuffers
+        return memoryTierExclusiveBuffers
                 + diskTierExclusiveBuffers
                 + (remoteStorageBasePath == null ? 0 : remoteTierExclusiveBuffers);
     }

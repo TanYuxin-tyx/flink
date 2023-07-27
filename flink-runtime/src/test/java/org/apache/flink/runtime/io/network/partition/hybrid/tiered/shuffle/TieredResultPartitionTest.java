@@ -149,8 +149,10 @@ class TieredResultPartitionTest {
                         numSubpartitions,
                         true,
                         tieredStorageTotalExclusiveBufferNum,
+                        200,
                         ResultPartitionType.HYBRID_SELECTIVE);
-        assertThat(minMaxNetworkBuffers.getLeft()).isEqualTo(tieredStorageTotalExclusiveBufferNum);
+        assertThat(minMaxNetworkBuffers.getLeft())
+                .isEqualTo(tieredStorageTotalExclusiveBufferNum + numSubpartitions + 1);
         assertThat(minMaxNetworkBuffers.getRight()).isEqualTo(Integer.MAX_VALUE);
     }
 

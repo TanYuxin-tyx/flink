@@ -99,11 +99,11 @@ public class TieredResultPartitionFactory {
                         tieredStorageConfiguration.getNumBuffersTriggerFlushRatio(), true);
 
         // Create buffer accumulator.
-        int numAccumulatorExclusiveBuffers =
-                tieredStorageConfiguration.getAccumulatorExclusiveBuffers();
+        int numBuffersUseSortAccumulatorThreshold =
+                tieredStorageConfiguration.getNumBuffersUseSortAccumulatorThreshold();
         BufferAccumulator bufferAccumulator =
                 createBufferAccumulator(
-                        numSubpartitions, numAccumulatorExclusiveBuffers, memoryManager);
+                        numSubpartitions, numBuffersUseSortAccumulatorThreshold, memoryManager);
 
         // Create producer agents and memory specs.
         Tuple2<List<TierProducerAgent>, List<TieredStorageMemorySpec>>
@@ -148,13 +148,13 @@ public class TieredResultPartitionFactory {
 
     private BufferAccumulator createBufferAccumulator(
             int numSubpartitions,
-            int numAccumulatorExclusiveBuffers,
+            int numBuffersUseSortAccumulatorThreshold,
             TieredStorageMemoryManager storageMemoryManager) {
         int bufferSize = tieredStorageConfiguration.getTieredStorageBufferSize();
-        return (numSubpartitions + 1) > numAccumulatorExclusiveBuffers
+        return (numSubpartitions + 1) > numBuffersUseSortAccumulatorThreshold
                 ? new SortBufferAccumulator(
                         numSubpartitions,
-                        numAccumulatorExclusiveBuffers,
+                        numBuffersUseSortAccumulatorThreshold,
                         bufferSize,
                         storageMemoryManager)
                 : new HashBufferAccumulator(numSubpartitions, bufferSize, storageMemoryManager);
@@ -175,12 +175,7 @@ public class TieredResultPartitionFactory {
         List<TierProducerAgent> tierProducerAgents = new ArrayList<>();
         List<TieredStorageMemorySpec> tieredStorageMemorySpecs = new ArrayList<>();
 
-        tieredStorageMemorySpecs.add(
-                new TieredStorageMemorySpec(
-                        bufferAccumulator,
-                        Math.min(
-                                numberOfSubpartitions + 1,
-                                tieredStorageConfiguration.getAccumulatorExclusiveBuffers())));
+        tieredStorageMemorySpecs.add(new TieredStorageMemorySpec(bufferAccumulator, 0));
         List<Integer> tierExclusiveBuffers =
                 tieredStorageConfiguration.getEachTierExclusiveBufferNum();
 

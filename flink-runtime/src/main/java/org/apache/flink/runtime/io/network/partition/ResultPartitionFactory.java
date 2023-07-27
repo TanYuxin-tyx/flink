@@ -369,6 +369,12 @@ public class ResultPartitionFactory {
                                                     storage.getTieredStorageConfiguration()
                                                             .getTotalExclusiveBufferNum())
                                     .orElse(0),
+                            tieredStorage
+                                    .map(
+                                            storage ->
+                                                    storage.getTieredStorageConfiguration()
+                                                            .getNumBuffersUseSortAccumulatorThreshold())
+                                    .orElse(0),
                             type);
 
             return bufferPoolFactory.createBufferPool(
