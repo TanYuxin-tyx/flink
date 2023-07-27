@@ -806,23 +806,11 @@ abstract class TableTestUtilBase(test: TableTestBase, isStreamingMode: Boolean) 
 
   final val PLAN_TEST_FORCE_OVERWRITE = "PLAN_TEST_FORCE_OVERWRITE"
 
-  /** Verify the json plan for the given insert statement. */
+  /** Verify the serialized JSON of [[CompiledPlan]] for the given insert statement. */
   def verifyJsonPlan(insert: String): Unit = {
     ExecNodeContext.resetIdCounter()
-    val jsonPlan = getTableEnv.compilePlanSql(insert).asJsonString()
-    doVerifyJsonPlan(jsonPlan)
-  }
-
-  /** Verify the json plan for the given [[StatementSet]]. */
-  def verifyJsonPlan(stmtSet: StatementSet): Unit = {
-    ExecNodeContext.resetIdCounter()
-    val jsonPlan = stmtSet.compilePlan().asJsonString()
-    doVerifyJsonPlan(jsonPlan)
-  }
-
-  /** Verify the serialized JSON of [[CompiledPlan]] for the given insert statement. */
-  def doVerifyJsonPlan(jsonPlan: String): Unit = {
-    val jsonPlanWithoutFlinkVersion = TableTestUtil.replaceFlinkVersion(jsonPlan)
+    val jsonPlan = getTableEnv.asInstanceOf[TableEnvironmentInternal].compilePlanSql(insert)
+    val jsonPlanWithoutFlinkVersion = TableTestUtil.replaceFlinkVersion(jsonPlan.asJsonString())
     // add the postfix to the path to avoid conflicts
     // between the test class name and the result file name
     val clazz = test.getClass
