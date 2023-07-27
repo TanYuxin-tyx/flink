@@ -39,7 +39,7 @@ public class TieredStorageConfiguration {
 
     private static final int DEFAULT_TIERED_STORAGE_BUFFER_SIZE = 32 * 1024;
 
-    private static final int DEFAULT_MEMORY_TIER_EXCLUSIVE_BUFFERS = 300;
+    private static final int DEFAULT_MEMORY_TIER_EXCLUSIVE_BUFFERS = 200;
 
     private static final int DEFAULT_DISK_TIER_EXCLUSIVE_BUFFERS = 1;
 
@@ -47,11 +47,11 @@ public class TieredStorageConfiguration {
 
     private static final int DEFAULT_NUM_BUFFERS_USE_SORT_ACCUMULATOR_THRESHOLD = 512;
 
-    private static final int DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT = 320 * 1024;
+    private static final int DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT = 2 * 32 * 1024;
 
-    private static final int DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT = 8 * 1024 * 1024;
+    private static final int DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT = 4 * 32 * 1024;
 
-    private static final int DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT = 8 * 1024 * 1024;
+    private static final int DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT = 8 * 32 * 1024;
 
     private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
 
