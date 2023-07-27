@@ -118,20 +118,6 @@ public final class WatermarkPushDownSpec extends SourceAbilitySpecBase {
     }
 
     @Override
-    public boolean needAdjustFieldReferenceAfterProjection() {
-        return true;
-    }
-
-    public WatermarkPushDownSpec copy(RexNode watermarkExpr, RowType producedType) {
-        return new WatermarkPushDownSpec(
-                watermarkExpr, globalIdleTimeoutMillis, producedType, watermarkParams);
-    }
-
-    public RexNode getWatermarkExpr() {
-        return watermarkExpr;
-    }
-
-    @Override
     public String getDigests(SourceAbilityContext context) {
         final String expressionStr =
                 FlinkRexUtil.getExpressionString(
