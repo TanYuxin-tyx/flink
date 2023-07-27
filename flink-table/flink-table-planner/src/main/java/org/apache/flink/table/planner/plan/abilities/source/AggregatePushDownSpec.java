@@ -231,9 +231,4 @@ public final class AggregatePushDownSpec extends SourceAbilitySpecBase {
     public int hashCode() {
         return Objects.hash(super.hashCode(), inputType, groupingSets, aggregateCalls);
     }
-
-    @Override
-    public boolean needAdjustFieldReferenceAfterProjection() {
-        return true;
-    }
 }
