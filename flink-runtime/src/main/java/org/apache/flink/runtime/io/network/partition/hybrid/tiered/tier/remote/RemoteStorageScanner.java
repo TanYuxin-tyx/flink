@@ -60,6 +60,9 @@ public class RemoteStorageScanner implements Runnable {
 
     private static final Logger LOG = LoggerFactory.getLogger(RemoteStorageScanner.class);
 
+    /** The max retry time of checking the file status through remote filesystem. */
+    private static final int MAX_RETRY_TIME = 100;
+
     /** The initial scan interval is 100ms. */
     private static final int INITIAL_SCAN_INTERVAL_MS = 100;
 
@@ -92,7 +95,7 @@ public class RemoteStorageScanner implements Runnable {
 
     private int lastInterval = INITIAL_SCAN_INTERVAL_MS;
 
-    private int maxErrorRetryNumber = 0;
+    private int currentRetryTime = 0;
 
     public RemoteStorageScanner(String baseRemoteStoragePath) {
         this.baseRemoteStoragePath = baseRemoteStoragePath;
@@ -219,18 +222,19 @@ public class RemoteStorageScanner implements Runnable {
         Path segmentFinishDir =
                 getSegmentFinishDirPath(
                         baseRemoteStoragePath, partitionId, subpartitionId.getSubpartitionId());
-        FileStatus[] fileStatuses;
+        FileStatus[] fileStatuses = new FileStatus[0];
         try {
             if (!remoteFileSystem.exists(segmentFinishDir)) {
                 return;
             }
             fileStatuses = remoteFileSystem.listStatus(segmentFinishDir);
-        } catch (IOException e) {
-            if (e instanceof java.io.FileNotFoundException) {
+            currentRetryTime = 0;
+        } catch (Throwable t) {
+            if (t instanceof java.io.FileNotFoundException) {
                 return;
             }
-            throw new RuntimeException(
-                    "Failed to list the segment finish file. " + segmentFinishDir, e);
+            currentRetryTime++;
+            throwException(t, "Failed to list the segment finish file.");
         }
         if (fileStatuses.length != 1) {
             return;
@@ -253,15 +257,19 @@ public class RemoteStorageScanner implements Runnable {
         boolean isExist = false;
         try {
             isExist = remoteFileSystem.exists(segmentPath);
-            maxErrorRetryNumber = 0;
+            currentRetryTime = 0;
         } catch (Throwable t) {
-            maxErrorRetryNumber++;
-            LOG.error("RemoteStorageScanner fails to check segment file: " + t);
-            if (maxErrorRetryNumber > 100) {
-                throw new RuntimeException("Failed to check segment file. " + segmentPath, t);
-            }
+            currentRetryTime++;
+            throwException(t, "Failed to check the status of segment file.");
         }
         return isExist;
+    }
+
+    private void throwException(Throwable t, String logMessage) {
+        LOG.error(logMessage);
+        if (currentRetryTime > MAX_RETRY_TIME) {
+            throw new RuntimeException(logMessage, t);
+        }
     }
 
     /**
