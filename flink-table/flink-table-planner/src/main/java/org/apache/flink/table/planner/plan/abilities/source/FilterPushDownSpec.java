@@ -149,11 +149,6 @@ public final class FilterPushDownSpec extends SourceAbilitySpecBase {
     }
 
     @Override
-    public boolean needAdjustFieldReferenceAfterProjection() {
-        return true;
-    }
-
-    @Override
     public String getDigests(SourceAbilityContext context) {
         final List<String> expressionStrs = new ArrayList<>();
         final RowType sourceRowType = context.getSourceRowType();
