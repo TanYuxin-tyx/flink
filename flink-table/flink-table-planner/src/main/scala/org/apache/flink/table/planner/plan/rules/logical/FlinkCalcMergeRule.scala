@@ -18,12 +18,12 @@
 package org.apache.flink.table.planner.plan.rules.logical
 
 import org.apache.flink.table.planner.plan.nodes.physical.stream.StreamPhysicalCalc
-import org.apache.flink.table.planner.plan.utils.FlinkRelUtil
+import org.apache.flink.table.planner.plan.utils.{FlinkRelUtil, FlinkRexUtil}
 
 import org.apache.calcite.plan.{RelOptRule, RelOptRuleCall}
 import org.apache.calcite.plan.RelOptRule.{any, operand}
 import org.apache.calcite.rel.core.{Calc, RelFactories}
-import org.apache.calcite.rex.{RexNode, RexOver}
+import org.apache.calcite.rex.{RexNode, RexOver, RexProgramBuilder}
 
 /**
  * This rule is copied from Calcite's [[org.apache.calcite.rel.rules.CalcMergeRule]].
@@ -65,7 +65,30 @@ class FlinkCalcMergeRule[C <: Calc](calcClass: Class[C])
     val topCalc: Calc = call.rel(0)
     val bottomCalc: Calc = call.rel(1)
 
-    val newCalc = FlinkRelUtil.merge(topCalc, bottomCalc)
+    val topProgram = topCalc.getProgram
+    val rexBuilder = topCalc.getCluster.getRexBuilder
+    // Merge the programs together.
+    val mergedProgram =
+      RexProgramBuilder.mergePrograms(topCalc.getProgram, bottomCalc.getProgram, rexBuilder)
+    require(mergedProgram.getOutputRowType eq topProgram.getOutputRowType)
+
+    val newMergedProgram = if (mergedProgram.getCondition != null) {
+      val condition = mergedProgram.expandLocalRef(mergedProgram.getCondition)
+      val simplifiedCondition =
+        FlinkRexUtil.simplify(rexBuilder, condition, topCalc.getCluster.getPlanner.getExecutor)
+      if (simplifiedCondition.equals(condition)) {
+        mergedProgram
+      } else {
+        val programBuilder = RexProgramBuilder.forProgram(mergedProgram, rexBuilder, true)
+        programBuilder.clearCondition()
+        programBuilder.addCondition(simplifiedCondition)
+        programBuilder.getProgram(true)
+      }
+    } else {
+      mergedProgram
+    }
+
+    val newCalc = topCalc.copy(topCalc.getTraitSet, bottomCalc.getInput, newMergedProgram)
     if (newCalc.getDigest == bottomCalc.getDigest) {
       // newCalc is equivalent to bottomCalc,
       // which means that topCalc
