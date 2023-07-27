@@ -145,8 +145,8 @@ under the License.
 								</relocation>
 
 								<relocation>
-									<pattern>org.apache.htrace</pattern>
-									<shadedPattern>org.apache.flink.fs.shaded.hadoop3.org.apache.htrace</shadedPattern>
+									<pattern>org.apache.hadoop.fs.FsTracer</pattern>
+									<shadedPattern>org.apache.flink.fs.shaded.hadoop3.org.apache.hadoop.fs.FsTracer</shadedPattern>
 								</relocation>
 
 							</relocations>
