@@ -100,8 +100,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
                 nettyConnectionEstablished[subpartitionId.getSubpartitionId()]
                         && (memoryManager.getMaxNonReclaimableBuffers(this)
                                         - memoryManager.numOwnerRequestedBuffer(this))
-                                > numBuffersPerSegment
-                        && memoryManager.numUsedRatio() < 0.5;
+                                > numBuffersPerSegment;
         if (canStartNewSegment) {
             subpartitionProducerAgents[subpartitionId.getSubpartitionId()].updateSegmentId(
                     segmentId);
