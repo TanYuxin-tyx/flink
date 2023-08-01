@@ -39,6 +39,7 @@ import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -47,6 +48,12 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** The default implementation of {@link TieredStorageNettyService}. */
 public class TieredStorageNettyServiceImpl implements TieredStorageNettyService {
+
+    public static final AtomicLong MEM_BUFFERS = new AtomicLong(0);
+
+    public static final AtomicLong DISK_BUFFERS = new AtomicLong(0);
+
+    public static final AtomicLong REMOTE_BUFFERS = new AtomicLong(0);
 
     // ------------------------------------
     //          For producer side

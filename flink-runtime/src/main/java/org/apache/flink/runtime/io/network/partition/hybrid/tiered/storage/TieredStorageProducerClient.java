@@ -21,8 +21,15 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredStorageNettyServiceImpl;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk.DiskTierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.memory.MemoryTierProducerAgent;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.remote.RemoteTierProducerAgent;
 import org.apache.flink.util.ExceptionUtils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
@@ -38,6 +45,8 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** Client of the Tiered Storage used by the producer. */
 public class TieredStorageProducerClient {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TieredStorageProducerClient.class);
 
     private final boolean isBroadcastOnly;
 
@@ -59,6 +68,8 @@ public class TieredStorageProducerClient {
     /** The current writing storage tier for each subpartition. */
     private final TierProducerAgent[] currentSubpartitionTierAgent;
 
+    private final boolean hasMultiTiers;
+
     /**
      * The metric statistics for producer client. Note that it is necessary to check whether the
      * value is null before used.
@@ -76,6 +87,7 @@ public class TieredStorageProducerClient {
         this.bufferAccumulator = bufferAccumulator;
         this.bufferCompressor = bufferCompressor;
         this.tierProducerAgents = tierProducerAgents;
+        this.hasMultiTiers = tierProducerAgents.size() > 1;
         this.currentSubpartitionSegmentId = new int[numSubpartitions];
         this.currentSubpartitionTierAgent = new TierProducerAgent[numSubpartitions];
 
@@ -130,6 +142,22 @@ public class TieredStorageProducerClient {
     public void close() {
         bufferAccumulator.close();
         tierProducerAgents.forEach(TierProducerAgent::close);
+
+        long numMemoryBuffers = TieredStorageNettyServiceImpl.MEM_BUFFERS.get();
+        long numDiskBuffers = TieredStorageNettyServiceImpl.DISK_BUFFERS.get();
+        long numRemoteBuffers = TieredStorageNettyServiceImpl.REMOTE_BUFFERS.get();
+        long totalBuffers = numMemoryBuffers + numDiskBuffers + numRemoteBuffers;
+        LOG.info(
+                "The tier usage ratio, mem: {}/{} = {}, disk: {}/{} = {}, remote: {}/{} = {}",
+                numMemoryBuffers,
+                totalBuffers,
+                numMemoryBuffers * 1.0 / totalBuffers,
+                numDiskBuffers,
+                totalBuffers,
+                numDiskBuffers * 1.0 / totalBuffers,
+                numRemoteBuffers,
+                totalBuffers,
+                numRemoteBuffers * 1.0 / totalBuffers);
     }
 
     /**
@@ -187,6 +215,19 @@ public class TieredStorageProducerClient {
                     currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()].tryWrite(
                             subpartitionId, compressedBuffer, bufferAccumulator),
                     "Failed to write the first buffer to the new segment");
+        }
+        updateTierBufferCount(subpartitionId);
+    }
+
+    private void updateTierBufferCount(TieredStorageSubpartitionId subpartitionId) {
+        TierProducerAgent currentTier =
+                currentSubpartitionTierAgent[subpartitionId.getSubpartitionId()];
+        if (currentTier instanceof MemoryTierProducerAgent) {
+            TieredStorageNettyServiceImpl.MEM_BUFFERS.incrementAndGet();
+        } else if (currentTier instanceof DiskTierProducerAgent) {
+            TieredStorageNettyServiceImpl.DISK_BUFFERS.incrementAndGet();
+        } else if (currentTier instanceof RemoteTierProducerAgent) {
+            TieredStorageNettyServiceImpl.REMOTE_BUFFERS.incrementAndGet();
         }
     }
 
