@@ -204,7 +204,10 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
             if (!userOwner.equals(owner)) {
                 int numGuaranteed = storageMemorySpec.getNumGuaranteedBuffers();
                 int numRequested = numOwnerRequestedBuffer(userOwner);
-                numBuffersUsedOrReservedForOtherOwners += Math.max(numGuaranteed, numRequested);
+                numBuffersUsedOrReservedForOtherOwners +=
+                        storageMemorySpec.shouldBeCountedWhenReclaimingBuffers()
+                                ? Math.max(numGuaranteed, numRequested)
+                                : 0;
             }
         }
         // Note that a sudden reduction in the size of the buffer pool may result in non-reclaimable

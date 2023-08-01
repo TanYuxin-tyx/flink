@@ -115,6 +115,36 @@ public class TieredStorageMemoryManagerImplTest {
     }
 
     @Test
+    void testGetMaxNonReclaimableBuffersWhenOwnerIsNotCounted() throws IOException {
+        int numBuffers = 10;
+        int numExclusive = 5;
+
+        Object bufferOwner1 = new Object();
+        Object bufferOwner2 = new Object();
+        List<TieredStorageMemorySpec> memorySpecs = new ArrayList<>();
+        memorySpecs.add(new TieredStorageMemorySpec(bufferOwner1, numExclusive, false));
+        memorySpecs.add(new TieredStorageMemorySpec(bufferOwner2, numExclusive, true));
+
+        TieredStorageMemoryManagerImpl storageMemoryManager =
+                createStorageMemoryManager(numBuffers, memorySpecs);
+
+        List<BufferBuilder> requestedBuffers = new ArrayList<>();
+        for (int i = 1; i <= numBuffers; i++) {
+            requestedBuffers.add(storageMemoryManager.requestBufferBlocking(bufferOwner2));
+            assertThat(storageMemoryManager.getMaxNonReclaimableBuffers(bufferOwner2))
+                    .isEqualTo(numBuffers);
+            int numExpectedAvailable = numBuffers - i;
+            assertThat(
+                            storageMemoryManager.getMaxNonReclaimableBuffers(bufferOwner2)
+                                    - storageMemoryManager.numOwnerRequestedBuffer(bufferOwner2))
+                    .isEqualTo(numExpectedAvailable);
+        }
+
+        requestedBuffers.forEach(TieredStorageMemoryManagerImplTest::recycleBufferBuilder);
+        storageMemoryManager.release();
+    }
+
+    @Test
     void testNumMaxNonReclaimableWhenOtherUseLessThanGuaranteed() throws IOException {
         int numBuffers = 10;
         int numExclusive = 4;

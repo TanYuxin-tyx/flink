@@ -180,7 +180,8 @@ public class TieredResultPartitionFactory {
                         bufferAccumulator,
                         Math.min(
                                 numberOfSubpartitions + 1,
-                                tieredStorageConfiguration.getAccumulatorExclusiveBuffers())));
+                                tieredStorageConfiguration.getAccumulatorExclusiveBuffers()),
+                        false));
         List<Integer> tierExclusiveBuffers =
                 tieredStorageConfiguration.getEachTierExclusiveBufferNum();
 

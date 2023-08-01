@@ -30,9 +30,21 @@ public class TieredStorageMemorySpec {
     /** The number of guaranteed buffers of this memory owner. */
     private final int numGuaranteedBuffers;
 
+    /**
+     * This flag indicates whether the current owner should be counted when reclaiming other owners'
+     * buffers.
+     */
+    private final boolean shouldBeCountedWhenReclaimingBuffers;
+
     public TieredStorageMemorySpec(Object owner, int numGuaranteedBuffers) {
+        this(owner, numGuaranteedBuffers, true);
+    }
+
+    public TieredStorageMemorySpec(
+            Object owner, int numGuaranteedBuffers, boolean shouldBeCountedWhenReclaimingBuffers) {
         this.owner = owner;
         this.numGuaranteedBuffers = numGuaranteedBuffers;
+        this.shouldBeCountedWhenReclaimingBuffers = shouldBeCountedWhenReclaimingBuffers;
     }
 
     public Object getOwner() {
@@ -41,5 +53,9 @@ public class TieredStorageMemorySpec {
 
     public int getNumGuaranteedBuffers() {
         return numGuaranteedBuffers;
+    }
+
+    public boolean shouldBeCountedWhenReclaimingBuffers() {
+        return shouldBeCountedWhenReclaimingBuffers;
     }
 }
