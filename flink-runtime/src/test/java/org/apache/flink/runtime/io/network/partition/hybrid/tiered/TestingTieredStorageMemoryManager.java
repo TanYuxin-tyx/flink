@@ -95,6 +95,11 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
     }
 
     @Override
+    public float numUsedRatio() {
+        return 0;
+    }
+
+    @Override
     public int numOwnerRequestedBuffer(Object owner) {
         return numOwnerRequestedBufferFunction.apply(owner);
     }
