@@ -224,6 +224,11 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     }
 
     @Override
+    public float numUsedRatio() {
+        return bufferPool.bestEffortGetNumOfUsedBuffers() * 1.0f / bufferPool.getNumBuffers();
+    }
+
+    @Override
     public void transferBufferOwnership(Object oldOwner, Object newOwner, Buffer buffer) {
         checkState(buffer.isBuffer(), "Only buffer supports transfer ownership.");
         decNumRequestedBuffer(oldOwner);
