@@ -141,7 +141,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     }
 
     @Override
-    public boolean tryStartNewSegment(TieredStorageSubpartitionId subpartitionId, int segmentId) {
+    public boolean tryStartNewSegment(
+            String owningTaskName, TieredStorageSubpartitionId subpartitionId, int segmentId) {
         File filePath = dataFilePath.toFile();
         boolean canStartNewSegment =
                 filePath.getUsableSpace() - ((long) numBuffersPerSegment) * bufferSizeBytes

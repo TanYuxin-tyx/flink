@@ -95,9 +95,14 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
     }
 
     @Override
-    public boolean tryStartNewSegment(TieredStorageSubpartitionId subpartitionId, int segmentId) {
+    public boolean tryStartNewSegment(
+            String owningTaskName, TieredStorageSubpartitionId subpartitionId, int segmentId) {
         boolean canStartNewSegment =
                 nettyConnectionEstablished[subpartitionId.getSubpartitionId()]
+                        && !owningTaskName.contains("Join")
+                        && !owningTaskName.contains("Aggregate")
+                        && !owningTaskName.contains("Sort")
+                        && !owningTaskName.contains("Rank")
                         && (memoryManager.getMaxNonReclaimableBuffers(this)
                                         - memoryManager.numOwnerRequestedBuffer(this))
                                 > numBuffersPerSegment

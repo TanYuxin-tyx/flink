@@ -122,6 +122,7 @@ public class TieredResultPartitionFactory {
         // Create producer client.
         TieredStorageProducerClient tieredStorageProducerClient =
                 new TieredStorageProducerClient(
+                        owningTaskName,
                         numSubpartitions,
                         isBroadCastOnly,
                         bufferAccumulator,
