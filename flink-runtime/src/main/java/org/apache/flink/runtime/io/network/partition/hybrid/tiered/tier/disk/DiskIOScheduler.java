@@ -63,6 +63,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServiceProducer {
 
+    private static final int MAX_SCHEDULE_READ_DELAY_MS = 20;
+
     private static final Logger LOG = LoggerFactory.getLogger(DiskIOScheduler.class);
 
     private final Object lock = new Object();
@@ -118,6 +120,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     @GuardedBy("lock")
     private boolean isReleased;
 
+    /** A counter used to record the number of times zero buffers was read. */
+    private int readZeroBufferCounter = 0;
+
     public DiskIOScheduler(
             TieredStoragePartitionId partitionId,
             BatchShuffleReadBufferPool bufferPool,
@@ -146,8 +151,11 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             isRunning = false;
         }
         if (numBuffersRead == 0) {
-            ioExecutor.schedule(this::triggerScheduling, 5, TimeUnit.MILLISECONDS);
+            readZeroBufferCounter++;
+            int nextReadDelayMs = Math.min(5 * readZeroBufferCounter, MAX_SCHEDULE_READ_DELAY_MS);
+            ioExecutor.schedule(this::triggerScheduling, nextReadDelayMs, TimeUnit.MILLISECONDS);
         } else {
+            readZeroBufferCounter = 0;
             triggerScheduling();
         }
     }
