@@ -124,6 +124,4 @@ public interface TieredStorageMemoryManager {
      * TieredStorageMemoryManager}.
      */
     void release();
-
-    float numUsedRatio();
 }

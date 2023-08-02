@@ -105,8 +105,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
                         && !owningTaskName.contains("Rank")
                         && (memoryManager.getMaxNonReclaimableBuffers(this)
                                         - memoryManager.numOwnerRequestedBuffer(this))
-                                > numBuffersPerSegment
-                        && memoryManager.numUsedRatio() < 0.7;
+                                > numBuffersPerSegment;
         if (canStartNewSegment) {
             subpartitionProducerAgents[subpartitionId.getSubpartitionId()].updateSegmentId(
                     segmentId);
