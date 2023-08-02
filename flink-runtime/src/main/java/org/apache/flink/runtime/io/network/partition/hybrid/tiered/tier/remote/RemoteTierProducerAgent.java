@@ -71,7 +71,8 @@ public class RemoteTierProducerAgent implements TierProducerAgent {
     }
 
     @Override
-    public boolean tryStartNewSegment(TieredStorageSubpartitionId subpartitionId, int segmentId) {
+    public boolean tryStartNewSegment(
+            String owningTaskName, TieredStorageSubpartitionId subpartitionId, int segmentId) {
         cacheDataManager.startSegment(subpartitionId.getSubpartitionId(), segmentId);
         // The remote storage tier should always be able to start a new segment.
         return true;

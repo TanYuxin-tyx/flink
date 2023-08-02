@@ -48,6 +48,8 @@ public class TieredStorageProducerClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(TieredStorageProducerClient.class);
 
+    private final String owningTaskName;
+
     private final boolean isBroadcastOnly;
 
     private final int numSubpartitions;
@@ -68,8 +70,6 @@ public class TieredStorageProducerClient {
     /** The current writing storage tier for each subpartition. */
     private final TierProducerAgent[] currentSubpartitionTierAgent;
 
-    private final boolean hasMultiTiers;
-
     /**
      * The metric statistics for producer client. Note that it is necessary to check whether the
      * value is null before used.
@@ -82,12 +82,28 @@ public class TieredStorageProducerClient {
             BufferAccumulator bufferAccumulator,
             @Nullable BufferCompressor bufferCompressor,
             List<TierProducerAgent> tierProducerAgents) {
+        this(
+                null,
+                numSubpartitions,
+                isBroadcastOnly,
+                bufferAccumulator,
+                bufferCompressor,
+                tierProducerAgents);
+    }
+
+    public TieredStorageProducerClient(
+            String owningTaskName,
+            int numSubpartitions,
+            boolean isBroadcastOnly,
+            BufferAccumulator bufferAccumulator,
+            @Nullable BufferCompressor bufferCompressor,
+            List<TierProducerAgent> tierProducerAgents) {
+        this.owningTaskName = owningTaskName;
         this.isBroadcastOnly = isBroadcastOnly;
         this.numSubpartitions = numSubpartitions;
         this.bufferAccumulator = bufferAccumulator;
         this.bufferCompressor = bufferCompressor;
         this.tierProducerAgents = tierProducerAgents;
-        this.hasMultiTiers = tierProducerAgents.size() > 1;
         this.currentSubpartitionSegmentId = new int[numSubpartitions];
         this.currentSubpartitionTierAgent = new TierProducerAgent[numSubpartitions];
 
@@ -238,7 +254,8 @@ public class TieredStorageProducerClient {
         int nextSegmentIndex = segmentIndex + 1;
 
         for (TierProducerAgent tierProducerAgent : tierProducerAgents) {
-            if (tierProducerAgent.tryStartNewSegment(subpartitionId, nextSegmentIndex)) {
+            if (tierProducerAgent.tryStartNewSegment(
+                    owningTaskName, subpartitionId, nextSegmentIndex)) {
                 // Update the segment index and the chosen storage tier for the subpartition.
                 currentSubpartitionSegmentId[subpartitionIndex] = nextSegmentIndex;
                 currentSubpartitionTierAgent[subpartitionIndex] = tierProducerAgent;
