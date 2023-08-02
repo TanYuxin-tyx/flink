@@ -63,7 +63,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServiceProducer {
 
-    private static final int MAX_SCHEDULE_READ_DELAY_MS = 20;
+    private static final int MAX_SCHEDULE_READ_DELAY_MS = 30;
 
     private static final Logger LOG = LoggerFactory.getLogger(DiskIOScheduler.class);
 
