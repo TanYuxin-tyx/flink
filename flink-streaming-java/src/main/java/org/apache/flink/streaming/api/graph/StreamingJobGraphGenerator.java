@@ -1257,6 +1257,20 @@ public class StreamingJobGraphGenerator {
                             ResultPartitionType.HYBRID_FULL.name());
                     partitionType = ResultPartitionType.HYBRID_FULL;
                 }
+                String chainedName = checkNotNull(chainedNames.get(vertexId));
+                if ((partitionType == ResultPartitionType.HYBRID_SELECTIVE
+                                || partitionType == ResultPartitionType.HYBRID_FULL)
+                        && (chainedName.contains("Sort")
+                                || chainedName.contains("Rank")
+                                || chainedName.contains("Join")
+                                || chainedName.contains("Limit"))) {
+                    LOG.info(
+                            "{} result partition has been replaced by {} result partition to avoid "
+                                    + "the downstream starting in advance for sort or aggregation operator.",
+                            partitionType.name(),
+                            ResultPartitionType.BLOCKING.name());
+                    partitionType = ResultPartitionType.BLOCKING;
+                }
             }
 
             createOrReuseOutput(
