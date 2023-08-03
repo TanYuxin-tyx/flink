@@ -41,6 +41,8 @@ class DiskCacheManager {
 
     private final int numSubpartitions;
 
+    private final TieredStorageMemoryManager memoryManager;
+
     private final PartitionFileWriter partitionFileWriter;
 
     private final SubpartitionDiskCacheManager[] subpartitionCacheManagers;
@@ -55,6 +57,7 @@ class DiskCacheManager {
             PartitionFileWriter partitionFileWriter) {
         this.partitionId = partitionId;
         this.numSubpartitions = numSubpartitions;
+        this.memoryManager = memoryManager;
         this.partitionFileWriter = partitionFileWriter;
         this.subpartitionCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
         this.hasFlushCompleted = FutureUtils.completedVoidFuture();
@@ -93,11 +96,9 @@ class DiskCacheManager {
     void appendEndOfSegmentEvent(ByteBuffer record, int subpartitionId) {
         subpartitionCacheManagers[subpartitionId].appendEndOfSegmentEvent(record);
 
-        // When finishing a segment, the buffers should be flushed because the next segment may be
-        // written to another tier. If the buffers in this tier are not flushed here, then the next
-        // segment in another tier may be stuck by lacking buffers. This flush has a low trigger
-        // frequency, so its impact on performance is relatively small.
-        forceFlushCachedBuffers();
+        if (memoryManager.numUsedRatio() > 0.8) {
+            forceFlushCachedBuffers();
+        }
     }
 
     /**
