@@ -45,7 +45,7 @@ public class TieredStorageConfiguration {
 
     private static final int DEFAULT_REMOTE_TIER_EXCLUSIVE_BUFFERS = 1;
 
-    private static final int DEFAULT_NUM_BUFFERS_USE_SORT_ACCUMULATOR_THRESHOLD = 512;
+    private static final int DEFAULT_NUM_BUFFERS_USE_SORT_ACCUMULATOR_THRESHOLD = 256;
 
     private static final int DEFAULT_MEMORY_TIER_NUM_BYTES_PER_SEGMENT = 2 * 32 * 1024;
 
