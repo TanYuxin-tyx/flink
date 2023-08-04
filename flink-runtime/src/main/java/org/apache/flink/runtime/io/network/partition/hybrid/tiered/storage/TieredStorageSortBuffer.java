@@ -22,6 +22,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
 import org.apache.flink.runtime.io.network.partition.SortBasedDataBuffer;
@@ -95,7 +96,7 @@ public class TieredStorageSortBuffer extends SortBuffer {
             toReadOffsetInBuffer += INDEX_ENTRY_SIZE;
 
             // Allocate a temp buffer for the event, recycle the original buffer
-            if (bufferDataType.isEvent() && transitBuffer.size() < recordLength) {
+            if (bufferDataType.isEvent()) {
                 bufferRecycler.recycle(transitBuffer);
                 transitBuffer = MemorySegmentFactory.allocateUnpooledSegment(recordLength);
             }
@@ -122,7 +123,13 @@ public class TieredStorageSortBuffer extends SortBuffer {
 
         numTotalBytesRead += numBytesRead;
         return new BufferWithChannel(
-                new NetworkBuffer(transitBuffer, bufferRecycler, bufferDataType, numBytesRead),
+                new NetworkBuffer(
+                        transitBuffer,
+                        bufferDataType == Buffer.DataType.DATA_BUFFER
+                                ? bufferRecycler
+                                : FreeingBufferRecycler.INSTANCE,
+                        bufferDataType,
+                        numBytesRead),
                 currentReadingSubpartitionId);
     }
 }
