@@ -169,7 +169,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         requestBuffers();
 
         // Use the half of the buffers for writing, and the other half for reading
-        int numBuffersForSort = freeSegments.size() / 2;
+        int numBuffersForSort = (freeSegments.size() - 1) / 3;
         return new TieredStorageSortBuffer(
                 freeSegments,
                 this::recycleBuffer,
@@ -221,7 +221,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         checkState(dataType != Buffer.DataType.EVENT_BUFFER);
         while (record.hasRemaining()) {
             int toCopy = Math.min(record.remaining(), bufferSizeBytes);
-            MemorySegment writeBuffer = checkNotNull(getFreeSegment());
+            MemorySegment writeBuffer = requestBuffer().getMemorySegment();
             writeBuffer.put(0, record, toCopy);
 
             flushBuffer(

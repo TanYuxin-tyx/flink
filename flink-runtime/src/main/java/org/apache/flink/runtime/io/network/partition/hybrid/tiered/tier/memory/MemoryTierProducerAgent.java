@@ -98,7 +98,14 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
     public boolean tryStartNewSegment(TieredStorageSubpartitionId subpartitionId, int segmentId) {
         boolean canStartNewSegment =
                 nettyConnectionEstablished[subpartitionId.getSubpartitionId()]
-                        && (memoryManager.getMaxNonReclaimableBuffers(this)
+                        // Note that if a join task is running, and the memory tier is occupied by
+                        // the data from the build side, but the upstream task of probe size has not
+                        // finished, then the task may hang because the buffers are all used but can
+                        // not be consumed because the join has not finished reading the data from
+                        // the build side. In case of the deak lock, the memory tier only use half
+                        // of the buffers. If the issue is fixed, then this divide logic is not
+                        // needed anymore.
+                        && (memoryManager.getMaxNonReclaimableBuffers(this) / 2
                                         - memoryManager.numOwnerRequestedBuffer(this))
                                 > numBuffersPerSegment;
         if (canStartNewSegment) {
