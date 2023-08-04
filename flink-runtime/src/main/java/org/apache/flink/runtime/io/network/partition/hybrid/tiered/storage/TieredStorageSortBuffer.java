@@ -60,9 +60,7 @@ public class TieredStorageSortBuffer extends SortBuffer {
         checkState(!isReleased, "Sort buffer is already released.");
 
         if (!hasRemaining()) {
-            if (transitBuffer != null) {
-                bufferRecycler.recycle(transitBuffer);
-            }
+            freeSegments.add(transitBuffer);
             return null;
         }
 
@@ -97,7 +95,7 @@ public class TieredStorageSortBuffer extends SortBuffer {
 
             // Allocate a temp buffer for the event, recycle the original buffer
             if (bufferDataType.isEvent()) {
-                bufferRecycler.recycle(transitBuffer);
+                freeSegments.add(transitBuffer);
                 transitBuffer = MemorySegmentFactory.allocateUnpooledSegment(recordLength);
             }
 

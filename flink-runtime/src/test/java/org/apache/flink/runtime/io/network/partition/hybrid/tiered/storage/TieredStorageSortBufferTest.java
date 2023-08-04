@@ -215,7 +215,7 @@ class TieredStorageSortBufferTest {
                         numSubpartitions,
                         BUFFER_SIZE_BYTES,
                         numBuffersForSort);
-        MemorySegment memorySegment = bufferPool.requestMemorySegmentBlocking();
+        MemorySegment memorySegment = segments.poll();
         sortBuffer.finish();
         assertThat(sortBuffer.getNextBuffer(memorySegment)).isNull();
         assertThat(bufferPool.bestEffortGetNumOfUsedBuffers()).isEqualTo(numBuffersForSort);
@@ -259,7 +259,7 @@ class TieredStorageSortBufferTest {
         bufferWithChannel = sortBuffer.getNextBuffer(memorySegment);
         assertThat(bufferWithChannel.getBuffer().isBuffer()).isFalse();
         assertThat(bufferWithChannel.getChannelIndex()).isEqualTo(subpartitionId);
-        assertThat(bufferPool.bestEffortGetNumOfUsedBuffers()).isEqualTo(numBuffersForSort - 1);
+        assertThat(bufferPool.bestEffortGetNumOfUsedBuffers()).isEqualTo(numBuffersForSort);
     }
 
     private static BufferWithChannel copyIntoSegment(SortBuffer dataBuffer, BufferPool bufferPool) {
