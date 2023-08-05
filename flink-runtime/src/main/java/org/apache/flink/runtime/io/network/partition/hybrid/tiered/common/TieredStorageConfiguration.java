@@ -429,7 +429,10 @@ public class TieredStorageConfiguration {
             tierFactories = new ArrayList<>();
             tierExclusiveBuffers = new ArrayList<>();
             tierFactories.add(
-                    new MemoryTierFactory(memoryTierNumBytesPerSegment, tieredStorageBufferSize));
+                    new MemoryTierFactory(
+                            numBuffersUseSortAccumulatorThreshold,
+                            memoryTierNumBytesPerSegment,
+                            tieredStorageBufferSize));
             tierExclusiveBuffers.add(memoryTierExclusiveBuffers);
             tierFactories.add(
                     new DiskTierFactory(

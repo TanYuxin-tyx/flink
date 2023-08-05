@@ -49,4 +49,11 @@ public class TieredStorageUtilsTest {
         assertThat(byteBuffers[0]).isEqualTo(header);
         assertThat(byteBuffers[1]).isEqualTo(originalBuffer.getNioBufferReadable());
     }
+
+    @Test
+    void testShouldUseSortAccumulator() {
+        assertThat(TieredStorageUtils.shouldUseSortAccumulator(5, 5)).isTrue();
+        assertThat(TieredStorageUtils.shouldUseSortAccumulator(6, 5)).isFalse();
+        assertThat(TieredStorageUtils.shouldUseSortAccumulator(7, 5)).isFalse();
+    }
 }

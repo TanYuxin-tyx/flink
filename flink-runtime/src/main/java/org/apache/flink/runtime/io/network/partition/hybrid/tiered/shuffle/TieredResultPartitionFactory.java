@@ -50,6 +50,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.shouldUseSortAccumulator;
+
 /** {@link TieredResultPartitionFactory} contains the components to set up tiered storage. */
 public class TieredResultPartitionFactory {
 
@@ -151,7 +153,7 @@ public class TieredResultPartitionFactory {
             int numAccumulatorExclusiveBuffers,
             TieredStorageMemoryManager storageMemoryManager) {
         int bufferSize = tieredStorageConfiguration.getTieredStorageBufferSize();
-        return (numSubpartitions + 1) > numAccumulatorExclusiveBuffers
+        return shouldUseSortAccumulator(numAccumulatorExclusiveBuffers, numSubpartitions)
                 ? new SortBufferAccumulator(
                         numSubpartitions,
                         numAccumulatorExclusiveBuffers,

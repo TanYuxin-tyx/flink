@@ -62,6 +62,66 @@ class MemoryTierProducerAgentTest {
     }
 
     @Test
+    void testTryStartNewSegmentFailedWhenUseSortAccumulator() {
+        int segmentSizeBytes = BUFFER_SIZE * 2;
+        TestingTieredStorageMemoryManager memoryManager =
+                new TestingTieredStorageMemoryManager.Builder()
+                        .setGetMaxNonReclaimableBuffersFunction(ignore -> 5)
+                        .build();
+        TestingTieredStorageNettyService nettyService =
+                new TestingTieredStorageNettyService.Builder().build();
+        TestingNettyServiceProducer nettyServiceProducer =
+                new TestingNettyServiceProducer.Builder().build();
+        nettyService.registerProducer(PARTITION_ID, nettyServiceProducer);
+
+        try (MemoryTierProducerAgent memoryTierProducerAgent =
+                new MemoryTierProducerAgent(
+                        PARTITION_ID,
+                        NUM_SUBPARTITIONS,
+                        BUFFER_SIZE,
+                        segmentSizeBytes,
+                        false,
+                        true,
+                        memoryManager,
+                        nettyService,
+                        new TieredStorageResourceRegistry())) {
+            memoryTierProducerAgent.connectionEstablished(
+                    SUBPARTITION_ID, new TestingNettyConnectionWriter.Builder().build());
+            assertThat(memoryTierProducerAgent.tryStartNewSegment(SUBPARTITION_ID, 0)).isFalse();
+        }
+    }
+
+    @Test
+    void testTryStartNewSegmentSuccessWhenUseSortAccumulator() {
+        int segmentSizeBytes = BUFFER_SIZE * 2;
+        TestingTieredStorageMemoryManager memoryManager =
+                new TestingTieredStorageMemoryManager.Builder()
+                        .setGetMaxNonReclaimableBuffersFunction(ignore -> 6)
+                        .build();
+        TestingTieredStorageNettyService nettyService =
+                new TestingTieredStorageNettyService.Builder().build();
+        TestingNettyServiceProducer nettyServiceProducer =
+                new TestingNettyServiceProducer.Builder().build();
+        nettyService.registerProducer(PARTITION_ID, nettyServiceProducer);
+
+        try (MemoryTierProducerAgent memoryTierProducerAgent =
+                new MemoryTierProducerAgent(
+                        PARTITION_ID,
+                        NUM_SUBPARTITIONS,
+                        BUFFER_SIZE,
+                        segmentSizeBytes,
+                        false,
+                        true,
+                        memoryManager,
+                        nettyService,
+                        new TieredStorageResourceRegistry())) {
+            memoryTierProducerAgent.connectionEstablished(
+                    SUBPARTITION_ID, new TestingNettyConnectionWriter.Builder().build());
+            assertThat(memoryTierProducerAgent.tryStartNewSegment(SUBPARTITION_ID, 0)).isTrue();
+        }
+    }
+
+    @Test
     void testStartSegmentFailedWithInsufficientMemory() {
         TestingTieredStorageMemoryManager memoryManager =
                 new TestingTieredStorageMemoryManager.Builder()
@@ -78,6 +138,7 @@ class MemoryTierProducerAgentTest {
                         NUM_SUBPARTITIONS,
                         BUFFER_SIZE,
                         SEGMENT_SIZE_BYTES,
+                        false,
                         false,
                         memoryManager,
                         nettyService,
@@ -163,6 +224,7 @@ class MemoryTierProducerAgentTest {
                 BUFFER_SIZE,
                 segmentSizeBytes,
                 isBroadcastOnly,
+                false,
                 memoryManager,
                 nettyService,
                 resourceRegistry);

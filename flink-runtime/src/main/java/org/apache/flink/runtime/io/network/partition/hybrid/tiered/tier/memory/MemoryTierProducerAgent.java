@@ -45,6 +45,8 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 /** The memory tier implementation of {@link TierProducerAgent}. */
 public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceProducer {
 
+    private final boolean shouldUseSortAccumulator;
+
     private final int numBuffersPerSegment;
 
     private final TieredStorageMemoryManager memoryManager;
@@ -69,6 +71,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             int bufferSizeBytes,
             int segmentSizeBytes,
             boolean isBroadcastOnly,
+            boolean shouldUseSortAccumulator,
             TieredStorageMemoryManager memoryManager,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry) {
@@ -79,6 +82,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
                 !isBroadcastOnly,
                 "Broadcast only partition is not allowed to use the memory tier.");
 
+        this.shouldUseSortAccumulator = shouldUseSortAccumulator;
         this.numBuffersPerSegment = segmentSizeBytes / bufferSizeBytes;
         this.memoryManager = memoryManager;
         this.currentSubpartitionWriteBuffers = new int[numSubpartitions];
@@ -96,18 +100,29 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
 
     @Override
     public boolean tryStartNewSegment(TieredStorageSubpartitionId subpartitionId, int segmentId) {
-        boolean canStartNewSegment =
-                nettyConnectionEstablished[subpartitionId.getSubpartitionId()]
-                        // Note that if a join task is running, and the memory tier is occupied by
-                        // the data from the build side, but the upstream task of probe size has not
-                        // finished, then the task may hang because the buffers are all used but can
-                        // not be consumed because the join has not finished reading the data from
-                        // the build side. In case of the deak lock, the memory tier only use half
-                        // of the buffers. If the issue is fixed, then this divide logic is not
-                        // needed anymore.
-                        && (memoryManager.getMaxNonReclaimableBuffers(this) / 2
-                                        - memoryManager.numOwnerRequestedBuffer(this))
-                                > numBuffersPerSegment;
+        boolean isConnectionEstablished =
+                nettyConnectionEstablished[subpartitionId.getSubpartitionId()];
+        boolean areBuffersEnoughForNewSegment = false;
+        if (isConnectionEstablished) {
+            // Note that when utilizing the sort-accumulator mode, a join task may encounter delays
+            // if the memory tier is already occupied with data from the upstream probe side and the
+            // downstream join task has commenced while the join task is still in the process of
+            // reading data from the upstream build side. This occurs because a majority of the
+            // buffers in the memory tier on the upstream probe side are already in use and cannot
+            // be freed until the join task has finished reading data from the build side. To avoid
+            // potential deadlocks, it is recommended to only use half of the buffers in the memory
+            // tier. If the sort-accumulator issue is resolved, the division logic will become
+            // unnecessary.
+            int numMaxNonReclaimableBuffers =
+                    shouldUseSortAccumulator
+                            ? memoryManager.getMaxNonReclaimableBuffers(this) / 2
+                            : memoryManager.getMaxNonReclaimableBuffers(this);
+            areBuffersEnoughForNewSegment =
+                    numMaxNonReclaimableBuffers - memoryManager.numOwnerRequestedBuffer(this)
+                            > numBuffersPerSegment;
+        }
+
+        boolean canStartNewSegment = isConnectionEstablished && areBuffersEnoughForNewSegment;
         if (canStartNewSegment) {
             subpartitionProducerAgents[subpartitionId.getSubpartitionId()].updateSegmentId(
                     segmentId);

@@ -47,4 +47,9 @@ public class TieredStorageUtils {
         bufferWithHeaders[index] = header;
         bufferWithHeaders[index + 1] = buffer.getNioBufferReadable();
     }
+
+    public static boolean shouldUseSortAccumulator(
+            int numBuffersUseSortAccumulatorThreshold, int numSubpartitions) {
+        return numSubpartitions + 1 > numBuffersUseSortAccumulatorThreshold;
+    }
 }

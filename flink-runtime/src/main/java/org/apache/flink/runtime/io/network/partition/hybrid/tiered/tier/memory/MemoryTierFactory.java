@@ -34,14 +34,20 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.shouldUseSortAccumulator;
+
 /** The implementation of {@link TierFactory} for memory tier. */
 public class MemoryTierFactory implements TierFactory {
+
+    private final int numBuffersUseSortAccumulatorThreshold;
 
     private final int segmentSizeBytes;
 
     private final int bufferSizeBytes;
 
-    public MemoryTierFactory(int segmentSizeBytes, int bufferSizeBytes) {
+    public MemoryTierFactory(
+            int numBuffersUseSortAccumulatorThreshold, int segmentSizeBytes, int bufferSizeBytes) {
+        this.numBuffersUseSortAccumulatorThreshold = numBuffersUseSortAccumulatorThreshold;
         this.segmentSizeBytes = segmentSizeBytes;
         this.bufferSizeBytes = bufferSizeBytes;
     }
@@ -66,12 +72,15 @@ public class MemoryTierFactory implements TierFactory {
             int maxRequestedBuffers,
             Duration bufferRequestTimeout,
             int maxBufferReadAhead) {
+        boolean shouldUseSortAccumulator =
+                shouldUseSortAccumulator(numBuffersUseSortAccumulatorThreshold, numSubpartitions);
         return new MemoryTierProducerAgent(
                 partitionID,
                 numSubpartitions,
                 bufferSizeBytes,
                 segmentSizeBytes,
                 isBroadcastOnly,
+                shouldUseSortAccumulator,
                 memoryManager,
                 nettyService,
                 resourceRegistry);
