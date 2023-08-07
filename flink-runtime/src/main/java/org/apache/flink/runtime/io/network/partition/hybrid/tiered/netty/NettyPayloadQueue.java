@@ -18,37 +18,46 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
+import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /** The queue containing data buffers. */
 public class NettyPayloadQueue {
 
-    private final Queue<NettyPayload> queue = new LinkedBlockingQueue<>();
+    private final Object lock = new Object();
 
-    private final AtomicInteger backlog = new AtomicInteger(0);
+    private final Queue<NettyPayload> queue = new LinkedList<>();
+
+    private int backlog = 0;
 
     public void add(NettyPayload nettyPayload) {
-        queue.add(nettyPayload);
-        if (nettyPayload.getBuffer().isPresent()) {
-            backlog.getAndIncrement();
+        synchronized (lock) {
+            queue.add(nettyPayload);
+            if (nettyPayload.getBuffer().isPresent()) {
+                backlog++;
+            }
         }
     }
 
     public NettyPayload peek() {
-        return queue.peek();
+        synchronized (lock) {
+            return queue.peek();
+        }
     }
 
     public NettyPayload poll() {
-        NettyPayload nettyPayload = queue.poll();
-        if (nettyPayload != null && nettyPayload.getBuffer().isPresent()) {
-            backlog.getAndDecrement();
+        synchronized (lock) {
+            NettyPayload nettyPayload = queue.poll();
+            if (nettyPayload != null && nettyPayload.getBuffer().isPresent()) {
+                backlog--;
+            }
+            return nettyPayload;
         }
-        return nettyPayload;
     }
 
     public int getBacklog() {
-        return backlog.get();
+        synchronized (lock) {
+            return backlog;
+        }
     }
 }
