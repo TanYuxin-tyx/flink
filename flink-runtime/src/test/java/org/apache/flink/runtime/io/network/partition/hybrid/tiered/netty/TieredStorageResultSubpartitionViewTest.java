@@ -30,11 +30,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
@@ -48,7 +46,7 @@ public class TieredStorageResultSubpartitionViewTest {
 
     private CompletableFuture<Void> availabilityListener;
 
-    private List<Queue<NettyPayload>> nettyPayloadQueues;
+    private List<NettyPayloadQueue> nettyPayloadQueues;
 
     private List<CompletableFuture<NettyConnectionId>> connectionBrokenConsumers;
 
@@ -98,11 +96,11 @@ public class TieredStorageResultSubpartitionViewTest {
     void testGetAvailabilityAndBacklog() {
         ResultSubpartitionView.AvailabilityWithBacklog availabilityAndBacklog1 =
                 tieredStorageResultSubpartitionView.getAvailabilityAndBacklog(0);
-        assertThat(availabilityAndBacklog1.getBacklog()).isEqualTo(3);
+        assertThat(availabilityAndBacklog1.getBacklog()).isEqualTo(2);
         assertThat(availabilityAndBacklog1.isAvailable()).isEqualTo(false);
         ResultSubpartitionView.AvailabilityWithBacklog availabilityAndBacklog2 =
                 tieredStorageResultSubpartitionView.getAvailabilityAndBacklog(2);
-        assertThat(availabilityAndBacklog2.getBacklog()).isEqualTo(3);
+        assertThat(availabilityAndBacklog2.getBacklog()).isEqualTo(2);
         assertThat(availabilityAndBacklog2.isAvailable()).isEqualTo(true);
     }
 
@@ -115,8 +113,8 @@ public class TieredStorageResultSubpartitionViewTest {
     @Test
     void testReleaseAllResources() throws IOException {
         tieredStorageResultSubpartitionView.releaseAllResources();
-        assertThat(nettyPayloadQueues.get(0)).hasSize(0);
-        assertThat(nettyPayloadQueues.get(1)).hasSize(0);
+        assertThat(nettyPayloadQueues.get(0).getBacklog()).isEqualTo(0);
+        assertThat(nettyPayloadQueues.get(1).getBacklog()).isEqualTo(0);
         assertThat(connectionBrokenConsumers.get(0)).isDone();
         assertThat(connectionBrokenConsumers.get(1)).isDone();
         assertThat(tieredStorageResultSubpartitionView.isReleased()).isTrue();
@@ -124,9 +122,9 @@ public class TieredStorageResultSubpartitionViewTest {
 
     @Test
     void testGetNumberOfQueuedBuffers() {
-        assertThat(tieredStorageResultSubpartitionView.getNumberOfQueuedBuffers()).isEqualTo(3);
+        assertThat(tieredStorageResultSubpartitionView.getNumberOfQueuedBuffers()).isEqualTo(2);
         assertThat(tieredStorageResultSubpartitionView.unsynchronizedGetNumberOfQueuedBuffers())
-                .isEqualTo(3);
+                .isEqualTo(2);
     }
 
     private static void checkBufferAndBacklog(BufferAndBacklog bufferAndBacklog, int backlog) {
@@ -140,10 +138,10 @@ public class TieredStorageResultSubpartitionViewTest {
         return () -> notifier.complete(null);
     }
 
-    private static List<Queue<NettyPayload>> createNettyPayloadQueues() {
-        List<Queue<NettyPayload>> nettyPayloadQueues = new ArrayList<>();
+    private static List<NettyPayloadQueue> createNettyPayloadQueues() {
+        List<NettyPayloadQueue> nettyPayloadQueues = new ArrayList<>();
         for (int index = 0; index < TIER_NUMBER; ++index) {
-            Queue<NettyPayload> queue = new ArrayDeque<>();
+            NettyPayloadQueue queue = new NettyPayloadQueue();
             queue.add(NettyPayload.newSegment(index));
             queue.add(NettyPayload.newBuffer(BufferBuilderTestUtils.buildSomeBuffer(0), 0, index));
             queue.add(
@@ -159,10 +157,10 @@ public class TieredStorageResultSubpartitionViewTest {
         return nettyPayloadQueues;
     }
 
-    private static List<Queue<NettyPayload>> createNettyPayloadQueuesWithError(Throwable error) {
-        List<Queue<NettyPayload>> nettyPayloadQueues = new ArrayList<>();
+    private static List<NettyPayloadQueue> createNettyPayloadQueuesWithError(Throwable error) {
+        List<NettyPayloadQueue> nettyPayloadQueues = new ArrayList<>();
         for (int index = 0; index < TIER_NUMBER; ++index) {
-            Queue<NettyPayload> queue = new ArrayDeque<>();
+            NettyPayloadQueue queue = new NettyPayloadQueue();
             queue.add(NettyPayload.newSegment(index));
             queue.add(NettyPayload.newError(error));
             nettyPayloadQueues.add(queue);

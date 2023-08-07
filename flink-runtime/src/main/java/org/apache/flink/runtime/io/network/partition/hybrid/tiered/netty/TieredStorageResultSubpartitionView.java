@@ -29,7 +29,6 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.Queue;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
 
@@ -41,7 +40,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
 
     private final BufferAvailabilityListener availabilityListener;
 
-    private final List<Queue<NettyPayload>> nettyPayloadQueues;
+    private final List<NettyPayloadQueue> nettyPayloadQueues;
 
     private final List<NettyServiceProducer> serviceProducers;
 
@@ -59,7 +58,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
 
     public TieredStorageResultSubpartitionView(
             BufferAvailabilityListener availabilityListener,
-            List<Queue<NettyPayload>> nettyPayloadQueues,
+            List<NettyPayloadQueue> nettyPayloadQueues,
             List<NettyConnectionId> nettyConnectionIds,
             List<NettyServiceProducer> serviceProducers) {
         this.availabilityListener = availabilityListener;
@@ -74,7 +73,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
         if (stopSendingData || !findCurrentNettyPayloadQueue()) {
             return null;
         }
-        Queue<NettyPayload> currentQueue = nettyPayloadQueues.get(queueIndexContainsCurrentSegment);
+        NettyPayloadQueue currentQueue = nettyPayloadQueues.get(queueIndexContainsCurrentSegment);
         Optional<Buffer> nextBuffer = readNettyPayload(currentQueue);
         if (nextBuffer.isPresent()) {
             stopSendingData = nextBuffer.get().getDataType() == END_OF_SEGMENT;
@@ -85,7 +84,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
             return BufferAndBacklog.fromBufferAndLookahead(
                     nextBuffer.get(),
                     getNettyPayloadNextDataType(currentQueue),
-                    currentQueue.size(),
+                    currentQueue.getBacklog(),
                     currentSequenceNumber);
         }
         return null;
@@ -94,14 +93,14 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
     @Override
     public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
         if (findCurrentNettyPayloadQueue()) {
-            Queue<NettyPayload> currentQueue =
+            NettyPayloadQueue currentQueue =
                     nettyPayloadQueues.get(queueIndexContainsCurrentSegment);
             boolean availability = numCreditsAvailable > 0;
             if (numCreditsAvailable <= 0
                     && getNettyPayloadNextDataType(currentQueue) == Buffer.DataType.EVENT_BUFFER) {
                 availability = true;
             }
-            return new AvailabilityWithBacklog(availability, currentQueue.size());
+            return new AvailabilityWithBacklog(availability, currentQueue.getBacklog());
         }
         return new AvailabilityWithBacklog(false, 0);
     }
@@ -143,13 +142,13 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
         findCurrentNettyPayloadQueue();
-        return nettyPayloadQueues.get(queueIndexContainsCurrentSegment).size();
+        return nettyPayloadQueues.get(queueIndexContainsCurrentSegment).getBacklog();
     }
 
     @Override
     public int getNumberOfQueuedBuffers() {
         findCurrentNettyPayloadQueue();
-        return nettyPayloadQueues.get(queueIndexContainsCurrentSegment).size();
+        return nettyPayloadQueues.get(queueIndexContainsCurrentSegment).getBacklog();
     }
 
     @Override
@@ -178,7 +177,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
     //       Internal Methods
     // -------------------------------
 
-    private Optional<Buffer> readNettyPayload(Queue<NettyPayload> nettyPayloadQueue)
+    private Optional<Buffer> readNettyPayload(NettyPayloadQueue nettyPayloadQueue)
             throws IOException {
         NettyPayload nettyPayload = nettyPayloadQueue.poll();
         if (nettyPayload == null) {
@@ -197,7 +196,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
         }
     }
 
-    private Buffer.DataType getNettyPayloadNextDataType(Queue<NettyPayload> nettyPayload) {
+    private Buffer.DataType getNettyPayloadNextDataType(NettyPayloadQueue nettyPayload) {
         NettyPayload nextBuffer = nettyPayload.peek();
         if (nextBuffer == null || !nextBuffer.getBuffer().isPresent()) {
             return Buffer.DataType.NONE;
@@ -207,7 +206,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
     }
 
     private void releaseQueue(
-            Queue<NettyPayload> nettyPayloadQueue,
+            NettyPayloadQueue nettyPayloadQueue,
             NettyServiceProducer serviceProducer,
             NettyConnectionId id) {
         NettyPayload nettyPayload;
