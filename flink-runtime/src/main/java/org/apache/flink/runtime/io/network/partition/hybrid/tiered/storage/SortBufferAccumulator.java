@@ -169,7 +169,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         requestBuffers();
 
         // Use the half of the buffers for writing, and the other half for reading
-        int numBuffersForSort = Math.max(1, (freeSegments.size() - 1) / 3);
+        int numBuffersForSort = freeSegments.size() / 2;
         return new TieredStorageSortBuffer(
                 freeSegments,
                 this::recycleBuffer,
