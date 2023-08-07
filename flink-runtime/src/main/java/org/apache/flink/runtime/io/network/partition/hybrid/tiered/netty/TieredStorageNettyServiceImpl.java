@@ -35,7 +35,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -122,10 +121,10 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             return new TieredStorageResultSubpartitionView(
                     availabilityListener, new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         }
-        List<Queue<NettyPayload>> queues = new ArrayList<>();
+        List<NettyPayloadQueue> queues = new ArrayList<>();
         List<NettyConnectionId> nettyConnectionIds = new ArrayList<>();
         for (NettyServiceProducer serviceProducer : serviceProducers) {
-            LinkedBlockingQueue<NettyPayload> queue = new LinkedBlockingQueue<>();
+            NettyPayloadQueue queue = new NettyPayloadQueue();
             NettyConnectionWriterImpl writer =
                     new NettyConnectionWriterImpl(queue, availabilityListener);
             serviceProducer.connectionEstablished(subpartitionId, writer);
