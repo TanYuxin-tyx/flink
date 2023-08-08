@@ -872,7 +872,7 @@ public class StreamingJobGraphGenerator {
     }
 
     private void checkAndReplaceReusableHybridPartitionType(
-            String chainedName, NonChainedOutput reusableOutput) {
+            String chainedName, String nextChainedName, NonChainedOutput reusableOutput) {
         if (reusableOutput.getPartitionType() == ResultPartitionType.HYBRID_SELECTIVE) {
             // for can be reused hybrid output, it can be optimized to always use full
             // spilling strategy to significantly reduce shuffle data writing cost.
@@ -887,7 +887,8 @@ public class StreamingJobGraphGenerator {
                 && (chainedName.contains("Sort")
                         || chainedName.contains("Limit")
                         || chainedName.contains("Join")
-                        || chainedName.contains("Rank"))) {
+                        || chainedName.contains("Rank")
+                        || nextChainedName.contains("MultipleInput"))) {
             LOG.info(
                     "{} result partition has been replaced by {} result partition to support partition reuse,"
                             + " which will avoid the downstream task start to early.",
@@ -1251,6 +1252,7 @@ public class StreamingJobGraphGenerator {
             ResultPartitionType partitionType = getResultPartitionType(consumerEdge);
             IntermediateDataSetID dataSetId = new IntermediateDataSetID();
 
+            String nextChainedName = chainedNames.get(consumerEdge.getTargetId());
             boolean isPersistentDataSet =
                     isPersistentIntermediateDataset(partitionType, consumerEdge);
             if (isPersistentDataSet) {
@@ -1273,7 +1275,8 @@ public class StreamingJobGraphGenerator {
                 } else if (chainedName.contains("Sort")
                         || chainedName.contains("Limit")
                         || chainedName.contains("Join")
-                        || chainedName.contains("Rank")) {
+                        || chainedName.contains("Rank")
+                        || nextChainedName.contains("MultipleInput")) {
                     LOG.info(
                             "{} result partition has been replaced by {} result partition to avoid starting "
                                     + "the downstream task too early.",
@@ -1328,7 +1331,9 @@ public class StreamingJobGraphGenerator {
                                 consumerEdge.getPartitioner(), outputCandidate.getPartitioner())) {
                     reusableOutput = outputCandidate;
                     outputsConsumedByEdge.put(consumerEdge, reusableOutput);
-                    checkAndReplaceReusableHybridPartitionType(chainedName, reusableOutput);
+                    String nextChainedName = chainedNames.get(consumerEdge.getTargetId());
+                    checkAndReplaceReusableHybridPartitionType(
+                            chainedName, nextChainedName, reusableOutput);
                     break;
                 }
             }
