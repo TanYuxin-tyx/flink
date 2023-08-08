@@ -105,7 +105,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
                         // the build side. In case of the dead lock, the memory tier only use half
                         // of the buffers. If the issue is fixed, then this divide logic is not
                         // needed anymore.
-                        && (memoryManager.getMaxNonReclaimableBuffers(this) / 2
+                        && (memoryManager.getMaxNonReclaimableBuffers(this)
                                         - memoryManager.numOwnerRequestedBuffer(this))
                                 > numBuffersPerSegment;
         if (canStartNewSegment) {
