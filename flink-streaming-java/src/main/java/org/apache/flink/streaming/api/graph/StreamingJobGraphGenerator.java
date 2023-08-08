@@ -871,7 +871,8 @@ public class StreamingJobGraphGenerator {
                 });
     }
 
-    private void checkAndReplaceReusableHybridPartitionType(NonChainedOutput reusableOutput) {
+    private void checkAndReplaceReusableHybridPartitionType(
+            String nextChainedName, NonChainedOutput reusableOutput) {
         if (reusableOutput.getPartitionType() == ResultPartitionType.HYBRID_SELECTIVE) {
             // for can be reused hybrid output, it can be optimized to always use full
             // spilling strategy to significantly reduce shuffle data writing cost.
@@ -881,6 +882,15 @@ public class StreamingJobGraphGenerator {
                             + " which will reduce shuffle data writing cost.",
                     reusableOutput.getPartitionType().name(),
                     ResultPartitionType.HYBRID_FULL.name());
+        }
+        if (reusableOutput.getPartitionType().isHybridResultPartition()
+                && (nextChainedName.contains("MultipleInput"))) {
+            LOG.info(
+                    "{} result partition has been replaced by {} result partition to support partition reuse,"
+                            + " which will avoid the downstream task start to early.",
+                    reusableOutput.getPartitionType().name(),
+                    ResultPartitionType.BLOCKING.name());
+            reusableOutput.setPartitionType(ResultPartitionType.BLOCKING);
         }
     }
 
@@ -1232,11 +1242,13 @@ public class StreamingJobGraphGenerator {
             return new ArrayList<>();
         }
         List<NonChainedOutput> outputs = new ArrayList<>(consumerEdges.size());
+        String chainedName = chainedNames.get(vertexId);
         for (StreamEdge consumerEdge : consumerEdges) {
             checkState(vertexId == consumerEdge.getSourceId(), "Vertex id must be the same.");
             ResultPartitionType partitionType = getResultPartitionType(consumerEdge);
             IntermediateDataSetID dataSetId = new IntermediateDataSetID();
 
+            String nextChainedName = chainedNames.get(consumerEdge.getTargetId());
             boolean isPersistentDataSet =
                     isPersistentIntermediateDataset(partitionType, consumerEdge);
             if (isPersistentDataSet) {
@@ -1256,6 +1268,13 @@ public class StreamingJobGraphGenerator {
                             partitionType.name(),
                             ResultPartitionType.HYBRID_FULL.name());
                     partitionType = ResultPartitionType.HYBRID_FULL;
+                } else if (nextChainedName.contains("MultipleInput")) {
+                    LOG.info(
+                            "{} result partition has been replaced by {} result partition to avoid starting "
+                                    + "the downstream task too early.",
+                            partitionType.name(),
+                            ResultPartitionType.BLOCKING.name());
+                    partitionType = ResultPartitionType.BLOCKING;
                 }
             }
 
@@ -1302,7 +1321,8 @@ public class StreamingJobGraphGenerator {
                                 consumerEdge.getPartitioner(), outputCandidate.getPartitioner())) {
                     reusableOutput = outputCandidate;
                     outputsConsumedByEdge.put(consumerEdge, reusableOutput);
-                    checkAndReplaceReusableHybridPartitionType(reusableOutput);
+                    String nextChainedName = chainedNames.get(consumerEdge.getTargetId());
+                    checkAndReplaceReusableHybridPartitionType(nextChainedName, reusableOutput);
                     break;
                 }
             }
@@ -1334,7 +1354,7 @@ public class StreamingJobGraphGenerator {
 
     private boolean allHybridOrSameReconsumablePartitionType(
             ResultPartitionType partitionType1, ResultPartitionType partitionType2) {
-        return (partitionType1.isReconsumable() && partitionType1 == partitionType2)
+        return (partitionType1.isReconsumable() && partitionType2.isReconsumable())
                 || (partitionType1.isHybridResultPartition()
                         && partitionType2.isHybridResultPartition());
     }
