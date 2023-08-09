@@ -22,6 +22,9 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -50,6 +53,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 @NotThreadSafe
 public abstract class SortBuffer implements DataBuffer {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SortBuffer.class);
 
     /**
      * Size of an index entry: 4 bytes for record length, 4 bytes for data type and 8 bytes for
@@ -244,6 +249,7 @@ public abstract class SortBuffer implements DataBuffer {
         // allocate exactly enough buffers for the appended record
         do {
             MemorySegment segment = freeSegments.poll();
+            LOG.info("allocateBuffersForRecord,  freeSegments size:" + freeSegments.size());
             availableBytes += bufferSize;
             addBuffer(checkNotNull(segment));
         } while (availableBytes < numBytesRequired);

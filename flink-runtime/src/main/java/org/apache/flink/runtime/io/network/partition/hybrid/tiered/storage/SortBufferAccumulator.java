@@ -28,6 +28,9 @@ import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
 import org.apache.flink.runtime.io.network.partition.DataBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -56,6 +59,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  * thread.
  */
 public class SortBufferAccumulator implements BufferAccumulator {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SortBufferAccumulator.class);
 
     /** The number of the subpartitions. */
     private final int numSubpartitions;
@@ -196,6 +201,11 @@ public class SortBufferAccumulator implements BufferAccumulator {
         }
         currentDataBuffer.finish();
 
+        LOG.info(
+                "flushDataBuffer, before read, hasRemaining:"
+                        + currentDataBuffer.hasRemaining()
+                        + " freeSegments:"
+                        + freeSegments.size());
         do {
             MemorySegment freeSegment = checkNotNull(freeSegments.poll());
             BufferWithChannel bufferWithChannel = currentDataBuffer.getNextBuffer(freeSegment);

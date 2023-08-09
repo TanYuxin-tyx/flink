@@ -28,6 +28,9 @@ import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
 import org.apache.flink.runtime.io.network.partition.SortBasedDataBuffer;
 import org.apache.flink.runtime.io.network.partition.SortBuffer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.util.LinkedList;
@@ -39,6 +42,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  * When getting buffers, The {@link SortBasedDataBuffer} need not recycle the read target buffer..
  */
 public class TieredStorageSortBuffer extends SortBuffer {
+
+    private static final Logger LOG = LoggerFactory.getLogger(TieredStorageSortBuffer.class);
 
     private int numEvent;
 
@@ -69,6 +74,12 @@ public class TieredStorageSortBuffer extends SortBuffer {
     public BufferWithChannel getNextBuffer(@Nullable MemorySegment transitBuffer) {
         checkState(isFinished, "Sort buffer is not ready to be read.");
         checkState(!isReleased, "Sort buffer is already released.");
+
+        LOG.info(
+                "getNextBuffer, hasRemaining:"
+                        + hasRemaining()
+                        + " freeSegments size:"
+                        + freeSegments.size());
 
         if (!hasRemaining()) {
             freeSegments.add(transitBuffer);
