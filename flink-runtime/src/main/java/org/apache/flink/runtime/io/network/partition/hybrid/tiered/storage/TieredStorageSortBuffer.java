@@ -32,12 +32,15 @@ import javax.annotation.Nullable;
 
 import java.util.LinkedList;
 
+import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * When getting buffers, The {@link SortBasedDataBuffer} need not recycle the read target buffer..
  */
 public class TieredStorageSortBuffer extends SortBuffer {
+
+    private int numEvent;
 
     public TieredStorageSortBuffer(
             LinkedList<MemorySegment> freeSegments,
@@ -52,6 +55,14 @@ public class TieredStorageSortBuffer extends SortBuffer {
                 bufferSize,
                 numGuaranteedBuffers,
                 null);
+    }
+
+    @Override
+    protected void writeIndex(int channelIndex, int numRecordBytes, Buffer.DataType dataType) {
+        super.writeIndex(channelIndex, numRecordBytes, dataType);
+        if (dataType.isEvent()) {
+            numEvent++;
+        }
     }
 
     @Override
@@ -129,5 +140,37 @@ public class TieredStorageSortBuffer extends SortBuffer {
                         bufferDataType,
                         numBytesRead),
                 currentReadingSubpartitionId);
+    }
+
+    @Override
+    protected boolean allocateBuffersForRecord(int numRecordBytes) {
+        int numBytesRequired = INDEX_ENTRY_SIZE + numRecordBytes;
+        int availableBytes =
+                writeSegmentIndex == segments.size() ? 0 : bufferSize - writeSegmentOffset;
+
+        // return directly if current available bytes is adequate
+        if (availableBytes >= numBytesRequired) {
+            return true;
+        }
+
+        // skip the remaining free space if the available bytes is not enough for an index entry
+        if (availableBytes < INDEX_ENTRY_SIZE) {
+            updateWriteSegmentIndexAndOffset(availableBytes);
+            availableBytes = 0;
+        }
+
+        if (availableBytes + (numGuaranteedBuffers - numEvent - segments.size()) * (long) bufferSize
+                < numBytesRequired) {
+            return false;
+        }
+
+        // allocate exactly enough buffers for the appended record
+        do {
+            MemorySegment segment = freeSegments.poll();
+            availableBytes += bufferSize;
+            addBuffer(checkNotNull(segment));
+        } while (availableBytes < numBytesRequired);
+
+        return true;
     }
 }

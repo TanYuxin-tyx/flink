@@ -73,10 +73,10 @@ public abstract class SortBuffer implements DataBuffer {
     protected final long[] lastIndexEntryAddresses;
 
     /** Size of buffers requested from buffer pool. All buffers must be of the same size. */
-    private final int bufferSize;
+    protected final int bufferSize;
 
     /** Number of guaranteed buffers can be allocated from the buffer pool for data sort. */
-    private final int numGuaranteedBuffers;
+    protected final int numGuaranteedBuffers;
 
     // ---------------------------------------------------------------------------------------------
     // Statistics and states
@@ -102,10 +102,10 @@ public abstract class SortBuffer implements DataBuffer {
     // ---------------------------------------------------------------------------------------------
 
     /** Array index in the segment list of the current available buffer for writing. */
-    private int writeSegmentIndex;
+    protected int writeSegmentIndex;
 
     /** Next position in the current available buffer for writing. */
-    private int writeSegmentOffset;
+    protected int writeSegmentOffset;
 
     // ---------------------------------------------------------------------------------------------
     // For reading
@@ -184,7 +184,7 @@ public abstract class SortBuffer implements DataBuffer {
         return false;
     }
 
-    private void writeIndex(int channelIndex, int numRecordBytes, Buffer.DataType dataType) {
+    protected void writeIndex(int channelIndex, int numRecordBytes, Buffer.DataType dataType) {
         MemorySegment segment = segments.get(writeSegmentIndex);
 
         // record length takes the high 32 bits and data type takes the low 32 bits
@@ -220,7 +220,7 @@ public abstract class SortBuffer implements DataBuffer {
         }
     }
 
-    private boolean allocateBuffersForRecord(int numRecordBytes) {
+    protected boolean allocateBuffersForRecord(int numRecordBytes) {
         int numBytesRequired = INDEX_ENTRY_SIZE + numRecordBytes;
         int availableBytes =
                 writeSegmentIndex == segments.size() ? 0 : bufferSize - writeSegmentOffset;
@@ -251,7 +251,7 @@ public abstract class SortBuffer implements DataBuffer {
         return true;
     }
 
-    private void addBuffer(MemorySegment segment) {
+    protected void addBuffer(MemorySegment segment) {
         if (segment.size() != bufferSize) {
             bufferRecycler.recycle(segment);
             throw new IllegalStateException("Illegal memory segment size.");
@@ -265,7 +265,7 @@ public abstract class SortBuffer implements DataBuffer {
         segments.add(segment);
     }
 
-    private void updateWriteSegmentIndexAndOffset(int numBytes) {
+    protected void updateWriteSegmentIndexAndOffset(int numBytes) {
         writeSegmentOffset += numBytes;
 
         // using the next available free buffer if the current is full

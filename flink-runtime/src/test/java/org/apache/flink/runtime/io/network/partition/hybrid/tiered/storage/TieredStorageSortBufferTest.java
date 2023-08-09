@@ -64,9 +64,19 @@ class TieredStorageSortBufferTest {
         Arrays.fill(numBytesWritten, 0);
         Arrays.fill(numBytesRead, 0);
 
+        NetworkBufferPool globalPool = new NetworkBufferPool(bufferPoolSize, BUFFER_SIZE_BYTES);
+        BufferPool bufferPool = globalPool.createBufferPool(bufferPoolSize, bufferPoolSize);
+
+        LinkedList<MemorySegment> segments = new LinkedList<>();
+        for (int i = 0; i < bufferPoolSize; ++i) {
+            segments.add(bufferPool.requestMemorySegmentBlocking());
+        }
+
         // Fill the sort buffer with randomly generated data
-        TieredStorageSortBuffer sortBuffer = createDataBuffer(bufferPoolSize, numSubpartitions);
-        int numDataBuffers = 5;
+        TieredStorageSortBuffer sortBuffer =
+                new TieredStorageSortBuffer(
+                        segments, bufferPool, numSubpartitions, BUFFER_SIZE_BYTES, bufferPoolSize);
+        int numDataBuffers = 200;
         while (numDataBuffers > 0) {
             // Record size may be larger than buffer size so a record may span multiple segments
             int recordSize = random.nextInt(BUFFER_SIZE_BYTES * 4 - 1) + 1;
@@ -98,22 +108,39 @@ class TieredStorageSortBufferTest {
             --numDataBuffers;
 
             while (sortBuffer.hasRemaining()) {
-                BufferWithChannel buffer = copyIntoSegment(sortBuffer);
+                BufferWithChannel buffer = copyIntoSegment(segments, sortBuffer);
                 if (buffer == null) {
                     break;
                 }
                 addBufferRead(buffer, buffersRead, numBytesRead);
             }
-            sortBuffer = createDataBuffer(bufferPoolSize, numSubpartitions);
+            sortBuffer.release();
+            segments.forEach(bufferPool::recycle);
+
+            assertThat(bufferPool.bestEffortGetNumOfUsedBuffers()).isZero();
+            for (int i = 0; i < bufferPoolSize; ++i) {
+                segments.add(bufferPool.requestMemorySegmentBlocking());
+            }
+            sortBuffer =
+                    new TieredStorageSortBuffer(
+                            segments,
+                            bufferPool,
+                            numSubpartitions,
+                            BUFFER_SIZE_BYTES,
+                            bufferPoolSize);
         }
 
         // Read all data from the sort buffer
         if (sortBuffer.hasRemaining()) {
             sortBuffer.finish();
             while (sortBuffer.hasRemaining()) {
-                addBufferRead(copyIntoSegment(sortBuffer), buffersRead, numBytesRead);
+                addBufferRead(copyIntoSegment(segments, sortBuffer), buffersRead, numBytesRead);
             }
         }
+        sortBuffer.release();
+        segments.forEach(bufferPool::recycle);
+
+        assertThat(bufferPool.bestEffortGetNumOfUsedBuffers()).isZero();
 
         checkWriteReadResult(
                 numSubpartitions, numBytesWritten, numBytesRead, dataWritten, buffersRead);
@@ -186,8 +213,10 @@ class TieredStorageSortBufferTest {
         assertThat(bufferPool.bestEffortGetNumOfUsedBuffers()).isEqualTo(numBuffersForSort);
     }
 
-    private static BufferWithChannel copyIntoSegment(SortBuffer dataBuffer) {
-        MemorySegment segment = MemorySegmentFactory.allocateUnpooledSegment(BUFFER_SIZE_BYTES);
+    private static BufferWithChannel copyIntoSegment(
+            LinkedList<MemorySegment> segments, SortBuffer dataBuffer) {
+        MemorySegment segment = segments.poll();
+        assertThat(segment).isNotNull();
         return dataBuffer.getNextBuffer(segment);
     }
 
@@ -195,13 +224,14 @@ class TieredStorageSortBufferTest {
             BufferWithChannel bufferAndChannel, Queue<Buffer>[] buffersRead, int[] numBytesRead) {
         int channel = bufferAndChannel.getChannelIndex();
         Buffer buffer = bufferAndChannel.getBuffer();
+        MemorySegment segment =
+                MemorySegmentFactory.allocateUnpooledSegment(buffer.getMemorySegment().size());
+        buffer.getMemorySegment().copyTo(0, segment, 0, buffer.getMemorySegment().size());
         buffersRead[channel].add(
                 new NetworkBuffer(
-                        buffer.getMemorySegment(),
-                        MemorySegment::free,
-                        buffer.getDataType(),
-                        buffer.getSize()));
+                        segment, MemorySegment::free, buffer.getDataType(), buffer.getSize()));
         numBytesRead[channel] += buffer.getSize();
+        buffer.recycleBuffer();
     }
 
     private static void checkWriteReadResult(
@@ -253,6 +283,17 @@ class TieredStorageSortBufferTest {
             int bufferPoolSize, int numSubpartitions) throws Exception {
         NetworkBufferPool globalPool = new NetworkBufferPool(bufferPoolSize, BUFFER_SIZE_BYTES);
         BufferPool bufferPool = globalPool.createBufferPool(bufferPoolSize, bufferPoolSize);
+
+        LinkedList<MemorySegment> segments = new LinkedList<>();
+        for (int i = 0; i < bufferPoolSize; ++i) {
+            segments.add(bufferPool.requestMemorySegmentBlocking());
+        }
+        return new TieredStorageSortBuffer(
+                segments, bufferPool, numSubpartitions, BUFFER_SIZE_BYTES, bufferPoolSize);
+    }
+
+    private static TieredStorageSortBuffer createDataBuffer(
+            BufferPool bufferPool, int bufferPoolSize, int numSubpartitions) throws Exception {
 
         LinkedList<MemorySegment> segments = new LinkedList<>();
         for (int i = 0; i < bufferPoolSize; ++i) {

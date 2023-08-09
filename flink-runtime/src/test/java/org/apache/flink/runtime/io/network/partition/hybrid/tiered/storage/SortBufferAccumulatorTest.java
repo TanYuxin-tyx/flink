@@ -74,7 +74,7 @@ class SortBufferAccumulatorTest {
         // The test use only one buffer for sort, and when it is full, the sort buffer will be
         // flushed.
         try (SortBufferAccumulator bufferAccumulator =
-                new SortBufferAccumulator(1, 2, BUFFER_SIZE_BYTES, memoryManager)) {
+                new SortBufferAccumulator(1, 3, BUFFER_SIZE_BYTES, memoryManager)) {
             bufferAccumulator.setup(
                     ((subpartition, buffers) ->
                             buffers.forEach(
@@ -114,7 +114,7 @@ class SortBufferAccumulatorTest {
         // The test use only one buffer for sort, and when it is full, the sort buffer will be
         // flushed.
         try (SortBufferAccumulator bufferAccumulator =
-                new SortBufferAccumulator(1, 2, BUFFER_SIZE_BYTES, memoryManager)) {
+                new SortBufferAccumulator(1, 3, BUFFER_SIZE_BYTES, memoryManager)) {
             AtomicInteger numReceivedBuffers = new AtomicInteger(0);
             bufferAccumulator.setup(
                     (subpartitionIndex, buffers) -> {
@@ -140,7 +140,7 @@ class SortBufferAccumulatorTest {
         TieredStorageMemoryManager memoryManager = createStorageMemoryManager(numBuffers);
 
         try (SortBufferAccumulator bufferAccumulator =
-                new SortBufferAccumulator(1, 1, bufferSize, memoryManager)) {
+                new SortBufferAccumulator(1, 2, bufferSize, memoryManager)) {
             bufferAccumulator.setup((subpartitionIndex, buffers) -> {});
             assertThatThrownBy(
                             () ->
@@ -160,7 +160,7 @@ class SortBufferAccumulatorTest {
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
         SortBufferAccumulator bufferAccumulator =
-                new SortBufferAccumulator(1, 2, BUFFER_SIZE_BYTES, tieredStorageMemoryManager);
+                new SortBufferAccumulator(1, 3, BUFFER_SIZE_BYTES, tieredStorageMemoryManager);
         bufferAccumulator.setup(
                 ((subpartition, buffers) -> buffers.forEach(Buffer::recycleBuffer)));
         bufferAccumulator.receive(
@@ -169,7 +169,7 @@ class SortBufferAccumulatorTest {
                 Buffer.DataType.DATA_BUFFER,
                 false);
         assertThat(tieredStorageMemoryManager.numOwnerRequestedBuffer(bufferAccumulator))
-                .isEqualTo(2);
+                .isEqualTo(3);
         bufferAccumulator.close();
         assertThat(tieredStorageMemoryManager.numOwnerRequestedBuffer(bufferAccumulator)).isZero();
     }
