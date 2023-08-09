@@ -46,7 +46,7 @@ public class TieredStorageSortBuffer extends SortBuffer {
 
     private final Set<Integer> numSubpartitionsHaveWrittenData = new HashSet<>();
 
-    private final int numBufferForRead;
+    private final int numBuffersForRead;
 
     public TieredStorageSortBuffer(
             LinkedList<MemorySegment> freeSegments,
@@ -54,7 +54,7 @@ public class TieredStorageSortBuffer extends SortBuffer {
             int numSubpartitions,
             int bufferSize,
             int numGuaranteedBuffers,
-            int numBufferForRead) {
+            int numBuffersForRead) {
         super(
                 freeSegments,
                 bufferRecycler,
@@ -62,7 +62,7 @@ public class TieredStorageSortBuffer extends SortBuffer {
                 bufferSize,
                 numGuaranteedBuffers,
                 null);
-        this.numBufferForRead = numBufferForRead;
+        this.numBuffersForRead = numBuffersForRead;
     }
 
     @Override
@@ -170,7 +170,7 @@ public class TieredStorageSortBuffer extends SortBuffer {
 
         if (availableBytes + (numGuaranteedBuffers - numEvent - segments.size()) * (long) bufferSize
                         < numBytesRequired
-                || numSubpartitionsHaveWrittenData.size() >= numBufferForRead) {
+                || numSubpartitionsHaveWrittenData.size() + numEvent >= numBuffersForRead) {
             return false;
         }
 
