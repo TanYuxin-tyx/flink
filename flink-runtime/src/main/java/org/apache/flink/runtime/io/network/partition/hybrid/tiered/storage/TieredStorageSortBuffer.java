@@ -144,6 +144,23 @@ public class TieredStorageSortBuffer extends SortBuffer {
                 if (readIndexEntryAddress
                         == lastIndexEntryAddresses[currentReadingSubpartitionId]) {
                     updateReadChannelAndIndexEntryAddress();
+                    LOG.info(
+                            Thread.currentThread().getName()
+                                    + "getNextBuffer, "
+                                    + " finish read channel: "
+                                    + currentReadingSubpartitionId
+                                    + " hasRemaining:"
+                                    + hasRemaining()
+                                    + " writeSegmentIndex:"
+                                    + writeSegmentIndex
+                                    + " segments.size():"
+                                    + segments.size()
+                                    + " freeSegments size:"
+                                    + freeSegments.size()
+                                    + " numTotalBytesRead: "
+                                    + numTotalBytesRead
+                                    + " numTotalBytes:"
+                                    + numTotalBytes);
                     break;
                 }
                 readIndexEntryAddress = nextReadIndexEntryAddress;

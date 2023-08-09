@@ -208,6 +208,12 @@ public class SortBufferAccumulator implements BufferAccumulator {
                         + " freeSegments:"
                         + freeSegments.size());
         do {
+            LOG.info(
+                    Thread.currentThread().getName()
+                            + "flushDataBuffer, reading , hasRemaining:"
+                            + currentDataBuffer.hasRemaining()
+                            + " freeSegments:"
+                            + freeSegments.size());
             MemorySegment freeSegment = checkNotNull(freeSegments.poll());
             BufferWithChannel bufferWithChannel = currentDataBuffer.getNextBuffer(freeSegment);
             if (bufferWithChannel == null) {
