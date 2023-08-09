@@ -30,7 +30,9 @@ import org.apache.flink.runtime.io.network.partition.SortBuffer;
 
 import javax.annotation.Nullable;
 
+import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -42,12 +44,17 @@ public class TieredStorageSortBuffer extends SortBuffer {
 
     private int numEvent;
 
+    private final Set<Integer> numSubpartitionsHaveWrittenData = new HashSet<>();
+
+    private final int numBufferForRead;
+
     public TieredStorageSortBuffer(
             LinkedList<MemorySegment> freeSegments,
             BufferRecycler bufferRecycler,
             int numSubpartitions,
             int bufferSize,
-            int numGuaranteedBuffers) {
+            int numGuaranteedBuffers,
+            int numBufferForRead) {
         super(
                 freeSegments,
                 bufferRecycler,
@@ -55,6 +62,7 @@ public class TieredStorageSortBuffer extends SortBuffer {
                 bufferSize,
                 numGuaranteedBuffers,
                 null);
+        this.numBufferForRead = numBufferForRead;
     }
 
     @Override
@@ -63,6 +71,7 @@ public class TieredStorageSortBuffer extends SortBuffer {
         if (dataType.isEvent()) {
             numEvent++;
         }
+        numSubpartitionsHaveWrittenData.add(channelIndex);
     }
 
     @Override
@@ -160,7 +169,8 @@ public class TieredStorageSortBuffer extends SortBuffer {
         }
 
         if (availableBytes + (numGuaranteedBuffers - numEvent - segments.size()) * (long) bufferSize
-                < numBytesRequired) {
+                        < numBytesRequired
+                || numSubpartitionsHaveWrittenData.size() >= numBufferForRead) {
             return false;
         }
 
