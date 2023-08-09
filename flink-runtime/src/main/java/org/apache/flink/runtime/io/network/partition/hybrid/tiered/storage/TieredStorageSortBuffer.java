@@ -76,10 +76,19 @@ public class TieredStorageSortBuffer extends SortBuffer {
         checkState(!isReleased, "Sort buffer is already released.");
 
         LOG.info(
-                "getNextBuffer, hasRemaining:"
+                Thread.currentThread().getName()
+                        + "getNextBuffer, hasRemaining:"
                         + hasRemaining()
+                        + " writeSegmentIndex:"
+                        + writeSegmentIndex
+                        + " segments.size():"
+                        + segments.size()
                         + " freeSegments size:"
-                        + freeSegments.size());
+                        + freeSegments.size()
+                        + " numTotalBytesRead: "
+                        + numTotalBytesRead
+                        + " numTotalBytes:"
+                        + numTotalBytes);
 
         if (!hasRemaining()) {
             freeSegments.add(transitBuffer);
@@ -172,6 +181,22 @@ public class TieredStorageSortBuffer extends SortBuffer {
 
         if (availableBytes + (numGuaranteedBuffers - numEvent - segments.size()) * (long) bufferSize
                 < numBytesRequired) {
+            LOG.info(
+                    Thread.currentThread().getName()
+                            + "Sort buffer is full, availableBytes:"
+                            + availableBytes
+                            + " numGuaranteedBuffers:"
+                            + numGuaranteedBuffers
+                            + " numEvent: "
+                            + numEvent
+                            + " segments.size(): "
+                            + segments.size()
+                            + " numBytesRequired:"
+                            + numBytesRequired
+                            + " availableBytes + (numGuaranteedBuffers - numEvent - segments.size()) * (long) bufferSize: "
+                            + (availableBytes
+                                    + (numGuaranteedBuffers - numEvent - segments.size())
+                                            * (long) bufferSize));
             return false;
         }
 

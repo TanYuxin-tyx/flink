@@ -202,7 +202,8 @@ public class SortBufferAccumulator implements BufferAccumulator {
         currentDataBuffer.finish();
 
         LOG.info(
-                "flushDataBuffer, before read, hasRemaining:"
+                Thread.currentThread().getName()
+                        + "flushDataBuffer, before read, hasRemaining:"
                         + currentDataBuffer.hasRemaining()
                         + " freeSegments:"
                         + freeSegments.size());

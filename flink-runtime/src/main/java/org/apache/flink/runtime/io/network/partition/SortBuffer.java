@@ -88,7 +88,7 @@ public abstract class SortBuffer implements DataBuffer {
     // ---------------------------------------------------------------------------------------------
 
     /** Total number of bytes already appended to this sort buffer. */
-    private long numTotalBytes;
+    protected long numTotalBytes;
 
     /** Total number of records already appended to this sort buffer. */
     private long numTotalRecords;
@@ -249,7 +249,10 @@ public abstract class SortBuffer implements DataBuffer {
         // allocate exactly enough buffers for the appended record
         do {
             MemorySegment segment = freeSegments.poll();
-            LOG.info("allocateBuffersForRecord,  freeSegments size:" + freeSegments.size());
+            LOG.info(
+                    Thread.currentThread().getName()
+                            + "allocateBuffersForRecord,  freeSegments size:"
+                            + freeSegments.size());
             availableBytes += bufferSize;
             addBuffer(checkNotNull(segment));
         } while (availableBytes < numBytesRequired);
