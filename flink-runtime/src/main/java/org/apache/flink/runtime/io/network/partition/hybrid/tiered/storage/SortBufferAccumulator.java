@@ -199,7 +199,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         currentDataBuffer.finish();
 
         do {
-            MemorySegment freeSegment = checkNotNull(freeSegments.poll());
+            MemorySegment freeSegment = getFreeSegment();
             BufferWithChannel bufferWithChannel = currentDataBuffer.getNextBuffer(freeSegment);
             if (bufferWithChannel == null) {
                 break;
@@ -234,6 +234,14 @@ public class SortBufferAccumulator implements BufferAccumulator {
         }
 
         releaseFreeBuffers();
+    }
+
+    private MemorySegment getFreeSegment() {
+        MemorySegment freeSegment = freeSegments.poll();
+        if (freeSegment == null) {
+            freeSegment = requestBuffer().getMemorySegment();
+        }
+        return freeSegment;
     }
 
     private void flushBuffer(BufferWithChannel bufferWithChannel) {
