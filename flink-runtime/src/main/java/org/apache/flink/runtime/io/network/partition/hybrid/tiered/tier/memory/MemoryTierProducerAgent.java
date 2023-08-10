@@ -47,6 +47,8 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
 
     private final int numBuffersPerSegment;
 
+    private final float memoryTierMaxUsedBuffersRatio;
+
     private final TieredStorageMemoryManager memoryManager;
 
     /**
@@ -68,6 +70,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
             int numSubpartitions,
             int bufferSizeBytes,
             int segmentSizeBytes,
+            float memoryTierMaxUsedBuffersRatio,
             boolean isBroadcastOnly,
             TieredStorageMemoryManager memoryManager,
             TieredStorageNettyService nettyService,
@@ -79,6 +82,7 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
                 !isBroadcastOnly,
                 "Broadcast only partition is not allowed to use the memory tier.");
 
+        this.memoryTierMaxUsedBuffersRatio = memoryTierMaxUsedBuffersRatio;
         this.numBuffersPerSegment = segmentSizeBytes / bufferSizeBytes;
         this.memoryManager = memoryManager;
         this.currentSubpartitionWriteBuffers = new int[numSubpartitions];
@@ -100,7 +104,10 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
                 nettyConnectionEstablished[subpartitionId.getSubpartitionId()]
                         && (memoryManager.getMaxNonReclaimableBuffers(this)
                                         - memoryManager.numOwnerRequestedBuffer(this))
-                                > numBuffersPerSegment;
+                                > numBuffersPerSegment
+                        && ((float) memoryManager.numOwnerRequestedBuffer(this)
+                                        / memoryManager.numBufferPoolSize())
+                                < memoryTierMaxUsedBuffersRatio;
         if (canStartNewSegment) {
             subpartitionProducerAgents[subpartitionId.getSubpartitionId()].updateSegmentId(
                     segmentId);

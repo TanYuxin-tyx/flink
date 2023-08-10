@@ -45,6 +45,8 @@ class MemoryTierProducerAgentTest {
 
     private static final int SEGMENT_SIZE_BYTES = BUFFER_SIZE * 2;
 
+    private static final float MEMORY_TIER_MAX_USED_BUFFERS_RATIO = 0.6f;
+
     private static final TieredStoragePartitionId PARTITION_ID =
             TieredStorageIdMappingUtils.convertId(new ResultPartitionID());
     private static final TieredStorageSubpartitionId SUBPARTITION_ID =
@@ -58,6 +60,17 @@ class MemoryTierProducerAgentTest {
             memoryTierProducerAgent.connectionEstablished(
                     SUBPARTITION_ID, new TestingNettyConnectionWriter.Builder().build());
             assertThat(memoryTierProducerAgent.tryStartNewSegment(SUBPARTITION_ID, 0)).isTrue();
+        }
+    }
+
+    @Test
+    void testTryStartNewSegmentFailedWithMemoryTierUsedTooMuchBuffers() {
+        try (MemoryTierProducerAgent memoryTierProducerAgent =
+                createMemoryTierProducerAgent(
+                        false, SEGMENT_SIZE_BYTES, 0, new TieredStorageResourceRegistry())) {
+            memoryTierProducerAgent.connectionEstablished(
+                    SUBPARTITION_ID, new TestingNettyConnectionWriter.Builder().build());
+            assertThat(memoryTierProducerAgent.tryStartNewSegment(SUBPARTITION_ID, 0)).isFalse();
         }
     }
 
@@ -78,6 +91,7 @@ class MemoryTierProducerAgentTest {
                         NUM_SUBPARTITIONS,
                         BUFFER_SIZE,
                         SEGMENT_SIZE_BYTES,
+                        MEMORY_TIER_MAX_USED_BUFFERS_RATIO,
                         false,
                         memoryManager,
                         nettyService,
@@ -147,9 +161,22 @@ class MemoryTierProducerAgentTest {
             boolean isBroadcastOnly,
             int segmentSizeBytes,
             TieredStorageResourceRegistry resourceRegistry) {
+        return createMemoryTierProducerAgent(
+                isBroadcastOnly,
+                segmentSizeBytes,
+                MEMORY_TIER_MAX_USED_BUFFERS_RATIO,
+                resourceRegistry);
+    }
+
+    private static MemoryTierProducerAgent createMemoryTierProducerAgent(
+            boolean isBroadcastOnly,
+            int segmentSizeBytes,
+            float memoryTierMaxUsedBuffersRatio,
+            TieredStorageResourceRegistry resourceRegistry) {
         TestingTieredStorageMemoryManager memoryManager =
                 new TestingTieredStorageMemoryManager.Builder()
                         .setGetMaxNonReclaimableBuffersFunction(ignore -> Integer.MAX_VALUE)
+                        .setNumBufferPoolSizeSupplier(() -> Integer.MAX_VALUE)
                         .build();
         TestingTieredStorageNettyService nettyService =
                 new TestingTieredStorageNettyService.Builder().build();
@@ -162,6 +189,7 @@ class MemoryTierProducerAgentTest {
                 NUM_SUBPARTITIONS,
                 BUFFER_SIZE,
                 segmentSizeBytes,
+                memoryTierMaxUsedBuffersRatio,
                 isBroadcastOnly,
                 memoryManager,
                 nettyService,

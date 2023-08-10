@@ -229,6 +229,11 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     }
 
     @Override
+    public int numBufferPoolSize() {
+        return bufferPool.getNumBuffers();
+    }
+
+    @Override
     public void release() {
         checkState(numRequestedBuffers.get() == 0, "Leaking buffers.");
         if (executor != null) {

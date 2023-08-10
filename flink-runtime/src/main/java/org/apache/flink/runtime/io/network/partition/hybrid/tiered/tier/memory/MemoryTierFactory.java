@@ -41,9 +41,13 @@ public class MemoryTierFactory implements TierFactory {
 
     private final int bufferSizeBytes;
 
-    public MemoryTierFactory(int segmentSizeBytes, int bufferSizeBytes) {
+    private final float memoryTierMaxUsedBuffersRatio;
+
+    public MemoryTierFactory(
+            int segmentSizeBytes, int bufferSizeBytes, float memoryTierMaxUsedBuffersRatio) {
         this.segmentSizeBytes = segmentSizeBytes;
         this.bufferSizeBytes = bufferSizeBytes;
+        this.memoryTierMaxUsedBuffersRatio = memoryTierMaxUsedBuffersRatio;
     }
 
     @Override
@@ -71,6 +75,7 @@ public class MemoryTierFactory implements TierFactory {
                 numSubpartitions,
                 bufferSizeBytes,
                 segmentSizeBytes,
+                memoryTierMaxUsedBuffersRatio,
                 isBroadcastOnly,
                 memoryManager,
                 nettyService,

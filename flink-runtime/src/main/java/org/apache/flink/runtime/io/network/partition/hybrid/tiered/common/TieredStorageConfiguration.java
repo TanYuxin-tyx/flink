@@ -53,7 +53,9 @@ public class TieredStorageConfiguration {
 
     private static final int DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT = 16 * 32 * 1024;
 
-    private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
+    private static final float DEFAULT_MEMORY_TIER_MAX_USED_BUFFERS_RATIO = 0.5f;
+
+    private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.8f;
 
     private static final int DEFAULT_DISK_TIER_MAX_BUFFERS_READ_AHEAD = 5;
 
@@ -83,6 +85,8 @@ public class TieredStorageConfiguration {
 
     private final int remoteTierNumBytesPerSegment;
 
+    private final float memoryTierMaxUsedBuffersRatio;
+
     private final float numBuffersTriggerFlushRatio;
 
     private final int diskIOSchedulerMaxBuffersReadAhead;
@@ -105,6 +109,7 @@ public class TieredStorageConfiguration {
             int memoryTierNumBytesPerSegment,
             int diskTierNumBytesPerSegment,
             int remoteTierNumBytesPerSegment,
+            float memoryTierMaxUsedBuffersRatio,
             float numBuffersTriggerFlushRatio,
             int diskIOSchedulerMaxBuffersReadAhead,
             Duration diskIOSchedulerRequestTimeout,
@@ -120,6 +125,7 @@ public class TieredStorageConfiguration {
         this.memoryTierNumBytesPerSegment = memoryTierNumBytesPerSegment;
         this.diskTierNumBytesPerSegment = diskTierNumBytesPerSegment;
         this.remoteTierNumBytesPerSegment = remoteTierNumBytesPerSegment;
+        this.memoryTierMaxUsedBuffersRatio = memoryTierMaxUsedBuffersRatio;
         this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
         this.diskIOSchedulerMaxBuffersReadAhead = diskIOSchedulerMaxBuffersReadAhead;
         this.diskIOSchedulerRequestTimeout = diskIOSchedulerRequestTimeout;
@@ -227,6 +233,11 @@ public class TieredStorageConfiguration {
         return remoteTierNumBytesPerSegment;
     }
 
+    /** The maximum ratio of buffer pool's buffers used in the memory tier. */
+    public float getMemoryTierMaxUsedBuffersRatio() {
+        return memoryTierMaxUsedBuffersRatio;
+    }
+
     /**
      * When the number of buffers that have been requested exceeds this threshold, trigger the
      * flushing operation in each {@link TierProducerAgent}.
@@ -313,6 +324,8 @@ public class TieredStorageConfiguration {
 
         private int remoteTierNumBytesPerSegment = DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT;
 
+        private float memoryTierMaxUsedBuffersRatio = DEFAULT_MEMORY_TIER_MAX_USED_BUFFERS_RATIO;
+
         private float numBuffersTriggerFlushRatio = DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO;
 
         private int diskTierMaxBuffersReadAhead = DEFAULT_DISK_TIER_MAX_BUFFERS_READ_AHEAD;
@@ -375,6 +388,11 @@ public class TieredStorageConfiguration {
             return this;
         }
 
+        public Builder setMemoryTierMaxUsedBuffersRatio(float memoryTierMaxUsedBuffersRatio) {
+            this.memoryTierMaxUsedBuffersRatio = memoryTierMaxUsedBuffersRatio;
+            return this;
+        }
+
         public Builder setNumBuffersTriggerFlushRatio(float numBuffersTriggerFlushRatio) {
             this.numBuffersTriggerFlushRatio = numBuffersTriggerFlushRatio;
             return this;
@@ -417,6 +435,7 @@ public class TieredStorageConfiguration {
                     memoryTierNumBytesPerSegment,
                     diskTierNumBytesPerSegment,
                     remoteTierNumBytesPerSegment,
+                    memoryTierMaxUsedBuffersRatio,
                     numBuffersTriggerFlushRatio,
                     diskTierMaxBuffersReadAhead,
                     diskTierBufferRequestTimeout,
@@ -429,7 +448,10 @@ public class TieredStorageConfiguration {
             tierFactories = new ArrayList<>();
             tierExclusiveBuffers = new ArrayList<>();
             tierFactories.add(
-                    new MemoryTierFactory(memoryTierNumBytesPerSegment, tieredStorageBufferSize));
+                    new MemoryTierFactory(
+                            memoryTierNumBytesPerSegment,
+                            tieredStorageBufferSize,
+                            memoryTierMaxUsedBuffersRatio));
             tierExclusiveBuffers.add(memoryTierExclusiveBuffers);
             tierFactories.add(
                     new DiskTierFactory(

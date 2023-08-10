@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /** Test implementation for {@link TieredStorageMemoryManager}. */
 public class TestingTieredStorageMemoryManager implements TieredStorageMemoryManager {
@@ -48,6 +49,8 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
 
     private final TriConsumer<Object, Object, Buffer> transferBufferOwnershipConsumer;
 
+    private final Supplier<Integer> numBufferPoolSizeSupplier;
+
     private final Runnable releaseRunnable;
 
     private TestingTieredStorageMemoryManager(
@@ -58,6 +61,7 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
             Function<Object, Integer> getMaxNonReclaimableBuffersFunction,
             Function<Object, Integer> numOwnerRequestedBufferFunction,
             TriConsumer<Object, Object, Buffer> transferBufferOwnershipConsumer,
+            Supplier<Integer> numBufferPoolSizeSupplier,
             Runnable releaseRunnable) {
         this.setupConsumer = setupConsumer;
         this.setMetricGroupConsumer = setMetricGroupConsumer;
@@ -66,6 +70,7 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
         this.getMaxNonReclaimableBuffersFunction = getMaxNonReclaimableBuffersFunction;
         this.numOwnerRequestedBufferFunction = numOwnerRequestedBufferFunction;
         this.transferBufferOwnershipConsumer = transferBufferOwnershipConsumer;
+        this.numBufferPoolSizeSupplier = numBufferPoolSizeSupplier;
         this.releaseRunnable = releaseRunnable;
     }
 
@@ -105,6 +110,11 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
     }
 
     @Override
+    public int numBufferPoolSize() {
+        return numBufferPoolSizeSupplier.get();
+    }
+
+    @Override
     public void release() {
         releaseRunnable.run();
     }
@@ -127,6 +137,8 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
 
         private TriConsumer<Object, Object, Buffer> transferBufferOwnershipConsumer =
                 (oldOwner, newOwner, buffer) -> {};
+
+        private Supplier<Integer> numBufferPoolSizeSupplier = () -> 0;
 
         private Runnable releaseRunnable = () -> {};
 
@@ -168,6 +180,12 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
             return this;
         }
 
+        public TestingTieredStorageMemoryManager.Builder setNumBufferPoolSizeSupplier(
+                Supplier<Integer> numBufferPoolSizeSupplier) {
+            this.numBufferPoolSizeSupplier = numBufferPoolSizeSupplier;
+            return this;
+        }
+
         public TestingTieredStorageMemoryManager.Builder setReleaseRunnable(
                 Runnable releaseRunnable) {
             this.releaseRunnable = releaseRunnable;
@@ -183,6 +201,7 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
                     getMaxNonReclaimableBuffersFunction,
                     numOwnerRequestedBufferFunction,
                     transferBufferOwnershipConsumer,
+                    numBufferPoolSizeSupplier,
                     releaseRunnable);
         }
     }
