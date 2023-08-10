@@ -39,7 +39,7 @@ public class TieredStorageConfiguration {
 
     private static final int DEFAULT_TIERED_STORAGE_BUFFER_SIZE = 32 * 1024;
 
-    private static final int DEFAULT_MEMORY_TIER_EXCLUSIVE_BUFFERS = 100;
+    private static final int DEFAULT_MEMORY_TIER_EXCLUSIVE_BUFFERS = 50;
 
     private static final int DEFAULT_DISK_TIER_EXCLUSIVE_BUFFERS = 1;
 
