@@ -84,7 +84,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
             currentSequenceNumber++;
             return BufferAndBacklog.fromBufferAndLookahead(
                     nextBuffer.get(),
-                    getNettyPayloadNextDataType(currentQueue),
+                    getDataTypeFromNettyPayload(currentQueue.peek()),
                     getNettyBacklog(),
                     currentSequenceNumber);
         }
@@ -192,21 +192,24 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
 
     private boolean shouldIgnoreZeroCredits() {
         if (findCurrentNettyPayloadQueue()) {
-            NettyPayloadQueue currentQueue =
-                    nettyPayloadQueues.get(queueIndexContainsCurrentSegment);
-            return getNettyPayloadNextDataType(currentQueue) == Buffer.DataType.EVENT_BUFFER
-                    || currentQueue.peek().getError().isPresent();
+            NettyPayload nettyPayload =
+                    nettyPayloadQueues.get(queueIndexContainsCurrentSegment).peek();
+            return getDataTypeFromNettyPayload(nettyPayload) == Buffer.DataType.EVENT_BUFFER
+                    || getErrorFromNettyPayload(nettyPayload).isPresent();
         }
         return false;
     }
 
-    private Buffer.DataType getNettyPayloadNextDataType(NettyPayloadQueue nettyPayload) {
-        NettyPayload nextBuffer = nettyPayload.peek();
-        if (nextBuffer == null || !nextBuffer.getBuffer().isPresent()) {
+    private Buffer.DataType getDataTypeFromNettyPayload(NettyPayload nettyPayload) {
+        if (nettyPayload == null || !nettyPayload.getBuffer().isPresent()) {
             return Buffer.DataType.NONE;
         } else {
-            return nextBuffer.getBuffer().get().getDataType();
+            return nettyPayload.getBuffer().get().getDataType();
         }
+    }
+
+    private Optional<Throwable> getErrorFromNettyPayload(NettyPayload nettyPayload) {
+        return nettyPayload == null ? Optional.empty() : nettyPayload.getError();
     }
 
     private int getNettyBacklog() {
