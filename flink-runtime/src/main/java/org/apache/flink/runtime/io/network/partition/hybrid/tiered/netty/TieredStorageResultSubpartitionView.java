@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
+import static org.apache.flink.shaded.curator5.com.google.common.base.Preconditions.checkState;
 
 /**
  * The {@link TieredStorageResultSubpartitionView} is the implementation of {@link
@@ -84,7 +85,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
             return BufferAndBacklog.fromBufferAndLookahead(
                     nextBuffer.get(),
                     getNettyPayloadNextDataType(currentQueue),
-                    currentQueue.getBacklog(),
+                    getNettyBacklog(),
                     currentSequenceNumber);
         }
         return null;
@@ -92,17 +93,12 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
 
     @Override
     public AvailabilityWithBacklog getAvailabilityAndBacklog(int numCreditsAvailable) {
-        if (findCurrentNettyPayloadQueue()) {
-            NettyPayloadQueue currentQueue =
-                    nettyPayloadQueues.get(queueIndexContainsCurrentSegment);
-            boolean availability = numCreditsAvailable > 0;
-            if (numCreditsAvailable <= 0
-                    && getNettyPayloadNextDataType(currentQueue) == Buffer.DataType.EVENT_BUFFER) {
-                availability = true;
-            }
-            return new AvailabilityWithBacklog(availability, currentQueue.getBacklog());
+        checkState(numCreditsAvailable >= 0);
+        boolean availability = numCreditsAvailable > 0;
+        if (numCreditsAvailable == 0 && shouldIgnoreZeroCredits()) {
+            availability = true;
         }
-        return new AvailabilityWithBacklog(false, 0);
+        return new AvailabilityWithBacklog(availability, getNettyBacklog());
     }
 
     @Override
@@ -141,14 +137,12 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
 
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
-        findCurrentNettyPayloadQueue();
-        return nettyPayloadQueues.get(queueIndexContainsCurrentSegment).getBacklog();
+        return getNettyBacklog();
     }
 
     @Override
     public int getNumberOfQueuedBuffers() {
-        findCurrentNettyPayloadQueue();
-        return nettyPayloadQueues.get(queueIndexContainsCurrentSegment).getBacklog();
+        return getNettyBacklog();
     }
 
     @Override
@@ -196,6 +190,16 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
         }
     }
 
+    private boolean shouldIgnoreZeroCredits() {
+        if (findCurrentNettyPayloadQueue()) {
+            NettyPayloadQueue currentQueue =
+                    nettyPayloadQueues.get(queueIndexContainsCurrentSegment);
+            return getNettyPayloadNextDataType(currentQueue) == Buffer.DataType.EVENT_BUFFER
+                    || currentQueue.peek().getError().isPresent();
+        }
+        return false;
+    }
+
     private Buffer.DataType getNettyPayloadNextDataType(NettyPayloadQueue nettyPayload) {
         NettyPayload nextBuffer = nettyPayload.peek();
         if (nextBuffer == null || !nextBuffer.getBuffer().isPresent()) {
@@ -203,6 +207,14 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
         } else {
             return nextBuffer.getBuffer().get().getDataType();
         }
+    }
+
+    private int getNettyBacklog() {
+        int backlog = 0;
+        for (NettyPayloadQueue queue : nettyPayloadQueues) {
+            backlog += queue.getBacklog();
+        }
+        return backlog;
     }
 
     private void releaseQueue(
