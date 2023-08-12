@@ -18,7 +18,10 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
+import org.apache.flink.runtime.io.network.buffer.Buffer;
+
 import java.util.LinkedList;
+import java.util.Optional;
 import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkState;
@@ -39,7 +42,10 @@ public class NettyPayloadQueue {
     public void add(NettyPayload nettyPayload) {
         synchronized (lock) {
             queue.add(nettyPayload);
-            currentSegmentBacklog++;
+            Optional<Buffer> buffer = nettyPayload.getBuffer();
+            if (buffer.isPresent() && buffer.get().isBuffer()) {
+                currentSegmentBacklog++;
+            }
             if (nettyPayload.getSegmentId() != -1) {
                 segmentBacklogQueue.add(currentSegmentBacklog);
                 currentSegmentBacklog = 0;
@@ -60,19 +66,22 @@ public class NettyPayloadQueue {
                 return null;
             }
 
-            if (headSegmentBacklog > 0) {
-                headSegmentBacklog--;
-                if (headSegmentBacklog == 0) {
-                    checkState(
-                            nettyPayload.getSegmentId() != -1
-                                    || nettyPayload.getError().isPresent());
-                }
-            } else {
-                if (segmentBacklogQueue.isEmpty()) {
-                    currentSegmentBacklog--;
-                } else {
-                    headSegmentBacklog = segmentBacklogQueue.poll();
+            Optional<Buffer> buffer = nettyPayload.getBuffer();
+            if (buffer.isPresent() && buffer.get().isBuffer()) {
+                if (headSegmentBacklog > 0) {
                     headSegmentBacklog--;
+                    if (headSegmentBacklog == 0) {
+                        checkState(
+                                nettyPayload.getSegmentId() != -1
+                                        || nettyPayload.getError().isPresent());
+                    }
+                } else {
+                    if (segmentBacklogQueue.isEmpty()) {
+                        currentSegmentBacklog--;
+                    } else {
+                        headSegmentBacklog = segmentBacklogQueue.poll();
+                        headSegmentBacklog--;
+                    }
                 }
             }
             return nettyPayload;
