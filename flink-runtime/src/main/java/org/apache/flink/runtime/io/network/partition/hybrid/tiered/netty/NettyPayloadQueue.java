@@ -18,7 +18,10 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
+import org.apache.flink.runtime.io.network.buffer.Buffer;
+
 import java.util.LinkedList;
+import java.util.Optional;
 import java.util.Queue;
 
 /** The queue containing data buffers. */
@@ -28,13 +31,14 @@ public class NettyPayloadQueue {
 
     private final Queue<NettyPayload> queue = new LinkedList<>();
 
-    private int backlog = 0;
+    private int realBacklog = 0;
 
     public void add(NettyPayload nettyPayload) {
         synchronized (lock) {
             queue.add(nettyPayload);
-            if (nettyPayload.getBuffer().isPresent()) {
-                backlog++;
+            Optional<Buffer> buffer = nettyPayload.getBuffer();
+            if (buffer.isPresent() && buffer.get().isBuffer()) {
+                realBacklog++;
             }
         }
     }
@@ -48,8 +52,10 @@ public class NettyPayloadQueue {
     public NettyPayload poll() {
         synchronized (lock) {
             NettyPayload nettyPayload = queue.poll();
-            if (nettyPayload != null && nettyPayload.getBuffer().isPresent()) {
-                backlog--;
+            if (nettyPayload != null
+                    && nettyPayload.getBuffer().isPresent()
+                    && nettyPayload.getBuffer().get().isBuffer()) {
+                realBacklog--;
             }
             return nettyPayload;
         }
@@ -57,7 +63,13 @@ public class NettyPayloadQueue {
 
     public int getBacklog() {
         synchronized (lock) {
-            return backlog;
+            return realBacklog;
+        }
+    }
+
+    public int getSize() {
+        synchronized (lock) {
+            return queue.size();
         }
     }
 }

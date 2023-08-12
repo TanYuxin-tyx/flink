@@ -51,7 +51,7 @@ public class NettyConnectionWriterImpl implements NettyConnectionWriter {
 
     @Override
     public int numQueuedBuffers() {
-        return nettyPayloadQueue.getBacklog();
+        return nettyPayloadQueue.getSize();
     }
 
     @Override
