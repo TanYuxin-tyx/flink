@@ -18,40 +18,39 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
-import java.util.Deque;
+import java.util.LinkedList;
 import java.util.Queue;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
 /** The queue containing data buffers. */
 public class NettyPayloadQueue {
 
-    private final Queue<NettyPayload> queue;
-
-    private final Deque<AtomicInteger> segmentBacklogQueue;
-
     private final Object lock = new Object();
 
-    public NettyPayloadQueue() {
-        this.queue = new LinkedBlockingQueue<>();
-        this.segmentBacklogQueue = new LinkedBlockingDeque<>();
-    }
+    private final Queue<NettyPayload> queue = new LinkedList<>();
+
+    private int currentSegmentBacklog;
+
+    private final Queue<Integer> segmentBacklogQueue = new LinkedList<>();
+
+    private int headSegmentBacklog;
 
     public void add(NettyPayload nettyPayload) {
         synchronized (lock) {
-            if (nettyPayload.getSegmentId() != -1 || segmentBacklogQueue.isEmpty()) {
-                segmentBacklogQueue.add(new AtomicInteger(0));
-            }
-            segmentBacklogQueue.getLast().incrementAndGet();
             queue.add(nettyPayload);
+            currentSegmentBacklog++;
+            if (nettyPayload.getSegmentId() == -1) {
+                segmentBacklogQueue.add(currentSegmentBacklog);
+                currentSegmentBacklog = 0;
+            }
         }
     }
 
     public NettyPayload peek() {
-        return queue.peek();
+        synchronized (lock) {
+            return queue.peek();
+        }
     }
 
     public NettyPayload poll() {
@@ -61,18 +60,35 @@ public class NettyPayloadQueue {
                 return null;
             }
 
-            checkState(segmentBacklogQueue.getLast().decrementAndGet() >= 0);
-            if (nettyPayload.getSegmentId() != -1 && segmentBacklogQueue.size() > 1) {
-                segmentBacklogQueue.poll();
+            if (headSegmentBacklog > 0) {
+                headSegmentBacklog--;
+                if (headSegmentBacklog == 0) {
+                    checkState(
+                            nettyPayload.getSegmentId() == -1
+                                    || nettyPayload.getError().isPresent());
+                }
+            } else {
+                if (segmentBacklogQueue.isEmpty()) {
+                    currentSegmentBacklog--;
+                } else {
+                    headSegmentBacklog = segmentBacklogQueue.poll();
+                    headSegmentBacklog--;
+                }
             }
-            checkState(segmentBacklogQueue.size() >= 1);
             return nettyPayload;
         }
     }
 
     public int getBacklog() {
         synchronized (lock) {
-            return segmentBacklogQueue.getLast().get();
+            if (headSegmentBacklog > 0) {
+                return headSegmentBacklog;
+            }
+            if (!segmentBacklogQueue.isEmpty()) {
+                headSegmentBacklog = segmentBacklogQueue.poll();
+                return headSegmentBacklog;
+            }
+            return currentSegmentBacklog;
         }
     }
 }
