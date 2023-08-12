@@ -40,7 +40,7 @@ public class NettyPayloadQueue {
         synchronized (lock) {
             queue.add(nettyPayload);
             currentSegmentBacklog++;
-            if (nettyPayload.getSegmentId() == -1) {
+            if (nettyPayload.getSegmentId() != -1) {
                 segmentBacklogQueue.add(currentSegmentBacklog);
                 currentSegmentBacklog = 0;
             }
@@ -64,7 +64,7 @@ public class NettyPayloadQueue {
                 headSegmentBacklog--;
                 if (headSegmentBacklog == 0) {
                     checkState(
-                            nettyPayload.getSegmentId() == -1
+                            nettyPayload.getSegmentId() != -1
                                     || nettyPayload.getError().isPresent());
                 }
             } else {
