@@ -21,6 +21,8 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 import java.util.LinkedList;
 import java.util.Queue;
 
+import static org.apache.flink.util.Preconditions.checkState;
+
 /** The queue containing data buffers. */
 public class NettyPayloadQueue {
 
@@ -28,13 +30,19 @@ public class NettyPayloadQueue {
 
     private final Queue<NettyPayload> queue = new LinkedList<>();
 
-    private int backlog = 0;
+    private int currentSegmentBacklog;
+
+    private final Queue<Integer> segmentBacklogQueue = new LinkedList<>();
+
+    private int headSegmentBacklog;
 
     public void add(NettyPayload nettyPayload) {
         synchronized (lock) {
             queue.add(nettyPayload);
-            if (nettyPayload.getBuffer().isPresent()) {
-                backlog++;
+            currentSegmentBacklog++;
+            if (nettyPayload.getSegmentId() == -1) {
+                segmentBacklogQueue.add(currentSegmentBacklog);
+                currentSegmentBacklog = 0;
             }
         }
     }
@@ -48,8 +56,24 @@ public class NettyPayloadQueue {
     public NettyPayload poll() {
         synchronized (lock) {
             NettyPayload nettyPayload = queue.poll();
-            if (nettyPayload != null && nettyPayload.getBuffer().isPresent()) {
-                backlog--;
+            if (nettyPayload == null) {
+                return null;
+            }
+
+            if (headSegmentBacklog > 0) {
+                headSegmentBacklog--;
+                if (headSegmentBacklog == 0) {
+                    checkState(
+                            nettyPayload.getSegmentId() == -1
+                                    || nettyPayload.getError().isPresent());
+                }
+            } else {
+                if (segmentBacklogQueue.isEmpty()) {
+                    currentSegmentBacklog--;
+                } else {
+                    headSegmentBacklog = segmentBacklogQueue.poll();
+                    headSegmentBacklog--;
+                }
             }
             return nettyPayload;
         }
@@ -57,7 +81,14 @@ public class NettyPayloadQueue {
 
     public int getBacklog() {
         synchronized (lock) {
-            return backlog;
+            if (headSegmentBacklog > 0) {
+                return headSegmentBacklog;
+            }
+            if (!segmentBacklogQueue.isEmpty()) {
+                headSegmentBacklog = segmentBacklogQueue.poll();
+                return headSegmentBacklog;
+            }
+            return currentSegmentBacklog;
         }
     }
 }
