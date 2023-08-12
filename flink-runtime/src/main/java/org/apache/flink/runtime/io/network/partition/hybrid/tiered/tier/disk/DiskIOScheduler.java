@@ -298,7 +298,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     && !allScheduledReaders.isEmpty()
                     && numRequestedBuffers + bufferPool.getNumBuffersPerRequest()
                             <= maxRequestedBuffers
-                    && numRequestedBuffers < bufferPool.getAverageBuffersPerRequester() * 2) {
+                    && numRequestedBuffers < bufferPool.getAverageBuffersPerRequester()) {
                 isRunning = true;
                 ioExecutor.execute(
                         () -> {
