@@ -84,7 +84,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
             return BufferAndBacklog.fromBufferAndLookahead(
                     nextBuffer.get(),
                     getNettyPayloadNextDataType(currentQueue),
-                    getNettyBacklog(),
+                    currentQueue.getBacklog(),
                     currentSequenceNumber);
         }
         return null;
@@ -100,7 +100,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
                     && getNettyPayloadNextDataType(currentQueue) == Buffer.DataType.EVENT_BUFFER) {
                 availability = true;
             }
-            return new AvailabilityWithBacklog(availability, getNettyBacklog());
+            return new AvailabilityWithBacklog(availability, currentQueue.getBacklog());
         }
         return new AvailabilityWithBacklog(false, 0);
     }
@@ -194,14 +194,6 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
                 return nettyPayload.getBuffer();
             }
         }
-    }
-
-    private int getNettyBacklog() {
-        int backlog = 0;
-        for (NettyPayloadQueue queue : nettyPayloadQueues) {
-            backlog += queue.getBacklog();
-        }
-        return backlog;
     }
 
     private Buffer.DataType getNettyPayloadNextDataType(NettyPayloadQueue nettyPayload) {
