@@ -20,12 +20,9 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty;
 
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 
-import java.util.Deque;
 import java.util.LinkedList;
 import java.util.Optional;
 import java.util.Queue;
-
-import static org.apache.flink.shaded.curator5.com.google.common.base.Preconditions.checkState;
 
 /** The queue containing data buffers. */
 public class NettyPayloadQueue {
@@ -34,23 +31,14 @@ public class NettyPayloadQueue {
 
     private final Queue<NettyPayload> queue = new LinkedList<>();
 
-    private final Deque<Integer> backlogs = new LinkedList<>();
-
-    private int latestSegmentId = -1;
-
-    private boolean shouldAddNewBacklog = false;
+    private int realBacklog = 0;
 
     public void add(NettyPayload nettyPayload) {
         synchronized (lock) {
             queue.add(nettyPayload);
-            int segmentId = nettyPayload.getSegmentId();
-            if (segmentId == 0 || segmentId != -1 && segmentId != (latestSegmentId + 1)) {
-                shouldAddNewBacklog = true;
-                latestSegmentId = segmentId;
-            }
             Optional<Buffer> buffer = nettyPayload.getBuffer();
             if (buffer.isPresent() && buffer.get().isBuffer()) {
-                increaseBacklog();
+                realBacklog++;
             }
         }
     }
@@ -67,7 +55,7 @@ public class NettyPayloadQueue {
             if (nettyPayload != null
                     && nettyPayload.getBuffer().isPresent()
                     && nettyPayload.getBuffer().get().isBuffer()) {
-                decreaseBacklog();
+                realBacklog--;
             }
             return nettyPayload;
         }
@@ -75,35 +63,13 @@ public class NettyPayloadQueue {
 
     public int getBacklog() {
         synchronized (lock) {
-            if (backlogs.isEmpty()) {
-                return 0;
-            }
-            Integer backlog = backlogs.peekFirst();
-            checkState(backlog >= 1);
-            return backlog;
+            return realBacklog;
         }
     }
 
     public int getSize() {
         synchronized (lock) {
             return queue.size();
-        }
-    }
-
-    private void increaseBacklog() {
-        if (backlogs.isEmpty() || shouldAddNewBacklog) {
-            backlogs.addLast(1);
-            shouldAddNewBacklog = false;
-        } else {
-            backlogs.addLast(backlogs.pollLast() + 1);
-        }
-    }
-
-    private void decreaseBacklog() {
-        Integer currentBacklog = backlogs.pollFirst();
-        checkState(currentBacklog != null && currentBacklog >= 1);
-        if (currentBacklog > 1) {
-            backlogs.addFirst(currentBacklog - 1);
         }
     }
 }
