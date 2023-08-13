@@ -22,6 +22,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 
 import javax.annotation.Nullable;
@@ -37,6 +38,10 @@ import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_
  * ResultSubpartitionView} of {@link TieredResultPartition}.
  */
 public class TieredStorageResultSubpartitionView implements ResultSubpartitionView {
+
+    private final TieredStorageSubpartitionId subpartitionId;
+
+    private final boolean[] hasSubpartitionStartConsume;
 
     private final BufferAvailabilityListener availabilityListener;
 
@@ -57,11 +62,15 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
     private int currentSequenceNumber = -1;
 
     public TieredStorageResultSubpartitionView(
+            TieredStorageSubpartitionId subpartitionId,
+            boolean[] hasSubpartitionStartConsume,
             BufferAvailabilityListener availabilityListener,
             List<NettyPayloadQueue> nettyPayloadQueues,
             List<NettyConnectionId> nettyConnectionIds,
             List<NettyServiceProducer> serviceProducers) {
+        this.subpartitionId = subpartitionId;
         this.availabilityListener = availabilityListener;
+        this.hasSubpartitionStartConsume = hasSubpartitionStartConsume;
         this.nettyPayloadQueues = nettyPayloadQueues;
         this.nettyConnectionIds = nettyConnectionIds;
         this.serviceProducers = serviceProducers;
@@ -70,6 +79,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
     @Nullable
     @Override
     public BufferAndBacklog getNextBuffer() throws IOException {
+        hasSubpartitionStartConsume[subpartitionId.getSubpartitionId()] = true;
         if (stopSendingData || !findCurrentNettyPayloadQueue()) {
             return null;
         }

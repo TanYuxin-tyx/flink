@@ -47,6 +47,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -104,6 +105,8 @@ public class TieredResultPartitionFactory {
         BufferAccumulator bufferAccumulator =
                 createBufferAccumulator(
                         numSubpartitions, numAccumulatorExclusiveBuffers, memoryManager);
+        boolean[] hasSubpartitionStartConsume = new boolean[numSubpartitions];
+        Arrays.fill(hasSubpartitionStartConsume, false);
 
         // Create producer agents and memory specs.
         Tuple2<List<TierProducerAgent>, List<TieredStorageMemorySpec>>
@@ -112,6 +115,7 @@ public class TieredResultPartitionFactory {
                                 numSubpartitions,
                                 isBroadCastOnly,
                                 TieredStorageIdMappingUtils.convertId(partitionId),
+                                hasSubpartitionStartConsume,
                                 memoryManager,
                                 bufferAccumulator,
                                 partitionType == ResultPartitionType.HYBRID_SELECTIVE,
@@ -136,6 +140,7 @@ public class TieredResultPartitionFactory {
                 partitionType,
                 numSubpartitions,
                 maxParallelism,
+                hasSubpartitionStartConsume,
                 partitionManager,
                 bufferCompressor,
                 bufferPoolFactory,
@@ -165,6 +170,7 @@ public class TieredResultPartitionFactory {
                     int numberOfSubpartitions,
                     boolean isBroadcastOnly,
                     TieredStoragePartitionId partitionID,
+                    boolean[] hasSubpartitionStartConsume,
                     TieredStorageMemoryManager memoryManager,
                     BufferAccumulator bufferAccumulator,
                     boolean isHybridSelective,
@@ -198,6 +204,7 @@ public class TieredResultPartitionFactory {
                             partitionID,
                             fileChannelManager.createChannel().getPath(),
                             isBroadcastOnly,
+                            hasSubpartitionStartConsume,
                             memoryManager,
                             tieredStorageNettyService,
                             tieredStorageResourceRegistry,

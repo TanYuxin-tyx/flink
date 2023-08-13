@@ -80,6 +80,7 @@ public class DiskTierFactory implements TierFactory {
             TieredStoragePartitionId partitionId,
             String dataFileBasePath,
             boolean isBroadcastOnly,
+            boolean[] hasSubpartitionStartConsume,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry,

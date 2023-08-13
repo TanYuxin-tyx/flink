@@ -64,6 +64,8 @@ public class TieredResultPartition extends ResultPartition {
 
     private final TieredStoragePartitionId partitionId;
 
+    private final boolean[] hasSubpartitionStartConsume;
+
     private final TieredStorageProducerClient tieredStorageProducerClient;
 
     private final TieredStorageResourceRegistry tieredStorageResourceRegistry;
@@ -83,6 +85,7 @@ public class TieredResultPartition extends ResultPartition {
             ResultPartitionType partitionType,
             int numSubpartitions,
             int numTargetKeyGroups,
+            boolean[] hasSubpartitionStartConsume,
             ResultPartitionManager partitionManager,
             @Nullable BufferCompressor bufferCompressor,
             SupplierWithException<BufferPool, IOException> bufferPoolFactory,
@@ -103,6 +106,7 @@ public class TieredResultPartition extends ResultPartition {
                 bufferPoolFactory);
 
         this.partitionId = TieredStorageIdMappingUtils.convertId(partitionId);
+        this.hasSubpartitionStartConsume = hasSubpartitionStartConsume;
         this.tieredStorageProducerClient = tieredStorageProducerClient;
         this.tieredStorageResourceRegistry = tieredStorageResourceRegistry;
         this.nettyService = nettyService;
@@ -174,7 +178,10 @@ public class TieredResultPartition extends ResultPartition {
             throws IOException {
         checkState(!isReleased(), "ResultPartition already released.");
         return nettyService.createResultSubpartitionView(
-                partitionId, new TieredStorageSubpartitionId(subpartitionId), availabilityListener);
+                partitionId,
+                hasSubpartitionStartConsume,
+                new TieredStorageSubpartitionId(subpartitionId),
+                availabilityListener);
     }
 
     @Override
