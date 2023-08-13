@@ -62,6 +62,7 @@ public class MemoryTierFactory implements TierFactory {
             TieredStoragePartitionId partitionID,
             String dataFileBasePath,
             boolean isBroadcastOnly,
+            boolean[] hasSubpartitionStartConsume,
             TieredStorageMemoryManager memoryManager,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry,
@@ -77,6 +78,7 @@ public class MemoryTierFactory implements TierFactory {
                 segmentSizeBytes,
                 subpartitionMaxQueuedBuffers,
                 isBroadcastOnly,
+                hasSubpartitionStartConsume,
                 memoryManager,
                 nettyService,
                 resourceRegistry);

@@ -54,25 +54,37 @@ class MemoryTierProducerAgentTest {
 
     @Test
     void testTryStartNewSegment() {
+        boolean[] hasSubpartitionStartConsume = new boolean[NUM_SUBPARTITIONS];
         try (MemoryTierProducerAgent memoryTierProducerAgent =
-                createMemoryTierProducerAgent(false)) {
+                createMemoryTierProducerAgent(
+                        false,
+                        hasSubpartitionStartConsume,
+                        SEGMENT_SIZE_BYTES,
+                        new TieredStorageResourceRegistry())) {
             assertThat(memoryTierProducerAgent.tryStartNewSegment(SUBPARTITION_ID, 0)).isFalse();
             memoryTierProducerAgent.connectionEstablished(
                     SUBPARTITION_ID, new TestingNettyConnectionWriter.Builder().build());
+            hasSubpartitionStartConsume[SUBPARTITION_ID.getSubpartitionId()] = true;
             assertThat(memoryTierProducerAgent.tryStartNewSegment(SUBPARTITION_ID, 0)).isTrue();
         }
     }
 
     @Test
     void testStartSegmentSuccessWhenSubpartitionOccupyFewBuffers() {
+        boolean[] hasSubpartitionStartConsume = new boolean[NUM_SUBPARTITIONS];
         int numQueuedBuffers = 2;
         try (MemoryTierProducerAgent memoryTierProducerAgent =
-                createMemoryTierProducerAgent(false)) {
+                createMemoryTierProducerAgent(
+                        false,
+                        hasSubpartitionStartConsume,
+                        SEGMENT_SIZE_BYTES,
+                        new TieredStorageResourceRegistry())) {
             TestingNettyConnectionWriter connectionWriter =
                     new TestingNettyConnectionWriter.Builder()
                             .setNumQueuedBuffersSupplier(() -> numQueuedBuffers)
                             .build();
             memoryTierProducerAgent.connectionEstablished(SUBPARTITION_ID, connectionWriter);
+            hasSubpartitionStartConsume[SUBPARTITION_ID.getSubpartitionId()] = true;
             assertThat(memoryTierProducerAgent.tryStartNewSegment(SUBPARTITION_ID, 0)).isTrue();
         }
     }
@@ -110,6 +122,7 @@ class MemoryTierProducerAgentTest {
                         SEGMENT_SIZE_BYTES,
                         MEMORY_TIER_SUBPARTITION_MAX_QUEUED_BUFFERS,
                         false,
+                        new boolean[NUM_SUBPARTITIONS],
                         memoryManager,
                         nettyService,
                         new TieredStorageResourceRegistry())) {
@@ -123,7 +136,10 @@ class MemoryTierProducerAgentTest {
     void testTryWrite() {
         try (MemoryTierProducerAgent memoryTierProducerAgent =
                 createMemoryTierProducerAgent(
-                        false, BUFFER_SIZE, new TieredStorageResourceRegistry())) {
+                        false,
+                        new boolean[NUM_SUBPARTITIONS],
+                        BUFFER_SIZE,
+                        new TieredStorageResourceRegistry())) {
             memoryTierProducerAgent.connectionEstablished(
                     SUBPARTITION_ID, new TestingNettyConnectionWriter.Builder().build());
             assertThat(
@@ -152,7 +168,11 @@ class MemoryTierProducerAgentTest {
     void testRelease() {
         TieredStorageResourceRegistry resourceRegistry = new TieredStorageResourceRegistry();
         MemoryTierProducerAgent memoryTierProducerAgent =
-                createMemoryTierProducerAgent(false, SEGMENT_SIZE_BYTES, resourceRegistry);
+                createMemoryTierProducerAgent(
+                        false,
+                        new boolean[NUM_SUBPARTITIONS],
+                        SEGMENT_SIZE_BYTES,
+                        resourceRegistry);
 
         AtomicBoolean isClosed = new AtomicBoolean(false);
         memoryTierProducerAgent.connectionEstablished(
@@ -171,11 +191,15 @@ class MemoryTierProducerAgentTest {
 
     private static MemoryTierProducerAgent createMemoryTierProducerAgent(boolean isBroadcastOnly) {
         return createMemoryTierProducerAgent(
-                isBroadcastOnly, SEGMENT_SIZE_BYTES, new TieredStorageResourceRegistry());
+                isBroadcastOnly,
+                new boolean[NUM_SUBPARTITIONS],
+                SEGMENT_SIZE_BYTES,
+                new TieredStorageResourceRegistry());
     }
 
     private static MemoryTierProducerAgent createMemoryTierProducerAgent(
             boolean isBroadcastOnly,
+            boolean[] hasSubpartitionStartConsume,
             int segmentSizeBytes,
             TieredStorageResourceRegistry resourceRegistry) {
         TestingTieredStorageMemoryManager memoryManager =
@@ -195,6 +219,7 @@ class MemoryTierProducerAgentTest {
                 segmentSizeBytes,
                 MEMORY_TIER_SUBPARTITION_MAX_QUEUED_BUFFERS,
                 isBroadcastOnly,
+                hasSubpartitionStartConsume,
                 memoryManager,
                 nettyService,
                 resourceRegistry);

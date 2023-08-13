@@ -25,6 +25,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferAvailabilityListener;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartitionView;
+import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,6 +61,8 @@ public class TieredStorageResultSubpartitionViewTest {
                 Arrays.asList(new CompletableFuture<>(), new CompletableFuture<>());
         tieredStorageResultSubpartitionView =
                 new TieredStorageResultSubpartitionView(
+                        new TieredStorageSubpartitionId(0),
+                        new boolean[1],
                         createBufferAvailabilityListener(availabilityListener),
                         nettyPayloadQueues,
                         createNettyConnectionIds(),
@@ -83,6 +86,8 @@ public class TieredStorageResultSubpartitionViewTest {
         nettyPayloadQueues = createNettyPayloadQueuesWithError(expectedError);
         tieredStorageResultSubpartitionView =
                 new TieredStorageResultSubpartitionView(
+                        new TieredStorageSubpartitionId(0),
+                        new boolean[1],
                         createBufferAvailabilityListener(availabilityListener),
                         nettyPayloadQueues,
                         createNettyConnectionIds(),

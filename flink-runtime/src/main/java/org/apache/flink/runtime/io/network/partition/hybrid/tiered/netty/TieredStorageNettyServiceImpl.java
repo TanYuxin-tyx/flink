@@ -37,7 +37,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -114,12 +113,18 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
      */
     public ResultSubpartitionView createResultSubpartitionView(
             TieredStoragePartitionId partitionId,
+            boolean[] hasSubpartitionStartConsume,
             TieredStorageSubpartitionId subpartitionId,
             BufferAvailabilityListener availabilityListener) {
         List<NettyServiceProducer> serviceProducers = registeredServiceProducers.get(partitionId);
         if (serviceProducers == null) {
             return new TieredStorageResultSubpartitionView(
-                    availabilityListener, new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+                    subpartitionId,
+                    hasSubpartitionStartConsume,
+                    availabilityListener,
+                    new ArrayList<>(),
+                    new ArrayList<>(),
+                    new ArrayList<>());
         }
         List<NettyPayloadQueue> queues = new ArrayList<>();
         List<NettyConnectionId> nettyConnectionIds = new ArrayList<>();
@@ -132,6 +137,8 @@ public class TieredStorageNettyServiceImpl implements TieredStorageNettyService 
             queues.add(queue);
         }
         return new TieredStorageResultSubpartitionView(
+                subpartitionId,
+                hasSubpartitionStartConsume,
                 availabilityListener,
                 queues,
                 nettyConnectionIds,

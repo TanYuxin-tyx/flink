@@ -68,6 +68,7 @@ public class TestingTierFactory implements TierFactory {
             TieredStoragePartitionId partitionID,
             String dataFileBasePath,
             boolean isBroadcastOnly,
+            boolean[] hasSubpartitionStartConsume,
             TieredStorageMemoryManager storageMemoryManager,
             TieredStorageNettyService nettyService,
             TieredStorageResourceRegistry resourceRegistry,

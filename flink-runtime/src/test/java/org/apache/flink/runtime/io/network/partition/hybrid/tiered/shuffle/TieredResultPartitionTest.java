@@ -215,6 +215,7 @@ class TieredResultPartitionTest {
                         ResultPartitionType.HYBRID_SELECTIVE,
                         numSubpartitions,
                         numSubpartitions,
+                        new boolean[numSubpartitions],
                         new ResultPartitionManager(),
                         new BufferCompressor(NETWORK_BUFFER_SIZE, "LZ4"),
                         () -> bufferPool,
