@@ -64,7 +64,6 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
-import java.text.DecimalFormat;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -953,12 +952,14 @@ public class SingleInputGate extends IndexedInputGate {
                 checkState(!moreAvailable || !pollNext().isPresent());
                 moreAvailable = false;
                 markAvailable();
-                // 获取当前时间
+
                 long end = System.currentTimeMillis();
-                // 格式化输出
-                DecimalFormat decimalFormat = new DecimalFormat("#.##");
-                String formattedSeconds = decimalFormat.format((float) (end - startTime) / 1000);
-                LOG.error("### " + getOwningTaskName() + " 时间差：" + formattedSeconds + "秒");
+                LOG.error(
+                        "### "
+                                + getOwningTaskName()
+                                + " gate duration："
+                                + (end - startTime)
+                                + " ms");
             }
 
             currentChannel.releaseAllResources();
