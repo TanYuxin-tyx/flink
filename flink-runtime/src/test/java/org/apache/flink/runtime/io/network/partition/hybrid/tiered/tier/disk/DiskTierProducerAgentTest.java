@@ -208,6 +208,7 @@ public class DiskTierProducerAgentTest {
         Path dataFilePath = new File(dataFileBasePath + DATA_FILE_SUFFIX).toPath();
 
         return new DiskTierProducerAgent(
+                "",
                 PARTITION_ID,
                 NUM_SUBPARTITIONS,
                 numBytesPerSegment,

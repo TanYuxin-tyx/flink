@@ -76,6 +76,7 @@ public class DiskTierFactory implements TierFactory {
 
     @Override
     public TierProducerAgent createProducerAgent(
+            String taskName,
             int numSubpartitions,
             TieredStoragePartitionId partitionId,
             String dataFileBasePath,
@@ -102,6 +103,7 @@ public class DiskTierFactory implements TierFactory {
                 ProducerMergedPartitionFile.createPartitionFileReader(
                         dataFilePath, partitionFileIndex);
         return new DiskTierProducerAgent(
+                taskName,
                 partitionId,
                 numSubpartitions,
                 numBytesPerSegment,

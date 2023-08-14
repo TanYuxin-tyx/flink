@@ -37,6 +37,7 @@ public interface TierFactory {
 
     /** Creates the producer-side agent of a Tier. */
     TierProducerAgent createProducerAgent(
+            String taskName,
             int numSubpartitions,
             TieredStoragePartitionId partitionID,
             String dataFileBasePath,

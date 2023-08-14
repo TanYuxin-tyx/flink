@@ -82,6 +82,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     private volatile boolean isReleased;
 
     DiskTierProducerAgent(
+            String taskName,
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
             int numBytesPerSegment,
@@ -127,6 +128,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
         this.diskIOScheduler =
                 new DiskIOScheduler(
+                        taskName,
                         partitionId,
                         bufferPool,
                         ioExecutor,

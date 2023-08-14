@@ -117,6 +117,7 @@ class SegmentPartitionFileReaderTest {
         MemorySegment memorySegment =
                 MemorySegmentFactory.allocateUnpooledSegment(DEFAULT_BUFFER_SIZE);
         return partitionFileReader.readBuffer(
+                false,"",
                 DEFAULT_PARTITION_ID,
                 subpartitionId,
                 segmentId,

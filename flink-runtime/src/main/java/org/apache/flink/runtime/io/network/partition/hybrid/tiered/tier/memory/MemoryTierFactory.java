@@ -58,6 +58,7 @@ public class MemoryTierFactory implements TierFactory {
 
     @Override
     public TierProducerAgent createProducerAgent(
+            String taskName,
             int numSubpartitions,
             TieredStoragePartitionId partitionID,
             String dataFileBasePath,

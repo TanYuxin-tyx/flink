@@ -109,6 +109,7 @@ public class TieredResultPartitionFactory {
         Tuple2<List<TierProducerAgent>, List<TieredStorageMemorySpec>>
                 producerAgentsAndMemorySpecs =
                         createTierProducerAgentsAndMemorySpecs(
+                                owningTaskName,
                                 numSubpartitions,
                                 isBroadCastOnly,
                                 TieredStorageIdMappingUtils.convertId(partitionId),
@@ -162,6 +163,7 @@ public class TieredResultPartitionFactory {
 
     private Tuple2<List<TierProducerAgent>, List<TieredStorageMemorySpec>>
             createTierProducerAgentsAndMemorySpecs(
+                    String taskName,
                     int numberOfSubpartitions,
                     boolean isBroadcastOnly,
                     TieredStoragePartitionId partitionID,
@@ -194,6 +196,7 @@ public class TieredResultPartitionFactory {
             }
             TierProducerAgent producerAgent =
                     tierFactory.createProducerAgent(
+                            taskName,
                             numberOfSubpartitions,
                             partitionID,
                             fileChannelManager.createChannel().getPath(),

@@ -48,6 +48,8 @@ public class TestingPartitionFileReader implements PartitionFileReader {
 
     @Override
     public Buffer readBuffer(
+            boolean b,
+            String s,
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,

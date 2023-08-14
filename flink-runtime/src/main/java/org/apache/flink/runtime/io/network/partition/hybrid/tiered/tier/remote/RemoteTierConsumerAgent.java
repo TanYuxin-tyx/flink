@@ -91,6 +91,8 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         try {
             buffer =
                     partitionFileReader.readBuffer(
+                            false,
+                            "",
                             partitionId,
                             subpartitionId,
                             segmentId,

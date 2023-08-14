@@ -29,6 +29,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.IOUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -50,6 +53,9 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * <p>Note that one partition file may contain the data of multiple subpartitions.
  */
 public class ProducerMergedPartitionFileReader implements PartitionFileReader {
+
+    private static final Logger LOG =
+            LoggerFactory.getLogger(ProducerMergedPartitionFileReader.class);
 
     /**
      * Max number of caches.
@@ -100,6 +106,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
     @Override
     public Buffer readBuffer(
+            boolean shouldPrintLog,
+            String taskName,
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
@@ -111,11 +119,20 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         lazyInitializeFileChannel();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
+        if (shouldPrintLog) {
+            LOG.error("### " + taskName + " try get cache");
+        }
         Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, true);
         if (!cache.isPresent()) {
             return null;
         }
+        if (shouldPrintLog) {
+            LOG.error("### " + taskName + " get cache");
+        }
         fileChannel.position(cache.get().getFileOffset());
+        if (shouldPrintLog) {
+            LOG.error("### " + taskName + " position to buffer");
+        }
         Buffer buffer =
                 readFromByteChannel(fileChannel, reusedHeaderBuffer, memorySegment, recycler);
         boolean hasNextBuffer =

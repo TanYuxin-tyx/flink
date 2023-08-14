@@ -104,6 +104,8 @@ class ProducerMergedPartitionFileReaderTest {
                 MemorySegmentFactory.allocateUnpooledSegment(DEFAULT_BUFFER_SIZE);
         assertThat(
                         partitionFileReader.readBuffer(
+                                false,
+                                "",
                                 DEFAULT_PARTITION_ID,
                                 DEFAULT_SUBPARTITION_ID,
                                 DEFAULT_SEGMENT_ID,
@@ -175,6 +177,8 @@ class ProducerMergedPartitionFileReaderTest {
         MemorySegment memorySegment =
                 MemorySegmentFactory.allocateUnpooledSegment(DEFAULT_BUFFER_SIZE);
         return partitionFileReader.readBuffer(
+                false,
+                "",
                 DEFAULT_PARTITION_ID,
                 subpartitionId,
                 DEFAULT_SEGMENT_ID,

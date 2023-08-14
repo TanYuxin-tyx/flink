@@ -118,7 +118,12 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
     @GuardedBy("lock")
     private boolean isReleased;
 
+    private boolean shouldPrint = true;
+
+    private final String taskName;
+
     public DiskIOScheduler(
+            String taskName,
             TieredStoragePartitionId partitionId,
             BatchShuffleReadBufferPool bufferPool,
             ScheduledExecutorService ioExecutor,
@@ -127,6 +132,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             int maxBufferReadAhead,
             BiFunction<Integer, Integer, Integer> firstBufferIndexInSegmentRetriever,
             PartitionFileReader partitionFileReader) {
+        this.taskName = taskName;
         this.partitionId = partitionId;
         this.bufferPool = checkNotNull(bufferPool);
         this.ioExecutor = checkNotNull(ioExecutor);
@@ -158,8 +164,17 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             NettyConnectionWriter nettyConnectionWriter) {
         synchronized (lock) {
             checkState(!isReleased, "DiskIOScheduler is already released.");
-            ScheduledSubpartitionReader scheduledSubpartitionReader =
-                    new ScheduledSubpartitionReader(subpartitionId, nettyConnectionWriter);
+            ScheduledSubpartitionReader scheduledSubpartitionReader;
+            if (shouldPrint && taskName.contains("date_dim")) {
+                scheduledSubpartitionReader =
+                        new ScheduledSubpartitionReader(
+                                subpartitionId, nettyConnectionWriter, true);
+                shouldPrint = false;
+            } else {
+                scheduledSubpartitionReader =
+                        new ScheduledSubpartitionReader(
+                                subpartitionId, nettyConnectionWriter, false);
+            }
             allScheduledReaders.put(
                     nettyConnectionWriter.getNettyConnectionId(), scheduledSubpartitionReader);
             triggerScheduling();
@@ -338,9 +353,15 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private boolean isFailed;
 
+        private boolean shouldPrintLog;
+
         private ScheduledSubpartitionReader(
                 TieredStorageSubpartitionId subpartitionId,
-                NettyConnectionWriter nettyConnectionWriter) {
+                NettyConnectionWriter nettyConnectionWriter,
+                boolean shouldPrintLog) {
+            if (shouldPrintLog) {
+                LOG.error("###" + taskName + " Start reading..");
+            }
             this.subpartitionId = subpartitionId;
             this.nettyConnectionWriter = nettyConnectionWriter;
         }
@@ -354,14 +375,20 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                 + subpartitionId
                                 + " has already been failed.");
             }
+            LOG.error("###" + taskName + " Availability buffer number " + buffers.size());
             while (!buffers.isEmpty()
                     && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead
                     && nextSegmentId >= 0) {
+                if (shouldPrintLog) {
+                    LOG.error("###" + taskName + " Start Poll");
+                }
                 MemorySegment memorySegment = buffers.poll();
                 Buffer buffer;
                 try {
                     if ((buffer =
                                     partitionFileReader.readBuffer(
+                                            shouldPrintLog,
+                                            taskName,
                                             partitionId,
                                             subpartitionId,
                                             nextSegmentId,
@@ -375,6 +402,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 } catch (Throwable throwable) {
                     buffers.add(memorySegment);
                     throw throwable;
+                }
+                if (shouldPrint) {
+                    LOG.error("###" + taskName + " poll buffer index " + nextBufferIndex);
                 }
                 writeToNettyConnectionWriter(
                         NettyPayload.newBuffer(

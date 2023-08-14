@@ -44,6 +44,8 @@ public interface PartitionFileReader {
      */
     @Nullable
     Buffer readBuffer(
+            boolean shouldPrintLog,
+            String taskName,
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,

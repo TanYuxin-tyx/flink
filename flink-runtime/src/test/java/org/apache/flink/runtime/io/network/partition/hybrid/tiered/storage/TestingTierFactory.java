@@ -64,6 +64,7 @@ public class TestingTierFactory implements TierFactory {
 
     @Override
     public TierProducerAgent createProducerAgent(
+            String taskName,
             int numSubpartitions,
             TieredStoragePartitionId partitionID,
             String dataFileBasePath,

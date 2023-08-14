@@ -81,6 +81,7 @@ class DiskIOSchedulerTest {
         this.firstBufferIndexInSegment = createFirstBufferIndexInSegment();
         this.diskIOScheduler =
                 new DiskIOScheduler(
+                        "",
                         DEFAULT_PARTITION_ID,
                         bufferPool,
                         ioExecutor,
