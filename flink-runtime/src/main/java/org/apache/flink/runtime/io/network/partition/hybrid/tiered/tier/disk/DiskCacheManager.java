@@ -161,6 +161,9 @@ class DiskCacheManager {
         for (int subpartitionId = 0; subpartitionId < numSubpartitions; subpartitionId++) {
             List<Tuple2<Buffer, Integer>> bufferWithIndexes =
                     subpartitionCacheManagers[subpartitionId].removeAllBuffers();
+            if (bufferWithIndexes.isEmpty()) {
+                continue;
+            }
             buffersToFlush.add(
                     new PartitionFileWriter.SubpartitionBufferContext(
                             subpartitionId,
