@@ -237,9 +237,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         }
 
         for (ScheduledSubpartitionReader scheduledReader : scheduledReaders) {
-            if (buffers.isEmpty()) {
-                break;
-            }
+            //if (buffers.isEmpty()) {
+            //    break;
+            //}
             try {
                 scheduledReader.loadDiskDataToBuffers(buffers, this);
             } catch (Exception throwable) {
