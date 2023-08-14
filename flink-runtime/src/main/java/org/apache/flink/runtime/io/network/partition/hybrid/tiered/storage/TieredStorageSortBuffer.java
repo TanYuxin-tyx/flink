@@ -39,6 +39,8 @@ import static org.apache.flink.util.Preconditions.checkState;
  */
 public class TieredStorageSortBuffer extends SortBuffer {
 
+    private static final Buffer.DataType[] BUFFER_DATA_TYPES = Buffer.DataType.values();
+
     public TieredStorageSortBuffer(
             LinkedList<MemorySegment> freeSegments,
             BufferRecycler bufferRecycler,
@@ -80,7 +82,7 @@ public class TieredStorageSortBuffer extends SortBuffer {
             long lengthAndDataType = toReadBuffer.getLong(toReadOffsetInBuffer);
             int recordLength = getSegmentIndexFromPointer(lengthAndDataType);
             Buffer.DataType dataType =
-                    Buffer.DataType.values()[getSegmentOffsetFromPointer(lengthAndDataType)];
+                    BUFFER_DATA_TYPES[getSegmentOffsetFromPointer(lengthAndDataType)];
 
             // If the buffer is an event and some data has been read, return it directly to ensure
             // that the event will occupy one buffer independently
