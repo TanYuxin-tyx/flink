@@ -20,7 +20,10 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
+import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
+import org.apache.flink.runtime.io.network.api.serialization.EventSerializer;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
@@ -217,20 +220,33 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             return 0;
         }
 
+        List<ScheduledSubpartitionReader> toRemoveReaders = new ArrayList<>();
         for (ScheduledSubpartitionReader scheduledReader : scheduledReaders) {
             if (buffers.isEmpty()) {
                 break;
             }
             try {
-                scheduledReader.loadDiskDataToBuffers(buffers, this);
+                if (scheduledReader.loadDiskDataToBuffers(buffers, this)) {
+                    toRemoveReaders.add(scheduledReader);
+                }
             } catch (Exception throwable) {
                 failScheduledReaders(Collections.singletonList(scheduledReader), throwable);
                 LOG.debug("Failed to read shuffle data.", throwable);
             }
         }
+        removeFinishedReaders(toRemoveReaders);
         int numBuffersRead = numBuffersAllocated - buffers.size();
         releaseBuffers(buffers);
         return numBuffersRead;
+    }
+
+    private void removeFinishedReaders(List<ScheduledSubpartitionReader> toRemoveReaders) {
+        synchronized (lock) {
+            for (ScheduledSubpartitionReader reader : toRemoveReaders) {
+                allScheduledReaders.remove(
+                        reader.getNettyConnectionWriter().getNettyConnectionId());
+            }
+        }
     }
 
     private List<ScheduledSubpartitionReader> sortScheduledReaders() {
@@ -345,7 +361,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             this.nettyConnectionWriter = nettyConnectionWriter;
         }
 
-        private void loadDiskDataToBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
+        private boolean loadDiskDataToBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
                 throws IOException {
 
             if (isFailed) {
@@ -354,6 +370,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                 + subpartitionId
                                 + " has already been failed.");
             }
+            boolean hasFinishedReading = false;
             while (!buffers.isEmpty()
                     && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead
                     && nextSegmentId >= 0) {
@@ -371,6 +388,17 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                             == null) {
                         buffers.add(memorySegment);
                         break;
+                    } else {
+                        if (!buffer.isBuffer()) {
+                            final AbstractEvent event;
+                            event =
+                                    EventSerializer.fromSerializedEvent(
+                                            buffer.readOnlySlice().getNioBufferReadable(),
+                                            getClass().getClassLoader());
+                            if (event.getClass() == EndOfPartitionEvent.class) {
+                                hasFinishedReading = true;
+                            }
+                        }
                     }
                 } catch (Throwable throwable) {
                     buffers.add(memorySegment);
@@ -384,12 +412,17 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     updateSegmentId();
                 }
             }
+            return hasFinishedReading;
         }
 
         @Override
         public int compareTo(ScheduledSubpartitionReader reader) {
             checkArgument(reader != null);
             return Long.compare(getPriority(), reader.getPriority());
+        }
+
+        public NettyConnectionWriter getNettyConnectionWriter() {
+            return nettyConnectionWriter;
         }
 
         private void prepareForScheduling() {
