@@ -957,7 +957,9 @@ public class SingleInputGate extends IndexedInputGate {
                 LOG.error(
                         "### "
                                 + getOwningTaskName()
-                                + " gate duration："
+                                + " gate index: "
+                                + gateIndex
+                                + " gate duration: "
                                 + (end - startTime)
                                 + " ms");
             }
