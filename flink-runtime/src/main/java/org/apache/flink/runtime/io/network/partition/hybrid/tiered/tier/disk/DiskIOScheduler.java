@@ -357,12 +357,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private boolean isFailed;
 
-        private boolean shouldPrintLog;
+        private final boolean shouldPrintLog;
 
         private ScheduledSubpartitionReader(
                 TieredStorageSubpartitionId subpartitionId,
                 NettyConnectionWriter nettyConnectionWriter,
                 boolean shouldPrintLog) {
+            this.shouldPrintLog = shouldPrintLog;
             if (shouldPrintLog) {
                 LOG.error("###" + taskName + " Start reading..");
             }
@@ -379,7 +380,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                 + subpartitionId
                                 + " has already been failed.");
             }
-            LOG.error("###" + taskName + " Availability buffer number " + buffers.size());
+            if (shouldPrintLog) {
+                LOG.error("###" + taskName + " Availability buffer number " + buffers.size());
+            }
             while (!buffers.isEmpty()
                     && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead
                     && nextSegmentId >= 0) {
