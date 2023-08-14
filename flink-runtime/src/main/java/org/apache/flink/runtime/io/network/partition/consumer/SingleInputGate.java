@@ -959,6 +959,8 @@ public class SingleInputGate extends IndexedInputGate {
                                 + getOwningTaskName()
                                 + " gate index: "
                                 + gateIndex
+                                + " accumulated data size: "
+                                + throughputCalculator.getCurrentAccumulatedDataSize()
                                 + " gate duration: "
                                 + (end - startTime)
                                 + " ms");

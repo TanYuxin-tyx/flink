@@ -86,6 +86,10 @@ public class ThroughputCalculator {
         return currentThroughput = instantThroughput(dataSize, time);
     }
 
+    public long getCurrentAccumulatedDataSize() {
+        return currentAccumulatedDataSize;
+    }
+
     static long instantThroughput(long dataSize, long time) {
         return (long) ((double) dataSize / time * MILLIS_IN_SECOND);
     }
