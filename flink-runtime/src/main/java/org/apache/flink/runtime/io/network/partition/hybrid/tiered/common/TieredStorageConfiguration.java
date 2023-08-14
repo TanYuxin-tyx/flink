@@ -57,7 +57,7 @@ public class TieredStorageConfiguration {
 
     private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.8f;
 
-    private static final int DEFAULT_DISK_TIER_MAX_BUFFERS_READ_AHEAD = 5;
+    private static final int DEFAULT_DISK_TIER_MAX_BUFFERS_READ_AHEAD = 1;
 
     private static final Duration DEFAULT_DISK_TIER_BUFFER_REQUEST_TIMEOUT = Duration.ofMinutes(5);
 
