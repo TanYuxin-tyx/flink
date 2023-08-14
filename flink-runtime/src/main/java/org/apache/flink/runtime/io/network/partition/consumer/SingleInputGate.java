@@ -66,7 +66,6 @@ import javax.annotation.concurrent.GuardedBy;
 import java.io.IOException;
 import java.text.DecimalFormat;
 import java.time.Duration;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -232,7 +231,7 @@ public class SingleInputGate extends IndexedInputGate {
     // The availability notifier will be null if the tiered storage is not enabled.
     @Nullable private final AvailabilityNotifier availabilityNotifier;
 
-    private volatile LocalDateTime startTime = null;
+    private volatile Long startTime = null;
 
     public SingleInputGate(
             String owningTaskName,
@@ -829,7 +828,7 @@ public class SingleInputGate extends IndexedInputGate {
                 }
 
                 if (startTime == null) {
-                    startTime = LocalDateTime.now();
+                    startTime = System.currentTimeMillis();
                 }
 
                 final boolean morePriorityEvents =
@@ -955,15 +954,10 @@ public class SingleInputGate extends IndexedInputGate {
                 moreAvailable = false;
                 markAvailable();
                 // 获取当前时间
-                LocalDateTime endTime = LocalDateTime.now();
-                // 计算时间差并以秒为单位输出
-                Duration duration = Duration.between(startTime, endTime);
-                double seconds =
-                        duration.getSeconds() + (double) duration.getNano() / 1_000_000_000;
-
+                long end = System.currentTimeMillis();
                 // 格式化输出
                 DecimalFormat decimalFormat = new DecimalFormat("#.##");
-                String formattedSeconds = decimalFormat.format(seconds);
+                String formattedSeconds = decimalFormat.format((float) (end - startTime) / 1000);
                 LOG.error("### " + getOwningTaskName() + " 时间差：" + formattedSeconds + "秒");
             }
 
