@@ -128,6 +128,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
         this.diskIOScheduler =
                 new DiskIOScheduler(
+                        isBroadcastOnly,
                         taskName,
                         partitionId,
                         bufferPool,

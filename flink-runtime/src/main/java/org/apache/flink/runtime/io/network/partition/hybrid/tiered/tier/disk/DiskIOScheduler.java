@@ -122,7 +122,10 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
     private final String taskName;
 
+    private final boolean isBroadcast;
+
     public DiskIOScheduler(
+            boolean isBroadcast,
             String taskName,
             TieredStoragePartitionId partitionId,
             BatchShuffleReadBufferPool bufferPool,
@@ -141,6 +144,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         this.maxBufferReadAhead = maxBufferReadAhead;
         this.firstBufferIndexInSegmentRetriever = firstBufferIndexInSegmentRetriever;
         this.partitionFileReader = partitionFileReader;
+        this.isBroadcast = isBroadcast;
         bufferPool.registerRequester(this);
     }
 
@@ -165,7 +169,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         synchronized (lock) {
             checkState(!isReleased, "DiskIOScheduler is already released.");
             ScheduledSubpartitionReader scheduledSubpartitionReader;
-            if (shouldPrint && taskName.contains("date_dim")) {
+            if (shouldPrint && isBroadcast) {
                 scheduledSubpartitionReader =
                         new ScheduledSubpartitionReader(
                                 subpartitionId, nettyConnectionWriter, true);
