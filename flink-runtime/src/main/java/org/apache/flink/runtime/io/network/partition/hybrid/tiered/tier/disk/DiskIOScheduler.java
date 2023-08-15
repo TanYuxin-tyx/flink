@@ -237,9 +237,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         }
 
         for (ScheduledSubpartitionReader scheduledReader : scheduledReaders) {
-            //if (buffers.isEmpty()) {
+            // if (buffers.isEmpty()) {
             //    break;
-            //}
+            // }
             try {
                 scheduledReader.loadDiskDataToBuffers(buffers, this);
             } catch (Exception throwable) {
@@ -442,6 +442,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private void writeToNettyConnectionWriter(NettyPayload nettyPayload) {
             nettyConnectionWriter.writeBuffer(nettyPayload);
+            if (shouldPrintLog) {
+                LOG.info(
+                        "###"
+                                + taskName
+                                + " netty payload queue size: "
+                                + nettyConnectionWriter.numQueuedBuffers());
+            }
             if (nettyConnectionWriter.numQueuedBuffers() <= 1) {
                 notifyAvailable();
             }
