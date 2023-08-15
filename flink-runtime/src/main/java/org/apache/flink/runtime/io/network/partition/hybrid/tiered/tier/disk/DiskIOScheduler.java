@@ -169,7 +169,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         synchronized (lock) {
             checkState(!isReleased, "DiskIOScheduler is already released.");
             ScheduledSubpartitionReader scheduledSubpartitionReader;
-            if (shouldPrint && isBroadcast && !taskName.contains("500")) {
+            if (shouldPrint && isBroadcast) {
                 scheduledSubpartitionReader =
                         new ScheduledSubpartitionReader(
                                 subpartitionId, nettyConnectionWriter, true);
