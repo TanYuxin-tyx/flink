@@ -230,6 +230,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             LOG.error("Failed to request buffers for data reading.", exception);
             return 0;
         }
+        LOG.error("###" + taskName + " num requested buffers: " + buffers.size());
 
         int numBuffersAllocated = buffers.size();
         if (numBuffersAllocated <= 0) {
@@ -248,6 +249,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             }
         }
         int numBuffersRead = numBuffersAllocated - buffers.size();
+        LOG.error(
+                "###"
+                        + taskName
+                        + " num released buffers: "
+                        + buffers.size()
+                        + " numRead: "
+                        + numBuffersRead);
         releaseBuffers(buffers);
         return numBuffersRead;
     }
