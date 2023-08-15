@@ -573,6 +573,7 @@ public class SortMergeResultPartitionTest {
                         0,
                         new ResultPartitionID(),
                         ResultPartitionType.BLOCKING,
+                        false,
                         numSubpartitions,
                         numSubpartitions,
                         readBufferPool,

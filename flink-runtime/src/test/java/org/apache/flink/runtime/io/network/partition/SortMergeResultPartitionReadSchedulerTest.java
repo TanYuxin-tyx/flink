@@ -103,7 +103,8 @@ class SortMergeResultPartitionReadSchedulerTest {
         bufferPool = new BatchShuffleReadBufferPool(totalBytes, bufferSize);
         executor = Executors.newFixedThreadPool(numThreads);
         readScheduler =
-                new SortMergeResultPartitionReadScheduler(bufferPool, executor, new Object());
+                new SortMergeResultPartitionReadScheduler(
+                        false, "", bufferPool, executor, new Object());
     }
 
     @AfterEach
@@ -121,7 +122,8 @@ class SortMergeResultPartitionReadSchedulerTest {
         ManuallyTriggeredScheduledExecutorService ioExecutor =
                 new ManuallyTriggeredScheduledExecutorService();
         readScheduler =
-                new SortMergeResultPartitionReadScheduler(bufferPool, ioExecutor, new Object());
+                new SortMergeResultPartitionReadScheduler(
+                        false, "", bufferPool, ioExecutor, new Object());
 
         SortMergeSubpartitionReader subpartitionReader =
                 readScheduler.createSubpartitionReader(
@@ -233,7 +235,8 @@ class SortMergeResultPartitionReadSchedulerTest {
     void testNoDeadlockWhenReadAndReleaseBuffers() throws Exception {
         bufferPool.initialize();
         SortMergeSubpartitionReader subpartitionReader =
-                new SortMergeSubpartitionReader(new NoOpBufferAvailablityListener(), fileReader);
+                new SortMergeSubpartitionReader(
+                        new NoOpBufferAvailablityListener(), fileReader, false, "");
         Thread readAndReleaseThread =
                 new Thread(
                         () -> {
@@ -265,7 +268,7 @@ class SortMergeResultPartitionReadSchedulerTest {
                 new ManuallyTriggeredScheduledExecutorService();
         SortMergeResultPartitionReadScheduler readScheduler =
                 new SortMergeResultPartitionReadScheduler(
-                        bufferPool, executorService, this, bufferRequestTimeout);
+                        false, "", bufferPool, executorService, this, bufferRequestTimeout);
         long startTimestamp = System.currentTimeMillis();
         readScheduler.createSubpartitionReader(
                 new NoOpBufferAvailablityListener(), 0, partitionedFile);
@@ -287,7 +290,7 @@ class SortMergeResultPartitionReadSchedulerTest {
                 new FakeBatchShuffleReadBufferPool(bufferSize * 3, bufferSize);
         SortMergeResultPartitionReadScheduler readScheduler =
                 new SortMergeResultPartitionReadScheduler(
-                        bufferPool, executor, this, bufferRequestTimeout);
+                        false, "", bufferPool, executor, this, bufferRequestTimeout);
 
         long startTimestamp = System.currentTimeMillis();
         Queue<MemorySegment> allocatedBuffers = new ArrayDeque<>();

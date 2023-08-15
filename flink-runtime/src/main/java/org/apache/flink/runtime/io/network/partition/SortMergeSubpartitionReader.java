@@ -55,6 +55,10 @@ class SortMergeSubpartitionReader
     /** File reader used to read buffer from. */
     private final PartitionedFileReader fileReader;
 
+    private final boolean shouldPrintLog;
+
+    private final String taskName;
+
     /** Number of remaining non-event buffers in the buffer queue. */
     @GuardedBy("lock")
     private int dataBufferBacklog;
@@ -71,9 +75,14 @@ class SortMergeSubpartitionReader
     private int sequenceNumber;
 
     SortMergeSubpartitionReader(
-            BufferAvailabilityListener listener, PartitionedFileReader fileReader) {
+            BufferAvailabilityListener listener,
+            PartitionedFileReader fileReader,
+            boolean shouldPrintLog,
+            String taskName) {
         this.availabilityListener = checkNotNull(listener);
         this.fileReader = checkNotNull(fileReader);
+        this.shouldPrintLog = shouldPrintLog;
+        this.taskName = taskName;
     }
 
     @Nullable

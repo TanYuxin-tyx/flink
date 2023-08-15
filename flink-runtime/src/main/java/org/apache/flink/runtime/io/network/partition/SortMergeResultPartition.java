@@ -139,6 +139,7 @@ public class SortMergeResultPartition extends ResultPartition {
             int partitionIndex,
             ResultPartitionID partitionId,
             ResultPartitionType partitionType,
+            boolean isBroadcast,
             int numSubpartitions,
             int numTargetKeyGroups,
             BatchShuffleReadBufferPool readBufferPool,
@@ -168,7 +169,8 @@ public class SortMergeResultPartition extends ResultPartition {
         // input balance of the downstream tasks
         this.subpartitionOrder = getRandomSubpartitionOrder(numSubpartitions);
         this.readScheduler =
-                new SortMergeResultPartitionReadScheduler(readBufferPool, readIOExecutor, lock);
+                new SortMergeResultPartitionReadScheduler(
+                        isBroadcast, owningTaskName, readBufferPool, readIOExecutor, lock);
     }
 
     @Override
@@ -542,7 +544,7 @@ public class SortMergeResultPartition extends ResultPartition {
             }
 
             return readScheduler.createSubpartitionReader(
-                    availabilityListener, subpartitionIndex, resultFile);
+                    getOwningTaskName(), availabilityListener, subpartitionIndex, resultFile);
         }
     }
 

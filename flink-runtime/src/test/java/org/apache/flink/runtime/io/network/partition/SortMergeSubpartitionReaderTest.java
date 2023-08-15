@@ -245,7 +245,7 @@ class SortMergeSubpartitionReaderTest {
                         BufferReaderWriterUtil.allocatedHeaderBuffer(),
                         createAndConfigIndexEntryBuffer());
         assertThat(fileReader.hasRemaining()).isTrue();
-        return new SortMergeSubpartitionReader(listener, fileReader);
+        return new SortMergeSubpartitionReader(listener, fileReader, false, "");
     }
 
     private static FileChannel openFileChannel(Path path) throws IOException {

@@ -141,12 +141,25 @@ class SortMergeResultPartitionReadScheduler implements Runnable, BufferRecycler 
     @GuardedBy("lock")
     private volatile boolean isReleased;
 
+    private final boolean isBroadcast;
+    private boolean shouldPrint = true;
+
+    private boolean shouldPrintLog;
+
+    private String taskName;
+
     SortMergeResultPartitionReadScheduler(
-            BatchShuffleReadBufferPool bufferPool, Executor ioExecutor, Object lock) {
-        this(bufferPool, ioExecutor, lock, DEFAULT_BUFFER_REQUEST_TIMEOUT);
+            boolean isBroadcast,
+            String taskName,
+            BatchShuffleReadBufferPool bufferPool,
+            Executor ioExecutor,
+            Object lock) {
+        this(isBroadcast, taskName, bufferPool, ioExecutor, lock, DEFAULT_BUFFER_REQUEST_TIMEOUT);
     }
 
     SortMergeResultPartitionReadScheduler(
+            boolean isBroadcast,
+            String taskName,
             BatchShuffleReadBufferPool bufferPool,
             Executor ioExecutor,
             Object lock,
@@ -155,6 +168,8 @@ class SortMergeResultPartitionReadScheduler implements Runnable, BufferRecycler 
         this.lock = checkNotNull(lock);
         this.bufferPool = checkNotNull(bufferPool);
         this.ioExecutor = checkNotNull(ioExecutor);
+        this.isBroadcast = isBroadcast;
+        this.taskName = taskName;
         this.bufferRequestTimeout = checkNotNull(bufferRequestTimeout);
         BufferReaderWriterUtil.configureByteBuffer(indexEntryBufferInit);
         BufferReaderWriterUtil.configureByteBuffer(indexEntryBufferRead);
@@ -173,6 +188,7 @@ class SortMergeResultPartitionReadScheduler implements Runnable, BufferRecycler 
             removeFinishedAndFailedReaders(0, finishedReaders);
             return;
         }
+        LOG.error("###" + taskName + " num requested buffers: " + buffers.size());
         checkState(!buffers.isEmpty(), "No buffer available.");
         int numBuffersAllocated = buffers.size();
 
@@ -203,6 +219,13 @@ class SortMergeResultPartitionReadScheduler implements Runnable, BufferRecycler 
         }
 
         int numBuffersRead = numBuffersAllocated - buffers.size();
+        LOG.error(
+                "###"
+                        + taskName
+                        + " num released buffers: "
+                        + buffers.size()
+                        + " numRead: "
+                        + numBuffersRead);
         releaseBuffers(buffers);
 
         returnUnfinishedReaders(unfinishedReaders);
@@ -344,12 +367,30 @@ class SortMergeResultPartitionReadScheduler implements Runnable, BufferRecycler 
             int targetSubpartition,
             PartitionedFile resultFile)
             throws IOException {
+        return createSubpartitionReader("", availabilityListener, targetSubpartition, resultFile);
+    }
+
+    SortMergeSubpartitionReader createSubpartitionReader(
+            String taskName,
+            BufferAvailabilityListener availabilityListener,
+            int targetSubpartition,
+            PartitionedFile resultFile)
+            throws IOException {
         synchronized (lock) {
             checkState(!isReleased, "Partition is already released.");
 
             PartitionedFileReader fileReader = createFileReader(resultFile, targetSubpartition);
-            SortMergeSubpartitionReader subpartitionReader =
-                    new SortMergeSubpartitionReader(availabilityListener, fileReader);
+            SortMergeSubpartitionReader subpartitionReader;
+            if (shouldPrint && isBroadcast) {
+                subpartitionReader =
+                        new SortMergeSubpartitionReader(
+                                availabilityListener, fileReader, true, taskName);
+            } else {
+                subpartitionReader =
+                        new SortMergeSubpartitionReader(
+                                availabilityListener, fileReader, false, taskName);
+            }
+
             if (allReaders.isEmpty()) {
                 bufferPool.registerRequester(this);
             }

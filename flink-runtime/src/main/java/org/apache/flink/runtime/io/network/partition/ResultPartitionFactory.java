@@ -200,6 +200,7 @@ public class ResultPartitionFactory {
                                 partitionIndex,
                                 id,
                                 type,
+                                isBroadcast,
                                 subpartitions.length,
                                 maxParallelism,
                                 batchShuffleReadBufferPool,
