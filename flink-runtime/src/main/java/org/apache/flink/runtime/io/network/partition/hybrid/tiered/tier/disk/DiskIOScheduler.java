@@ -65,6 +65,12 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
     private static final Logger LOG = LoggerFactory.getLogger(DiskIOScheduler.class);
 
+    private static final int MAX_READ_WAIT_TIME_DURATION_MS = 50;
+
+    private static final int MAX_READ_REQUEST_BUFFERS = 64;
+
+    private static final int MIN_READ_REQUEST_BUFFERS = 8;
+
     private final Object lock = new Object();
 
     /** The partition id. */
@@ -124,6 +130,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
     private final boolean isBroadcast;
 
+    private int readNoDataCounter = 0;
+
     public DiskIOScheduler(
             boolean isBroadcast,
             String taskName,
@@ -156,7 +164,10 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             isRunning = false;
         }
         if (numBuffersRead == 0) {
-            ioExecutor.schedule(this::triggerScheduling, 5, TimeUnit.MILLISECONDS);
+            ioExecutor.schedule(
+                    this::triggerScheduling,
+                    Math.min(5 * readNoDataCounter, MAX_READ_WAIT_TIME_DURATION_MS),
+                    TimeUnit.MILLISECONDS);
         } else {
             triggerScheduling();
         }
@@ -224,7 +235,11 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         }
         Queue<MemorySegment> buffers;
         try {
-            buffers = allocateBuffers();
+            int numRequestBuffers =
+                    Math.max(
+                            MIN_READ_REQUEST_BUFFERS,
+                            MAX_READ_REQUEST_BUFFERS - readNoDataCounter * 8);
+            buffers = allocateBuffers(numRequestBuffers);
         } catch (Exception exception) {
             failScheduledReaders(scheduledReaders, exception);
             LOG.error("Failed to request buffers for data reading.", exception);
@@ -249,6 +264,11 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             }
         }
         int numBuffersRead = numBuffersAllocated - buffers.size();
+        if (numBuffersRead == 0) {
+            readNoDataCounter++;
+        } else {
+            readNoDataCounter = 0;
+        }
         LOG.error(
                 "###"
                         + taskName
@@ -275,10 +295,10 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         return scheduledReaders;
     }
 
-    private Queue<MemorySegment> allocateBuffers() throws Exception {
+    private Queue<MemorySegment> allocateBuffers(int numRequestBuffers) throws Exception {
         long timeoutTime = getBufferRequestTimeoutTime();
         do {
-            List<MemorySegment> buffers = bufferPool.requestBuffers();
+            List<MemorySegment> buffers = bufferPool.requestBuffers(numRequestBuffers);
             if (!buffers.isEmpty()) {
                 return new ArrayDeque<>(buffers);
             }
