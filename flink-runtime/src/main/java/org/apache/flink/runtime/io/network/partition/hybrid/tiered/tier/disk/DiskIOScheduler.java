@@ -419,7 +419,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     throw throwable;
                 }
                 if (shouldPrintLog) {
-                    LOG.error("###" + taskName + " poll buffer index " + nextBufferIndex);
+                    LOG.error(
+                            "###"
+                                    + taskName
+                                    + " poll buffer index "
+                                    + nextBufferIndex
+                                    + " buffer size: "
+                                    + buffer.readableBytes());
                 }
                 writeToNettyConnectionWriter(
                         NettyPayload.newBuffer(
