@@ -225,6 +225,11 @@ public class HsFileDataIndexImpl implements HsFileDataIndex {
         }
 
         @Override
+        public long getRegionFileEndOffset() {
+            return 0;
+        }
+
+        @Override
         public int getNumBuffers() {
             return numBuffers;
         }
