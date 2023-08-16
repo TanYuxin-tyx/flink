@@ -69,7 +69,8 @@ class HashBufferAccumulatorTest {
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
         try (HashBufferAccumulator bufferAccumulator =
-                new HashBufferAccumulator(1, NETWORK_BUFFER_SIZE, tieredStorageMemoryManager)) {
+                new HashBufferAccumulator(
+                        "", false, 1, NETWORK_BUFFER_SIZE, tieredStorageMemoryManager)) {
             AtomicInteger numReceivedFinishedBuffer = new AtomicInteger(0);
             bufferAccumulator.setup(
                     ((subpartition, buffers) ->
@@ -114,7 +115,8 @@ class HashBufferAccumulatorTest {
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
         try (HashBufferAccumulator bufferAccumulator =
-                new HashBufferAccumulator(1, NETWORK_BUFFER_SIZE, tieredStorageMemoryManager)) {
+                new HashBufferAccumulator(
+                        "", false, 1, NETWORK_BUFFER_SIZE, tieredStorageMemoryManager)) {
             bufferAccumulator.setup(
                     ((subpartition, buffers) -> buffers.forEach(Buffer::recycleBuffer)));
 
@@ -137,7 +139,8 @@ class HashBufferAccumulatorTest {
         TieredStorageMemoryManager tieredStorageMemoryManager =
                 createStorageMemoryManager(numBuffers);
         HashBufferAccumulator bufferAccumulator =
-                new HashBufferAccumulator(1, NETWORK_BUFFER_SIZE, tieredStorageMemoryManager);
+                new HashBufferAccumulator(
+                        "", false, 1, NETWORK_BUFFER_SIZE, tieredStorageMemoryManager);
         bufferAccumulator.setup(
                 ((subpartition, buffers) -> buffers.forEach(Buffer::recycleBuffer)));
         bufferAccumulator.receive(

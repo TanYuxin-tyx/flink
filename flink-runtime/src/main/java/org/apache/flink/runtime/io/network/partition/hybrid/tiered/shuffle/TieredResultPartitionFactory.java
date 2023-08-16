@@ -103,7 +103,11 @@ public class TieredResultPartitionFactory {
                 tieredStorageConfiguration.getAccumulatorExclusiveBuffers();
         BufferAccumulator bufferAccumulator =
                 createBufferAccumulator(
-                        numSubpartitions, numAccumulatorExclusiveBuffers, memoryManager);
+                        owningTaskName,
+                        isBroadCastOnly,
+                        numSubpartitions,
+                        numAccumulatorExclusiveBuffers,
+                        memoryManager);
 
         // Create producer agents and memory specs.
         Tuple2<List<TierProducerAgent>, List<TieredStorageMemorySpec>>
@@ -148,6 +152,8 @@ public class TieredResultPartitionFactory {
     }
 
     private BufferAccumulator createBufferAccumulator(
+            String taskName,
+            boolean isBroadcast,
             int numSubpartitions,
             int numAccumulatorExclusiveBuffers,
             TieredStorageMemoryManager storageMemoryManager) {
@@ -158,7 +164,8 @@ public class TieredResultPartitionFactory {
                         numAccumulatorExclusiveBuffers,
                         bufferSize,
                         storageMemoryManager)
-                : new HashBufferAccumulator(numSubpartitions, bufferSize, storageMemoryManager);
+                : new HashBufferAccumulator(
+                        taskName, isBroadcast, numSubpartitions, bufferSize, storageMemoryManager);
     }
 
     private Tuple2<List<TierProducerAgent>, List<TieredStorageMemorySpec>>

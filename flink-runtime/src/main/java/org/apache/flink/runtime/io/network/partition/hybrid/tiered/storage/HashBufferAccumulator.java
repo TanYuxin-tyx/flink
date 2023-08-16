@@ -62,14 +62,22 @@ public class HashBufferAccumulator
     private BiConsumer<TieredStorageSubpartitionId, List<Buffer>> accumulatedBufferFlusher;
 
     public HashBufferAccumulator(
-            int numSubpartitions, int bufferSize, TieredStorageMemoryManager memoryManager) {
+            String taskName,
+            boolean isBroadcast,
+            int numSubpartitions,
+            int bufferSize,
+            TieredStorageMemoryManager memoryManager) {
         this.memoryManager = memoryManager;
         this.hashSubpartitionBufferAccumulators =
                 new HashSubpartitionBufferAccumulator[numSubpartitions];
         for (int i = 0; i < numSubpartitions; i++) {
             hashSubpartitionBufferAccumulators[i] =
                     new HashSubpartitionBufferAccumulator(
-                            new TieredStorageSubpartitionId(i), bufferSize, this);
+                            taskName,
+                            isBroadcast,
+                            new TieredStorageSubpartitionId(i),
+                            bufferSize,
+                            this);
         }
     }
 

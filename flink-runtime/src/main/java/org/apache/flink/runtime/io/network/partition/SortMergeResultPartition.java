@@ -403,6 +403,16 @@ public class SortMergeResultPartition extends ResultPartition {
                 break;
             }
 
+            if (getOwningTaskName().contains("date_dim") && isBroadcast) {
+                LOG.error(
+                        "###"
+                                + getOwningTaskName()
+                                + " {} write finished buffer, isBuffer: {}, size:{}, type:{}",
+                        bufferWithChannel.getChannelIndex(),
+                        bufferWithChannel.getBuffer().isBuffer(),
+                        bufferWithChannel.getBuffer().getSize(),
+                        bufferWithChannel.getBuffer().getDataType());
+            }
             updateStatistics(bufferWithChannel, isBroadcast);
             toWrite.add(compressBufferIfPossible(bufferWithChannel));
         } while (true);
