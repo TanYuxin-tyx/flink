@@ -133,7 +133,21 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             return null;
         }
         if (shouldPrintLog) {
-            LOG.error("### " + taskName + " get cache");
+            LOG.error(
+                    "### "
+                            + taskName
+                            + " get cache "
+                            + cache.get().fileOffset
+                            + " nextBufferIndex:"
+                            + cache.get().nextBufferIndex
+                            + " region num buffers: "
+                            + cache.get().region.getNumBuffers()
+                            + " region first buffer index: "
+                            + cache.get().region.getFirstBufferIndex()
+                            + " region file offset: "
+                            + cache.get().region.getRegionFileOffset()
+                            + " region size: "
+                            + cache.get().region.getSize());
         }
         fileChannel.position(cache.get().getFileOffset());
         if (shouldPrintLog) {
