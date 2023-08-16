@@ -146,6 +146,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                             + cache.get().region.getFirstBufferIndex()
                             + " region file offset: "
                             + cache.get().region.getRegionFileOffset()
+                            + " region file end offset: "
+                            + cache.get().region.getRegionFileEndOffset()
                             + " region size: "
                             + cache.get().region.getSize());
         }

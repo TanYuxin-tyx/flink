@@ -72,6 +72,11 @@ public class TestingFileDataIndexRegion implements FileDataIndexRegionHelper.Reg
     }
 
     @Override
+    public long getRegionFileEndOffset() {
+        return 0;
+    }
+
+    @Override
     public int getNumBuffers() {
         return getNumBuffersSupplier.get();
     }

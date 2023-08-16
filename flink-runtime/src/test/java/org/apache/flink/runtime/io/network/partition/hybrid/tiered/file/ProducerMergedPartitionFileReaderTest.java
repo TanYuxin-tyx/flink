@@ -145,7 +145,7 @@ class ProducerMergedPartitionFileReaderTest {
                                     indexQueryTime.incrementAndGet();
                                     return Optional.of(
                                             new ProducerMergedPartitionFileIndex.FixedSizeRegion(
-                                                    0, 0, 2));
+                                                    0, 0, 0, 2));
                                 })
                         .build();
         partitionFileReader =

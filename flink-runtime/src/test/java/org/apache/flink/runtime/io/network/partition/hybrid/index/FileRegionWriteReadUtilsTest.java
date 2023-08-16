@@ -85,7 +85,7 @@ class FileRegionWriteReadUtilsTest {
         FileChannel channel = tmpFileChannel(tmpPath);
         ByteBuffer buffer = FileRegionWriteReadUtils.allocateAndConfigureBuffer(HEADER_SIZE);
         FileRegionWriteReadUtils.writeFixedSizeRegionToFile(
-                channel, buffer, createSingleFixedSizeRegion(0, 0L, 1));
+                channel, buffer, createSingleFixedSizeRegion(0, 0L, 0L, 1));
         channel.truncate(channel.position() - 1);
         buffer.flip();
         assertThatThrownBy(
@@ -99,7 +99,7 @@ class FileRegionWriteReadUtilsTest {
     void testWriteAndReadFixedSizeRegion(@TempDir Path tmpPath) throws Exception {
         FileChannel channel = tmpFileChannel(tmpPath);
         ByteBuffer buffer = FileRegionWriteReadUtils.allocateAndConfigureBuffer(HEADER_SIZE);
-        FileDataIndexRegionHelper.Region region = createSingleFixedSizeRegion(10, 100L, 1);
+        FileDataIndexRegionHelper.Region region = createSingleFixedSizeRegion(10, 100L, 110L, 1);
         FileRegionWriteReadUtils.writeFixedSizeRegionToFile(channel, buffer, region);
         buffer.flip();
         ProducerMergedPartitionFileIndex.FixedSizeRegion readRegion =
