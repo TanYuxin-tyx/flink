@@ -120,7 +120,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
         if (shouldPrintLog) {
-            LOG.error("### " + taskName + " try get cache");
+            LOG.error(
+                    "### "
+                            + taskName
+                            + " try get cache, datafile: "
+                            + dataFilePath
+                            + " size:"
+                            + fileChannel.size());
         }
         Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, true);
         if (!cache.isPresent()) {

@@ -123,6 +123,13 @@ class PartitionedFileReader {
             BufferRecycler recycler,
             Consumer<Buffer> consumer)
             throws IOException {
+        if (taskName.contains("date_dim")) {
+            LOG.info(
+                    " file {}, size:{}, currentRegionRemainingBytes:{}",
+                    partitionedFile.getDataFilePath(),
+                    dataFileChannel.size(),
+                    currentRegionRemainingBytes);
+        }
         if (currentRegionRemainingBytes == 0) {
             return false;
         }
