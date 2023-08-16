@@ -158,6 +158,8 @@ class PartitionedFileReader {
                     LOG.error(
                             "###"
                                     + taskName
+                                    + " numBytes: "
+                                    + numBytes
                                     + ", read byte buffer, size: "
                                     + byteBuffer.remaining()
                                     + " region remaining bytes: "
