@@ -27,6 +27,9 @@ import org.apache.flink.runtime.io.network.buffer.FileRegionBuffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
@@ -43,6 +46,7 @@ import java.nio.channels.FileChannel;
  * and read from the byte buffer that results from mapping this file to memory.
  */
 public final class BufferReaderWriterUtil {
+    private static final Logger LOG = LoggerFactory.getLogger(BufferReaderWriterUtil.class);
 
     public static final int HEADER_LENGTH = 8;
 
@@ -181,6 +185,17 @@ public final class BufferReaderWriterUtil {
             MemorySegment memorySegment,
             BufferRecycler bufferRecycler)
             throws IOException {
+        return readFromByteChannel("", false, channel, headerBuffer, memorySegment, bufferRecycler);
+    }
+
+    public static Buffer readFromByteChannel(
+            String taskName,
+            boolean shouldPrintLog,
+            FileChannel channel,
+            ByteBuffer headerBuffer,
+            MemorySegment memorySegment,
+            BufferRecycler bufferRecycler)
+            throws IOException {
 
         headerBuffer.clear();
         if (!tryReadByteBuffer(channel, headerBuffer)) {
@@ -191,8 +206,10 @@ public final class BufferReaderWriterUtil {
         final ByteBuffer targetBuf;
         final BufferHeader header;
 
+        int numBytes;
         try {
             header = parseBufferHeader(headerBuffer);
+            numBytes = header.getLength();
             targetBuf = memorySegment.wrap(0, header.getLength());
         } catch (BufferUnderflowException | IllegalArgumentException e) {
             // buffer underflow if header buffer is undersized
@@ -202,6 +219,16 @@ public final class BufferReaderWriterUtil {
         }
 
         readByteBufferFully(channel, targetBuf);
+
+        if (shouldPrintLog) {
+            LOG.error(
+                    "###"
+                            + taskName
+                            + " numBytes: "
+                            + numBytes
+                            + ", read byte buffer, size: "
+                            + targetBuf.remaining());
+        }
 
         Buffer.DataType dataType = header.getDataType();
         return new NetworkBuffer(

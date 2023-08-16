@@ -140,7 +140,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             LOG.error("### " + taskName + " position to buffer");
         }
         Buffer buffer =
-                readFromByteChannel(fileChannel, reusedHeaderBuffer, memorySegment, recycler);
+                readFromByteChannel(
+                        taskName,
+                        shouldPrintLog,
+                        fileChannel,
+                        reusedHeaderBuffer,
+                        memorySegment,
+                        recycler);
         boolean hasNextBuffer =
                 cache.get()
                         .advance(
