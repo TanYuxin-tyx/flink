@@ -21,7 +21,11 @@ package org.apache.flink.runtime.io.network.partition;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.CompositeBuffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -39,6 +43,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 /** Subpartition data reader for {@link SortMergeResultPartition}. */
 class SortMergeSubpartitionReader
         implements ResultSubpartitionView, Comparable<SortMergeSubpartitionReader> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SortMergeSubpartitionReader.class);
 
     private final Object lock = new Object();
 
@@ -111,6 +117,28 @@ class SortMergeSubpartitionReader
         boolean notifyAvailable = false;
         boolean needRecycleBuffer = false;
 
+        boolean isComposite = false;
+        int innerBuffers = -1;
+        int innerReadableBytes = -1;
+        if (taskName.contains("date_dim")) {
+            if (buffer instanceof CompositeBuffer) {
+                isComposite = true;
+                CompositeBuffer compositeBuffer = (CompositeBuffer) buffer;
+                innerBuffers = compositeBuffer.numPartialBuffers();
+                innerReadableBytes = compositeBuffer.readableBytes();
+            }
+            LOG.error(
+                    "###"
+                            + taskName
+                            + " read full buffer, isBuffer: {}, size:{}, type:{}, isComposite:{}, innerBuffers:{}, innerReadableBytes{}",
+                    buffer.isBuffer(),
+                    buffer.getSize(),
+                    buffer.getDataType(),
+                    isComposite,
+                    innerBuffers,
+                    innerReadableBytes);
+        }
+
         synchronized (lock) {
             if (isReleased) {
                 needRecycleBuffer = true;
@@ -136,7 +164,12 @@ class SortMergeSubpartitionReader
 
     /** This method is called by the IO thread of {@link SortMergeResultPartitionReadScheduler}. */
     boolean readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler) throws IOException {
-        return fileReader.readCurrentRegion(buffers, recycler, this::addBuffer);
+        return readBuffers("", buffers, recycler);
+    }
+
+    boolean readBuffers(String taskName, Queue<MemorySegment> buffers, BufferRecycler recycler)
+            throws IOException {
+        return fileReader.readCurrentRegion(taskName, buffers, recycler, this::addBuffer);
     }
 
     CompletableFuture<?> getReleaseFuture() {
