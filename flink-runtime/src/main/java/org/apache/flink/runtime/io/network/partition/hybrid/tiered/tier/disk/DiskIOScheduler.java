@@ -414,6 +414,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                         buffers.add(memorySegment);
                         break;
                     }
+                    if (shouldPrintLog) {
+                        LOG.error(
+                                "###" + taskName + " read buffer, isBuffer: {}, size:{}, type:{}",
+                                buffer.isBuffer(),
+                                buffer.getSize(),
+                                buffer.getDataType());
+                    }
                 } catch (Throwable throwable) {
                     buffers.add(memorySegment);
                     throw throwable;

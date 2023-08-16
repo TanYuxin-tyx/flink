@@ -196,7 +196,7 @@ class SortMergeResultPartitionReadScheduler implements Runnable, BufferRecycler 
         SortMergeSubpartitionReader subpartitionReader = getNextReader();
         while (subpartitionReader != null) {
             try {
-                if (!subpartitionReader.readBuffers(buffers, this)) {
+                if (!subpartitionReader.readBuffers(taskName, buffers, this)) {
                     // there is no resource to release for finished readers currently
                     finishedReaders.add(subpartitionReader);
                 } else {

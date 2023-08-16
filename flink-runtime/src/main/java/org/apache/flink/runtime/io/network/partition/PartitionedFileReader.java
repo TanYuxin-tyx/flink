@@ -25,6 +25,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.CompositeBuffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -37,6 +40,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /** Reader which can read all data of the target subpartition from a {@link PartitionedFile}. */
 class PartitionedFileReader {
+
+    private static final Logger LOG = LoggerFactory.getLogger(PartitionedFileReader.class);
 
     /** Used to read buffer headers from file channel. */
     private final ByteBuffer headerBuf;
@@ -109,6 +114,15 @@ class PartitionedFileReader {
     boolean readCurrentRegion(
             Queue<MemorySegment> freeSegments, BufferRecycler recycler, Consumer<Buffer> consumer)
             throws IOException {
+        return readCurrentRegion("", freeSegments, recycler, consumer);
+    }
+
+    boolean readCurrentRegion(
+            String taskName,
+            Queue<MemorySegment> freeSegments,
+            BufferRecycler recycler,
+            Consumer<Buffer> consumer)
+            throws IOException {
         if (currentRegionRemainingBytes == 0) {
             return false;
         }
@@ -131,6 +145,16 @@ class PartitionedFileReader {
                 } catch (Throwable throwable) {
                     freeSegments.add(segment);
                     throw throwable;
+                }
+
+                if (taskName.contains("date_dim")) {
+                    LOG.error(
+                            "###"
+                                    + taskName
+                                    + ", read byte buffer, size: "
+                                    + byteBuffer.remaining()
+                                    + " region remaining bytes: "
+                                    + currentRegionRemainingBytes);
                 }
 
                 NetworkBuffer buffer = new NetworkBuffer(segment, recycler);
