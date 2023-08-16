@@ -397,49 +397,17 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 if (shouldPrintLog) {
                     LOG.error("###" + taskName + " Start Poll");
                 }
-                MemorySegment memorySegment = buffers.poll();
-                Buffer buffer;
-                try {
-                    if ((buffer =
-                                    partitionFileReader.readBuffer(
-                                            shouldPrintLog,
-                                            taskName,
-                                            partitionId,
-                                            subpartitionId,
-                                            nextSegmentId,
-                                            nextBufferIndex,
-                                            memorySegment,
-                                            recycler))
-                            == null) {
-                        buffers.add(memorySegment);
-                        break;
-                    }
-                    if (shouldPrintLog) {
-                        LOG.error(
-                                "###" + taskName + " read buffer, isBuffer: {}, size:{}, type:{}",
-                                buffer.isBuffer(),
-                                buffer.getSize(),
-                                buffer.getDataType());
-                    }
-                } catch (Throwable throwable) {
-                    buffers.add(memorySegment);
-                    throw throwable;
-                }
-                if (shouldPrintLog) {
-                    LOG.error(
-                            "###"
-                                    + taskName
-                                    + " poll buffer index "
-                                    + nextBufferIndex
-                                    + " buffer size: "
-                                    + buffer.readableBytes());
-                }
-                writeToNettyConnectionWriter(
-                        NettyPayload.newBuffer(
-                                buffer, nextBufferIndex++, subpartitionId.getSubpartitionId()));
-                if (buffer.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
-                    nextSegmentId = -1;
-                    updateSegmentId();
+                if ((!partitionFileReader.readBuffer(
+                        shouldPrintLog,
+                        taskName,
+                        partitionId,
+                        subpartitionId,
+                        nextSegmentId,
+                        nextBufferIndex,
+                        buffers,
+                        recycler,
+                        this::writeNettyBufferOrUpdateSegmentId))) {
+                    break;
                 }
             }
         }
@@ -459,6 +427,26 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                             ? Long.MAX_VALUE
                             : partitionFileReader.getPriority(
                                     partitionId, subpartitionId, nextSegmentId, nextBufferIndex);
+        }
+
+        private void writeNettyBufferOrUpdateSegmentId(Buffer buffer) {
+            if (shouldPrintLog) {
+                LOG.error(
+                        "###"
+                                + taskName
+                                + " read buffer, isBuffer: {}, size:{}, readable:{}, type:{}",
+                        buffer.isBuffer(),
+                        buffer.getSize(),
+                        buffer.readableBytes(),
+                        buffer.getDataType());
+            }
+            writeToNettyConnectionWriter(
+                    NettyPayload.newBuffer(
+                            buffer, nextBufferIndex++, subpartitionId.getSubpartitionId()));
+            if (buffer.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
+                nextSegmentId = -1;
+                updateSegmentId();
+            }
         }
 
         private void writeToNettyConnectionWriter(NettyPayload nettyPayload) {

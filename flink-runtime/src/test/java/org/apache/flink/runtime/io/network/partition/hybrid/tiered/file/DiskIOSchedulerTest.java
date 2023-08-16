@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 import org.apache.flink.runtime.concurrent.ManuallyTriggeredScheduledExecutorService;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
-import org.apache.flink.runtime.io.network.buffer.BufferBuilderTestUtils;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
@@ -95,7 +94,7 @@ class DiskIOSchedulerTest {
                                 .setReadBufferSupplier(
                                         (bufferIndex, segmentId) -> {
                                             segmentIdFuture.complete(segmentId);
-                                            return BufferBuilderTestUtils.buildSomeBuffer(0);
+                                            return false;
                                         })
                                 .setReleaseNotifier(() -> readerReleaseFuture.complete(null))
                                 .setPrioritySupplier(subpartitionId -> (long) subpartitionId)

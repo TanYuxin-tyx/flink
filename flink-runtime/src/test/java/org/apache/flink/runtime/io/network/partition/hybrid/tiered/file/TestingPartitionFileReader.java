@@ -25,20 +25,22 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 import java.io.IOException;
+import java.util.Queue;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /** Testing implementation for {@link PartitionFileReader}. */
 public class TestingPartitionFileReader implements PartitionFileReader {
 
-    private final BiFunction<Integer, Integer, Buffer> readBufferFunction;
+    private final BiFunction<Integer, Integer, Boolean> readBufferFunction;
 
     private final Function<Integer, Long> getPriorityFunction;
 
     private final Runnable releaseRunnable;
 
     private TestingPartitionFileReader(
-            BiFunction<Integer, Integer, Buffer> readBufferFunction,
+            BiFunction<Integer, Integer, Boolean> readBufferFunction,
             Function<Integer, Long> getPriorityFunction,
             Runnable releaseRunnable) {
         this.readBufferFunction = readBufferFunction;
@@ -47,15 +49,16 @@ public class TestingPartitionFileReader implements PartitionFileReader {
     }
 
     @Override
-    public Buffer readBuffer(
+    public boolean readBuffer(
             boolean b,
             String s,
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex,
-            MemorySegment memorySegment,
-            BufferRecycler recycler)
+            Queue<MemorySegment> buffers,
+            BufferRecycler recycler,
+            Consumer<Buffer> bufferConsumer)
             throws IOException {
         return readBufferFunction.apply(bufferIndex, segmentId);
     }
@@ -76,15 +79,15 @@ public class TestingPartitionFileReader implements PartitionFileReader {
 
     /** Builder for {@link TestingPartitionFileReader}. */
     public static class Builder {
-        private BiFunction<Integer, Integer, Buffer> readBufferSupplier =
-                (bufferIndex, segmentId) -> null;
+        private BiFunction<Integer, Integer, Boolean> readBufferSupplier =
+                (bufferIndex, segmentId) -> false;
 
         private Function<Integer, Long> prioritySupplier = bufferIndex -> 0L;
 
         private Runnable releaseNotifier = () -> {};
 
         public Builder setReadBufferSupplier(
-                BiFunction<Integer, Integer, Buffer> readBufferSupplier) {
+                BiFunction<Integer, Integer, Boolean> readBufferSupplier) {
             this.readBufferSupplier = readBufferSupplier;
             return this;
         }

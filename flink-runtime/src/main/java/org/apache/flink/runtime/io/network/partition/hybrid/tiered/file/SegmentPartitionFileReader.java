@@ -39,6 +39,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Queue;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -74,17 +76,18 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
     }
 
     @Override
-    public Buffer readBuffer(
+    public boolean readBuffer(
             boolean b,
             String s,
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex,
-            MemorySegment memorySegment,
-            BufferRecycler recycler)
+            Queue<MemorySegment> buffers,
+            BufferRecycler recycler,
+            Consumer<Buffer> bufferConsumer)
             throws IOException {
-
+        MemorySegment memorySegment = buffers.poll();
         // Get the channel of the segment file for a subpartition.
         Map<TieredStorageSubpartitionId, Tuple2<ReadableByteChannel, Integer>> subpartitionInfo =
                 openedChannelAndSegmentIds.computeIfAbsent(partitionId, ignore -> new HashMap<>());
@@ -100,7 +103,8 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             channel = openNewChannel(partitionId, subpartitionId, segmentId);
             if (channel == null) {
                 // return null if the segment file doesn't exist.
-                return null;
+                buffers.add(memorySegment);
+                return false;
             }
             subpartitionInfo.put(subpartitionId, Tuple2.of(channel, segmentId));
         }
@@ -111,7 +115,9 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
         if (bufferHeaderResult == -1) {
             channel.close();
             openedChannelAndSegmentIds.get(partitionId).remove(subpartitionId);
-            return new NetworkBuffer(memorySegment, recycler, Buffer.DataType.END_OF_SEGMENT);
+            bufferConsumer.accept(
+                    new NetworkBuffer(memorySegment, recycler, Buffer.DataType.END_OF_SEGMENT));
+            return true;
         }
         reusedHeaderBuffer.flip();
         BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
@@ -121,8 +127,14 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             throw new IOException("The length of data buffer is illegal.");
         }
         Buffer.DataType dataType = header.getDataType();
-        return new NetworkBuffer(
-                memorySegment, recycler, dataType, header.isCompressed(), header.getLength());
+        bufferConsumer.accept(
+                new NetworkBuffer(
+                        memorySegment,
+                        recycler,
+                        dataType,
+                        header.isCompressed(),
+                        header.getLength()));
+        return true;
     }
 
     @Override

@@ -34,7 +34,10 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageTestUtils.generateBuffersToWrite;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -86,13 +89,14 @@ class SegmentPartitionFileReaderTest {
         for (int subpartitionId = 0; subpartitionId < DEFAULT_NUM_SUBPARTITION; ++subpartitionId) {
             for (int segmentId = 0; segmentId < DEFAULT_SEGMENT_NUM; ++segmentId) {
                 for (int bufferIndex = 0; bufferIndex < DEFAULT_BUFFER_PER_SEGMENT; ++bufferIndex) {
-                    Buffer buffer =
-                            readBuffer(
-                                    bufferIndex,
-                                    new TieredStorageSubpartitionId(subpartitionId),
-                                    segmentId);
-                    assertThat(buffer).isNotNull();
-                    buffer.recycleBuffer();
+                    readBuffer(
+                            bufferIndex,
+                            new TieredStorageSubpartitionId(subpartitionId),
+                            segmentId,
+                            buffer -> {
+                                assertThat(buffer).isNotNull();
+                                buffer.recycleBuffer();
+                            });
                 }
             }
         }
@@ -104,25 +108,30 @@ class SegmentPartitionFileReaderTest {
                         partitionFileReader.getPriority(
                                 DEFAULT_PARTITION_ID, DEFAULT_SUBPARTITION_ID, 0, 0))
                 .isEqualTo(-1);
-        assertThat(readBuffer(0, DEFAULT_SUBPARTITION_ID, 0)).isNotNull();
+        readBuffer(0, DEFAULT_SUBPARTITION_ID, 0, buffer -> assertThat(buffer).isNotNull());
         assertThat(
                         partitionFileReader.getPriority(
                                 DEFAULT_PARTITION_ID, DEFAULT_SUBPARTITION_ID, 0, 1))
                 .isEqualTo(-1);
     }
 
-    private Buffer readBuffer(
-            int bufferIndex, TieredStorageSubpartitionId subpartitionId, int segmentId)
+    private void readBuffer(
+            int bufferIndex,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId,
+            Consumer<Buffer> bufferConsumer)
             throws IOException {
         MemorySegment memorySegment =
                 MemorySegmentFactory.allocateUnpooledSegment(DEFAULT_BUFFER_SIZE);
-        return partitionFileReader.readBuffer(
-                false,"",
+        partitionFileReader.readBuffer(
+                false,
+                "",
                 DEFAULT_PARTITION_ID,
                 subpartitionId,
                 segmentId,
                 bufferIndex,
-                memorySegment,
-                FreeingBufferRecycler.INSTANCE);
+                new ArrayDeque<>(Collections.singletonList(memorySegment)),
+                FreeingBufferRecycler.INSTANCE,
+                bufferConsumer);
     }
 }

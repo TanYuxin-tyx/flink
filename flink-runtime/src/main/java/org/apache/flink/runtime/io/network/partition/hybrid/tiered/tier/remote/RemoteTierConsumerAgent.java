@@ -31,9 +31,13 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.TierCons
 import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** The data client is used to fetch data from remote tier. */
 public class RemoteTierConsumerAgent implements TierConsumerAgent {
@@ -79,7 +83,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                 currentBufferIndexAndSegmentIds
                         .computeIfAbsent(partitionId, ignore -> new HashMap<>())
                         .getOrDefault(subpartitionId, Tuple2.of(0, -1));
-        int currentBufferIndex = bufferIndexAndSegmentId.f0;
+        AtomicInteger currentBufferIndex = new AtomicInteger(bufferIndexAndSegmentId.f0);
         int currentSegmentId = bufferIndexAndSegmentId.f1;
         if (segmentId != currentSegmentId) {
             remoteStorageScanner.watchSegment(partitionId, subpartitionId, segmentId);
@@ -87,31 +91,36 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
         // Read buffer from the partition file in remote storage.
         MemorySegment memorySegment = MemorySegmentFactory.allocateUnpooledSegment(bufferSizeBytes);
-        Buffer buffer = null;
+        AtomicReference<Buffer> readBuffer = new AtomicReference<>(null);
         try {
-            buffer =
-                    partitionFileReader.readBuffer(
-                            false,
-                            "",
-                            partitionId,
-                            subpartitionId,
-                            segmentId,
-                            currentBufferIndex,
-                            memorySegment,
-                            FreeingBufferRecycler.INSTANCE);
+            partitionFileReader.readBuffer(
+                    false,
+                    "",
+                    partitionId,
+                    subpartitionId,
+                    segmentId,
+                    currentBufferIndex.get(),
+                    new ArrayDeque<>(Collections.singletonList(memorySegment)),
+                    FreeingBufferRecycler.INSTANCE,
+                    buffer -> {
+                        if (buffer != null) {
+                            currentBufferIndexAndSegmentIds
+                                    .get(partitionId)
+                                    .put(
+                                            subpartitionId,
+                                            Tuple2.of(
+                                                    currentBufferIndex.incrementAndGet(),
+                                                    segmentId));
+                            readBuffer.set(buffer);
+                        } else {
+                            memorySegment.free();
+                        }
+                    });
         } catch (IOException e) {
             memorySegment.free();
             ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }
-        if (buffer != null) {
-            currentBufferIndexAndSegmentIds
-                    .get(partitionId)
-                    .put(subpartitionId, Tuple2.of(++currentBufferIndex, segmentId));
-            return Optional.of(buffer);
-        } else {
-            memorySegment.free();
-        }
-        return Optional.empty();
+        return readBuffer.get() == null ? Optional.empty() : Optional.of(readBuffer.get());
     }
 
     @Override

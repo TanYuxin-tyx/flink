@@ -22,7 +22,10 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.CompositeBuffer;
+import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
@@ -40,10 +43,13 @@ import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
+import java.util.function.Consumer;
 
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.HEADER_LENGTH;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.positionToNextBuffer;
-import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * The implementation of {@link PartitionFileReader} with producer-merge mode. In this mode, the
@@ -87,6 +93,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
     private volatile FileChannel fileChannel;
 
+    private BufferAndHeader partialBuffer;
+
     /** The current number of caches. */
     private int numCaches;
 
@@ -105,17 +113,19 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     }
 
     @Override
-    public Buffer readBuffer(
+    public boolean readBuffer(
             boolean shouldPrintLog,
             String taskName,
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex,
-            MemorySegment memorySegment,
-            BufferRecycler recycler)
+            Queue<MemorySegment> buffers,
+            BufferRecycler recycler,
+            Consumer<Buffer> bufferConsumer)
             throws IOException {
 
+        MemorySegment memorySegment = buffers.poll();
         lazyInitializeFileChannel();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
@@ -130,7 +140,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         }
         Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, true);
         if (!cache.isPresent()) {
-            return null;
+            buffers.add(memorySegment);
+            return false;
         }
         if (shouldPrintLog) {
             LOG.error(
@@ -155,29 +166,46 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         if (shouldPrintLog) {
             LOG.error("### " + taskName + " position to buffer");
         }
-        Buffer buffer =
-                readFromByteChannel(
-                        taskName,
-                        shouldPrintLog,
-                        fileChannel,
-                        reusedHeaderBuffer,
-                        memorySegment,
-                        recycler);
-        boolean hasNextBuffer =
-                cache.get()
-                        .advance(
-                                checkNotNull(buffer).readableBytes()
-                                        + BufferReaderWriterUtil.HEADER_LENGTH);
-        if (hasNextBuffer) {
-            int nextBufferIndex = bufferIndex + 1;
-            // TODO: introduce the LRU cache strategy in the future to restrict the total
-            // cache number. Testing to prevent cache leaks has been implemented.
-            if (numCaches < maxCacheNumber) {
-                bufferOffsetCaches.put(Tuple2.of(subpartitionId, nextBufferIndex), cache.get());
-                numCaches++;
+
+        long currentReadOffset = cache.get().fileOffset;
+        long regionFileEndOffset = cache.get().region.getRegionFileEndOffset();
+
+        int numBytes =
+                (int) Math.min(memorySegment.size(), regionFileEndOffset - currentReadOffset);
+        ByteBuffer byteBuffer = memorySegment.wrap(0, numBytes);
+
+        try {
+            BufferReaderWriterUtil.readByteBufferFully(fileChannel, byteBuffer);
+            byteBuffer.flip();
+        } catch (Throwable throwable) {
+            recycler.recycle(memorySegment);
+            throw throwable;
+        }
+
+        NetworkBuffer networkBuffer = new NetworkBuffer(memorySegment, recycler);
+        networkBuffer.setSize(byteBuffer.remaining());
+
+        partialBuffer = new BufferAndHeader(null, null);
+        try {
+            partialBuffer =
+                    processBuffer(
+                            byteBuffer,
+                            networkBuffer,
+                            wrappedBufferConsumer(
+                                    bufferConsumer, cache, subpartitionId, bufferIndex));
+        } catch (Throwable throwable) {
+            partialBuffer = new BufferAndHeader(null, null);
+            throw throwable;
+        } finally {
+            networkBuffer.recycleBuffer();
+            if (reusedHeaderBuffer.position() > 0) {
+                reusedHeaderBuffer.clear();
+            }
+            if (partialBuffer.buffer != null) {
+                partialBuffer.buffer.recycleBuffer();
             }
         }
-        return buffer;
+        return true;
     }
 
     @Override
@@ -204,6 +232,88 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             }
         }
         IOUtils.deleteFileQuietly(dataFilePath);
+    }
+
+    Consumer<Buffer> wrappedBufferConsumer(
+            Consumer<Buffer> originalBufferConsumer,
+            Optional<BufferOffsetCache> cache,
+            TieredStorageSubpartitionId subpartitionId,
+            int bufferIndex) {
+        checkState(cache.isPresent());
+        return buffer -> {
+            originalBufferConsumer.accept(buffer);
+            boolean hasNextBuffer =
+                    cache.get()
+                            .advance(
+                                    checkNotNull(buffer).readableBytes()
+                                            + BufferReaderWriterUtil.HEADER_LENGTH);
+            if (hasNextBuffer) {
+                int nextBufferIndex = bufferIndex + 1;
+                // TODO: introduce the LRU cache strategy in the future to restrict the total
+                // cache number. Testing to prevent cache leaks has been implemented.
+                if (numCaches < maxCacheNumber) {
+                    bufferOffsetCaches.put(Tuple2.of(subpartitionId, nextBufferIndex), cache.get());
+                    numCaches++;
+                }
+            }
+        };
+    }
+
+    private BufferAndHeader processBuffer(
+            ByteBuffer byteBuffer, Buffer buffer, Consumer<Buffer> consumer) {
+        BufferHeader header = partialBuffer.header;
+        CompositeBuffer targetBuffer = partialBuffer.buffer;
+        while (byteBuffer.hasRemaining()) {
+            if (header == null && (header = parseBufferHeader(byteBuffer)) == null) {
+                break;
+            }
+
+            if (targetBuffer != null) {
+                buffer.retainBuffer();
+                int position = byteBuffer.position() + targetBuffer.missingLength();
+                targetBuffer.addPartialBuffer(
+                        buffer.readOnlySlice(byteBuffer.position(), targetBuffer.missingLength()));
+                byteBuffer.position(position);
+            } else if (byteBuffer.remaining() < header.getLength()) {
+                if (byteBuffer.hasRemaining()) {
+                    buffer.retainBuffer();
+                    targetBuffer = new CompositeBuffer(header);
+                    targetBuffer.addPartialBuffer(
+                            buffer.readOnlySlice(byteBuffer.position(), byteBuffer.remaining()));
+                }
+                break;
+            } else {
+                buffer.retainBuffer();
+                targetBuffer = new CompositeBuffer(header);
+                targetBuffer.addPartialBuffer(
+                        buffer.readOnlySlice(byteBuffer.position(), header.getLength()));
+                byteBuffer.position(byteBuffer.position() + header.getLength());
+            }
+
+            header = null;
+            consumer.accept(targetBuffer);
+            targetBuffer = null;
+        }
+        return new BufferAndHeader(targetBuffer, header);
+    }
+
+    private BufferHeader parseBufferHeader(ByteBuffer buffer) {
+        BufferHeader header = null;
+        if (reusedHeaderBuffer.position() > 0) {
+            while (reusedHeaderBuffer.hasRemaining()) {
+                reusedHeaderBuffer.put(buffer.get());
+            }
+            reusedHeaderBuffer.flip();
+            header = BufferReaderWriterUtil.parseBufferHeader(reusedHeaderBuffer);
+            reusedHeaderBuffer.clear();
+        }
+
+        if (header == null && buffer.remaining() < HEADER_LENGTH) {
+            reusedHeaderBuffer.put(buffer);
+        } else if (header == null) {
+            header = BufferReaderWriterUtil.parseBufferHeader(buffer);
+        }
+        return header;
     }
 
     /**
@@ -246,6 +356,17 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 bufferOffsetCaches.put(cacheKey, bufferOffsetCache);
             }
             return Optional.of(bufferOffsetCache);
+        }
+    }
+
+    private static class BufferAndHeader {
+
+        private final CompositeBuffer buffer;
+        private final BufferHeader header;
+
+        BufferAndHeader(CompositeBuffer buffer, BufferHeader header) {
+            this.buffer = buffer;
+            this.header = header;
         }
     }
 

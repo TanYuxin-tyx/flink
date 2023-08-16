@@ -174,8 +174,7 @@ public class ProducerMergedPartitionFileIndex {
                                 firstBufferInRegion.getBufferIndex(),
                                 firstBufferInRegion.getFileOffset(),
                                 lastBufferInRegion.getFileOffset()
-                                        + lastBufferInRegion.bufferSizeBytes
-                                        - 1,
+                                        + lastBufferInRegion.bufferSizeBytes,
                                 lastBufferInRegion.getBufferIndex()
                                         - firstBufferInRegion.getBufferIndex()
                                         + 1));

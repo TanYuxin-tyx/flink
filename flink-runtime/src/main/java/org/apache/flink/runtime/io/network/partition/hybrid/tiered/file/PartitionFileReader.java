@@ -24,9 +24,9 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
-import javax.annotation.Nullable;
-
 import java.io.IOException;
+import java.util.Queue;
+import java.util.function.Consumer;
 
 /** {@link PartitionFileReader} defines the read logic for different types of shuffle files. */
 public interface PartitionFileReader {
@@ -38,20 +38,22 @@ public interface PartitionFileReader {
      * @param subpartitionId the subpartition id of the buffer
      * @param segmentId the segment id of the buffer
      * @param bufferIndex the index of buffer
-     * @param memorySegment the empty buffer to store the read buffer
+     * @param buffers the empty buffers to store the read buffer
      * @param recycler the buffer recycler
-     * @return null if there is no data otherwise a buffer.
+     * @param bufferConsumer the consumer to accept the read buffer
+     * @return true to indicate at least one buffer is read, or return false to indicate that no
+     *     data is read
      */
-    @Nullable
-    Buffer readBuffer(
+    boolean readBuffer(
             boolean shouldPrintLog,
             String taskName,
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex,
-            MemorySegment memorySegment,
-            BufferRecycler recycler)
+            Queue<MemorySegment> buffers,
+            BufferRecycler recycler,
+            Consumer<Buffer> bufferConsumer)
             throws IOException;
 
     /**
