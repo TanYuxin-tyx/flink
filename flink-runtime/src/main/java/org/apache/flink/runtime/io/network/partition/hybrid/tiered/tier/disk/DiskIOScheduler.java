@@ -22,7 +22,10 @@ import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.CompositeBuffer;
+import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
@@ -38,6 +41,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -50,6 +54,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -361,6 +366,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private int nextBufferIndex;
 
+        private int nextFileBufferIndex;
+
         private long priority;
 
         private boolean isFailed;
@@ -391,6 +398,12 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             if (shouldPrintLog) {
                 LOG.error("###" + taskName + " Availability buffer number " + buffers.size());
             }
+            readBuffers(buffers, recycler);
+        }
+
+        private void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
+                throws IOException {
+            BufferAndHeader partialBuffer = new BufferAndHeader(null, null);
             while (!buffers.isEmpty()
                     && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead
                     && nextSegmentId >= 0) {
@@ -398,42 +411,60 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     LOG.error("###" + taskName + " Start Poll");
                 }
                 MemorySegment memorySegment = buffers.poll();
-                Buffer buffer;
+
+                Buffer fileBuffer;
                 try {
-                    if ((buffer =
-                                    partitionFileReader.readBuffer(
-                                            shouldPrintLog,
-                                            taskName,
-                                            partitionId,
-                                            subpartitionId,
-                                            nextSegmentId,
-                                            nextBufferIndex,
-                                            memorySegment,
-                                            recycler))
-                            == null) {
+                    fileBuffer =
+                            partitionFileReader.readBuffer(
+                                    shouldPrintLog,
+                                    taskName,
+                                    partitionId,
+                                    subpartitionId,
+                                    nextSegmentId,
+                                    nextFileBufferIndex,
+                                    memorySegment,
+                                    recycler);
+                    if (fileBuffer == null) {
                         buffers.add(memorySegment);
                         break;
                     }
+                    nextFileBufferIndex++;
+
+                    BufferHeader bufferHeader =
+                            new BufferHeader(
+                                    fileBuffer.isCompressed(),
+                                    fileBuffer.getSize(),
+                                    fileBuffer.getDataType());
+                    ByteBuffer byteBuffer = fileBuffer.getNioBufferReadable();
+                    NetworkBuffer networkBuffer = new NetworkBuffer(memorySegment, recycler);
+                    networkBuffer.setSize(byteBuffer.remaining());
+                    try {
+                        partialBuffer =
+                                processBuffer(
+                                        bufferHeader,
+                                        byteBuffer,
+                                        networkBuffer,
+                                        partialBuffer,
+                                        this::writeNettyBufferAndUpdateSegmentId);
+                    } catch (Throwable throwable) {
+                        partialBuffer = new BufferAndHeader(null, null);
+                        throw throwable;
+                    } finally {
+                        networkBuffer.recycleBuffer();
+                    }
+
                 } catch (Throwable throwable) {
                     buffers.add(memorySegment);
                     throw throwable;
+                } finally {
+                    if (partialBuffer.buffer != null) {
+                        partialBuffer.buffer.recycleBuffer();
+                    }
                 }
-                if (shouldPrintLog) {
-                    LOG.error(
-                            "###"
-                                    + taskName
-                                    + " poll buffer index "
-                                    + nextBufferIndex
-                                    + " buffer size: "
-                                    + buffer.readableBytes());
-                }
-                writeToNettyConnectionWriter(
-                        NettyPayload.newBuffer(
-                                buffer, nextBufferIndex++, subpartitionId.getSubpartitionId()));
-                if (buffer.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
-                    nextSegmentId = -1;
-                    updateSegmentId();
-                }
+            }
+
+            if (partialBuffer.buffer != null) {
+                writeNettyBufferAndUpdateSegmentId(partialBuffer.buffer);
             }
         }
 
@@ -468,6 +499,70 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             }
         }
 
+        private void writeNettyBufferAndUpdateSegmentId(Buffer buffer) {
+            writeToNettyConnectionWriter(
+                    NettyPayload.newBuffer(
+                            buffer, nextBufferIndex++, subpartitionId.getSubpartitionId()));
+            if (buffer.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
+                nextSegmentId = -1;
+                updateSegmentId();
+            }
+
+            if (shouldPrintLog) {
+                LOG.error(
+                        "###"
+                                + taskName
+                                + " poll buffer index "
+                                + nextBufferIndex
+                                + " buffer size: "
+                                + buffer.readableBytes());
+            }
+        }
+
+        private BufferAndHeader processBuffer(
+                BufferHeader bufferHeader,
+                ByteBuffer byteBuffer,
+                Buffer buffer,
+                BufferAndHeader partialBuffer,
+                Consumer<Buffer> consumer) {
+            BufferHeader header = partialBuffer.header;
+            CompositeBuffer targetBuffer = partialBuffer.buffer;
+            while (byteBuffer.hasRemaining()) {
+                if (header == null && (header = bufferHeader) == null) {
+                    break;
+                }
+
+                if (targetBuffer != null) {
+                    buffer.retainBuffer();
+                    int position = byteBuffer.position() + targetBuffer.missingLength();
+                    targetBuffer.addPartialBuffer(
+                            buffer.readOnlySlice(
+                                    byteBuffer.position(), targetBuffer.missingLength()));
+                    byteBuffer.position(position);
+                } else if (byteBuffer.remaining() < header.getLength()) {
+                    if (byteBuffer.hasRemaining()) {
+                        buffer.retainBuffer();
+                        targetBuffer = new CompositeBuffer(header);
+                        targetBuffer.addPartialBuffer(
+                                buffer.readOnlySlice(
+                                        byteBuffer.position(), byteBuffer.remaining()));
+                    }
+                    break;
+                } else {
+                    buffer.retainBuffer();
+                    targetBuffer = new CompositeBuffer(header);
+                    targetBuffer.addPartialBuffer(
+                            buffer.readOnlySlice(byteBuffer.position(), header.getLength()));
+                    byteBuffer.position(byteBuffer.position() + header.getLength());
+                }
+
+                header = null;
+                consumer.accept(targetBuffer);
+                targetBuffer = null;
+            }
+            return new BufferAndHeader(targetBuffer, header);
+        }
+
         private long getPriority() {
             return priority;
         }
@@ -488,7 +583,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         private void updateSegmentId() {
             Integer segmentId =
                     firstBufferIndexInSegmentRetriever.apply(
-                            subpartitionId.getSubpartitionId(), nextBufferIndex);
+                            subpartitionId.getSubpartitionId(), nextFileBufferIndex);
             if (segmentId != null) {
                 nextSegmentId = segmentId;
                 writeToNettyConnectionWriter(NettyPayload.newSegment(segmentId));
@@ -497,6 +592,17 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private NettyConnectionId getId() {
             return nettyConnectionWriter.getNettyConnectionId();
+        }
+    }
+
+    private static class BufferAndHeader {
+
+        private final CompositeBuffer buffer;
+        private final BufferHeader header;
+
+        BufferAndHeader(CompositeBuffer buffer, BufferHeader header) {
+            this.buffer = buffer;
+            this.header = header;
         }
     }
 }

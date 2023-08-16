@@ -53,7 +53,7 @@ class DiskIOSchedulerTest {
     private static final TieredStorageSubpartitionId DEFAULT_SUBPARTITION_ID =
             new TieredStorageSubpartitionId(0);
 
-    private static final int BUFFER_POOL_SIZE = 1;
+    private static final int BUFFER_POOL_SIZE = 10;
 
     private static final Duration DEFAULT_BUFFER_REQUEST_TIMEOUT = Duration.ofMinutes(5);
 
@@ -95,7 +95,7 @@ class DiskIOSchedulerTest {
                                 .setReadBufferSupplier(
                                         (bufferIndex, segmentId) -> {
                                             segmentIdFuture.complete(segmentId);
-                                            return BufferBuilderTestUtils.buildSomeBuffer(0);
+                                            return BufferBuilderTestUtils.buildSomeBuffer(10);
                                         })
                                 .setReleaseNotifier(() -> readerReleaseFuture.complete(null))
                                 .setPrioritySupplier(subpartitionId -> (long) subpartitionId)

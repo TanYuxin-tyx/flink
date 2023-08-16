@@ -100,21 +100,25 @@ public class MemoryTierProducerAgent implements TierProducerAgent, NettyServiceP
 
     @Override
     public boolean tryStartNewSegment(TieredStorageSubpartitionId subpartitionId, int segmentId) {
-        boolean canStartNewSegment =
-                nettyConnectionEstablished[subpartitionId.getSubpartitionId()]
-                        // Ensure that a subpartition's memory tier does not excessively use
-                        // buffers, which may result in insufficient buffers for other subpartitions
-                        && subpartitionProducerAgents[subpartitionId.getSubpartitionId()]
-                                        .numQueuedBuffers()
-                                < subpartitionMaxQueuedBuffers
-                        && (memoryManager.getMaxNonReclaimableBuffers(this)
-                                        - memoryManager.numOwnerRequestedBuffer(this))
-                                > numBuffersPerSegment;
-        if (canStartNewSegment) {
-            subpartitionProducerAgents[subpartitionId.getSubpartitionId()].updateSegmentId(
-                    segmentId);
-        }
-        return canStartNewSegment;
+        //        boolean canStartNewSegment =
+        //                nettyConnectionEstablished[subpartitionId.getSubpartitionId()]
+        //                        // Ensure that a subpartition's memory tier does not excessively
+        // use
+        //                        // buffers, which may result in insufficient buffers for other
+        // subpartitions
+        //                        && subpartitionProducerAgents[subpartitionId.getSubpartitionId()]
+        //                                        .numQueuedBuffers()
+        //                                < subpartitionMaxQueuedBuffers
+        //                        && (memoryManager.getMaxNonReclaimableBuffers(this)
+        //                                        - memoryManager.numOwnerRequestedBuffer(this))
+        //                                > numBuffersPerSegment;
+        //        if (canStartNewSegment) {
+        //
+        // subpartitionProducerAgents[subpartitionId.getSubpartitionId()].updateSegmentId(
+        //                    segmentId);
+        //        }
+        //        return canStartNewSegment;
+        return false;
     }
 
     @Override
