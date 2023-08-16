@@ -512,6 +512,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 LOG.error(
                         "###"
                                 + taskName
+                                + " subpartition id: "
+                                + subpartitionId.getSubpartitionId()
                                 + " poll buffer index "
                                 + nextBufferIndex
                                 + " buffer size: "
