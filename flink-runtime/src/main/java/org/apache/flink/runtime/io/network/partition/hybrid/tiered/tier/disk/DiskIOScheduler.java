@@ -252,9 +252,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 failScheduledReaders(Collections.singletonList(scheduledReader), throwable);
                 LOG.debug("Failed to read shuffle data.", throwable);
             }
-            if (buffers.size() <= 1) {
-                break;
-            }
         }
         int numBuffersRead = numBuffersAllocated - buffers.size();
         LOG.error(
@@ -407,7 +404,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         private void readBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
                 throws IOException {
             BufferAndHeader partialBuffer = new BufferAndHeader(null, null);
-            while (buffers.size() > 1
+            while (!buffers.isEmpty()
                     && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead
                     && nextSegmentId >= 0) {
                 if (shouldPrintLog) {
@@ -426,7 +423,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                     nextSegmentId,
                                     nextFileBufferIndex,
                                     memorySegment,
-                                    partialBuffer.buffer == null ? recycler : buffers::add);
+                                    recycler);
                     if (fileBuffer == null) {
                         buffers.add(memorySegment);
                         break;
