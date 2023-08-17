@@ -398,9 +398,10 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     LOG.error("###" + taskName + " Start Poll");
                 }
                 MemorySegment memorySegment = buffers.poll();
+                List<Buffer> readBuffers;
                 Buffer buffer;
                 try {
-                    if ((buffer =
+                    if ((readBuffers =
                                     partitionFileReader.readBuffer(
                                             shouldPrintLog,
                                             taskName,
@@ -409,11 +410,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                             nextSegmentId,
                                             nextBufferIndex,
                                             memorySegment,
-                                            recycler))
+                                            recycler,
+                                            null))
                             == null) {
                         buffers.add(memorySegment);
                         break;
                     }
+                    buffer = readBuffers.get(0);
                     if (shouldPrintLog) {
                         LOG.error(
                                 "###" + taskName + " read buffer, isBuffer: {}, size:{}, type:{}",

@@ -116,13 +116,20 @@ class SegmentPartitionFileReaderTest {
             throws IOException {
         MemorySegment memorySegment =
                 MemorySegmentFactory.allocateUnpooledSegment(DEFAULT_BUFFER_SIZE);
-        return partitionFileReader.readBuffer(
-                false,"",
-                DEFAULT_PARTITION_ID,
-                subpartitionId,
-                segmentId,
-                bufferIndex,
-                memorySegment,
-                FreeingBufferRecycler.INSTANCE);
+        List<Buffer> readBuffers =
+                partitionFileReader.readBuffer(
+                        false,
+                        "",
+                        DEFAULT_PARTITION_ID,
+                        subpartitionId,
+                        segmentId,
+                        bufferIndex,
+                        memorySegment,
+                        FreeingBufferRecycler.INSTANCE,
+                        null);
+        if (readBuffers == null) {
+            return null;
+        }
+        return readBuffers.get(0);
     }
 }

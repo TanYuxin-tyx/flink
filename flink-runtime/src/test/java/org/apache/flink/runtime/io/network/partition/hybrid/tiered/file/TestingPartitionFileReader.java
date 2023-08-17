@@ -24,21 +24,24 @@ import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
+import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /** Testing implementation for {@link PartitionFileReader}. */
 public class TestingPartitionFileReader implements PartitionFileReader {
 
-    private final BiFunction<Integer, Integer, Buffer> readBufferFunction;
+    private final BiFunction<Integer, Integer, List<Buffer>> readBufferFunction;
 
     private final Function<Integer, Long> getPriorityFunction;
 
     private final Runnable releaseRunnable;
 
     private TestingPartitionFileReader(
-            BiFunction<Integer, Integer, Buffer> readBufferFunction,
+            BiFunction<Integer, Integer, List<Buffer>> readBufferFunction,
             Function<Integer, Long> getPriorityFunction,
             Runnable releaseRunnable) {
         this.readBufferFunction = readBufferFunction;
@@ -47,7 +50,7 @@ public class TestingPartitionFileReader implements PartitionFileReader {
     }
 
     @Override
-    public Buffer readBuffer(
+    public List<Buffer> readBuffer(
             boolean b,
             String s,
             TieredStoragePartitionId partitionId,
@@ -55,7 +58,8 @@ public class TestingPartitionFileReader implements PartitionFileReader {
             int segmentId,
             int bufferIndex,
             MemorySegment memorySegment,
-            BufferRecycler recycler)
+            BufferRecycler recycler,
+            @Nullable PartialBuffer partialBuffer)
             throws IOException {
         return readBufferFunction.apply(bufferIndex, segmentId);
     }
@@ -76,7 +80,7 @@ public class TestingPartitionFileReader implements PartitionFileReader {
 
     /** Builder for {@link TestingPartitionFileReader}. */
     public static class Builder {
-        private BiFunction<Integer, Integer, Buffer> readBufferSupplier =
+        private BiFunction<Integer, Integer, List<Buffer>> readBufferSupplier =
                 (bufferIndex, segmentId) -> null;
 
         private Function<Integer, Long> prioritySupplier = bufferIndex -> 0L;
@@ -84,7 +88,7 @@ public class TestingPartitionFileReader implements PartitionFileReader {
         private Runnable releaseNotifier = () -> {};
 
         public Builder setReadBufferSupplier(
-                BiFunction<Integer, Integer, Buffer> readBufferSupplier) {
+                BiFunction<Integer, Integer, List<Buffer>> readBufferSupplier) {
             this.readBufferSupplier = readBufferSupplier;
             return this;
         }

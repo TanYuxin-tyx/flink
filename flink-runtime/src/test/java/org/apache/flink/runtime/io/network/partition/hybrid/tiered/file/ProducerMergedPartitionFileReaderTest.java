@@ -111,7 +111,8 @@ class ProducerMergedPartitionFileReaderTest {
                                 DEFAULT_SEGMENT_ID,
                                 DEFAULT_BUFFER_NUMBER + 1,
                                 memorySegment,
-                                FreeingBufferRecycler.INSTANCE))
+                                FreeingBufferRecycler.INSTANCE,
+                                null))
                 .isNull();
     }
 
@@ -176,14 +177,20 @@ class ProducerMergedPartitionFileReaderTest {
             throws IOException {
         MemorySegment memorySegment =
                 MemorySegmentFactory.allocateUnpooledSegment(DEFAULT_BUFFER_SIZE);
-        return partitionFileReader.readBuffer(
-                false,
-                "",
-                DEFAULT_PARTITION_ID,
-                subpartitionId,
-                DEFAULT_SEGMENT_ID,
-                bufferIndex,
-                memorySegment,
-                FreeingBufferRecycler.INSTANCE);
+        List<Buffer> readBuffers =
+                partitionFileReader.readBuffer(
+                        false,
+                        "",
+                        DEFAULT_PARTITION_ID,
+                        subpartitionId,
+                        DEFAULT_SEGMENT_ID,
+                        bufferIndex,
+                        memorySegment,
+                        FreeingBufferRecycler.INSTANCE,
+                        null);
+        if (readBuffers == null) {
+            return null;
+        }
+        return readBuffers.get(0);
     }
 }

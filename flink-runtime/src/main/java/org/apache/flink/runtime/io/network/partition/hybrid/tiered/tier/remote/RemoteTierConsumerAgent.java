@@ -32,6 +32,7 @@ import org.apache.flink.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -87,9 +88,10 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
 
         // Read buffer from the partition file in remote storage.
         MemorySegment memorySegment = MemorySegmentFactory.allocateUnpooledSegment(bufferSizeBytes);
+        List<Buffer> readBuffers = null;
         Buffer buffer = null;
         try {
-            buffer =
+            readBuffers =
                     partitionFileReader.readBuffer(
                             false,
                             "",
@@ -98,12 +100,14 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
                             segmentId,
                             currentBufferIndex,
                             memorySegment,
-                            FreeingBufferRecycler.INSTANCE);
+                            FreeingBufferRecycler.INSTANCE,
+                            null);
         } catch (IOException e) {
             memorySegment.free();
             ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }
-        if (buffer != null) {
+        if (readBuffers != null) {
+            buffer = readBuffers.get(0);
             currentBufferIndexAndSegmentIds
                     .get(partitionId)
                     .put(subpartitionId, Tuple2.of(++currentBufferIndex, segmentId));

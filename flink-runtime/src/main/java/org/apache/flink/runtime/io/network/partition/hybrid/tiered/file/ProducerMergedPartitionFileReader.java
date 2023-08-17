@@ -37,7 +37,9 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -105,7 +107,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     }
 
     @Override
-    public Buffer readBuffer(
+    public List<Buffer> readBuffer(
             boolean shouldPrintLog,
             String taskName,
             TieredStoragePartitionId partitionId,
@@ -113,7 +115,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             int segmentId,
             int bufferIndex,
             MemorySegment memorySegment,
-            BufferRecycler recycler)
+            BufferRecycler recycler,
+            PartialBuffer partialBuffer)
             throws IOException {
 
         lazyInitializeFileChannel();
@@ -177,7 +180,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 numCaches++;
             }
         }
-        return buffer;
+        return Collections.singletonList(buffer);
     }
 
     @Override
