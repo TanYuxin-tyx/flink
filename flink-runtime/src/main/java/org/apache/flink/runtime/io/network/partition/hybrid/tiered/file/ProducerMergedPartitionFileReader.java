@@ -250,6 +250,12 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                         + "start split buffer "
                         + byteBuffer.remaining()
                         + " header: "
+                        + header
+                        + " partial buffer: "
+                        + partialBuffer
+                        + " slicedBuffer: "
+                        + slicedBuffer
+                        + " header: "
                         + header);
         while (byteBuffer.hasRemaining()) {
             // Parse the small buffer's header
@@ -296,6 +302,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         LOG.error(
                 "###"
                         + taskName
+                        + " byte buffer: "
+                        + byteBuffer
                         + " "
                         + slicedBuffer
                         + " "
