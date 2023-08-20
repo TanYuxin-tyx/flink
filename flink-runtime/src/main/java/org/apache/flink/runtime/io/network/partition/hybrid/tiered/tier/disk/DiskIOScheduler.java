@@ -365,6 +365,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private boolean isFailed;
 
+        private PartitionFileReader.PartialBuffer partialBuffer;
+
         private final boolean shouldPrintLog;
 
         private ScheduledSubpartitionReader(
@@ -391,15 +393,17 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             if (shouldPrintLog) {
                 LOG.error("###" + taskName + " Availability buffer number " + buffers.size());
             }
+
+            int numReadBuffers = 0;
             while (!buffers.isEmpty()
-                    && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead
+                    && numReadBuffers < maxBufferReadAhead
                     && nextSegmentId >= 0) {
                 if (shouldPrintLog) {
                     LOG.error("###" + taskName + " Start Poll");
                 }
                 MemorySegment memorySegment = buffers.poll();
+                numReadBuffers++;
                 List<Buffer> readBuffers;
-                Buffer buffer;
                 try {
                     if ((readBuffers =
                                     partitionFileReader.readBuffer(
@@ -411,39 +415,47 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                             nextBufferIndex,
                                             memorySegment,
                                             recycler,
-                                            null))
+                                            partialBuffer))
                             == null) {
                         buffers.add(memorySegment);
                         break;
-                    }
-                    buffer = readBuffers.get(0);
-                    if (shouldPrintLog) {
-                        LOG.error(
-                                "###" + taskName + " read buffer, isBuffer: {}, size:{}, type:{}",
-                                buffer.isBuffer(),
-                                buffer.getSize(),
-                                buffer.getDataType());
                     }
                 } catch (Throwable throwable) {
                     buffers.add(memorySegment);
                     throw throwable;
                 }
-                if (shouldPrintLog) {
-                    LOG.error(
-                            "###"
-                                    + taskName
-                                    + " poll buffer index "
-                                    + nextBufferIndex
-                                    + " buffer size: "
-                                    + buffer.readableBytes());
+
+                for (int i = 0; i < readBuffers.size(); i++) {
+                    Buffer readBuffer = readBuffers.get(i);
+                    if (shouldPrintLog) {
+                        LOG.error(
+                                "###"
+                                        + taskName
+                                        + " poll buffer index "
+                                        + nextBufferIndex
+                                        + " buffer size: "
+                                        + readBuffer.readableBytes());
+                    }
+
+                    if (readBuffer instanceof PartitionFileReader.PartialBuffer) {
+                        checkState(i == readBuffers.size() - 1);
+                        partialBuffer = (PartitionFileReader.PartialBuffer) readBuffer;
+                        continue;
+                    }
+                    writeToNettyConnectionWriter(
+                            NettyPayload.newBuffer(
+                                    readBuffer,
+                                    nextBufferIndex++,
+                                    subpartitionId.getSubpartitionId()));
+                    if (readBuffer.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
+                        nextSegmentId = -1;
+                        updateSegmentId();
+                    }
                 }
-                writeToNettyConnectionWriter(
-                        NettyPayload.newBuffer(
-                                buffer, nextBufferIndex++, subpartitionId.getSubpartitionId()));
-                if (buffer.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
-                    nextSegmentId = -1;
-                    updateSegmentId();
-                }
+            }
+            if (partialBuffer != null) {
+                partialBuffer.recycleBuffer();
+                partialBuffer = null;
             }
         }
 
@@ -460,8 +472,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             priority =
                     nextSegmentId < 0
                             ? Long.MAX_VALUE
-                            : partitionFileReader.getPriority(
-                                    partitionId, subpartitionId, nextSegmentId, nextBufferIndex);
+                            : partialBuffer != null
+                                    ? partialBuffer.getFileOffset()
+                                    : partitionFileReader.getPriority(
+                                            partitionId,
+                                            subpartitionId,
+                                            nextSegmentId,
+                                            nextBufferIndex);
         }
 
         private void writeToNettyConnectionWriter(NettyPayload nettyPayload) {

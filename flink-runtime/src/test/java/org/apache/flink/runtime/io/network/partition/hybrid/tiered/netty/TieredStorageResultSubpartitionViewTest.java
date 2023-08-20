@@ -69,10 +69,10 @@ public class TieredStorageResultSubpartitionViewTest {
     @Test
     void testGetNextBuffer() throws IOException {
         checkBufferAndBacklog(tieredStorageResultSubpartitionView.getNextBuffer(), 1);
-        checkBufferAndBacklog(tieredStorageResultSubpartitionView.getNextBuffer(), 0);
+        checkBufferAndBacklog(tieredStorageResultSubpartitionView.getNextBuffer(), 1);
         tieredStorageResultSubpartitionView.notifyRequiredSegmentId(1);
         assertThat(availabilityListener).isDone();
-        checkBufferAndBacklog(tieredStorageResultSubpartitionView.getNextBuffer(), 1);
+        checkBufferAndBacklog(tieredStorageResultSubpartitionView.getNextBuffer(), 0);
         checkBufferAndBacklog(tieredStorageResultSubpartitionView.getNextBuffer(), 0);
         assertThat(tieredStorageResultSubpartitionView.getNextBuffer()).isNull();
     }
@@ -122,9 +122,9 @@ public class TieredStorageResultSubpartitionViewTest {
 
     @Test
     void testGetNumberOfQueuedBuffers() {
-        assertThat(tieredStorageResultSubpartitionView.getNumberOfQueuedBuffers()).isEqualTo(2);
+        assertThat(tieredStorageResultSubpartitionView.getNumberOfQueuedBuffers()).isEqualTo(1);
         assertThat(tieredStorageResultSubpartitionView.unsynchronizedGetNumberOfQueuedBuffers())
-                .isEqualTo(2);
+                .isEqualTo(1);
     }
 
     private static void checkBufferAndBacklog(BufferAndBacklog bufferAndBacklog, int backlog) {

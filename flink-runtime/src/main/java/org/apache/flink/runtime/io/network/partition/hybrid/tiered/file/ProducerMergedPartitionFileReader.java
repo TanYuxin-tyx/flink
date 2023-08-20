@@ -22,7 +22,10 @@ import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.CompositeBuffer;
+import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
@@ -32,20 +35,23 @@ import org.apache.flink.util.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.HEADER_LENGTH;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.positionToNextBuffer;
-import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.readFromByteChannel;
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * The implementation of {@link PartitionFileReader} with producer-merge mode. In this mode, the
@@ -116,10 +122,12 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             int bufferIndex,
             MemorySegment memorySegment,
             BufferRecycler recycler,
-            PartialBuffer partialBuffer)
+            @Nullable PartialBuffer partialBuffer)
             throws IOException {
 
         lazyInitializeFileChannel();
+
+        List<Buffer> readBuffers = new LinkedList<>();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
         if (shouldPrintLog) {
@@ -131,7 +139,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                             + " size:"
                             + fileChannel.size());
         }
-        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, true);
+        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, partialBuffer, true);
         if (!cache.isPresent()) {
             return null;
         }
@@ -154,33 +162,148 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                             + " region size: "
                             + cache.get().region.getSize());
         }
-        fileChannel.position(cache.get().getFileOffset());
-        if (shouldPrintLog) {
-            LOG.error("### " + taskName + " position to buffer");
+
+        long regionFileStartOffset =
+                partialBuffer == null ? cache.get().getFileOffset() : partialBuffer.getFileOffset();
+        long regionFileEndOffset = cache.get().region.getRegionFileEndOffset();
+        checkState(regionFileStartOffset <= regionFileEndOffset);
+        int numBytesToRead =
+                Math.min(memorySegment.size(), (int) (regionFileEndOffset - regionFileStartOffset));
+        if (numBytesToRead == 0) {
+            return null;
         }
-        Buffer buffer =
-                readFromByteChannel(
-                        taskName,
-                        shouldPrintLog,
-                        fileChannel,
-                        reusedHeaderBuffer,
-                        memorySegment,
-                        recycler);
-        boolean hasNextBuffer =
-                cache.get()
-                        .advance(
-                                checkNotNull(buffer).readableBytes()
-                                        + BufferReaderWriterUtil.HEADER_LENGTH);
-        if (hasNextBuffer) {
-            int nextBufferIndex = bufferIndex + 1;
-            // TODO: introduce the LRU cache strategy in the future to restrict the total
-            // cache number. Testing to prevent cache leaks has been implemented.
-            if (numCaches < maxCacheNumber) {
-                bufferOffsetCaches.put(Tuple2.of(subpartitionId, nextBufferIndex), cache.get());
-                numCaches++;
+        ByteBuffer byteBuffer = memorySegment.wrap(0, numBytesToRead);
+        fileChannel.position(regionFileStartOffset);
+
+        try {
+            BufferReaderWriterUtil.readByteBufferFully(fileChannel, byteBuffer);
+            byteBuffer.flip();
+        } catch (Throwable throwable) {
+            recycler.recycle(memorySegment);
+            throw throwable;
+        }
+
+        NetworkBuffer buffer = new NetworkBuffer(memorySegment, recycler);
+        buffer.setSize(byteBuffer.remaining());
+        int numFullBuffers;
+        try {
+            Tuple2<CompositeBuffer, BufferHeader> partial =
+                    splitBuffer(byteBuffer, buffer, partialBuffer, readBuffers);
+            numFullBuffers = readBuffers.size();
+            if (regionFileStartOffset + numBytesToRead < regionFileEndOffset) {
+                partialBuffer =
+                        new PartialBuffer(
+                                regionFileStartOffset + numBytesToRead, partial.f0, partial.f1);
+                readBuffers.add(partialBuffer);
+            } else {
+                checkState(partial.f0 == null);
             }
+        } catch (Throwable throwable) {
+            throw throwable;
+        } finally {
+            buffer.recycleBuffer();
         }
-        return Collections.singletonList(buffer);
+
+        boolean hasNextBuffer = cache.get().advanceBytes(numBytesToRead, numFullBuffers);
+        checkState(
+                !hasNextBuffer && regionFileStartOffset + numBytesToRead == regionFileEndOffset
+                        || regionFileStartOffset + numBytesToRead < regionFileEndOffset);
+        int nextBufferIndex = bufferIndex + numFullBuffers;
+        // TODO: introduce the LRU cache strategy in the future to restrict the total
+        // cache number. Testing to prevent cache leaks has been implemented.
+        if (numCaches < maxCacheNumber) {
+            bufferOffsetCaches.put(Tuple2.of(subpartitionId, nextBufferIndex), cache.get());
+            numCaches++;
+        }
+
+        return readBuffers;
+        //            if (hasNextBuffer) {
+        //                int nextBufferIndex = bufferIndex + 1;
+        //                // TODO: introduce the LRU cache strategy in the future to restrict the
+        // total
+        //                // cache number. Testing to prevent cache leaks has been implemented.
+        //                if (numCaches < maxCacheNumber) {
+        //                    bufferOffsetCaches.put(Tuple2.of(subpartitionId, nextBufferIndex),
+        // cache.get());
+        //                    numCaches++;
+        //                }
+        //            }
+        //            return Collections.singletonList(buffer);
+        //        } else {
+        //            // TODO
+        //            return null;
+        //        }
+    }
+
+    private Tuple2<CompositeBuffer, BufferHeader> splitBuffer(
+            ByteBuffer byteBuffer,
+            NetworkBuffer buffer,
+            @Nullable PartialBuffer partialBuffer,
+            List<Buffer> readBuffers) {
+        BufferHeader header = partialBuffer == null ? null : partialBuffer.getBufferHeader();
+        CompositeBuffer slicedBuffer =
+                partialBuffer == null ? null : partialBuffer.getCompositeBuffer();
+        while (byteBuffer.hasRemaining()) {
+            // Parse the small buffer's header
+            if (header == null && (header = parseBufferHeader(byteBuffer)) == null) {
+                break;
+            }
+
+            // If the previous partial buffer is not exist
+            if (slicedBuffer == null) {
+                if (header.getLength() <= byteBuffer.remaining()) {
+                    // The new small is complete, it is not a partial buffer, we should read the
+                    // sliced buffer directly
+                    buffer.retainBuffer();
+                    slicedBuffer = new CompositeBuffer(header);
+                    slicedBuffer.addPartialBuffer(
+                            buffer.readOnlySlice(byteBuffer.position(), header.getLength()));
+                    byteBuffer.position(byteBuffer.position() + header.getLength());
+                } else {
+                    // The new small buffer is not complete, it is a real partial buffer
+                    if (byteBuffer.hasRemaining()) {
+                        buffer.retainBuffer();
+                        slicedBuffer = new CompositeBuffer(header);
+                        slicedBuffer.addPartialBuffer(
+                                buffer.readOnlySlice(
+                                        byteBuffer.position(), byteBuffer.remaining()));
+                    }
+                    break;
+                }
+            } else {
+                // If there is a previous small partial buffer, we should complete the partial
+                // buffer firstly
+                buffer.retainBuffer();
+                int position = byteBuffer.position() + slicedBuffer.missingLength();
+                slicedBuffer.addPartialBuffer(
+                        buffer.readOnlySlice(byteBuffer.position(), slicedBuffer.missingLength()));
+                byteBuffer.position(position);
+            }
+
+            header = null;
+            readBuffers.add(slicedBuffer);
+            slicedBuffer = null;
+        }
+        return Tuple2.of(slicedBuffer, header);
+    }
+
+    private BufferHeader parseBufferHeader(ByteBuffer buffer) {
+        BufferHeader header = null;
+        if (reusedHeaderBuffer.position() > 0) {
+            while (reusedHeaderBuffer.hasRemaining()) {
+                reusedHeaderBuffer.put(buffer.get());
+            }
+            reusedHeaderBuffer.flip();
+            header = BufferReaderWriterUtil.parseBufferHeader(reusedHeaderBuffer);
+            reusedHeaderBuffer.clear();
+        }
+
+        if (header == null && buffer.remaining() < HEADER_LENGTH) {
+            reusedHeaderBuffer.put(buffer);
+        } else if (header == null) {
+            header = BufferReaderWriterUtil.parseBufferHeader(buffer);
+        }
+        return header;
     }
 
     @Override
@@ -192,7 +315,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         lazyInitializeFileChannel();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        return tryGetCache(cacheKey, false)
+        return tryGetCache(cacheKey, null, false)
                 .map(BufferOffsetCache::getFileOffset)
                 .orElse(Long.MAX_VALUE);
     }
@@ -236,12 +359,15 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      *     Optional#empty()}.
      */
     private Optional<BufferOffsetCache> tryGetCache(
-            Tuple2<TieredStorageSubpartitionId, Integer> cacheKey, boolean removeKey) {
+            Tuple2<TieredStorageSubpartitionId, Integer> cacheKey,
+            @Nullable PartialBuffer partialBuffer,
+            boolean removeKey) {
         BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
         if (bufferOffsetCache == null) {
             Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> regionOpt =
                     dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
-            return regionOpt.map(region -> new BufferOffsetCache(cacheKey.f1, region));
+            return regionOpt.map(
+                    region -> new BufferOffsetCache(cacheKey.f1, region, partialBuffer));
         } else {
             if (removeKey) {
                 numCaches--;
@@ -266,10 +392,16 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         private int nextBufferIndex;
 
         private BufferOffsetCache(
-                int bufferIndex, ProducerMergedPartitionFileIndex.FixedSizeRegion region) {
+                int bufferIndex,
+                ProducerMergedPartitionFileIndex.FixedSizeRegion region,
+                @Nullable PartialBuffer partialBuffer) {
             this.nextBufferIndex = bufferIndex;
             this.region = region;
-            moveFileOffsetToBuffer(bufferIndex);
+            if (partialBuffer != null) {
+                fileOffset = partialBuffer.getFileOffset();
+            } else {
+                moveFileOffsetToBuffer(bufferIndex);
+            }
         }
 
         /**
@@ -291,6 +423,18 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         private boolean advance(long bufferSize) {
             nextBufferIndex++;
             fileOffset += bufferSize;
+            return nextBufferIndex < (region.getFirstBufferIndex() + region.getNumBuffers());
+        }
+
+        private boolean advance(long bufferSize, int numBuffers) {
+            nextBufferIndex += numBuffers;
+            fileOffset += bufferSize * numBuffers;
+            return nextBufferIndex < (region.getFirstBufferIndex() + region.getNumBuffers());
+        }
+
+        private boolean advanceBytes(long readSizeBytes, int numBuffers) {
+            fileOffset += readSizeBytes;
+            nextBufferIndex += numBuffers;
             return nextBufferIndex < (region.getFirstBufferIndex() + region.getNumBuffers());
         }
 

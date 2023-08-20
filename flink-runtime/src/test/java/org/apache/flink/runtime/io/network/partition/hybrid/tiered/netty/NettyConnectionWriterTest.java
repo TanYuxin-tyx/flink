@@ -73,7 +73,7 @@ public class NettyConnectionWriterTest {
         assertThat(nettyConnectionWriter.numQueuedBuffers()).isEqualTo(0);
         writeBufferToWriter(bufferNumber, nettyConnectionWriter);
         nettyConnectionWriter.close(new IOException());
-        assertThat(nettyConnectionWriter.numQueuedBuffers()).isEqualTo(0);
+        assertThat(nettyConnectionWriter.numQueuedBuffers()).isEqualTo(1);
     }
 
     private static void writeBufferToWriter(

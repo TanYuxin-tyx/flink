@@ -20,14 +20,19 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
+import org.apache.flink.runtime.io.network.buffer.CompositeBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+
+import org.apache.flink.shaded.netty4.io.netty.buffer.ByteBuf;
+import org.apache.flink.shaded.netty4.io.netty.buffer.ByteBufAllocator;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 /** {@link PartitionFileReader} defines the read logic for different types of shuffle files. */
@@ -84,44 +89,163 @@ public interface PartitionFileReader {
     /** Release the {@link PartitionFileReader}. */
     void release();
 
-    /**
-     * A {@link PartialBuffer} is a part slice of a larger buffer. The buffer extends a new file
-     * offset based on the {@link NetworkBuffer}.
-     */
-    class PartialBuffer extends NetworkBuffer {
+    /** A {@link PartialBuffer} is a part slice of a larger buffer. */
+    class PartialBuffer implements Buffer {
 
-        private final int fileOffset;
+        private final long fileOffset;
 
-        /**
-         * Creates a new buffer instance backed by the given <tt>memorySegment</tt> with <tt>0</tt>
-         * for the <tt>readerIndex</tt> and <tt>size</tt> as <tt>writerIndex</tt>.
-         *
-         * @param memorySegment backing memory segment
-         * @param recycler will be called to recycle this buffer once the reference count is
-         *     <tt>0</tt>
-         * @param dataType the {@link DataType} this buffer represents
-         * @param size current size of data in the buffer, i.e. the writer index to set
-         * @param isCompressed whether the buffer is compressed or not
-         * @param fileOffset the underlying file offset of the partial buffer, the file offset
-         *     includes the length of the partial buffer
-         */
+        private final CompositeBuffer compositeBuffer;
+
+        private final BufferHeader bufferHeader;
+
         public PartialBuffer(
-                MemorySegment memorySegment,
-                BufferRecycler recycler,
-                DataType dataType,
-                boolean isCompressed,
-                int size,
-                int fileOffset) {
-            super(memorySegment, recycler, dataType, isCompressed, size);
+                long fileOffset, CompositeBuffer compositeBuffer, BufferHeader bufferHeader) {
             this.fileOffset = fileOffset;
+            this.compositeBuffer = compositeBuffer;
+            this.bufferHeader = bufferHeader;
         }
 
         /**
          * Returns the underlying file offset. Note that the file offset includes the length of the
          * partial buffer.
          */
-        public int getFileOffset() {
+        public long getFileOffset() {
             return fileOffset;
+        }
+
+        public CompositeBuffer getCompositeBuffer() {
+            return compositeBuffer;
+        }
+
+        public BufferHeader getBufferHeader() {
+            return bufferHeader;
+        }
+
+        @Override
+        public boolean isBuffer() {
+            return compositeBuffer.isBuffer();
+        }
+
+        @Override
+        public MemorySegment getMemorySegment() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int getMemorySegmentOffset() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public BufferRecycler getRecycler() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void setRecycler(BufferRecycler bufferRecycler) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void recycleBuffer() {
+            if (compositeBuffer != null) {
+                compositeBuffer.recycleBuffer();
+            }
+        }
+
+        @Override
+        public boolean isRecycled() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Buffer retainBuffer() {
+            return compositeBuffer.retainBuffer();
+        }
+
+        @Override
+        public Buffer readOnlySlice() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Buffer readOnlySlice(int index, int length) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int getMaxCapacity() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int getReaderIndex() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void setReaderIndex(int readerIndex) throws IndexOutOfBoundsException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int getSize() {
+            return compositeBuffer == null ? 0 : compositeBuffer.getSize();
+        }
+
+        @Override
+        public void setSize(int writerIndex) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int readableBytes() {
+            return compositeBuffer == null ? 0 : compositeBuffer.readableBytes();
+        }
+
+        @Override
+        public ByteBuffer getNioBufferReadable() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ByteBuffer getNioBuffer(int index, int length) throws IndexOutOfBoundsException {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void setAllocator(ByteBufAllocator allocator) {
+            compositeBuffer.setAllocator(allocator);
+        }
+
+        @Override
+        public ByteBuf asByteBuf() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean isCompressed() {
+            return compositeBuffer.isCompressed();
+        }
+
+        @Override
+        public void setCompressed(boolean isCompressed) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public DataType getDataType() {
+            return compositeBuffer.getDataType();
+        }
+
+        @Override
+        public void setDataType(DataType dataType) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public int refCnt() {
+            throw new UnsupportedOperationException();
         }
     }
 }

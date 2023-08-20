@@ -174,8 +174,7 @@ public class ProducerMergedPartitionFileIndex {
                                 firstBufferInRegion.getBufferIndex(),
                                 firstBufferInRegion.getFileOffset(),
                                 lastBufferInRegion.getFileOffset()
-                                        + lastBufferInRegion.bufferSizeBytes
-                                        - 1,
+                                        + lastBufferInRegion.bufferSizeBytes,
                                 lastBufferInRegion.getBufferIndex()
                                         - firstBufferInRegion.getBufferIndex()
                                         + 1));
@@ -267,7 +266,8 @@ public class ProducerMergedPartitionFileIndex {
      */
     public static class FixedSizeRegion implements FileDataIndexRegionHelper.Region {
 
-        public static final int REGION_SIZE = Integer.BYTES + Long.BYTES + Integer.BYTES;
+        public static final int REGION_SIZE =
+                Integer.BYTES + Long.BYTES + Integer.BYTES + Long.BYTES;
 
         /** The buffer index of first buffer. */
         private final int firstBufferIndex;
