@@ -188,7 +188,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         int numFullBuffers;
         try {
             Tuple2<CompositeBuffer, BufferHeader> partial =
-                    splitBuffer(byteBuffer, buffer, partialBuffer, readBuffers);
+                    splitBuffer(taskName, byteBuffer, buffer, partialBuffer, readBuffers);
             numFullBuffers = readBuffers.size();
             if (regionFileStartOffset + numBytesToRead < regionFileEndOffset) {
                 partialBuffer =
@@ -236,6 +236,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     }
 
     private Tuple2<CompositeBuffer, BufferHeader> splitBuffer(
+            String taskName,
             ByteBuffer byteBuffer,
             NetworkBuffer buffer,
             @Nullable PartialBuffer partialBuffer,
@@ -243,9 +244,16 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         BufferHeader header = partialBuffer == null ? null : partialBuffer.getBufferHeader();
         CompositeBuffer slicedBuffer =
                 partialBuffer == null ? null : partialBuffer.getCompositeBuffer();
+        LOG.error(
+                "###"
+                        + taskName
+                        + "start split buffer "
+                        + byteBuffer.remaining()
+                        + " header: "
+                        + header);
         while (byteBuffer.hasRemaining()) {
             // Parse the small buffer's header
-            if (header == null && (header = parseBufferHeader(byteBuffer)) == null) {
+            if (header == null && (header = parseBufferHeader(taskName, byteBuffer)) == null) {
                 break;
             }
 
@@ -287,9 +295,14 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         return Tuple2.of(slicedBuffer, header);
     }
 
-    private BufferHeader parseBufferHeader(ByteBuffer buffer) {
+    private BufferHeader parseBufferHeader(String taskName, ByteBuffer buffer) {
         BufferHeader header = null;
         if (reusedHeaderBuffer.position() > 0) {
+            LOG.error(
+                    "###"
+                            + taskName
+                            + " parseBufferHeader, position: "
+                            + reusedHeaderBuffer.position());
             while (reusedHeaderBuffer.hasRemaining()) {
                 reusedHeaderBuffer.put(buffer.get());
             }
@@ -299,9 +312,27 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         }
 
         if (header == null && buffer.remaining() < HEADER_LENGTH) {
+            LOG.error(
+                    "###"
+                            + taskName
+                            + " parseBufferHeader, remaining: "
+                            + buffer.remaining()
+                            + " header len:"
+                            + HEADER_LENGTH);
             reusedHeaderBuffer.put(buffer);
         } else if (header == null) {
             header = BufferReaderWriterUtil.parseBufferHeader(buffer);
+            LOG.error(
+                    "###"
+                            + taskName
+                            + " parseBufferHeader, remaining: "
+                            + buffer.remaining()
+                            + " header len:"
+                            + header.getLength()
+                            + " datatype:"
+                            + header.getDataType()
+                            + " isCompressed: "
+                            + header.isCompressed());
         }
         return header;
     }
