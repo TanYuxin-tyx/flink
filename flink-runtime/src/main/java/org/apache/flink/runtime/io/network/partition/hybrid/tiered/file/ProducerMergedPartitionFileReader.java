@@ -298,43 +298,59 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
     private BufferHeader parseBufferHeader(String taskName, ByteBuffer buffer) {
         BufferHeader header = null;
-        if (reusedHeaderBuffer.position() > 0) {
+        try {
+            if (reusedHeaderBuffer.position() > 0) {
+                LOG.error(
+                        "###"
+                                + taskName
+                                + " parseBufferHeader, position: "
+                                + reusedHeaderBuffer.position());
+                while (reusedHeaderBuffer.hasRemaining()) {
+                    reusedHeaderBuffer.put(buffer.get());
+                }
+                reusedHeaderBuffer.flip();
+                header = BufferReaderWriterUtil.parseBufferHeader(reusedHeaderBuffer);
+                reusedHeaderBuffer.clear();
+            }
+
+            if (header == null && buffer.remaining() < HEADER_LENGTH) {
+                LOG.error(
+                        "###"
+                                + taskName
+                                + " parseBufferHeader, remaining: "
+                                + buffer.remaining()
+                                + " header len:"
+                                + HEADER_LENGTH);
+                reusedHeaderBuffer.put(buffer);
+            } else if (header == null) {
+                header = BufferReaderWriterUtil.parseBufferHeader(buffer);
+                LOG.error(
+                        "###"
+                                + taskName
+                                + " parseBufferHeader, remaining: "
+                                + buffer.remaining()
+                                + " header len:"
+                                + header.getLength()
+                                + " datatype:"
+                                + header.getDataType()
+                                + " isCompressed: "
+                                + header.isCompressed());
+            }
+        } catch (Throwable throwable) {
             LOG.error(
                     "###"
                             + taskName
-                            + " parseBufferHeader, position: "
-                            + reusedHeaderBuffer.position());
-            while (reusedHeaderBuffer.hasRemaining()) {
-                reusedHeaderBuffer.put(buffer.get());
-            }
-            reusedHeaderBuffer.flip();
-            header = BufferReaderWriterUtil.parseBufferHeader(reusedHeaderBuffer);
-            reusedHeaderBuffer.clear();
+                            + " parse header error, "
+                            + header
+                            + " remaining: "
+                            + buffer.remaining()
+                            + " position: "
+                            + buffer.position()
+                            + " "
+                            + buffer,
+                    throwable);
         }
 
-        if (header == null && buffer.remaining() < HEADER_LENGTH) {
-            LOG.error(
-                    "###"
-                            + taskName
-                            + " parseBufferHeader, remaining: "
-                            + buffer.remaining()
-                            + " header len:"
-                            + HEADER_LENGTH);
-            reusedHeaderBuffer.put(buffer);
-        } else if (header == null) {
-            header = BufferReaderWriterUtil.parseBufferHeader(buffer);
-            LOG.error(
-                    "###"
-                            + taskName
-                            + " parseBufferHeader, remaining: "
-                            + buffer.remaining()
-                            + " header len:"
-                            + header.getLength()
-                            + " datatype:"
-                            + header.getDataType()
-                            + " isCompressed: "
-                            + header.isCompressed());
-        }
         return header;
     }
 
