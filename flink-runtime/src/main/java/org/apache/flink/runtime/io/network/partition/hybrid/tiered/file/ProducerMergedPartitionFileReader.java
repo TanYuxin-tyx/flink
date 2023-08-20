@@ -291,6 +291,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             header = null;
             readBuffers.add(slicedBuffer);
             slicedBuffer = null;
+            reusedHeaderBuffer.clear();
         }
         return Tuple2.of(slicedBuffer, header);
     }
