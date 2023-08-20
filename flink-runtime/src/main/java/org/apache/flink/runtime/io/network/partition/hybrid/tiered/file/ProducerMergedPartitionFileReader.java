@@ -313,10 +313,40 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 // If there is a previous small partial buffer, we should complete the partial
                 // buffer firstly
                 buffer.retainBuffer();
+                LOG.info(
+                        "###"
+                                + taskName
+                                + " before position to new position: "
+                                + byteBuffer.position()
+                                + " sliced buffer len: "
+                                + slicedBuffer.readableBytes()
+                                + " "
+                                + slicedBuffer.isBuffer()
+                                + " "
+                                + slicedBuffer.missingLength()
+                                + " current size: "
+                                + readBuffers.size()
+                                + " remaining: "
+                                + byteBuffer.remaining());
                 int position = byteBuffer.position() + slicedBuffer.missingLength();
                 slicedBuffer.addPartialBuffer(
                         buffer.readOnlySlice(byteBuffer.position(), slicedBuffer.missingLength()));
                 byteBuffer.position(position);
+                LOG.info(
+                        "###"
+                                + taskName
+                                + " position to new position: "
+                                + position
+                                + " sliced buffer len: "
+                                + slicedBuffer.readableBytes()
+                                + " "
+                                + slicedBuffer.isBuffer()
+                                + " "
+                                + slicedBuffer.missingLength()
+                                + " current size: "
+                                + readBuffers.size()
+                                + " remaining: "
+                                + byteBuffer.remaining());
             }
 
             header = null;
