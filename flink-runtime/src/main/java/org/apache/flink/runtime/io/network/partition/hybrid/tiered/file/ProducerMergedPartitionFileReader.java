@@ -293,6 +293,33 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             slicedBuffer = null;
             reusedHeaderBuffer.clear();
         }
+        LOG.error(
+                "###"
+                        + taskName
+                        + " "
+                        + slicedBuffer
+                        + " "
+                        + (slicedBuffer == null
+                                ? ""
+                                : slicedBuffer.readableBytes()
+                                        + " "
+                                        + slicedBuffer.missingLength()
+                                        + " "
+                                        + slicedBuffer)
+                        + " header "
+                        + (header == null
+                                ? ""
+                                : header.getLength()
+                                        + " "
+                                        + header.getDataType()
+                                        + " isCompressed: "
+                                        + header.isCompressed()
+                                        + " buffer: "
+                                        + reusedHeaderBuffer
+                                        + " reuse header position: "
+                                        + reusedHeaderBuffer.position()
+                                        + " remaining: "
+                                        + reusedHeaderBuffer.remaining()));
         return Tuple2.of(slicedBuffer, header);
     }
 
