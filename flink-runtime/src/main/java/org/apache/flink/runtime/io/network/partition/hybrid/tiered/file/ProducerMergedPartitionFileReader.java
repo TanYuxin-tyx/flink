@@ -257,6 +257,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                         + slicedBuffer
                         + " header: "
                         + header);
+        if (header == null) {
+            checkState(slicedBuffer == null || slicedBuffer.readableBytes() < HEADER_LENGTH);
+        }
+
         while (byteBuffer.hasRemaining()) {
             // Parse the small buffer's header
             if (header == null && (header = parseBufferHeader(taskName, byteBuffer)) == null) {
@@ -282,6 +286,19 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                                 buffer.readOnlySlice(
                                         byteBuffer.position(), byteBuffer.remaining()));
                     }
+                    LOG.info(
+                            "###"
+                                    + taskName
+                                    + " creating a partial buffer"
+                                    + slicedBuffer.readableBytes()
+                                    + " "
+                                    + slicedBuffer.isBuffer()
+                                    + " "
+                                    + slicedBuffer.missingLength()
+                                    + " current size: "
+                                    + readBuffers.size()
+                                    + " remaining: "
+                                    + byteBuffer.remaining());
                     break;
                 }
             } else {
@@ -296,8 +313,20 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
             header = null;
             readBuffers.add(slicedBuffer);
+            LOG.info(
+                    "###"
+                            + taskName
+                            + " add a new sliced buffer"
+                            + slicedBuffer.readableBytes()
+                            + " "
+                            + slicedBuffer.isBuffer()
+                            + " "
+                            + slicedBuffer.missingLength()
+                            + " current size: "
+                            + readBuffers.size()
+                            + " remaining: "
+                            + byteBuffer.remaining());
             slicedBuffer = null;
-            reusedHeaderBuffer.clear();
         }
         LOG.error(
                 "###"
