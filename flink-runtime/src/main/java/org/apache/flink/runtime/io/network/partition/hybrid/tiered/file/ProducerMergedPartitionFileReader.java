@@ -256,9 +256,17 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                         + " slicedBuffer: "
                         + slicedBuffer
                         + " header: "
-                        + header);
+                        + header
+                        + (header == null
+                                ? ""
+                                : " "
+                                        + header.getLength()
+                                        + " "
+                                        + header.getDataType()
+                                        + " "
+                                        + header.isCompressed()));
         if (header == null) {
-            checkState(slicedBuffer == null || slicedBuffer.readableBytes() < HEADER_LENGTH);
+            checkState(slicedBuffer == null || reusedHeaderBuffer.position() > 0);
         }
 
         while (byteBuffer.hasRemaining()) {
