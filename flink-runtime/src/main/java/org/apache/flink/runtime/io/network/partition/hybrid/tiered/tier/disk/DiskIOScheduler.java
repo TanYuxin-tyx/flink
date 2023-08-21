@@ -23,6 +23,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -64,6 +66,8 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServiceProducer {
 
     private static final Logger LOG = LoggerFactory.getLogger(DiskIOScheduler.class);
+
+    private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
     private final Object lock = new Object();
 
@@ -172,12 +176,12 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             if (shouldPrint && isBroadcast) {
                 scheduledSubpartitionReader =
                         new ScheduledSubpartitionReader(
-                                subpartitionId, nettyConnectionWriter, true);
+                                subpartitionId, nettyConnectionWriter, reusedHeaderBuffer, true);
                 shouldPrint = false;
             } else {
                 scheduledSubpartitionReader =
                         new ScheduledSubpartitionReader(
-                                subpartitionId, nettyConnectionWriter, false);
+                                subpartitionId, nettyConnectionWriter, reusedHeaderBuffer, false);
             }
             allScheduledReaders.put(
                     nettyConnectionWriter.getNettyConnectionId(), scheduledSubpartitionReader);
@@ -357,6 +361,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private final NettyConnectionWriter nettyConnectionWriter;
 
+        private final ByteBuffer reusedHeaderBuffer;
+
         private int nextSegmentId = -1;
 
         private int nextBufferIndex;
@@ -372,6 +378,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         private ScheduledSubpartitionReader(
                 TieredStorageSubpartitionId subpartitionId,
                 NettyConnectionWriter nettyConnectionWriter,
+                ByteBuffer reusedHeaderBuffer,
                 boolean shouldPrintLog) {
             this.shouldPrintLog = shouldPrintLog;
             if (shouldPrintLog) {
@@ -379,6 +386,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             }
             this.subpartitionId = subpartitionId;
             this.nettyConnectionWriter = nettyConnectionWriter;
+            this.reusedHeaderBuffer = reusedHeaderBuffer;
         }
 
         private void loadDiskDataToBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
@@ -415,6 +423,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                             nextBufferIndex,
                                             memorySegment,
                                             recycler,
+                                            reusedHeaderBuffer,
                                             partialBuffer))
                             == null) {
                         buffers.add(memorySegment);
@@ -454,6 +463,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                         updateSegmentId();
                     }
                 }
+            }
+            if (reusedHeaderBuffer.position() > 0) {
+                reusedHeaderBuffer.clear();
             }
             if (partialBuffer != null) {
                 partialBuffer.recycleBuffer();

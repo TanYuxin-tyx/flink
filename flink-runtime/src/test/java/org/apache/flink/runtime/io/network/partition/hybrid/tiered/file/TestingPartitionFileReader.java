@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -59,6 +60,7 @@ public class TestingPartitionFileReader implements PartitionFileReader {
             int bufferIndex,
             MemorySegment memorySegment,
             BufferRecycler recycler,
+            ByteBuffer reusedHeaderBuffer,
             @Nullable PartialBuffer partialBuffer)
             throws IOException {
         return readBufferFunction.apply(bufferIndex, segmentId);

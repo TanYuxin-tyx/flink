@@ -87,6 +87,7 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             int bufferIndex,
             MemorySegment memorySegment,
             BufferRecycler recycler,
+            ByteBuffer reusedHeaderBuffer,
             @Nullable PartialBuffer partialBuffer)
             throws IOException {
 

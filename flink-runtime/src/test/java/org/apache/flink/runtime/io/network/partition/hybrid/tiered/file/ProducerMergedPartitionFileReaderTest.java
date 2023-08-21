@@ -22,6 +22,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
@@ -120,6 +121,7 @@ class ProducerMergedPartitionFileReaderTest {
                                 DEFAULT_BUFFER_NUMBER + 1,
                                 memorySegment,
                                 FreeingBufferRecycler.INSTANCE,
+                                BufferReaderWriterUtil.allocatedHeaderBuffer(),
                                 null))
                 .isNull();
     }
@@ -143,6 +145,7 @@ class ProducerMergedPartitionFileReaderTest {
                                 DEFAULT_BUFFER_NUMBER + 1,
                                 memorySegment,
                                 FreeingBufferRecycler.INSTANCE,
+                                BufferReaderWriterUtil.allocatedHeaderBuffer(),
                                 null))
                 .isNull();
     }
@@ -265,6 +268,7 @@ class ProducerMergedPartitionFileReaderTest {
                 bufferIndex,
                 memorySegment,
                 FreeingBufferRecycler.INSTANCE,
+                BufferReaderWriterUtil.allocatedHeaderBuffer(),
                 partialBuffer);
     }
 }

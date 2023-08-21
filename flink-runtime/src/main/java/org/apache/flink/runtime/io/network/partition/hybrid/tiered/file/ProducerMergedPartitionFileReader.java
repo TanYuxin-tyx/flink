@@ -85,8 +85,6 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     private final Map<Tuple2<TieredStorageSubpartitionId, Integer>, BufferOffsetCache>
             bufferOffsetCaches;
 
-    private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
-
     private final Path dataFilePath;
 
     private final ProducerMergedPartitionFileIndex dataIndex;
@@ -122,6 +120,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             int bufferIndex,
             MemorySegment memorySegment,
             BufferRecycler recycler,
+            ByteBuffer reusedHeaderBuffer,
             @Nullable PartialBuffer partialBuffer)
             throws IOException {
 
@@ -139,7 +138,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                             + " size:"
                             + fileChannel.size());
         }
-        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, partialBuffer, true);
+        Optional<BufferOffsetCache> cache =
+                tryGetCache(cacheKey, reusedHeaderBuffer, partialBuffer, true);
         if (!cache.isPresent()) {
             return null;
         }
@@ -203,7 +203,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         int numFullBuffers;
         try {
             Tuple2<CompositeBuffer, BufferHeader> partial =
-                    splitBuffer(taskName, byteBuffer, buffer, partialBuffer, readBuffers);
+                    splitBuffer(
+                            taskName,
+                            byteBuffer,
+                            buffer,
+                            reusedHeaderBuffer,
+                            partialBuffer,
+                            readBuffers);
             numFullBuffers = readBuffers.size();
             if (regionFileStartOffset + numBytesToRead < regionFileEndOffset) {
                 partialBuffer =
@@ -268,6 +274,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             String taskName,
             ByteBuffer byteBuffer,
             NetworkBuffer buffer,
+            ByteBuffer reusedHeaderBuffer,
             @Nullable PartialBuffer partialBuffer,
             List<Buffer> readBuffers) {
         BufferHeader header = partialBuffer == null ? null : partialBuffer.getBufferHeader();
@@ -305,7 +312,9 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
         while (byteBuffer.hasRemaining()) {
             // Parse the small buffer's header
-            if (header == null && (header = parseBufferHeader(taskName, byteBuffer)) == null) {
+            if (header == null
+                    && (header = parseBufferHeader(taskName, byteBuffer, reusedHeaderBuffer))
+                            == null) {
                 break;
             }
 
@@ -436,7 +445,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         return Tuple2.of(slicedBuffer, header);
     }
 
-    private BufferHeader parseBufferHeader(String taskName, ByteBuffer buffer) {
+    private BufferHeader parseBufferHeader(
+            String taskName, ByteBuffer buffer, ByteBuffer reusedHeaderBuffer) {
         BufferHeader header = null;
         try {
             if (reusedHeaderBuffer.position() > 0) {
@@ -457,7 +467,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 LOG.error(
                         "###"
                                 + taskName
-                                + " parseBufferHeader, remaining: "
+                                + " parseBufferHeader, left some data, but not enough for header, remaining: "
                                 + buffer.remaining()
                                 + " header len:"
                                 + HEADER_LENGTH);
@@ -503,7 +513,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         lazyInitializeFileChannel();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        return tryGetCache(cacheKey, null, false)
+        return tryGetCache(cacheKey, null, null, false)
                 .map(BufferOffsetCache::getFileOffset)
                 .orElse(Long.MAX_VALUE);
     }
@@ -548,6 +558,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      */
     private Optional<BufferOffsetCache> tryGetCache(
             Tuple2<TieredStorageSubpartitionId, Integer> cacheKey,
+            @Nullable ByteBuffer reusedHeaderBuffer,
             @Nullable PartialBuffer partialBuffer,
             boolean removeKey) {
         BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
@@ -555,7 +566,9 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> regionOpt =
                     dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
             return regionOpt.map(
-                    region -> new BufferOffsetCache(cacheKey.f1, region, partialBuffer));
+                    region ->
+                            new BufferOffsetCache(
+                                    cacheKey.f1, region, reusedHeaderBuffer, partialBuffer));
         } else {
             if (removeKey) {
                 numCaches--;
@@ -582,13 +595,14 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         private BufferOffsetCache(
                 int bufferIndex,
                 ProducerMergedPartitionFileIndex.FixedSizeRegion region,
+                ByteBuffer reusedHeaderBuffer,
                 @Nullable PartialBuffer partialBuffer) {
             this.nextBufferIndex = bufferIndex;
             this.region = region;
             if (partialBuffer != null) {
                 fileOffset = partialBuffer.getFileOffset();
             } else {
-                moveFileOffsetToBuffer(bufferIndex);
+                moveFileOffsetToBuffer(bufferIndex, reusedHeaderBuffer);
             }
         }
 
@@ -631,7 +645,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
          *
          * @param bufferIndex denotes the index of the buffer.
          */
-        private void moveFileOffsetToBuffer(int bufferIndex) {
+        private void moveFileOffsetToBuffer(int bufferIndex, ByteBuffer reusedHeaderBuffer) {
             try {
                 checkNotNull(fileChannel).position(region.getRegionFileOffset());
                 for (int i = 0; i < (bufferIndex - region.getFirstBufferIndex()); ++i) {
