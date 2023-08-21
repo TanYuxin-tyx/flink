@@ -425,6 +425,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     throw throwable;
                 }
 
+                partialBuffer = null;
                 for (int i = 0; i < readBuffers.size(); i++) {
                     Buffer readBuffer = readBuffers.get(i);
                     if (shouldPrintLog) {
