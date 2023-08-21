@@ -681,6 +681,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                     positionToNextBuffer(fileChannel, reusedHeaderBuffer);
                 }
                 fileOffset = fileChannel.position();
+                reusedHeaderBuffer.clear();
             } catch (IOException e) {
                 ExceptionUtils.rethrow(e, "Failed to move file offset");
             }
