@@ -458,6 +458,12 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             String taskName, ByteBuffer buffer, ByteBuffer reusedHeaderBuffer) {
         BufferHeader header = null;
         try {
+            if (reusedHeaderBuffer.position() == HEADER_LENGTH) {
+                header = BufferReaderWriterUtil.parseBufferHeader(buffer);
+                reusedHeaderBuffer.clear();
+                return header;
+            }
+
             if (reusedHeaderBuffer.position() > 0) {
                 checkState(reusedHeaderBuffer.position() < HEADER_LENGTH);
                 LOG.error(
