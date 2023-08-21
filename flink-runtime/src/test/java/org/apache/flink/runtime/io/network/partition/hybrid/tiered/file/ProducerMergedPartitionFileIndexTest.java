@@ -57,7 +57,7 @@ class ProducerMergedPartitionFileIndexTest {
         List<ProducerMergedPartitionFileIndex.FlushedBuffer> flushedBuffers = new ArrayList<>();
         Tuple2<Integer, Integer> numExpectedRegionsAndMaxBufferIndex =
                 generateFlushedBuffers(numSubpartitions, numBuffersPerSubpartition, flushedBuffers);
-        partitionFileIndex.addBuffers(flushedBuffers);
+        partitionFileIndex.addBuffers("", flushedBuffers);
         int numExpectedRegions = numExpectedRegionsAndMaxBufferIndex.f0;
         int maxBufferIndex = numExpectedRegionsAndMaxBufferIndex.f1;
 

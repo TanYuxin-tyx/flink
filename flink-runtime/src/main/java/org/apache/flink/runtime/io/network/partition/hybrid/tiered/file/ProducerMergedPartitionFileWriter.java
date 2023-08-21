@@ -92,9 +92,11 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
 
     @Override
     public CompletableFuture<Void> write(
-            TieredStoragePartitionId partitionId, List<SubpartitionBufferContext> buffersToWrite) {
+            String taskName,
+            TieredStoragePartitionId partitionId,
+            List<SubpartitionBufferContext> buffersToWrite) {
         CompletableFuture<Void> flushSuccessNotifier = new CompletableFuture<>();
-        ioExecutor.execute(() -> flush(buffersToWrite, flushSuccessNotifier));
+        ioExecutor.execute(() -> flush(taskName, buffersToWrite, flushSuccessNotifier));
         return flushSuccessNotifier;
     }
 
@@ -118,11 +120,13 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
 
     /** Called in single-threaded ioExecutor. Order is guaranteed. */
     private void flush(
-            List<SubpartitionBufferContext> toWrite, CompletableFuture<Void> flushSuccessNotifier) {
+            String taskName,
+            List<SubpartitionBufferContext> toWrite,
+            CompletableFuture<Void> flushSuccessNotifier) {
         try {
             List<ProducerMergedPartitionFileIndex.FlushedBuffer> buffers = new ArrayList<>();
             calculateSizeAndFlushBuffers(toWrite, buffers);
-            partitionFileIndex.addBuffers(buffers);
+            partitionFileIndex.addBuffers(taskName, buffers);
             flushSuccessNotifier.complete(null);
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);

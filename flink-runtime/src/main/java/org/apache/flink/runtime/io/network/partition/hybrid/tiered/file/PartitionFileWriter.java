@@ -41,7 +41,9 @@ public interface PartitionFileWriter {
      *     the {@link CompletableFuture} is completed, the written process is completed.
      */
     CompletableFuture<Void> write(
-            TieredStoragePartitionId partitionId, List<SubpartitionBufferContext> buffersToWrite);
+            String taskName,
+            TieredStoragePartitionId partitionId,
+            List<SubpartitionBufferContext> buffersToWrite);
 
     /** Release all the resources of the {@link PartitionFileWriter}. */
     void release();

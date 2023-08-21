@@ -49,7 +49,9 @@ public class TestingPartitionFileWriter implements PartitionFileWriter {
 
     @Override
     public CompletableFuture<Void> write(
-            TieredStoragePartitionId partitionId, List<SubpartitionBufferContext> buffersToWrite) {
+            String taskName,
+            TieredStoragePartitionId partitionId,
+            List<SubpartitionBufferContext> buffersToWrite) {
         return writeFunction.apply(partitionId, buffersToWrite);
     }
 

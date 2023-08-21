@@ -129,7 +129,8 @@ class SubpartitionRemoteCacheManager {
         // Notify the partition file writer that the segment is finished through writing the
         // buffer context
         flushCompletableFuture =
-                partitionFileWriter.write(partitionId, Collections.singletonList(bufferContext));
+                partitionFileWriter.write(
+                        "", partitionId, Collections.singletonList(bufferContext));
 
         // Only task thread can add buffers, and the method can only be called by the task thread,
         // so accessing allBuffers is not guarded here.
@@ -175,7 +176,7 @@ class SubpartitionRemoteCacheManager {
                                             segmentId, allBuffersToFlush, false)));
             flushCompletableFuture =
                     partitionFileWriter.write(
-                            partitionId, Collections.singletonList(subpartitionBufferContext));
+                            "", partitionId, Collections.singletonList(subpartitionBufferContext));
         }
     }
 }

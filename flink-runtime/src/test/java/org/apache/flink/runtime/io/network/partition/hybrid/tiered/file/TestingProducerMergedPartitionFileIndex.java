@@ -56,7 +56,7 @@ public class TestingProducerMergedPartitionFileIndex extends ProducerMergedParti
     }
 
     @Override
-    void addBuffers(List<FlushedBuffer> buffers) {
+    void addBuffers(String taskName, List<FlushedBuffer> buffers) {
         addBuffersConsumer.accept(buffers);
     }
 

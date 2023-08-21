@@ -81,7 +81,9 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
 
     @Override
     public CompletableFuture<Void> write(
-            TieredStoragePartitionId partitionId, List<SubpartitionBufferContext> buffersToWrite) {
+            String taskName,
+            TieredStoragePartitionId partitionId,
+            List<SubpartitionBufferContext> buffersToWrite) {
         List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
         buffersToWrite.forEach(
                 subpartitionBuffers -> {

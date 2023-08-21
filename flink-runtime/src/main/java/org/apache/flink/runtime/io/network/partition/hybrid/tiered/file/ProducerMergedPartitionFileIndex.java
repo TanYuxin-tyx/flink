@@ -26,6 +26,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.IOUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
@@ -58,6 +61,9 @@ import static org.apache.flink.util.Preconditions.checkArgument;
  * </pre>
  */
 public class ProducerMergedPartitionFileIndex {
+
+    private static final Logger LOG =
+            LoggerFactory.getLogger(ProducerMergedPartitionFileIndex.class);
 
     private final Path indexFilePath;
 
@@ -96,12 +102,12 @@ public class ProducerMergedPartitionFileIndex {
      * @param buffers to be added. Note, the provided buffers are required to be physically
      *     consecutive and in the same order as in the file.
      */
-    void addBuffers(List<FlushedBuffer> buffers) {
+    void addBuffers(String taskName, List<FlushedBuffer> buffers) {
         if (buffers.isEmpty()) {
             return;
         }
 
-        Map<Integer, List<FixedSizeRegion>> convertedRegions = convertToRegions(buffers);
+        Map<Integer, List<FixedSizeRegion>> convertedRegions = convertToRegions(taskName, buffers);
         synchronized (lock) {
             convertedRegions.forEach(indexCache::put);
         }
@@ -137,7 +143,7 @@ public class ProducerMergedPartitionFileIndex {
     // ------------------------------------------------------------------------
 
     private static Map<Integer, List<FixedSizeRegion>> convertToRegions(
-            List<FlushedBuffer> buffers) {
+            String taskName, List<FlushedBuffer> buffers) {
         Map<Integer, List<FixedSizeRegion>> subpartitionRegionMap = new HashMap<>();
         Iterator<FlushedBuffer> iterator = buffers.iterator();
         FlushedBuffer firstBufferInRegion = iterator.next();
@@ -148,18 +154,20 @@ public class ProducerMergedPartitionFileIndex {
             if (currentBuffer.getSubpartitionId() != firstBufferInRegion.getSubpartitionId()
                     || currentBuffer.getBufferIndex() != lastBufferInRegion.getBufferIndex() + 1) {
                 // The current buffer belongs to a new region, add the current region to the map
-                addRegionToMap(firstBufferInRegion, lastBufferInRegion, subpartitionRegionMap);
+                addRegionToMap(
+                        taskName, firstBufferInRegion, lastBufferInRegion, subpartitionRegionMap);
                 firstBufferInRegion = currentBuffer;
             }
             lastBufferInRegion = currentBuffer;
         }
 
         // Add the last region to the map
-        addRegionToMap(firstBufferInRegion, lastBufferInRegion, subpartitionRegionMap);
+        addRegionToMap(taskName, firstBufferInRegion, lastBufferInRegion, subpartitionRegionMap);
         return subpartitionRegionMap;
     }
 
     private static void addRegionToMap(
+            String taskName,
             FlushedBuffer firstBufferInRegion,
             FlushedBuffer lastBufferInRegion,
             Map<Integer, List<FixedSizeRegion>> subpartitionRegionMap) {
@@ -178,6 +186,19 @@ public class ProducerMergedPartitionFileIndex {
                                 lastBufferInRegion.getBufferIndex()
                                         - firstBufferInRegion.getBufferIndex()
                                         + 1));
+        LOG.info(
+                "###"
+                        + taskName
+                        + " generate new region, start buffer index: "
+                        + firstBufferInRegion.getBufferIndex()
+                        + " start offset: "
+                        + firstBufferInRegion.getFileOffset()
+                        + " end offset: "
+                        + (lastBufferInRegion.getFileOffset() + lastBufferInRegion.bufferSizeBytes)
+                        + " numBuffers: "
+                        + (lastBufferInRegion.getBufferIndex()
+                                - firstBufferInRegion.getBufferIndex()
+                                + 1));
     }
 
     // ------------------------------------------------------------------------

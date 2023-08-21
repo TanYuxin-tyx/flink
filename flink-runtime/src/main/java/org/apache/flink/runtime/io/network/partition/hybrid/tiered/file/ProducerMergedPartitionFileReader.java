@@ -129,43 +129,39 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         List<Buffer> readBuffers = new LinkedList<>();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        if (shouldPrintLog) {
-            LOG.error(
-                    "### "
-                            + taskName
-                            + " try get cache, datafile: "
-                            + dataFilePath
-                            + " buffer index:"
-                            + bufferIndex
-                            + " segment Id:"
-                            + segmentId
-                            + " size:"
-                            + fileChannel.size());
-        }
+        LOG.error(
+                "### "
+                        + taskName
+                        + " try get cache, datafile: "
+                        + dataFilePath
+                        + " buffer index:"
+                        + bufferIndex
+                        + " segment Id:"
+                        + segmentId
+                        + " size:"
+                        + fileChannel.size());
         Optional<BufferOffsetCache> cache =
                 tryGetCache(cacheKey, reusedHeaderBuffer, partialBuffer, true);
         if (!cache.isPresent()) {
             return null;
         }
-        if (shouldPrintLog) {
-            LOG.error(
-                    "### "
-                            + taskName
-                            + " get cache "
-                            + cache.get().fileOffset
-                            + " nextBufferIndex:"
-                            + cache.get().nextBufferIndex
-                            + " region num buffers: "
-                            + cache.get().region.getNumBuffers()
-                            + " region first buffer index: "
-                            + cache.get().region.getFirstBufferIndex()
-                            + " region file offset: "
-                            + cache.get().region.getRegionFileOffset()
-                            + " region file end offset: "
-                            + cache.get().region.getRegionFileEndOffset()
-                            + " region size: "
-                            + cache.get().region.getSize());
-        }
+        LOG.error(
+                "### "
+                        + taskName
+                        + " get cache "
+                        + cache.get().fileOffset
+                        + " nextBufferIndex:"
+                        + cache.get().nextBufferIndex
+                        + " region num buffers: "
+                        + cache.get().region.getNumBuffers()
+                        + " region first buffer index: "
+                        + cache.get().region.getFirstBufferIndex()
+                        + " region file offset: "
+                        + cache.get().region.getRegionFileOffset()
+                        + " region file end offset: "
+                        + cache.get().region.getRegionFileEndOffset()
+                        + " region size: "
+                        + cache.get().region.getSize());
 
         long regionFileStartOffset =
                 partialBuffer == null ? cache.get().getFileOffset() : partialBuffer.getFileOffset();

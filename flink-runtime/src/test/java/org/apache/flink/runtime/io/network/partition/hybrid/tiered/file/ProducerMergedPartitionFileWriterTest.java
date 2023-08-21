@@ -65,6 +65,7 @@ class ProducerMergedPartitionFileWriterTest {
 
         // Write the file
         partitionFileWriter.write(
+                "",
                 TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
                 subpartitionBuffers);
         partitionFileWriter.release();

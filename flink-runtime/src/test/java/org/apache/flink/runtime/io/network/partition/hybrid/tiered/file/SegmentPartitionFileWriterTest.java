@@ -63,7 +63,7 @@ class SegmentPartitionFileWriterTest {
                         numSubpartitions, numSegments, numBuffersPerSegment, bufferSizeBytes);
 
         // Write the file
-        partitionFileWriter.write(partitionId, subpartitionBuffers);
+        partitionFileWriter.write("", partitionId, subpartitionBuffers);
         partitionFileWriter.release();
 
         // Check the written files

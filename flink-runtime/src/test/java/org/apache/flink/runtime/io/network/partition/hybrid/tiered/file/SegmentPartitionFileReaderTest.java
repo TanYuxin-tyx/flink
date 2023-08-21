@@ -77,7 +77,7 @@ class SegmentPartitionFileReaderTest {
                         DEFAULT_BUFFER_SIZE);
 
         // Write the file.
-        partitionFileWriter.write(DEFAULT_PARTITION_ID, subpartitionBuffers);
+        partitionFileWriter.write("", DEFAULT_PARTITION_ID, subpartitionBuffers);
         partitionFileWriter.release();
         partitionFileReader = new SegmentPartitionFileReader(tieredStorageDir.getPath());
     }

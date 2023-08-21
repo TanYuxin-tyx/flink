@@ -134,6 +134,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
         Runnable hasStartedFlushListener = diskIOScheduler::triggerScheduling;
         this.diskCacheManager =
                 new DiskCacheManager(
+                        taskName,
                         partitionId,
                         isBroadcastOnly ? 1 : numSubpartitions,
                         hasStartedFlushListener,

@@ -90,7 +90,7 @@ class ProducerMergedPartitionFileReaderTest {
                         DEFAULT_SEGMENT_NUM,
                         DEFAULT_BUFFER_NUMBER,
                         DEFAULT_BUFFER_SIZE);
-        partitionFileWriter.write(DEFAULT_PARTITION_ID, subpartitionBuffers).get();
+        partitionFileWriter.write("", DEFAULT_PARTITION_ID, subpartitionBuffers).get();
         partitionFileReader =
                 new ProducerMergedPartitionFileReader(testFilePath, partitionFileIndex);
     }
