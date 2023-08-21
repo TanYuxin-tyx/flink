@@ -172,6 +172,15 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         if (numBytesToRead == 0) {
             return null;
         }
+        LOG.info(
+                "###"
+                        + taskName
+                        + " reading from file offset: "
+                        + regionFileStartOffset
+                        + " num bytes to read:"
+                        + numBytesToRead
+                        + " region end offset: "
+                        + regionFileEndOffset);
         ByteBuffer byteBuffer = memorySegment.wrap(0, numBytesToRead);
         fileChannel.position(regionFileStartOffset);
 
@@ -194,8 +203,22 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 partialBuffer =
                         new PartialBuffer(
                                 regionFileStartOffset + numBytesToRead, partial.f0, partial.f1);
+                LOG.info(
+                        "###"
+                                + taskName
+                                + " next file offset: "
+                                + (regionFileStartOffset + numBytesToRead)
+                                + " region end offset: "
+                                + regionFileEndOffset);
                 readBuffers.add(partialBuffer);
             } else {
+                LOG.info(
+                        "###"
+                                + taskName
+                                + " no more data in region, next file offset: "
+                                + (regionFileStartOffset + numBytesToRead)
+                                + " region end offset: "
+                                + regionFileEndOffset);
                 checkState(partial.f0 == null);
             }
         } catch (Throwable throwable) {
@@ -303,11 +326,14 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                             "###"
                                     + taskName
                                     + " creating a partial buffer"
-                                    + slicedBuffer.readableBytes()
-                                    + " "
-                                    + slicedBuffer.isBuffer()
-                                    + " "
-                                    + slicedBuffer.missingLength()
+                                    + " sliced "
+                                    + (slicedBuffer == null
+                                            ? "null"
+                                            : +slicedBuffer.readableBytes()
+                                                    + " "
+                                                    + slicedBuffer.isBuffer()
+                                                    + " "
+                                                    + slicedBuffer.missingLength())
                                     + " current size: "
                                     + readBuffers.size()
                                     + " remaining: "

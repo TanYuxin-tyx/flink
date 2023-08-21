@@ -151,7 +151,7 @@ class ProducerMergedPartitionFileReaderTest {
     void testGetPriority() throws IOException {
         AtomicLong currentFileOffset = new AtomicLong(0);
         PartitionFileReader.PartialBuffer partialBuffer = null;
-        for (int bufferIndex = 0; bufferIndex < DEFAULT_BUFFER_NUMBER; ++bufferIndex) {
+        for (int bufferIndex = 0; bufferIndex < DEFAULT_BUFFER_NUMBER; ) {
             List<Buffer> buffers = readBuffer(bufferIndex, DEFAULT_SUBPARTITION_ID, partialBuffer);
             assertThat(buffers).isNotNull();
             for (Buffer buffer : buffers) {
@@ -164,13 +164,15 @@ class ProducerMergedPartitionFileReaderTest {
                     buffer.recycleBuffer();
                 }
             }
+            long expectedFileOffset =
+                    bufferIndex < DEFAULT_BUFFER_NUMBER ? currentFileOffset.get() : Long.MAX_VALUE;
             assertThat(
                             partitionFileReader.getPriority(
                                     DEFAULT_PARTITION_ID,
                                     DEFAULT_SUBPARTITION_ID,
                                     DEFAULT_SEGMENT_ID,
                                     bufferIndex))
-                    .isEqualTo(currentFileOffset.get());
+                    .isEqualTo(expectedFileOffset);
         }
     }
 
@@ -200,7 +202,7 @@ class ProducerMergedPartitionFileReaderTest {
                                 DEFAULT_SUBPARTITION_ID,
                                 DEFAULT_SEGMENT_ID,
                                 DEFAULT_BUFFER_NUMBER))
-                .isEqualTo(90);
+                .isEqualTo(Long.MAX_VALUE);
     }
 
     @Test
