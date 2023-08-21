@@ -443,13 +443,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                                         + " "
                                         + header.getDataType()
                                         + " isCompressed: "
-                                        + header.isCompressed()
-                                        + " buffer: "
-                                        + reusedHeaderBuffer
-                                        + " reuse header position: "
-                                        + reusedHeaderBuffer.position()
-                                        + " remaining: "
-                                        + reusedHeaderBuffer.remaining()));
+                                        + header.isCompressed())
+                        + " header buffer: "
+                        + reusedHeaderBuffer
+                        + " reuse header position: "
+                        + reusedHeaderBuffer.position()
+                        + " remaining: "
+                        + reusedHeaderBuffer.remaining());
         checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
         return Tuple2.of(slicedBuffer, header);
     }
@@ -458,12 +458,6 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             String taskName, ByteBuffer buffer, ByteBuffer reusedHeaderBuffer) {
         BufferHeader header = null;
         try {
-            if (reusedHeaderBuffer.position() == HEADER_LENGTH) {
-                header = BufferReaderWriterUtil.parseBufferHeader(buffer);
-                reusedHeaderBuffer.clear();
-                return header;
-            }
-
             if (reusedHeaderBuffer.position() > 0) {
                 checkState(reusedHeaderBuffer.position() < HEADER_LENGTH);
                 LOG.error(
