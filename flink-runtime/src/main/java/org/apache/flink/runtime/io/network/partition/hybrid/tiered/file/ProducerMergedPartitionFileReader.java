@@ -451,6 +451,9 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                         + " remaining: "
                         + reusedHeaderBuffer.remaining());
         checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
+        if (header != null) {
+            reusedHeaderBuffer.clear();
+        }
         return Tuple2.of(slicedBuffer, header);
     }
 
