@@ -459,15 +459,17 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 partialBuffer = null;
                 for (int i = 0; i < readBuffers.size(); i++) {
                     Buffer readBuffer = readBuffers.get(i);
-                    if (shouldPrintLog) {
-                        LOG.error(
-                                "###"
-                                        + taskName
-                                        + " poll buffer index "
-                                        + nextBufferIndex
-                                        + " buffer size: "
-                                        + readBuffer.readableBytes());
-                    }
+                    LOG.error(
+                            "###"
+                                    + taskName
+                                    + " total buffers: "
+                                    + readBuffers.size()
+                                    + " last buffer: "
+                                    + readBuffers.get(readBuffers.size() - 1)
+                                    + " poll buffer index "
+                                    + nextBufferIndex
+                                    + " buffer size: "
+                                    + readBuffer.readableBytes());
 
                     if (i == readBuffers.size() - 1) {
                         if (readBuffer instanceof PartitionFileReader.PartialBuffer) {

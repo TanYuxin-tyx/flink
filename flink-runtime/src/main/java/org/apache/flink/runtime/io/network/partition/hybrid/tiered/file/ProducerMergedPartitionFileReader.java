@@ -135,6 +135,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                             + taskName
                             + " try get cache, datafile: "
                             + dataFilePath
+                            + " buffer index:"
+                            + bufferIndex
+                            + " segment Id:"
+                            + segmentId
                             + " size:"
                             + fileChannel.size());
         }
@@ -201,6 +205,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         NetworkBuffer buffer = new NetworkBuffer(memorySegment, recycler);
         buffer.setSize(byteBuffer.remaining());
         int numFullBuffers;
+        boolean noMoreDataInRegion = false;
         try {
             Tuple2<CompositeBuffer, BufferHeader> partial =
                     splitBuffer(
@@ -229,9 +234,12 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                                 + taskName
                                 + " no more data in region, next file offset: "
                                 + (regionFileStartOffset + numBytesToRead)
+                                + " new buffer index: "
+                                + (bufferIndex + numFullBuffers)
                                 + " region end offset: "
                                 + regionFileEndOffset);
                 checkState(partial.f0 == null);
+                noMoreDataInRegion = true;
             }
         } catch (Throwable throwable) {
             throw throwable;
@@ -241,6 +249,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
         cache.get().setReadOffset(regionFileStartOffset + numBytesToRead);
         boolean hasNextBuffer = cache.get().advanceBuffers(numFullBuffers);
+        checkState(hasNextBuffer == !noMoreDataInRegion);
         checkState(
                 !hasNextBuffer && regionFileStartOffset + numBytesToRead == regionFileEndOffset
                         || regionFileStartOffset + numBytesToRead < regionFileEndOffset);
