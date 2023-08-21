@@ -35,6 +35,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 
+import static org.apache.flink.util.Preconditions.checkArgument;
+
 /** {@link PartitionFileReader} defines the read logic for different types of shuffle files. */
 public interface PartitionFileReader {
 
@@ -100,11 +102,18 @@ public interface PartitionFileReader {
 
         private final BufferHeader bufferHeader;
 
+        private final int toBackBytes;
+
         public PartialBuffer(
-                long fileOffset, CompositeBuffer compositeBuffer, BufferHeader bufferHeader) {
+                long fileOffset,
+                CompositeBuffer compositeBuffer,
+                BufferHeader bufferHeader,
+                int toBackBytes) {
+            checkArgument(fileOffset > 0 && toBackBytes == 0 || fileOffset < 0 && toBackBytes >= 0);
             this.fileOffset = fileOffset;
             this.compositeBuffer = compositeBuffer;
             this.bufferHeader = bufferHeader;
+            this.toBackBytes = toBackBytes;
         }
 
         /**
@@ -121,6 +130,10 @@ public interface PartitionFileReader {
 
         public BufferHeader getBufferHeader() {
             return bufferHeader;
+        }
+
+        public int getToBackBytes() {
+            return toBackBytes;
         }
 
         @Override

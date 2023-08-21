@@ -53,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.HEADER_LENGTH;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -375,6 +376,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private final boolean shouldPrintLog;
 
+        private int toBackBytes;
+
         private ScheduledSubpartitionReader(
                 TieredStorageSubpartitionId subpartitionId,
                 NettyConnectionWriter nettyConnectionWriter,
@@ -412,6 +415,12 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 MemorySegment memorySegment = buffers.poll();
                 numReadBuffers++;
                 List<Buffer> readBuffers;
+                checkState(partialBuffer == null || toBackBytes == 0);
+                if (partialBuffer == null && toBackBytes > 0) {
+                    partialBuffer =
+                            new PartitionFileReader.PartialBuffer(-1, null, null, toBackBytes);
+                    toBackBytes = 0;
+                }
                 try {
                     if ((readBuffers =
                                     partitionFileReader.readBuffer(
@@ -464,10 +473,18 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     }
                 }
             }
+            toBackBytes = 0;
             if (reusedHeaderBuffer.position() > 0) {
+                toBackBytes += reusedHeaderBuffer.position();
                 reusedHeaderBuffer.clear();
             }
             if (partialBuffer != null) {
+                if (partialBuffer.getBufferHeader() != null) {
+                    toBackBytes += HEADER_LENGTH;
+                }
+                if (partialBuffer.getCompositeBuffer() != null) {
+                    toBackBytes += partialBuffer.getCompositeBuffer().readableBytes();
+                }
                 partialBuffer.recycleBuffer();
                 partialBuffer = null;
             }
