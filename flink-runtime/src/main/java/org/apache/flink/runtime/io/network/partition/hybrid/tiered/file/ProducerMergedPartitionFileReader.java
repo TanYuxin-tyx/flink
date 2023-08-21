@@ -458,6 +458,9 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             String taskName, ByteBuffer buffer, ByteBuffer reusedHeaderBuffer) {
         BufferHeader header = null;
         try {
+            if (reusedHeaderBuffer.position() >= HEADER_LENGTH) {
+                reusedHeaderBuffer.clear();
+            }
             if (reusedHeaderBuffer.position() > 0) {
                 LOG.error(
                         "###"
@@ -503,6 +506,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                                 + header.getDataType()
                                 + " isCompressed: "
                                 + header.isCompressed());
+                reusedHeaderBuffer.clear();
             }
         } catch (Throwable throwable) {
             reusedHeaderBuffer.clear();
@@ -518,6 +522,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                             + " "
                             + buffer,
                     throwable);
+            throw throwable;
         }
 
         return header;
