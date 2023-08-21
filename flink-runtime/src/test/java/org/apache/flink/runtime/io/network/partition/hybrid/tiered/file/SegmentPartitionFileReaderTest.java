@@ -103,12 +103,20 @@ class SegmentPartitionFileReaderTest {
     void testGetPriority() throws IOException {
         assertThat(
                         partitionFileReader.getPriority(
-                                DEFAULT_PARTITION_ID, DEFAULT_SUBPARTITION_ID, 0, 0))
+                                DEFAULT_PARTITION_ID,
+                                DEFAULT_SUBPARTITION_ID,
+                                0,
+                                0,
+                                BufferReaderWriterUtil.allocatedHeaderBuffer()))
                 .isEqualTo(-1);
         assertThat(readBuffer(0, DEFAULT_SUBPARTITION_ID, 0)).isNotNull();
         assertThat(
                         partitionFileReader.getPriority(
-                                DEFAULT_PARTITION_ID, DEFAULT_SUBPARTITION_ID, 0, 1))
+                                DEFAULT_PARTITION_ID,
+                                DEFAULT_SUBPARTITION_ID,
+                                0,
+                                1,
+                                BufferReaderWriterUtil.allocatedHeaderBuffer()))
                 .isEqualTo(-1);
     }
 

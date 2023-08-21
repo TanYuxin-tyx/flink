@@ -142,7 +142,8 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            int bufferIndex) {
+            int bufferIndex,
+            ByteBuffer reusedHeaderBuffer) {
         // noop
         return -1;
     }

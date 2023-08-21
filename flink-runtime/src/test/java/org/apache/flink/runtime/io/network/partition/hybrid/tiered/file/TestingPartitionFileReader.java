@@ -71,7 +71,8 @@ public class TestingPartitionFileReader implements PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            int bufferIndex) {
+            int bufferIndex,
+            ByteBuffer reusedHeaderBuffer) {
         return getPriorityFunction.apply(subpartitionId.getSubpartitionId());
     }
 

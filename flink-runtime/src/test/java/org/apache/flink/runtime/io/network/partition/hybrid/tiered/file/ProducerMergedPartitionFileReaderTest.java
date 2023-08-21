@@ -174,7 +174,8 @@ class ProducerMergedPartitionFileReaderTest {
                                     DEFAULT_PARTITION_ID,
                                     DEFAULT_SUBPARTITION_ID,
                                     DEFAULT_SEGMENT_ID,
-                                    bufferIndex))
+                                    bufferIndex,
+                                    BufferReaderWriterUtil.allocatedHeaderBuffer()))
                     .isEqualTo(expectedFileOffset);
         }
     }
@@ -204,7 +205,8 @@ class ProducerMergedPartitionFileReaderTest {
                                 DEFAULT_PARTITION_ID,
                                 DEFAULT_SUBPARTITION_ID,
                                 DEFAULT_SEGMENT_ID,
-                                DEFAULT_BUFFER_NUMBER))
+                                DEFAULT_BUFFER_NUMBER,
+                                BufferReaderWriterUtil.allocatedHeaderBuffer()))
                 .isEqualTo(Long.MAX_VALUE);
     }
 

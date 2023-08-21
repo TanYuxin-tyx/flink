@@ -492,7 +492,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                             partitionId,
                                             subpartitionId,
                                             nextSegmentId,
-                                            nextBufferIndex);
+                                            nextBufferIndex,
+                                            reusedHeaderBuffer);
         }
 
         private void writeToNettyConnectionWriter(NettyPayload nettyPayload) {

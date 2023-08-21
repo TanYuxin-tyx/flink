@@ -85,7 +85,8 @@ public interface PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            int bufferIndex);
+            int bufferIndex,
+            ByteBuffer reusedHeaderBuffer);
 
     /** Release the {@link PartitionFileReader}. */
     void release();
