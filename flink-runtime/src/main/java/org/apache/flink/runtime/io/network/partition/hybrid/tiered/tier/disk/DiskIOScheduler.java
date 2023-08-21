@@ -438,11 +438,16 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                         + readBuffer.readableBytes());
                     }
 
-                    if (readBuffer instanceof PartitionFileReader.PartialBuffer) {
-                        checkState(i == readBuffers.size() - 1);
-                        partialBuffer = (PartitionFileReader.PartialBuffer) readBuffer;
-                        continue;
+                    if (i == readBuffers.size() - 1) {
+                        if (readBuffer instanceof PartitionFileReader.PartialBuffer) {
+                            partialBuffer = (PartitionFileReader.PartialBuffer) readBuffer;
+                        } else {
+                            // Only when the region is finished read, the last buffer is not partial
+                            // buffer
+                            partialBuffer = null;
+                        }
                     }
+
                     writeToNettyConnectionWriter(
                             NettyPayload.newBuffer(
                                     readBuffer,
