@@ -169,6 +169,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         } else if (partialBuffer.getToBackBytes() > 0) {
             cache.get().advanceBytes(-partialBuffer.getToBackBytes(), 0);
             regionFileStartOffset = cache.get().getFileOffset() - partialBuffer.getToBackBytes();
+            checkState(regionFileStartOffset >= 0);
         } else {
             regionFileStartOffset = partialBuffer.getFileOffset();
         }
@@ -189,6 +190,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                         + cache.get().getFileOffset()
                         + " partial buffer offset: "
                         + (partialBuffer == null ? "null" : partialBuffer.getFileOffset())
+                        + " partial buffer back bytes: "
+                        + (partialBuffer == null ? "null" : partialBuffer.getToBackBytes())
                         + regionFileStartOffset
                         + " num bytes to read:"
                         + numBytesToRead
@@ -670,6 +673,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         private boolean advanceBytes(long readSizeBytes, int numBuffers) {
             fileOffset += readSizeBytes;
             nextBufferIndex += numBuffers;
+            checkState(fileOffset >= 0);
             return nextBufferIndex < (region.getFirstBufferIndex() + region.getNumBuffers());
         }
 
