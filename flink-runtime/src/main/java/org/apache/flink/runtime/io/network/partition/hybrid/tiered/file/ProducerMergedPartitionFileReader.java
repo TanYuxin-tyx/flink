@@ -176,6 +176,12 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 "###"
                         + taskName
                         + " reading from file offset: "
+                        + " partial buffer: "
+                        + partialBuffer
+                        + " cache offset: "
+                        + cache.get().getFileOffset()
+                        + " partial buffer offset: "
+                        + (partialBuffer == null ? "null" : partialBuffer.getFileOffset())
                         + regionFileStartOffset
                         + " num bytes to read:"
                         + numBytesToRead
