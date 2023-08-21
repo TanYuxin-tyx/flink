@@ -376,6 +376,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private final boolean shouldPrintLog;
 
+        private long previousReadOffset;
+
         private int toBackBytes;
 
         private ScheduledSubpartitionReader(
@@ -416,9 +418,20 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 numReadBuffers++;
                 List<Buffer> readBuffers;
                 checkState(partialBuffer == null || toBackBytes == 0);
-                if (partialBuffer == null && toBackBytes > 0) {
+                if (partialBuffer == null && previousReadOffset > 0 && toBackBytes > 0) {
+                    LOG.info(
+                            "###"
+                                    + taskName
+                                    + " reset offset from "
+                                    + previousReadOffset
+                                    + " to "
+                                    + (previousReadOffset - toBackBytes)
+                                    + " back len:"
+                                    + toBackBytes);
+                    checkState(previousReadOffset >= toBackBytes);
                     partialBuffer =
-                            new PartitionFileReader.PartialBuffer(-1, null, null, toBackBytes);
+                            new PartitionFileReader.PartialBuffer(
+                                    previousReadOffset - toBackBytes, null, null);
                     toBackBytes = 0;
                 }
                 try {
@@ -459,6 +472,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     if (i == readBuffers.size() - 1
                             && readBuffer instanceof PartitionFileReader.PartialBuffer) {
                         partialBuffer = (PartitionFileReader.PartialBuffer) readBuffer;
+                        previousReadOffset = partialBuffer.getFileOffset();
                         continue;
                     }
 

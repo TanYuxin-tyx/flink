@@ -163,16 +163,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                             + cache.get().region.getSize());
         }
 
-        long regionFileStartOffset;
-        if (partialBuffer == null) {
-            regionFileStartOffset = cache.get().getFileOffset();
-        } else if (partialBuffer.getToBackBytes() > 0) {
-            cache.get().advanceBytes(-partialBuffer.getToBackBytes(), 0);
-            regionFileStartOffset = cache.get().getFileOffset() - partialBuffer.getToBackBytes();
-            checkState(regionFileStartOffset >= 0);
-        } else {
-            regionFileStartOffset = partialBuffer.getFileOffset();
-        }
+        long regionFileStartOffset =
+                partialBuffer == null ? cache.get().getFileOffset() : partialBuffer.getFileOffset();
         long regionFileEndOffset = cache.get().region.getRegionFileEndOffset();
         checkState(regionFileStartOffset <= regionFileEndOffset);
         int numBytesToRead =
@@ -190,8 +182,6 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                         + cache.get().getFileOffset()
                         + " partial buffer offset: "
                         + (partialBuffer == null ? "null" : partialBuffer.getFileOffset())
-                        + " partial buffer back bytes: "
-                        + (partialBuffer == null ? "null" : partialBuffer.getToBackBytes())
                         + regionFileStartOffset
                         + " num bytes to read:"
                         + numBytesToRead
@@ -224,7 +214,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             if (regionFileStartOffset + numBytesToRead < regionFileEndOffset) {
                 partialBuffer =
                         new PartialBuffer(
-                                regionFileStartOffset + numBytesToRead, partial.f0, partial.f1, 0);
+                                regionFileStartOffset + numBytesToRead, partial.f0, partial.f1);
                 LOG.info(
                         "###"
                                 + taskName
@@ -249,7 +239,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             buffer.recycleBuffer();
         }
 
-        boolean hasNextBuffer = cache.get().advanceBytes(numBytesToRead, numFullBuffers);
+        cache.get().setReadOffset(regionFileStartOffset + numBytesToRead);
+        boolean hasNextBuffer = cache.get().advanceBuffers(numFullBuffers);
         checkState(
                 !hasNextBuffer && regionFileStartOffset + numBytesToRead == regionFileEndOffset
                         || regionFileStartOffset + numBytesToRead < regionFileEndOffset);
@@ -262,22 +253,6 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         }
 
         return readBuffers;
-        //            if (hasNextBuffer) {
-        //                int nextBufferIndex = bufferIndex + 1;
-        //                // TODO: introduce the LRU cache strategy in the future to restrict the
-        // total
-        //                // cache number. Testing to prevent cache leaks has been implemented.
-        //                if (numCaches < maxCacheNumber) {
-        //                    bufferOffsetCaches.put(Tuple2.of(subpartitionId, nextBufferIndex),
-        // cache.get());
-        //                    numCaches++;
-        //                }
-        //            }
-        //            return Collections.singletonList(buffer);
-        //        } else {
-        //            // TODO
-        //            return null;
-        //        }
     }
 
     private Tuple2<CompositeBuffer, BufferHeader> splitBuffer(
@@ -674,6 +649,15 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             fileOffset += readSizeBytes;
             nextBufferIndex += numBuffers;
             checkState(fileOffset >= 0);
+            return nextBufferIndex < (region.getFirstBufferIndex() + region.getNumBuffers());
+        }
+
+        private void setReadOffset(long newFileOffset) {
+            fileOffset = newFileOffset;
+        }
+
+        private boolean advanceBuffers(int numBuffers) {
+            nextBufferIndex += numBuffers;
             return nextBufferIndex < (region.getFirstBufferIndex() + region.getNumBuffers());
         }
 

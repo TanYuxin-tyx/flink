@@ -102,18 +102,12 @@ public interface PartitionFileReader {
 
         private final BufferHeader bufferHeader;
 
-        private final int toBackBytes;
-
         public PartialBuffer(
-                long fileOffset,
-                CompositeBuffer compositeBuffer,
-                BufferHeader bufferHeader,
-                int toBackBytes) {
-            checkArgument(fileOffset > 0 && toBackBytes == 0 || fileOffset < 0 && toBackBytes >= 0);
+                long fileOffset, CompositeBuffer compositeBuffer, BufferHeader bufferHeader) {
+            checkArgument(fileOffset >= 0);
             this.fileOffset = fileOffset;
             this.compositeBuffer = compositeBuffer;
             this.bufferHeader = bufferHeader;
-            this.toBackBytes = toBackBytes;
         }
 
         /**
@@ -130,10 +124,6 @@ public interface PartitionFileReader {
 
         public BufferHeader getBufferHeader() {
             return bufferHeader;
-        }
-
-        public int getToBackBytes() {
-            return toBackBytes;
         }
 
         @Override
