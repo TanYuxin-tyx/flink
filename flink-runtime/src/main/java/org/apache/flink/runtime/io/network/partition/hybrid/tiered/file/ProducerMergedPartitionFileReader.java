@@ -287,6 +287,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                         + byteBuffer.remaining()
                         + " header: "
                         + header
+                        + " reused header buffer position:"
+                        + reusedHeaderBuffer.position()
                         + " partial buffer: "
                         + partialBuffer
                         + " slicedBuffer: "
@@ -315,6 +317,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             if (header == null
                     && (header = parseBufferHeader(taskName, byteBuffer, reusedHeaderBuffer))
                             == null) {
+                LOG.error(
+                        "###"
+                                + taskName
+                                + " break the loop, header is null,: "
+                                + reusedHeaderBuffer.position()
+                                + " byteBuffer remain:"
+                                + byteBuffer.remaining());
                 break;
             }
 
@@ -454,10 +463,19 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                         "###"
                                 + taskName
                                 + " parseBufferHeader, position: "
-                                + reusedHeaderBuffer.position());
+                                + reusedHeaderBuffer.position()
+                                + " buffer remain:"
+                                + buffer.remaining());
                 while (reusedHeaderBuffer.hasRemaining()) {
                     reusedHeaderBuffer.put(buffer.get());
                 }
+                LOG.error(
+                        "###"
+                                + taskName
+                                + " parseBufferHeader, position: "
+                                + reusedHeaderBuffer.position()
+                                + " buffer remain:"
+                                + buffer.remaining());
                 reusedHeaderBuffer.flip();
                 header = BufferReaderWriterUtil.parseBufferHeader(reusedHeaderBuffer);
                 reusedHeaderBuffer.clear();
@@ -487,6 +505,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                                 + header.isCompressed());
             }
         } catch (Throwable throwable) {
+            reusedHeaderBuffer.clear();
             LOG.error(
                     "###"
                             + taskName
