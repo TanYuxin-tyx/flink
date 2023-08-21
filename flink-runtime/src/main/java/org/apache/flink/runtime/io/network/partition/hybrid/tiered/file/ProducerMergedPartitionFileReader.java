@@ -255,6 +255,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                         + partialBuffer
                         + " slicedBuffer: "
                         + slicedBuffer
+                        + " sliced missing len:"
+                        + (slicedBuffer == null ? 0 : slicedBuffer.missingLength())
+                        + " sliced len:"
+                        + (slicedBuffer == null ? 0 : slicedBuffer.readableBytes())
                         + " header: "
                         + header
                         + (header == null
@@ -268,6 +272,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         if (header == null) {
             checkState(slicedBuffer == null || reusedHeaderBuffer.position() > 0);
         }
+        checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
 
         while (byteBuffer.hasRemaining()) {
             // Parse the small buffer's header
@@ -395,6 +400,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                                         + reusedHeaderBuffer.position()
                                         + " remaining: "
                                         + reusedHeaderBuffer.remaining()));
+        checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
         return Tuple2.of(slicedBuffer, header);
     }
 
