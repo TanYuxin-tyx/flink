@@ -132,6 +132,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         LOG.error(
                 "### "
                         + taskName
+                        + " subpartition id:"
+                        + subpartitionId
                         + " try get cache, datafile: "
                         + dataFilePath
                         + " buffer index:"
@@ -148,6 +150,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         LOG.error(
                 "### "
                         + taskName
+                        + " subpartition id:"
+                        + subpartitionId
                         + " get cache "
                         + cache.get().fileOffset
                         + " nextBufferIndex:"
@@ -175,6 +179,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         LOG.info(
                 "###"
                         + taskName
+                        + " subpartition id:"
+                        + subpartitionId
                         + " reading from file offset: "
                         + " partial buffer: "
                         + partialBuffer
@@ -206,6 +212,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             Tuple2<CompositeBuffer, BufferHeader> partial =
                     splitBuffer(
                             taskName,
+                            subpartitionId.getSubpartitionId(),
                             byteBuffer,
                             buffer,
                             reusedHeaderBuffer,
@@ -219,6 +226,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 LOG.info(
                         "###"
                                 + taskName
+                                + " subpartition id:"
+                                + subpartitionId
                                 + " next file offset: "
                                 + (regionFileStartOffset + numBytesToRead)
                                 + " region end offset: "
@@ -228,6 +237,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 LOG.info(
                         "###"
                                 + taskName
+                                + " subpartition id:"
+                                + subpartitionId
                                 + " no more data in region, next file offset: "
                                 + (regionFileStartOffset + numBytesToRead)
                                 + " new buffer index: "
@@ -262,6 +273,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
     private Tuple2<CompositeBuffer, BufferHeader> splitBuffer(
             String taskName,
+            int subpartitionId,
             ByteBuffer byteBuffer,
             NetworkBuffer buffer,
             ByteBuffer reusedHeaderBuffer,
@@ -273,6 +285,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         LOG.error(
                 "###"
                         + taskName
+                        + " subpartition id: "
+                        + subpartitionId
                         + "start split buffer "
                         + byteBuffer.remaining()
                         + " header: "
@@ -305,11 +319,18 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         while (byteBuffer.hasRemaining()) {
             // Parse the small buffer's header
             if (header == null
-                    && (header = parseBufferHeader(taskName, byteBuffer, reusedHeaderBuffer))
+                    && (header =
+                                    parseBufferHeader(
+                                            taskName,
+                                            subpartitionId,
+                                            byteBuffer,
+                                            reusedHeaderBuffer))
                             == null) {
                 LOG.error(
                         "###"
                                 + taskName
+                                + " subpartition id: "
+                                + subpartitionId
                                 + " break the loop, header is null,: "
                                 + reusedHeaderBuffer.position()
                                 + " byteBuffer remain:"
@@ -339,6 +360,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                     LOG.info(
                             "###"
                                     + taskName
+                                    + " subpartition id: "
+                                    + subpartitionId
                                     + " creating a partial buffer"
                                     + " sliced "
                                     + (slicedBuffer == null
@@ -361,6 +384,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 LOG.info(
                         "###"
                                 + taskName
+                                + " subpartition id: "
+                                + subpartitionId
                                 + " before position to new position: "
                                 + byteBuffer.position()
                                 + " sliced buffer len: "
@@ -380,6 +405,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 LOG.info(
                         "###"
                                 + taskName
+                                + " subpartition id: "
+                                + subpartitionId
                                 + " position to new position: "
                                 + position
                                 + " sliced buffer len: "
@@ -399,6 +426,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             LOG.info(
                     "###"
                             + taskName
+                            + " subpartition id: "
+                            + subpartitionId
                             + " add a new sliced buffer"
                             + slicedBuffer.readableBytes()
                             + " "
@@ -414,6 +443,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         LOG.error(
                 "###"
                         + taskName
+                        + " subpartition id: "
+                        + subpartitionId
                         + " byte buffer: "
                         + byteBuffer
                         + " "
@@ -448,7 +479,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     }
 
     private BufferHeader parseBufferHeader(
-            String taskName, ByteBuffer buffer, ByteBuffer reusedHeaderBuffer) {
+            String taskName, int subpartitionId, ByteBuffer buffer, ByteBuffer reusedHeaderBuffer) {
         BufferHeader header = null;
         try {
             if (reusedHeaderBuffer.position() > 0) {
@@ -456,6 +487,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 LOG.error(
                         "###"
                                 + taskName
+                                + " subpartition id: "
+                                + subpartitionId
                                 + " parseBufferHeader, position: "
                                 + reusedHeaderBuffer.position()
                                 + " buffer remain:"
@@ -466,6 +499,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 LOG.error(
                         "###"
                                 + taskName
+                                + " subpartition id: "
+                                + subpartitionId
                                 + " parseBufferHeader, position: "
                                 + reusedHeaderBuffer.position()
                                 + " buffer remain:"
@@ -479,6 +514,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 LOG.error(
                         "###"
                                 + taskName
+                                + " subpartition id: "
+                                + subpartitionId
                                 + " parseBufferHeader, left some data, but not enough for header, remaining: "
                                 + buffer.remaining()
                                 + " header len:"
@@ -489,6 +526,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 LOG.error(
                         "###"
                                 + taskName
+                                + " subpartition id: "
+                                + subpartitionId
                                 + " parseBufferHeader, remaining: "
                                 + buffer.remaining()
                                 + " header len:"
@@ -504,6 +543,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             LOG.error(
                     "###"
                             + taskName
+                            + " subpartition id: "
+                            + subpartitionId
                             + " parse header error, "
                             + header
                             + " remaining: "

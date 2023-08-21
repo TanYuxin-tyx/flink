@@ -189,6 +189,8 @@ public class ProducerMergedPartitionFileIndex {
         LOG.info(
                 "###"
                         + taskName
+                        + " subpartition: "
+                        + firstBufferInRegion.getSubpartitionId()
                         + " generate new region, start buffer index: "
                         + firstBufferInRegion.getBufferIndex()
                         + " start offset: "

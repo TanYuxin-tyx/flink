@@ -404,7 +404,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                 + " has already been failed.");
             }
             if (shouldPrintLog) {
-                LOG.error("###" + taskName + " Availability buffer number " + buffers.size());
+                LOG.error(
+                        "###"
+                                + taskName
+                                + " subpartition id:"
+                                + subpartitionId
+                                + " Availability buffer number "
+                                + buffers.size());
             }
 
             int numReadBuffers = 0;
@@ -422,6 +428,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     LOG.info(
                             "###"
                                     + taskName
+                                    + " subpartition id:"
+                                    + subpartitionId
                                     + " reset offset from "
                                     + previousReadOffset
                                     + " to "
@@ -462,6 +470,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     LOG.error(
                             "###"
                                     + taskName
+                                    + " subpartition id:"
+                                    + subpartitionId
                                     + " total buffers: "
                                     + readBuffers.size()
                                     + " last buffer: "
@@ -543,6 +553,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 LOG.info(
                         "###"
                                 + taskName
+                                + " subpartition id:"
+                                + subpartitionId
                                 + " netty payload queue size: "
                                 + nettyConnectionWriter.numQueuedBuffers());
             }
