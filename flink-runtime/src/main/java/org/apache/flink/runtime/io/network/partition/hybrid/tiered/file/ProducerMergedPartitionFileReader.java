@@ -211,7 +211,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         int nextBufferIndex = bufferIndex + numFullBuffers;
         // TODO: introduce the LRU cache strategy in the future to restrict the total
         // cache number. Testing to prevent cache leaks has been implemented.
-        if (numCaches < maxCacheNumber) {
+        if (hasNextBuffer && numCaches < maxCacheNumber) {
             bufferOffsetCaches.put(Tuple2.of(subpartitionId, nextBufferIndex), cache.get());
             numCaches++;
         }
