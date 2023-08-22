@@ -396,55 +396,58 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             }
 
             hasRegionFinishedRead = false;
-            while (!buffers.isEmpty() && !hasRegionFinishedRead && nextSegmentId >= 0) {
-                MemorySegment memorySegment = buffers.poll();
-                checkState(partialBuffer == null || toBackBytes == 0);
-                if (partialBuffer == null && previousReadOffset > 0 && toBackBytes > 0) {
-                    checkState(previousReadOffset >= toBackBytes);
-                    partialBuffer =
-                            new PartitionFileReader.PartialBuffer(
-                                    previousReadOffset - toBackBytes, null, null);
-                    toBackBytes = 0;
-                }
-                try {
-                    if ((!partitionFileReader.readBuffer(
-                            shouldPrintLog,
-                            taskName,
-                            partitionId,
-                            subpartitionId,
-                            nextSegmentId,
-                            nextBufferIndex,
-                            memorySegment,
-                            recycler,
-                            reusedHeaderBuffer,
-                            partialBuffer,
-                            this::writeBufferToNettyWriterAndUpdateSegmentId))) {
-                        buffers.add(memorySegment);
-                        break;
+            try {
+                while (!buffers.isEmpty() && !hasRegionFinishedRead && nextSegmentId >= 0) {
+                    MemorySegment memorySegment = buffers.poll();
+                    checkState(partialBuffer == null || toBackBytes == 0);
+                    if (partialBuffer == null && previousReadOffset > 0 && toBackBytes > 0) {
+                        checkState(previousReadOffset >= toBackBytes);
+                        partialBuffer =
+                                new PartitionFileReader.PartialBuffer(
+                                        previousReadOffset - toBackBytes, null, null);
+                        toBackBytes = 0;
                     }
-                } catch (Throwable throwable) {
-                    buffers.add(memorySegment);
-                    throw throwable;
+                    try {
+                        if ((!partitionFileReader.readBuffer(
+                                shouldPrintLog,
+                                taskName,
+                                partitionId,
+                                subpartitionId,
+                                nextSegmentId,
+                                nextBufferIndex,
+                                memorySegment,
+                                recycler,
+                                reusedHeaderBuffer,
+                                partialBuffer,
+                                this::writeBufferToNettyWriterAndUpdateSegmentId))) {
+                            buffers.add(memorySegment);
+                            break;
+                        }
+                    } catch (Throwable throwable) {
+                        buffers.add(memorySegment);
+                        throw throwable;
+                    }
                 }
-            }
-            if (toBackBytes > 0) {
-                checkState(partialBuffer == null && reusedHeaderBuffer.position() == 0);
-                return;
-            }
-            toBackBytes = 0;
-            if (reusedHeaderBuffer.position() > 0) {
-                toBackBytes += reusedHeaderBuffer.position();
-                reusedHeaderBuffer.clear();
-            }
-            if (partialBuffer != null) {
-                if (partialBuffer.getBufferHeader() != null) {
-                    toBackBytes += HEADER_LENGTH;
+            } finally {
+                if (toBackBytes > 0) {
+                    checkState(partialBuffer == null && reusedHeaderBuffer.position() == 0);
+                } else {
+                    toBackBytes = 0;
+                    if (reusedHeaderBuffer.position() > 0) {
+                        toBackBytes += reusedHeaderBuffer.position();
+                        reusedHeaderBuffer.clear();
+                    }
+                    if (partialBuffer != null) {
+                        if (partialBuffer.getBufferHeader() != null) {
+                            toBackBytes += HEADER_LENGTH;
+                        }
+                        if (partialBuffer.getCompositeBuffer() != null) {
+                            toBackBytes += partialBuffer.getCompositeBuffer().readableBytes();
+                        }
+                        partialBuffer.recycleBuffer();
+                        partialBuffer = null;
+                    }
                 }
-                if (partialBuffer.getCompositeBuffer() != null) {
-                    toBackBytes += partialBuffer.getCompositeBuffer().readableBytes();
-                }
-                partialBuffer.recycleBuffer();
-                partialBuffer = null;
             }
         }
 
