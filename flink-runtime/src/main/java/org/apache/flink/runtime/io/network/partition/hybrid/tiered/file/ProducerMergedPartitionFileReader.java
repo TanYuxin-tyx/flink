@@ -129,43 +129,11 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         List<Buffer> readBuffers = new LinkedList<>();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        LOG.error(
-                "### "
-                        + taskName
-                        + " subpartition id:"
-                        + subpartitionId
-                        + " try get cache, datafile: "
-                        + dataFilePath
-                        + " buffer index:"
-                        + bufferIndex
-                        + " segment Id:"
-                        + segmentId
-                        + " size:"
-                        + fileChannel.size());
         Optional<BufferOffsetCache> cache =
                 tryGetCache(cacheKey, reusedHeaderBuffer, partialBuffer, true);
         if (!cache.isPresent()) {
             return null;
         }
-        LOG.error(
-                "### "
-                        + taskName
-                        + " subpartition id:"
-                        + subpartitionId
-                        + " get cache "
-                        + cache.get().fileOffset
-                        + " nextBufferIndex:"
-                        + cache.get().nextBufferIndex
-                        + " region num buffers: "
-                        + cache.get().region.getNumBuffers()
-                        + " region first buffer index: "
-                        + cache.get().region.getFirstBufferIndex()
-                        + " region file offset: "
-                        + cache.get().region.getRegionFileOffset()
-                        + " region file end offset: "
-                        + cache.get().region.getRegionFileEndOffset()
-                        + " region size: "
-                        + cache.get().region.getSize());
 
         long regionFileStartOffset =
                 partialBuffer == null ? cache.get().getFileOffset() : partialBuffer.getFileOffset();
@@ -176,23 +144,6 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         if (numBytesToRead == 0) {
             return null;
         }
-        LOG.info(
-                "###"
-                        + taskName
-                        + " subpartition id:"
-                        + subpartitionId
-                        + " reading from file offset: "
-                        + " partial buffer: "
-                        + partialBuffer
-                        + " cache offset: "
-                        + cache.get().getFileOffset()
-                        + " partial buffer offset: "
-                        + (partialBuffer == null ? "null" : partialBuffer.getFileOffset())
-                        + regionFileStartOffset
-                        + " num bytes to read:"
-                        + numBytesToRead
-                        + " region end offset: "
-                        + regionFileEndOffset);
         ByteBuffer byteBuffer = memorySegment.wrap(0, numBytesToRead);
         fileChannel.position(regionFileStartOffset);
 
@@ -223,28 +174,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 partialBuffer =
                         new PartialBuffer(
                                 regionFileStartOffset + numBytesToRead, partial.f0, partial.f1);
-                LOG.info(
-                        "###"
-                                + taskName
-                                + " subpartition id:"
-                                + subpartitionId
-                                + " next file offset: "
-                                + (regionFileStartOffset + numBytesToRead)
-                                + " region end offset: "
-                                + regionFileEndOffset);
                 readBuffers.add(partialBuffer);
             } else {
-                LOG.info(
-                        "###"
-                                + taskName
-                                + " subpartition id:"
-                                + subpartitionId
-                                + " no more data in region, next file offset: "
-                                + (regionFileStartOffset + numBytesToRead)
-                                + " new buffer index: "
-                                + (bufferIndex + numFullBuffers)
-                                + " region end offset: "
-                                + regionFileEndOffset);
                 checkState(partial.f0 == null);
                 noMoreDataInRegion = true;
             }
@@ -282,35 +213,6 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         BufferHeader header = partialBuffer == null ? null : partialBuffer.getBufferHeader();
         CompositeBuffer slicedBuffer =
                 partialBuffer == null ? null : partialBuffer.getCompositeBuffer();
-        LOG.error(
-                "###"
-                        + taskName
-                        + " subpartition id: "
-                        + subpartitionId
-                        + "start split buffer "
-                        + byteBuffer.remaining()
-                        + " header: "
-                        + header
-                        + " reused header buffer position:"
-                        + reusedHeaderBuffer.position()
-                        + " partial buffer: "
-                        + partialBuffer
-                        + " slicedBuffer: "
-                        + slicedBuffer
-                        + " sliced missing len:"
-                        + (slicedBuffer == null ? 0 : slicedBuffer.missingLength())
-                        + " sliced len:"
-                        + (slicedBuffer == null ? 0 : slicedBuffer.readableBytes())
-                        + " header: "
-                        + header
-                        + (header == null
-                                ? ""
-                                : " "
-                                        + header.getLength()
-                                        + " "
-                                        + header.getDataType()
-                                        + " "
-                                        + header.isCompressed()));
         if (header == null) {
             checkState(slicedBuffer == null || reusedHeaderBuffer.position() > 0);
         }
@@ -326,15 +228,6 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                                             byteBuffer,
                                             reusedHeaderBuffer))
                             == null) {
-                LOG.error(
-                        "###"
-                                + taskName
-                                + " subpartition id: "
-                                + subpartitionId
-                                + " break the loop, header is null,: "
-                                + reusedHeaderBuffer.position()
-                                + " byteBuffer remain:"
-                                + byteBuffer.remaining());
                 break;
             }
 
@@ -357,120 +250,22 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                                 buffer.readOnlySlice(
                                         byteBuffer.position(), byteBuffer.remaining()));
                     }
-                    LOG.info(
-                            "###"
-                                    + taskName
-                                    + " subpartition id: "
-                                    + subpartitionId
-                                    + " creating a partial buffer"
-                                    + " sliced "
-                                    + (slicedBuffer == null
-                                            ? "null"
-                                            : +slicedBuffer.readableBytes()
-                                                    + " "
-                                                    + slicedBuffer.isBuffer()
-                                                    + " "
-                                                    + slicedBuffer.missingLength())
-                                    + " current size: "
-                                    + readBuffers.size()
-                                    + " remaining: "
-                                    + byteBuffer.remaining());
                     break;
                 }
             } else {
                 // If there is a previous small partial buffer, we should complete the partial
                 // buffer firstly
                 buffer.retainBuffer();
-                LOG.info(
-                        "###"
-                                + taskName
-                                + " subpartition id: "
-                                + subpartitionId
-                                + " before position to new position: "
-                                + byteBuffer.position()
-                                + " sliced buffer len: "
-                                + slicedBuffer.readableBytes()
-                                + " "
-                                + slicedBuffer.isBuffer()
-                                + " "
-                                + slicedBuffer.missingLength()
-                                + " current size: "
-                                + readBuffers.size()
-                                + " remaining: "
-                                + byteBuffer.remaining());
                 int position = byteBuffer.position() + slicedBuffer.missingLength();
                 slicedBuffer.addPartialBuffer(
                         buffer.readOnlySlice(byteBuffer.position(), slicedBuffer.missingLength()));
                 byteBuffer.position(position);
-                LOG.info(
-                        "###"
-                                + taskName
-                                + " subpartition id: "
-                                + subpartitionId
-                                + " position to new position: "
-                                + position
-                                + " sliced buffer len: "
-                                + slicedBuffer.readableBytes()
-                                + " "
-                                + slicedBuffer.isBuffer()
-                                + " "
-                                + slicedBuffer.missingLength()
-                                + " current size: "
-                                + readBuffers.size()
-                                + " remaining: "
-                                + byteBuffer.remaining());
             }
 
             header = null;
             readBuffers.add(slicedBuffer);
-            LOG.info(
-                    "###"
-                            + taskName
-                            + " subpartition id: "
-                            + subpartitionId
-                            + " add a new sliced buffer"
-                            + slicedBuffer.readableBytes()
-                            + " "
-                            + slicedBuffer.isBuffer()
-                            + " "
-                            + slicedBuffer.missingLength()
-                            + " current size: "
-                            + readBuffers.size()
-                            + " remaining: "
-                            + byteBuffer.remaining());
             slicedBuffer = null;
         }
-        LOG.error(
-                "###"
-                        + taskName
-                        + " subpartition id: "
-                        + subpartitionId
-                        + " byte buffer: "
-                        + byteBuffer
-                        + " "
-                        + slicedBuffer
-                        + " "
-                        + (slicedBuffer == null
-                                ? ""
-                                : slicedBuffer.readableBytes()
-                                        + " "
-                                        + slicedBuffer.missingLength()
-                                        + " "
-                                        + slicedBuffer)
-                        + " header "
-                        + (header == null
-                                ? ""
-                                : header.getLength()
-                                        + " "
-                                        + header.getDataType()
-                                        + " isCompressed: "
-                                        + header.isCompressed())
-                        + " header buffer: "
-                        + reusedHeaderBuffer
-                        + " reuse header position: "
-                        + reusedHeaderBuffer.position()
-                        + " remaining: "
-                        + reusedHeaderBuffer.remaining());
         checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
         if (header != null) {
             reusedHeaderBuffer.clear();
@@ -484,76 +279,23 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         try {
             if (reusedHeaderBuffer.position() > 0) {
                 checkState(reusedHeaderBuffer.position() < HEADER_LENGTH);
-                LOG.error(
-                        "###"
-                                + taskName
-                                + " subpartition id: "
-                                + subpartitionId
-                                + " parseBufferHeader, position: "
-                                + reusedHeaderBuffer.position()
-                                + " buffer remain:"
-                                + buffer.remaining());
                 while (reusedHeaderBuffer.hasRemaining()) {
                     reusedHeaderBuffer.put(buffer.get());
                 }
-                LOG.error(
-                        "###"
-                                + taskName
-                                + " subpartition id: "
-                                + subpartitionId
-                                + " parseBufferHeader, position: "
-                                + reusedHeaderBuffer.position()
-                                + " buffer remain:"
-                                + buffer.remaining());
                 reusedHeaderBuffer.flip();
                 header = BufferReaderWriterUtil.parseBufferHeader(reusedHeaderBuffer);
                 reusedHeaderBuffer.clear();
             }
 
             if (header == null && buffer.remaining() < HEADER_LENGTH) {
-                LOG.error(
-                        "###"
-                                + taskName
-                                + " subpartition id: "
-                                + subpartitionId
-                                + " parseBufferHeader, left some data, but not enough for header, remaining: "
-                                + buffer.remaining()
-                                + " header len:"
-                                + HEADER_LENGTH);
                 reusedHeaderBuffer.put(buffer);
             } else if (header == null) {
                 header = BufferReaderWriterUtil.parseBufferHeader(buffer);
-                LOG.error(
-                        "###"
-                                + taskName
-                                + " subpartition id: "
-                                + subpartitionId
-                                + " parseBufferHeader, remaining: "
-                                + buffer.remaining()
-                                + " header len:"
-                                + header.getLength()
-                                + " datatype:"
-                                + header.getDataType()
-                                + " isCompressed: "
-                                + header.isCompressed());
                 reusedHeaderBuffer.clear();
             }
         } catch (Throwable throwable) {
             reusedHeaderBuffer.clear();
-            LOG.error(
-                    "###"
-                            + taskName
-                            + " subpartition id: "
-                            + subpartitionId
-                            + " parse header error, "
-                            + header
-                            + " remaining: "
-                            + buffer.remaining()
-                            + " position: "
-                            + buffer.position()
-                            + " "
-                            + buffer,
-                    throwable);
+            LOG.error("Failed to parse buffer header.", throwable);
             throw throwable;
         }
 

@@ -21,7 +21,6 @@ package org.apache.flink.runtime.io.network.partition;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
-import org.apache.flink.runtime.io.network.buffer.CompositeBuffer;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition.BufferAndBacklog;
 
 import org.slf4j.Logger;
@@ -116,28 +115,6 @@ class SortMergeSubpartitionReader
     private void addBuffer(Buffer buffer) {
         boolean notifyAvailable = false;
         boolean needRecycleBuffer = false;
-
-        boolean isComposite = false;
-        int innerBuffers = -1;
-        int innerReadableBytes = -1;
-        if (taskName.contains("date_dim")) {
-            if (buffer instanceof CompositeBuffer) {
-                isComposite = true;
-                CompositeBuffer compositeBuffer = (CompositeBuffer) buffer;
-                innerBuffers = compositeBuffer.numPartialBuffers();
-                innerReadableBytes = compositeBuffer.readableBytes();
-            }
-            LOG.error(
-                    "###"
-                            + taskName
-                            + " read full buffer, isBuffer: {}, size:{}, type:{}, isComposite:{}, innerBuffers:{}, innerReadableBytes{}",
-                    buffer.isBuffer(),
-                    buffer.getSize(),
-                    buffer.getDataType(),
-                    isComposite,
-                    innerBuffers,
-                    innerReadableBytes);
-        }
 
         synchronized (lock) {
             if (isReleased) {

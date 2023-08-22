@@ -27,9 +27,6 @@ import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
@@ -47,9 +44,6 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * thread.
  */
 public class HashSubpartitionBufferAccumulator {
-
-    private static final Logger LOG =
-            LoggerFactory.getLogger(HashSubpartitionBufferAccumulator.class);
 
     private final String taskName;
 
@@ -170,13 +164,5 @@ public class HashSubpartitionBufferAccumulator {
     private void flushFinishedBuffer(Buffer finishedBuffer) {
         bufferAccumulatorContext.flushAccumulatedBuffers(
                 subpartitionId, Collections.singletonList(finishedBuffer));
-        if (shouldPrintLog) {
-            LOG.error(
-                    "###" + taskName + " {} write finished buffer, isBuffer: {}, size:{}, type:{}",
-                    subpartitionId,
-                    finishedBuffer.isBuffer(),
-                    finishedBuffer.getSize(),
-                    finishedBuffer.getDataType());
-        }
     }
 }

@@ -235,7 +235,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             LOG.error("Failed to request buffers for data reading.", exception);
             return 0;
         }
-        LOG.error("###" + taskName + " num requested buffers: " + buffers.size());
 
         int numBuffersAllocated = buffers.size();
         if (numBuffersAllocated <= 0) {
@@ -243,9 +242,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         }
 
         for (ScheduledSubpartitionReader scheduledReader : scheduledReaders) {
-            // if (buffers.isEmpty()) {
-            //    break;
-            // }
+            if (buffers.isEmpty()) {
+                break;
+            }
             try {
                 scheduledReader.loadDiskDataToBuffers(buffers, this);
             } catch (Exception throwable) {
@@ -254,13 +253,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             }
         }
         int numBuffersRead = numBuffersAllocated - buffers.size();
-        LOG.error(
-                "###"
-                        + taskName
-                        + " num released buffers: "
-                        + buffers.size()
-                        + " numRead: "
-                        + numBuffersRead);
         releaseBuffers(buffers);
         return numBuffersRead;
     }
@@ -386,9 +378,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 ByteBuffer reusedHeaderBuffer,
                 boolean shouldPrintLog) {
             this.shouldPrintLog = shouldPrintLog;
-            if (shouldPrintLog) {
-                LOG.error("###" + taskName + " Start reading..");
-            }
             this.subpartitionId = subpartitionId;
             this.nettyConnectionWriter = nettyConnectionWriter;
             this.reusedHeaderBuffer = reusedHeaderBuffer;
@@ -403,38 +392,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                 + subpartitionId
                                 + " has already been failed.");
             }
-            if (shouldPrintLog) {
-                LOG.error(
-                        "###"
-                                + taskName
-                                + " subpartition id:"
-                                + subpartitionId
-                                + " Availability buffer number "
-                                + buffers.size());
-            }
 
-            int numReadBuffers = 0;
             boolean hasRegionFinishedRead = false;
             while (!buffers.isEmpty() && !hasRegionFinishedRead && nextSegmentId >= 0) {
-                if (shouldPrintLog) {
-                    LOG.error("###" + taskName + " Start Poll");
-                }
                 MemorySegment memorySegment = buffers.poll();
-                numReadBuffers++;
                 List<Buffer> readBuffers;
                 checkState(partialBuffer == null || toBackBytes == 0);
                 if (partialBuffer == null && previousReadOffset > 0 && toBackBytes > 0) {
-                    LOG.info(
-                            "###"
-                                    + taskName
-                                    + " subpartition id:"
-                                    + subpartitionId
-                                    + " reset offset from "
-                                    + previousReadOffset
-                                    + " to "
-                                    + (previousReadOffset - toBackBytes)
-                                    + " back len:"
-                                    + toBackBytes);
                     checkState(previousReadOffset >= toBackBytes);
                     partialBuffer =
                             new PartitionFileReader.PartialBuffer(
@@ -466,19 +430,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 partialBuffer = null;
                 for (int i = 0; i < readBuffers.size(); i++) {
                     Buffer readBuffer = readBuffers.get(i);
-                    LOG.error(
-                            "###"
-                                    + taskName
-                                    + " subpartition id:"
-                                    + subpartitionId
-                                    + " total buffers: "
-                                    + readBuffers.size()
-                                    + " last buffer: "
-                                    + readBuffers.get(readBuffers.size() - 1)
-                                    + " poll buffer index "
-                                    + nextBufferIndex
-                                    + " buffer size: "
-                                    + readBuffer.readableBytes());
 
                     if (i == readBuffers.size() - 1) {
                         if (readBuffer instanceof PartitionFileReader.PartialBuffer) {
@@ -506,20 +457,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                         updateSegmentId();
                     }
                 }
-
-                LOG.error(
-                        "###"
-                                + taskName
-                                + " subpartition id:"
-                                + subpartitionId
-                                + " total buffers: "
-                                + readBuffers.size()
-                                + " last buffer: "
-                                + readBuffers.get(readBuffers.size() - 1)
-                                + " poll buffer index "
-                                + nextBufferIndex
-                                + " partial buffer size: "
-                                + (partialBuffer == null ? "null" : partialBuffer.readableBytes()));
             }
             if (toBackBytes > 0) {
                 checkState(partialBuffer == null && reusedHeaderBuffer.position() == 0);
@@ -539,41 +476,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 }
                 partialBuffer.recycleBuffer();
                 partialBuffer = null;
-                LOG.error(
-                        "###"
-                                + taskName
-                                + " subpartition id:"
-                                + subpartitionId
-                                + " poll buffer index "
-                                + nextBufferIndex
-                                + " reset partial buffer to null, toBackBytes: "
-                                + toBackBytes
-                                + " buffers: "
-                                + buffers.size()
-                                + " numReadBuffers: "
-                                + numReadBuffers
-                                + " maxReadAhead: "
-                                + maxBufferReadAhead
-                                + " nextSegmentId: "
-                                + nextSegmentId);
             }
-            LOG.error(
-                    "###"
-                            + taskName
-                            + " subpartition id:"
-                            + subpartitionId
-                            + " poll buffer index "
-                            + nextBufferIndex
-                            + " reset partial, toBackBytes: "
-                            + toBackBytes
-                            + " buffers: "
-                            + buffers.size()
-                            + " numReadBuffers: "
-                            + numReadBuffers
-                            + " maxReadAhead: "
-                            + maxBufferReadAhead
-                            + " nextSegmentId: "
-                            + nextSegmentId);
         }
 
         @Override
@@ -601,15 +504,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private void writeToNettyConnectionWriter(NettyPayload nettyPayload) {
             nettyConnectionWriter.writeBuffer(nettyPayload);
-            if (shouldPrintLog) {
-                LOG.info(
-                        "###"
-                                + taskName
-                                + " subpartition id:"
-                                + subpartitionId
-                                + " netty payload queue size: "
-                                + nettyConnectionWriter.numQueuedBuffers());
-            }
             if (nettyConnectionWriter.numQueuedBuffers() <= 1) {
                 notifyAvailable();
             }

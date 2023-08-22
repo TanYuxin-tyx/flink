@@ -188,7 +188,6 @@ class SortMergeResultPartitionReadScheduler implements Runnable, BufferRecycler 
             removeFinishedAndFailedReaders(0, finishedReaders);
             return;
         }
-        LOG.error("###" + taskName + " num requested buffers: " + buffers.size());
         checkState(!buffers.isEmpty(), "No buffer available.");
         int numBuffersAllocated = buffers.size();
 
@@ -219,13 +218,6 @@ class SortMergeResultPartitionReadScheduler implements Runnable, BufferRecycler 
         }
 
         int numBuffersRead = numBuffersAllocated - buffers.size();
-        LOG.error(
-                "###"
-                        + taskName
-                        + " num released buffers: "
-                        + buffers.size()
-                        + " numRead: "
-                        + numBuffersRead);
         releaseBuffers(buffers);
 
         returnUnfinishedReaders(unfinishedReaders);
