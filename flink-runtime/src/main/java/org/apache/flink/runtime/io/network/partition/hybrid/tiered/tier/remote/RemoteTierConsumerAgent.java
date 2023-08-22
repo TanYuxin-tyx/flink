@@ -83,6 +83,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         int currentSegmentId = bufferIndexAndSegmentId.f1;
         if (segmentId != currentSegmentId) {
             remoteStorageScanner.watchSegment(partitionId, subpartitionId, segmentId);
+            return Optional.empty();
         }
 
         // Read buffer from the partition file in remote storage.
