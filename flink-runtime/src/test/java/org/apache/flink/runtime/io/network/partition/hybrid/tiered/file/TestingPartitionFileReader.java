@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 /** Testing implementation for {@link PartitionFileReader}. */
@@ -64,6 +65,23 @@ public class TestingPartitionFileReader implements PartitionFileReader {
             @Nullable PartialBuffer partialBuffer)
             throws IOException {
         return readBufferFunction.apply(bufferIndex, segmentId);
+    }
+
+    @Override
+    public boolean readBuffer(
+            boolean shouldPrintLog,
+            String taskName,
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId,
+            int bufferIndex,
+            MemorySegment memorySegment,
+            BufferRecycler recycler,
+            ByteBuffer reusedHeaderBuffer,
+            @org.jetbrains.annotations.Nullable PartitionFileReader.PartialBuffer partialBuffer,
+            Consumer<Buffer> bufferConsumer)
+            throws IOException {
+        return false;
     }
 
     @Override

@@ -43,6 +43,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -135,6 +136,23 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
                         dataType,
                         header.isCompressed(),
                         header.getLength()));
+    }
+
+    @Override
+    public boolean readBuffer(
+            boolean shouldPrintLog,
+            String taskName,
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId,
+            int bufferIndex,
+            MemorySegment memorySegment,
+            BufferRecycler recycler,
+            ByteBuffer reusedHeaderBuffer,
+            @Nullable PartialBuffer partialBuffer,
+            Consumer<Buffer> bufferConsumer)
+            throws IOException {
+        return false;
     }
 
     @Override

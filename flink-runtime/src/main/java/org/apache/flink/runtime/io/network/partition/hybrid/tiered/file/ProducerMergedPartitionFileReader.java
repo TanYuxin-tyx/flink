@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
@@ -43,10 +44,10 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.HEADER_LENGTH;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.positionToNextBuffer;
@@ -110,6 +111,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         this.maxCacheNumber = maxCacheNumber;
     }
 
+    @Nullable
     @Override
     public List<Buffer> readBuffer(
             boolean shouldPrintLog,
@@ -123,16 +125,32 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             ByteBuffer reusedHeaderBuffer,
             @Nullable PartialBuffer partialBuffer)
             throws IOException {
+        return null;
+    }
+
+    @Override
+    public boolean readBuffer(
+            boolean shouldPrintLog,
+            String taskName,
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId,
+            int bufferIndex,
+            MemorySegment memorySegment,
+            BufferRecycler recycler,
+            ByteBuffer reusedHeaderBuffer,
+            @Nullable PartialBuffer partialBuffer,
+            Consumer<Buffer> bufferConsumer)
+            throws IOException {
 
         lazyInitializeFileChannel();
 
-        List<Buffer> readBuffers = new LinkedList<>();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
         Optional<BufferOffsetCache> cache =
                 tryGetCache(cacheKey, reusedHeaderBuffer, partialBuffer, true);
         if (!cache.isPresent()) {
-            return null;
+            return false;
         }
 
         long regionFileStartOffset =
@@ -142,7 +160,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         int numBytesToRead =
                 Math.min(memorySegment.size(), (int) (regionFileEndOffset - regionFileStartOffset));
         if (numBytesToRead == 0) {
-            return null;
+            return false;
         }
         ByteBuffer byteBuffer = memorySegment.wrap(0, numBytesToRead);
         fileChannel.position(regionFileStartOffset);
@@ -160,7 +178,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         int numFullBuffers;
         boolean noMoreDataInRegion = false;
         try {
-            Tuple2<CompositeBuffer, BufferHeader> partial =
+            Tuple3<CompositeBuffer, BufferHeader, Integer> partial =
                     splitBuffer(
                             taskName,
                             subpartitionId.getSubpartitionId(),
@@ -168,13 +186,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                             buffer,
                             reusedHeaderBuffer,
                             partialBuffer,
-                            readBuffers);
-            numFullBuffers = readBuffers.size();
+                            bufferConsumer);
+            numFullBuffers = partial.f2;
             if (regionFileStartOffset + numBytesToRead < regionFileEndOffset) {
                 partialBuffer =
                         new PartialBuffer(
                                 regionFileStartOffset + numBytesToRead, partial.f0, partial.f1);
-                readBuffers.add(partialBuffer);
+                bufferConsumer.accept(partialBuffer);
             } else {
                 checkState(partial.f0 == null);
                 noMoreDataInRegion = true;
@@ -199,17 +217,17 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             numCaches++;
         }
 
-        return readBuffers;
+        return true;
     }
 
-    private Tuple2<CompositeBuffer, BufferHeader> splitBuffer(
+    private Tuple3<CompositeBuffer, BufferHeader, Integer> splitBuffer(
             String taskName,
             int subpartitionId,
             ByteBuffer byteBuffer,
             NetworkBuffer buffer,
             ByteBuffer reusedHeaderBuffer,
             @Nullable PartialBuffer partialBuffer,
-            List<Buffer> readBuffers) {
+            Consumer<Buffer> bufferConsumer) {
         BufferHeader header = partialBuffer == null ? null : partialBuffer.getBufferHeader();
         CompositeBuffer slicedBuffer =
                 partialBuffer == null ? null : partialBuffer.getCompositeBuffer();
@@ -217,6 +235,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             checkState(slicedBuffer == null || reusedHeaderBuffer.position() > 0);
         }
         checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
+        int numSlicedBuffers = 0;
 
         while (byteBuffer.hasRemaining()) {
             // Parse the small buffer's header
@@ -263,14 +282,15 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             }
 
             header = null;
-            readBuffers.add(slicedBuffer);
+            bufferConsumer.accept(slicedBuffer);
+            numSlicedBuffers++;
             slicedBuffer = null;
         }
         checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
         if (header != null) {
             reusedHeaderBuffer.clear();
         }
-        return Tuple2.of(slicedBuffer, header);
+        return Tuple3.of(slicedBuffer, header, numSlicedBuffers);
     }
 
     private BufferHeader parseBufferHeader(

@@ -34,6 +34,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -63,6 +64,20 @@ public interface PartitionFileReader {
             BufferRecycler recycler,
             ByteBuffer reusedHeaderBuffer,
             @Nullable PartialBuffer partialBuffer)
+            throws IOException;
+
+    boolean readBuffer(
+            boolean shouldPrintLog,
+            String taskName,
+            TieredStoragePartitionId partitionId,
+            TieredStorageSubpartitionId subpartitionId,
+            int segmentId,
+            int bufferIndex,
+            MemorySegment memorySegment,
+            BufferRecycler recycler,
+            ByteBuffer reusedHeaderBuffer,
+            @Nullable PartialBuffer partialBuffer,
+            Consumer<Buffer> bufferConsumer)
             throws IOException;
 
     /**
