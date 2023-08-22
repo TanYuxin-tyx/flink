@@ -46,6 +46,7 @@ import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUt
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.parseBufferHeader;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentFinishDirPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentPath;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** The implementation of {@link PartitionFileReader} with segment file mode. */
 public class SegmentPartitionFileReader implements PartitionFileReader {
@@ -114,6 +115,8 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             openedChannelAndSegmentIds.get(partitionId).remove(subpartitionId);
             return new NetworkBuffer(memorySegment, recycler, Buffer.DataType.END_OF_SEGMENT);
         }
+        checkState(bufferHeaderResult == HEADER_LENGTH);
+        reusedHeaderBuffer.position(HEADER_LENGTH);
         reusedHeaderBuffer.flip();
         BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
         int dataBufferResult = channel.read(memorySegment.wrap(0, header.getLength()).array());
