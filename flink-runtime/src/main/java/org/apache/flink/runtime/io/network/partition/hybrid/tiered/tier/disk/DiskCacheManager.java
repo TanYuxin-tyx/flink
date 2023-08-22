@@ -39,6 +39,8 @@ class DiskCacheManager {
 
     private final TieredStoragePartitionId partitionId;
 
+    private final Runnable hasStartedFlushListener;
+
     private final int numSubpartitions;
 
     private final PartitionFileWriter partitionFileWriter;
@@ -48,12 +50,16 @@ class DiskCacheManager {
     /** Whether the current flush process has completed. */
     private CompletableFuture<Void> hasFlushCompleted;
 
+    private boolean isFirstFlush = true;
+
     DiskCacheManager(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
+            Runnable hasStartedFlushListener,
             TieredStorageMemoryManager memoryManager,
             PartitionFileWriter partitionFileWriter) {
         this.partitionId = partitionId;
+        this.hasStartedFlushListener = hasStartedFlushListener;
         this.numSubpartitions = numSubpartitions;
         this.partitionFileWriter = partitionFileWriter;
         this.subpartitionCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
@@ -151,6 +157,10 @@ class DiskCacheManager {
                     partitionFileWriter.write(partitionId, buffersToFlush);
             if (!forceFlush) {
                 hasFlushCompleted = flushCompletableFuture;
+            }
+            if (isFirstFlush) {
+                hasStartedFlushListener.run();
+                isFirstFlush = false;
             }
         }
     }
