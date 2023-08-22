@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.testutils.CheckedThread;
 import org.apache.flink.runtime.concurrent.ManuallyTriggeredScheduledExecutorService;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,7 +99,11 @@ class DiskIOSchedulerTest {
                                 .setReadBufferSupplier(
                                         (bufferIndex, segmentId) -> {
                                             segmentIdFuture.complete(segmentId);
-                                            return BufferBuilderTestUtils.buildSomeBuffer(0);
+                                            return Tuple2.of(
+                                                    Collections.singletonList(
+                                                            BufferBuilderTestUtils.buildSomeBuffer(
+                                                                    0)),
+                                                    false);
                                         })
                                 .setReleaseNotifier(() -> readerReleaseFuture.complete(null))
                                 .setPrioritySupplier(subpartitionId -> (long) subpartitionId)

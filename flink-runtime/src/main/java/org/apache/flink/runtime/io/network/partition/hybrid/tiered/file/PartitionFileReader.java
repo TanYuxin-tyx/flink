@@ -18,15 +18,19 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.buffer.CompositeBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.List;
 
 /** {@link PartitionFileReader} defines the read logic for different types of shuffle files. */
 public interface PartitionFileReader {
@@ -40,16 +44,22 @@ public interface PartitionFileReader {
      * @param bufferIndex the index of buffer
      * @param memorySegment the empty buffer to store the read buffer
      * @param recycler the buffer recycler
-     * @return null if there is no data otherwise a buffer.
+     * @param partialBuffer the previous partial buffer. The partial buffer is not null only when
+     *     the last read has a partial buffer, it will construct a full buffer during the read
+     *     process.
+     * @return The first field is a list of read buffers. The second field is a suggestion to
+     *     determine whether the caller should continue reading the following buffers. Note that
+     *     this suggestion value is merely a recommendation and not obligatory. Following the
+     *     suggested value while reading buffers may improve performance.
      */
-    @Nullable
-    Buffer readBuffer(
+    Tuple2<List<Buffer>, Boolean> readBuffer(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex,
             MemorySegment memorySegment,
-            BufferRecycler recycler)
+            BufferRecycler recycler,
+            @Nullable PartialBuffer partialBuffer)
             throws IOException;
 
     /**
@@ -78,4 +88,23 @@ public interface PartitionFileReader {
 
     /** Release the {@link PartitionFileReader}. */
     void release();
+
+    /** A {@link PartialBuffer} is a part slice of a larger buffer. */
+    class PartialBuffer extends CompositeBuffer {
+
+        private final long fileOffset;
+
+        public PartialBuffer(long fileOffset, BufferHeader bufferHeader) {
+            super(bufferHeader);
+            this.fileOffset = fileOffset;
+        }
+
+        /**
+         * Return the underlying file offset. Note that the file offset includes the length of the
+         * partial buffer.
+         */
+        public long getFileOffset() {
+            return fileOffset;
+        }
+    }
 }

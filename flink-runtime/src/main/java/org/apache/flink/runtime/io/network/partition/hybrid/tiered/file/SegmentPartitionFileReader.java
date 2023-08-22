@@ -31,12 +31,16 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -74,13 +78,14 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
     }
 
     @Override
-    public Buffer readBuffer(
+    public Tuple2<List<Buffer>, Boolean> readBuffer(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex,
             MemorySegment memorySegment,
-            BufferRecycler recycler)
+            BufferRecycler recycler,
+            @Nullable PartialBuffer partialBuffer)
             throws IOException {
 
         // Get the channel of the segment file for a subpartition.
@@ -97,8 +102,8 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             }
             channel = openNewChannel(partitionId, subpartitionId, segmentId);
             if (channel == null) {
-                // return null if the segment file doesn't exist.
-                return null;
+                // return empty if the segment file doesn't exist.
+                return Tuple2.of(Collections.emptyList(), false);
             }
             subpartitionInfo.put(subpartitionId, Tuple2.of(channel, segmentId));
         }
@@ -109,7 +114,11 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
         if (bufferHeaderResult == -1) {
             channel.close();
             openedChannelAndSegmentIds.get(partitionId).remove(subpartitionId);
-            return new NetworkBuffer(memorySegment, recycler, Buffer.DataType.END_OF_SEGMENT);
+            return Tuple2.of(
+                    Collections.singletonList(
+                            new NetworkBuffer(
+                                    memorySegment, recycler, Buffer.DataType.END_OF_SEGMENT)),
+                    false);
         }
         reusedHeaderBuffer.flip();
         BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
@@ -119,8 +128,15 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             throw new IOException("The length of data buffer is illegal.");
         }
         Buffer.DataType dataType = header.getDataType();
-        return new NetworkBuffer(
-                memorySegment, recycler, dataType, header.isCompressed(), header.getLength());
+        return Tuple2.of(
+                Collections.singletonList(
+                        new NetworkBuffer(
+                                memorySegment,
+                                recycler,
+                                dataType,
+                                header.isCompressed(),
+                                header.getLength())),
+                false);
     }
 
     @Override
