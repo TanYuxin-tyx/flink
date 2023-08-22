@@ -83,6 +83,9 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         int currentSegmentId = bufferIndexAndSegmentId.f1;
         if (segmentId != currentSegmentId) {
             remoteStorageScanner.watchSegment(partitionId, subpartitionId, segmentId);
+            currentBufferIndexAndSegmentIds
+                    .get(partitionId)
+                    .put(subpartitionId, Tuple2.of(++currentBufferIndex, segmentId));
             return Optional.empty();
         }
 
@@ -103,9 +106,6 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
             ExceptionUtils.rethrow(e, "Failed to read buffer from partition file.");
         }
         if (buffer != null) {
-            currentBufferIndexAndSegmentIds
-                    .get(partitionId)
-                    .put(subpartitionId, Tuple2.of(++currentBufferIndex, segmentId));
             return Optional.of(buffer);
         } else {
             memorySegment.free();
