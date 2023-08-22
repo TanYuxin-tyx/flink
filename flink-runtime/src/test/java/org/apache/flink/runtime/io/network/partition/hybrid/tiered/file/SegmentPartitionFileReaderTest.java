@@ -23,6 +23,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
+import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
@@ -102,12 +103,20 @@ class SegmentPartitionFileReaderTest {
     void testGetPriority() throws IOException {
         assertThat(
                         partitionFileReader.getPriority(
-                                DEFAULT_PARTITION_ID, DEFAULT_SUBPARTITION_ID, 0, 0))
+                                DEFAULT_PARTITION_ID,
+                                DEFAULT_SUBPARTITION_ID,
+                                0,
+                                0,
+                                BufferReaderWriterUtil.allocatedHeaderBuffer()))
                 .isEqualTo(-1);
         assertThat(readBuffer(0, DEFAULT_SUBPARTITION_ID, 0)).isNotNull();
         assertThat(
                         partitionFileReader.getPriority(
-                                DEFAULT_PARTITION_ID, DEFAULT_SUBPARTITION_ID, 0, 1))
+                                DEFAULT_PARTITION_ID,
+                                DEFAULT_SUBPARTITION_ID,
+                                0,
+                                1,
+                                BufferReaderWriterUtil.allocatedHeaderBuffer()))
                 .isEqualTo(-1);
     }
 
@@ -116,12 +125,19 @@ class SegmentPartitionFileReaderTest {
             throws IOException {
         MemorySegment memorySegment =
                 MemorySegmentFactory.allocateUnpooledSegment(DEFAULT_BUFFER_SIZE);
-        return partitionFileReader.readBuffer(
-                DEFAULT_PARTITION_ID,
-                subpartitionId,
-                segmentId,
-                bufferIndex,
-                memorySegment,
-                FreeingBufferRecycler.INSTANCE);
+        List<Buffer> readBuffers =
+                partitionFileReader.readBuffer(
+                        DEFAULT_PARTITION_ID,
+                        subpartitionId,
+                        segmentId,
+                        bufferIndex,
+                        memorySegment,
+                        FreeingBufferRecycler.INSTANCE,
+                        BufferReaderWriterUtil.allocatedHeaderBuffer(),
+                        null);
+        if (readBuffers == null) {
+            return null;
+        }
+        return readBuffers.get(0);
     }
 }
