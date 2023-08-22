@@ -414,9 +414,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             }
 
             int numReadBuffers = 0;
-            while (!buffers.isEmpty()
-                    && numReadBuffers < maxBufferReadAhead
-                    && nextSegmentId >= 0) {
+            boolean hasRegionFinishedRead = false;
+            while (!buffers.isEmpty() && !hasRegionFinishedRead && nextSegmentId >= 0) {
                 if (shouldPrintLog) {
                     LOG.error("###" + taskName + " Start Poll");
                 }
@@ -487,6 +486,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                             previousReadOffset = partialBuffer.getFileOffset();
                             continue;
                         } else {
+                            hasRegionFinishedRead = true;
                             if (reusedHeaderBuffer.position() > 0) {
                                 reusedHeaderBuffer.clear();
                             }
@@ -520,6 +520,10 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                 + nextBufferIndex
                                 + " partial buffer size: "
                                 + (partialBuffer == null ? "null" : partialBuffer.readableBytes()));
+            }
+            if (toBackBytes > 0) {
+                checkState(partialBuffer == null && reusedHeaderBuffer.position() == 0);
+                return;
             }
             toBackBytes = 0;
             if (reusedHeaderBuffer.position() > 0) {
