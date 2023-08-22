@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,7 +98,8 @@ class DiskIOSchedulerTest {
                                 .setReadBufferSupplier(
                                         (bufferIndex, segmentId) -> {
                                             segmentIdFuture.complete(segmentId);
-                                            return BufferBuilderTestUtils.buildSomeBuffer(0);
+                                            return Collections.singletonList(
+                                                    BufferBuilderTestUtils.buildSomeBuffer(0));
                                         })
                                 .setReleaseNotifier(() -> readerReleaseFuture.complete(null))
                                 .setPrioritySupplier(subpartitionId -> (long) subpartitionId)
