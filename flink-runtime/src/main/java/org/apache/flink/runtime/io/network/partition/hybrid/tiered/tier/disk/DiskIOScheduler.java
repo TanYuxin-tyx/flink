@@ -23,6 +23,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
+import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.PartitionFileReader;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -51,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
 
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.HEADER_LENGTH;
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -64,6 +67,8 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServiceProducer {
 
     private static final Logger LOG = LoggerFactory.getLogger(DiskIOScheduler.class);
+
+    private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
     private final Object lock = new Object();
 
@@ -159,7 +164,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         synchronized (lock) {
             checkState(!isReleased, "DiskIOScheduler is already released.");
             ScheduledSubpartitionReader scheduledSubpartitionReader =
-                    new ScheduledSubpartitionReader(subpartitionId, nettyConnectionWriter);
+                    new ScheduledSubpartitionReader(
+                            subpartitionId, nettyConnectionWriter, reusedHeaderBuffer);
             allScheduledReaders.put(
                     nettyConnectionWriter.getNettyConnectionId(), scheduledSubpartitionReader);
             triggerScheduling();
@@ -292,7 +298,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         }
     }
 
-    private void triggerScheduling() {
+    void triggerScheduling() {
         synchronized (lock) {
             if (!isRunning
                     && !allScheduledReaders.isEmpty()
@@ -330,6 +336,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private final NettyConnectionWriter nettyConnectionWriter;
 
+        private final ByteBuffer reusedHeaderBuffer;
+
         private int nextSegmentId = -1;
 
         private int nextBufferIndex;
@@ -338,11 +346,19 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private boolean isFailed;
 
+        private PartitionFileReader.PartialBuffer partialBuffer;
+
+        private long previousReadOffset;
+
+        private int toRollBackBytes;
+
         private ScheduledSubpartitionReader(
                 TieredStorageSubpartitionId subpartitionId,
-                NettyConnectionWriter nettyConnectionWriter) {
+                NettyConnectionWriter nettyConnectionWriter,
+                ByteBuffer reusedHeaderBuffer) {
             this.subpartitionId = subpartitionId;
             this.nettyConnectionWriter = nettyConnectionWriter;
+            this.reusedHeaderBuffer = reusedHeaderBuffer;
         }
 
         private void loadDiskDataToBuffers(Queue<MemorySegment> buffers, BufferRecycler recycler)
@@ -354,35 +370,38 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                 + subpartitionId
                                 + " has already been failed.");
             }
-            while (!buffers.isEmpty()
-                    && nettyConnectionWriter.numQueuedBuffers() < maxBufferReadAhead
-                    && nextSegmentId >= 0) {
-                MemorySegment memorySegment = buffers.poll();
-                Buffer buffer;
-                try {
-                    if ((buffer =
-                                    partitionFileReader.readBuffer(
-                                            partitionId,
-                                            subpartitionId,
-                                            nextSegmentId,
-                                            nextBufferIndex,
-                                            memorySegment,
-                                            recycler))
-                            == null) {
-                        buffers.add(memorySegment);
+
+            boolean hasRegionFinishedRead = false;
+            try {
+                while (!buffers.isEmpty() && !hasRegionFinishedRead && nextSegmentId >= 0) {
+                    MemorySegment memorySegment = buffers.poll();
+                    checkState(partialBuffer == null || toRollBackBytes == 0);
+                    generatePartialBufferIfHaveBackBytes();
+
+                    List<Buffer> readBuffers =
+                            readBuffersFromFileReader(buffers, recycler, memorySegment);
+                    if (readBuffers == null) {
                         break;
                     }
-                } catch (Throwable throwable) {
-                    buffers.add(memorySegment);
-                    throw throwable;
+
+                    partialBuffer = null;
+                    for (int i = 0; i < readBuffers.size(); i++) {
+                        Buffer readBuffer = readBuffers.get(i);
+                        if (i == readBuffers.size() - 1) {
+                            if (readBuffer instanceof PartitionFileReader.PartialBuffer) {
+                                partialBuffer = (PartitionFileReader.PartialBuffer) readBuffer;
+                                previousReadOffset = partialBuffer.getFileOffset();
+                                continue;
+                            } else {
+                                finishReadCurrentRegion();
+                                hasRegionFinishedRead = true;
+                            }
+                        }
+                        writeNettyBufferAndUpdateSegmentId(readBuffer);
+                    }
                 }
-                writeToNettyConnectionWriter(
-                        NettyPayload.newBuffer(
-                                buffer, nextBufferIndex++, subpartitionId.getSubpartitionId()));
-                if (buffer.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
-                    nextSegmentId = -1;
-                    updateSegmentId();
-                }
+            } finally {
+                calculateRollBackBytes();
             }
         }
 
@@ -399,8 +418,91 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             priority =
                     nextSegmentId < 0
                             ? Long.MAX_VALUE
-                            : partitionFileReader.getPriority(
-                                    partitionId, subpartitionId, nextSegmentId, nextBufferIndex);
+                            : partialBuffer != null
+                                    ? partialBuffer.getFileOffset()
+                                    : partitionFileReader.getPriority(
+                                            partitionId,
+                                            subpartitionId,
+                                            nextSegmentId,
+                                            nextBufferIndex,
+                                            reusedHeaderBuffer);
+        }
+
+        private void generatePartialBufferIfHaveBackBytes() {
+            if (partialBuffer == null && previousReadOffset > 0 && toRollBackBytes > 0) {
+                checkState(previousReadOffset >= toRollBackBytes);
+                partialBuffer =
+                        new PartitionFileReader.PartialBuffer(
+                                previousReadOffset - toRollBackBytes, null, null);
+                toRollBackBytes = 0;
+            }
+        }
+
+        private List<Buffer> readBuffersFromFileReader(
+                Queue<MemorySegment> buffers, BufferRecycler recycler, MemorySegment memorySegment)
+                throws IOException {
+            List<Buffer> readBuffers;
+            try {
+                if ((readBuffers =
+                                partitionFileReader.readBuffer(
+                                        partitionId,
+                                        subpartitionId,
+                                        nextSegmentId,
+                                        nextBufferIndex,
+                                        memorySegment,
+                                        recycler,
+                                        reusedHeaderBuffer,
+                                        partialBuffer))
+                        == null) {
+                    buffers.add(memorySegment);
+                    return null;
+                }
+            } catch (Throwable throwable) {
+                buffers.add(memorySegment);
+                throw throwable;
+            }
+            return readBuffers;
+        }
+
+        private void finishReadCurrentRegion() {
+            if (reusedHeaderBuffer.position() > 0) {
+                reusedHeaderBuffer.clear();
+            }
+            checkState(partialBuffer == null);
+            previousReadOffset = 0;
+            toRollBackBytes = 0;
+        }
+
+        private void writeNettyBufferAndUpdateSegmentId(Buffer readBuffer) {
+            writeToNettyConnectionWriter(
+                    NettyPayload.newBuffer(
+                            readBuffer, nextBufferIndex++, subpartitionId.getSubpartitionId()));
+            if (readBuffer.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
+                nextSegmentId = -1;
+                updateSegmentId();
+            }
+        }
+
+        private void calculateRollBackBytes() {
+            if (toRollBackBytes > 0) {
+                checkState(partialBuffer == null && reusedHeaderBuffer.position() == 0);
+            } else {
+                toRollBackBytes = 0;
+                if (reusedHeaderBuffer.position() > 0) {
+                    toRollBackBytes += reusedHeaderBuffer.position();
+                    reusedHeaderBuffer.clear();
+                }
+                if (partialBuffer != null) {
+                    if (partialBuffer.getBufferHeader() != null) {
+                        toRollBackBytes += HEADER_LENGTH;
+                    }
+                    if (partialBuffer.getCompositeBuffer() != null) {
+                        toRollBackBytes += partialBuffer.getCompositeBuffer().readableBytes();
+                    }
+                    partialBuffer.recycleBuffer();
+                    partialBuffer = null;
+                }
+            }
         }
 
         private void writeToNettyConnectionWriter(NettyPayload nettyPayload) {
