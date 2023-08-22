@@ -20,6 +20,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.FSDataInputStream;
+import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.MemorySegment;
@@ -43,6 +44,7 @@ import java.util.stream.Stream;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.HEADER_LENGTH;
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.parseBufferHeader;
+import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentFinishDirPath;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentPath;
 
 /** The implementation of {@link PartitionFileReader} with segment file mode. */
@@ -142,11 +144,33 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
         Path currentSegmentPath =
                 getSegmentPath(
                         dataFilePath, partitionId, subpartitionId.getSubpartitionId(), segmentId);
-        if (!fileSystem.exists(currentSegmentPath)) {
+        if (getMaxSegmentId(partitionId, subpartitionId) >= segmentId
+                && fileSystem.exists(currentSegmentPath)) {
+            return fileSystem.open(currentSegmentPath);
+        } else {
             return null;
         }
-        FSDataInputStream inputStream = fileSystem.open(currentSegmentPath);
-        return inputStream;
+    }
+
+    private int getMaxSegmentId(
+            TieredStoragePartitionId partitionId, TieredStorageSubpartitionId subpartitionId)
+            throws IOException {
+        Path segmentFinishDir =
+                getSegmentFinishDirPath(
+                        dataFilePath, partitionId, subpartitionId.getSubpartitionId());
+        if (!fileSystem.exists(segmentFinishDir)) {
+            return -1;
+        }
+        FileStatus[] fileStatuses = fileSystem.listStatus(segmentFinishDir);
+        while (fileStatuses.length != 1) {
+            fileStatuses = fileSystem.listStatus(segmentFinishDir);
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                ExceptionUtils.rethrow(e);
+            }
+        }
+        return Integer.parseInt(fileStatuses[0].getPath().getName());
     }
 
     @Override
