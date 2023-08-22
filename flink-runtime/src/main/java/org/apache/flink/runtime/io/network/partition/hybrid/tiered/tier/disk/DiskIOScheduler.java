@@ -506,6 +506,20 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                         updateSegmentId();
                     }
                 }
+
+                LOG.error(
+                        "###"
+                                + taskName
+                                + " subpartition id:"
+                                + subpartitionId
+                                + " total buffers: "
+                                + readBuffers.size()
+                                + " last buffer: "
+                                + readBuffers.get(readBuffers.size() - 1)
+                                + " poll buffer index "
+                                + nextBufferIndex
+                                + " partial buffer size: "
+                                + (partialBuffer == null ? "null" : partialBuffer.readableBytes()));
             }
             toBackBytes = 0;
             if (reusedHeaderBuffer.position() > 0) {
@@ -521,7 +535,41 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 }
                 partialBuffer.recycleBuffer();
                 partialBuffer = null;
+                LOG.error(
+                        "###"
+                                + taskName
+                                + " subpartition id:"
+                                + subpartitionId
+                                + " poll buffer index "
+                                + nextBufferIndex
+                                + " reset partial buffer to null, toBackBytes: "
+                                + toBackBytes
+                                + " buffers: "
+                                + buffers.size()
+                                + " numReadBuffers: "
+                                + numReadBuffers
+                                + " maxReadAhead: "
+                                + maxBufferReadAhead
+                                + " nextSegmentId: "
+                                + nextSegmentId);
             }
+            LOG.error(
+                    "###"
+                            + taskName
+                            + " subpartition id:"
+                            + subpartitionId
+                            + " poll buffer index "
+                            + nextBufferIndex
+                            + " reset partial, toBackBytes: "
+                            + toBackBytes
+                            + " buffers: "
+                            + buffers.size()
+                            + " numReadBuffers: "
+                            + numReadBuffers
+                            + " maxReadAhead: "
+                            + maxBufferReadAhead
+                            + " nextSegmentId: "
+                            + nextSegmentId);
         }
 
         @Override
