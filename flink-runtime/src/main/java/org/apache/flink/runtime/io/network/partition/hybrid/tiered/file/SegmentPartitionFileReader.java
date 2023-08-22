@@ -119,10 +119,14 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
         reusedHeaderBuffer.position(HEADER_LENGTH);
         reusedHeaderBuffer.flip();
         BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
-        int dataBufferResult = channel.read(memorySegment.wrap(0, header.getLength()).array());
+        int dataBufferResult = channel.read(memorySegment.getArray(), 0, header.getLength());
         if (dataBufferResult != header.getLength()) {
             channel.close();
-            throw new IOException("The length of data buffer is illegal.");
+            throw new IOException(
+                    "The length of data buffer is illegal, expected length: "
+                            + header.getLength()
+                            + ", real length: "
+                            + dataBufferResult);
         }
         Buffer.DataType dataType = header.getDataType();
         return new NetworkBuffer(
