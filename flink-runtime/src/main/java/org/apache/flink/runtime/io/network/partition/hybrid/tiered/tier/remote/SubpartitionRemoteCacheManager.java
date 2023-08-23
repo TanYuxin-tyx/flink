@@ -113,6 +113,12 @@ class SubpartitionRemoteCacheManager {
     }
 
     void finishSegment(int segmentId) {
+        if (segmentId < 0) {
+            synchronized (allBuffers) {
+                checkState(allBuffers.isEmpty());
+            }
+            return;
+        }
         // Only task thread can modify the segmentId, and the method can only be called by the task
         // thread, so accessing segmentId is not guarded here.
         //noinspection FieldAccessNotGuarded
