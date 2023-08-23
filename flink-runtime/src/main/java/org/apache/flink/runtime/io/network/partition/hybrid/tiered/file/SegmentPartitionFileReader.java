@@ -131,12 +131,29 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
         checkState(bufferHeaderResult == HEADER_LENGTH);
         reusedHeaderBuffer.position(HEADER_LENGTH);
         reusedHeaderBuffer.flip();
-        BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
+        BufferHeader header = null;
+        try {
+            header = parseBufferHeader(reusedHeaderBuffer);
+        } catch (Throwable e) {
+            throw new RuntimeException(
+                    "Reader parsing header..."
+                            + getSegmentPath(
+                                    dataFilePath,
+                                    partitionId,
+                                    subpartitionId.getSubpartitionId(),
+                                    segmentId)
+                            + "bufferHeaderResult is "
+                            + bufferHeaderResult,
+                    e);
+        }
         try {
             ((HadoopDataInputStream) channel)
                     .getHadoopInputStream()
-                    .readFully(((HadoopDataInputStream) channel)
-                            .getHadoopInputStream().getPos(), memorySegment.getArray(), 0, header.getLength());
+                    .readFully(
+                            ((HadoopDataInputStream) channel).getHadoopInputStream().getPos(),
+                            memorySegment.getArray(),
+                            0,
+                            header.getLength());
         } catch (Throwable e) {
             throw new IOException(
                     "The length of data buffer is illegal."
