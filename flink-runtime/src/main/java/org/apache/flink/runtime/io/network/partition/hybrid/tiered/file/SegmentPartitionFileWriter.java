@@ -243,6 +243,6 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
             subpartitionChannels[subpartitionId] = Channels.newChannel(fsOutputStream);
             subpartitionFsDataOutputStreams[subpartitionId] = fsOutputStream;
         }
-        return currentChannel;
+        return subpartitionChannels[subpartitionId];
     }
 }
