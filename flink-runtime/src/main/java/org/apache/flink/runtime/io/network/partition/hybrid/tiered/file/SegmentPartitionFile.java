@@ -129,6 +129,7 @@ public class SegmentPartitionFile {
             outputStream.write(0);
             outputStream.sync();
             outputStream.close();
+            LOG.info("### Writer Update Segment FLAG1 : " + getSegmentPath(basePath, partitionId, subpartitionId, segmentId) + "Updated to " + segmentFinishFile);
             return;
         }
 
@@ -139,6 +140,7 @@ public class SegmentPartitionFile {
             outputStream.write(0);
             outputStream.sync();
             outputStream.close();
+            LOG.info("### Writer Update Segment FLAG2 : " + getSegmentPath(basePath, partitionId, subpartitionId, segmentId) + "Updated to " + segmentFinishFile);
         } else {
             // To minimize the number of files, each subpartition keeps only a single segment-finish
             // file. For instance, if segment-finish file 5 exists, it indicates that segments 1 to
