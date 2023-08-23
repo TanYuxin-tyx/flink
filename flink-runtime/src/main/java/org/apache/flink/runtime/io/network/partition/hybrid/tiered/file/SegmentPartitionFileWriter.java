@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.core.fs.FSDataOutputStream;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
@@ -71,12 +72,16 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
 
     private final WritableByteChannel[] subpartitionChannels;
 
+    private final FSDataOutputStream[] subpartitionFsDataOutputStreams;
+
     private volatile boolean isReleased;
 
     SegmentPartitionFileWriter(String basePath, int numSubpartitions) {
         this.basePath = basePath;
         this.subpartitionChannels = new WritableByteChannel[numSubpartitions];
+        this.subpartitionFsDataOutputStreams = new FSDataOutputStream[numSubpartitions];
         Arrays.fill(subpartitionChannels, null);
+        Arrays.fill(subpartitionFsDataOutputStreams, null);
     }
 
     @Override
@@ -115,6 +120,12 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
             ioExecutor.shutdown();
             if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
                 throw new TimeoutException("Timeout to shutdown the flush thread.");
+            }
+            for (FSDataOutputStream fsDataOutputStream : subpartitionFsDataOutputStreams) {
+                if (fsDataOutputStream != null) {
+                    fsDataOutputStream.flush();
+                    fsDataOutputStream.close();
+                }
             }
             for (WritableByteChannel writeChannel : subpartitionChannels) {
                 if (writeChannel != null) {
@@ -179,9 +190,13 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
             TieredStoragePartitionId partitionId, int subpartitionId, int segmentId) {
         try {
             WritableByteChannel channel = subpartitionChannels[subpartitionId];
-            if (channel != null) {
+            FSDataOutputStream fsDataOutputStream = subpartitionFsDataOutputStreams[subpartitionId];
+            if (channel != null && fsDataOutputStream != null) {
+                fsDataOutputStream.flush();
+                fsDataOutputStream.close();
                 channel.close();
                 subpartitionChannels[subpartitionId] = null;
+                subpartitionFsDataOutputStreams[subpartitionId] = null;
             }
             SegmentPartitionFile.writeSegmentFinishFile(
                     basePath, partitionId, subpartitionId, segmentId);
@@ -217,14 +232,16 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
             TieredStoragePartitionId partitionId, int subpartitionId, int segmentId)
             throws IOException {
         WritableByteChannel currentChannel = subpartitionChannels[subpartitionId];
-        if (currentChannel == null) {
+        FSDataOutputStream currentFsDataOutputStream =
+                subpartitionFsDataOutputStreams[subpartitionId];
+        if (currentChannel == null && currentFsDataOutputStream == null) {
             Path writingSegmentPath =
                     getSegmentPath(basePath, partitionId, subpartitionId, segmentId);
             FileSystem fs = writingSegmentPath.getFileSystem();
-            currentChannel =
-                    Channels.newChannel(
-                            fs.create(writingSegmentPath, FileSystem.WriteMode.NO_OVERWRITE));
-            subpartitionChannels[subpartitionId] = currentChannel;
+            FSDataOutputStream fsOutputStream =
+                    fs.create(writingSegmentPath, FileSystem.WriteMode.NO_OVERWRITE);
+            subpartitionChannels[subpartitionId] = Channels.newChannel(fsOutputStream);
+            subpartitionFsDataOutputStreams[subpartitionId] = fsOutputStream;
         }
         return currentChannel;
     }

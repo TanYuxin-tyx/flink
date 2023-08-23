@@ -125,6 +125,8 @@ public class SegmentPartitionFile {
             checkState(fs.mkdirs(segmentFinishDir));
             OutputStream outputStream =
                     fs.create(segmentFinishFile, FileSystem.WriteMode.OVERWRITE);
+            outputStream.write(0);
+            outputStream.flush();
             outputStream.close();
             return;
         }
@@ -133,6 +135,8 @@ public class SegmentPartitionFile {
         if (files.length == 0) {
             OutputStream outputStream =
                     fs.create(segmentFinishFile, FileSystem.WriteMode.OVERWRITE);
+            outputStream.write(0);
+            outputStream.flush();
             outputStream.close();
         } else {
             // To minimize the number of files, each subpartition keeps only a single segment-finish
