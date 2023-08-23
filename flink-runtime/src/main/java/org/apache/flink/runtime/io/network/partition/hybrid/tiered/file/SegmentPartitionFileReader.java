@@ -107,6 +107,11 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             subpartitionInfo.put(subpartitionId, Tuple2.of(channel, segmentId));
         }
 
+        int maxSegmentId = getMaxSegmentId(partitionId, subpartitionId);
+        checkState(
+                maxSegmentId >= segmentId,
+                "maxSegmentId: " + maxSegmentId + ", segmentId: " + segmentId);
+
         // Try to read a buffer from the channel.
         reusedHeaderBuffer.clear();
         int bufferHeaderResult = channel.read(reusedHeaderBuffer.array());
@@ -115,13 +120,18 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             openedChannelAndSegmentIds.get(partitionId).remove(subpartitionId);
             return new NetworkBuffer(memorySegment, recycler, Buffer.DataType.END_OF_SEGMENT);
         }
-        checkState(bufferHeaderResult == HEADER_LENGTH);
+        checkState(
+                bufferHeaderResult == HEADER_LENGTH,
+                "current segment id: "
+                        + segmentId
+                        + ", max segment id: "
+                        + getMaxSegmentId(partitionId, subpartitionId));
         reusedHeaderBuffer.position(HEADER_LENGTH);
         reusedHeaderBuffer.flip();
         BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
         int dataBufferResult = channel.read(memorySegment.getArray(), 0, header.getLength());
         while (dataBufferResult != header.getLength()) {
-            int maxSegmentId = getMaxSegmentId(partitionId, subpartitionId);
+            maxSegmentId = getMaxSegmentId(partitionId, subpartitionId);
             checkState(
                     maxSegmentId >= segmentId,
                     "maxSegmentId: " + maxSegmentId + ", segmentId: " + segmentId);
