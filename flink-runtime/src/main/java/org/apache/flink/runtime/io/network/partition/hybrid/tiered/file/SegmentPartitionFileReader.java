@@ -32,6 +32,9 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.Tiered
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -50,6 +53,8 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /** The implementation of {@link PartitionFileReader} with segment file mode. */
 public class SegmentPartitionFileReader implements PartitionFileReader {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SegmentPartitionFileReader.class);
 
     private final ByteBuffer reusedHeaderBuffer = ByteBuffer.allocate(HEADER_LENGTH);
 
@@ -97,6 +102,13 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
         // Create the channel if there is a new segment file for a subpartition.
         if (channel == null || fileChannelAndSegmentId.f1 != segmentId) {
             if (channel != null) {
+                LOG.info(
+                        "### Reader Closing: "
+                                + getSegmentPath(
+                                        dataFilePath,
+                                        partitionId,
+                                        subpartitionId.getSubpartitionId(),
+                                        segmentId));
                 channel.close();
             }
             channel = openNewChannel(partitionId, subpartitionId, segmentId);
@@ -122,7 +134,14 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
         int dataBufferResult = channel.read(memorySegment.getArray(), 0, header.getLength());
         if (dataBufferResult != header.getLength()) {
             channel.close();
-            throw new IOException("The length of data buffer is illegal.");
+            throw new IOException(
+                    "The length of data buffer is illegal."
+                            + "Reader Reading..."
+                            + getSegmentPath(
+                                    dataFilePath,
+                                    partitionId,
+                                    subpartitionId.getSubpartitionId(),
+                                    segmentId));
         }
         Buffer.DataType dataType = header.getDataType();
         return new NetworkBuffer(
@@ -149,6 +168,13 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
                         dataFilePath, partitionId, subpartitionId.getSubpartitionId(), segmentId);
         if (getMaxSegmentId(partitionId, subpartitionId) >= segmentId
                 && fileSystem.exists(currentSegmentPath)) {
+            LOG.info(
+                    "### Reader starting open: "
+                            + getSegmentPath(
+                                    dataFilePath,
+                                    partitionId,
+                                    subpartitionId.getSubpartitionId(),
+                                    segmentId));
             return fileSystem.open(currentSegmentPath);
         } else {
             return null;

@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
+import org.apache.flink.core.fs.FSDataOutputStream;
 import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
@@ -28,7 +29,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
 
@@ -123,20 +123,21 @@ public class SegmentPartitionFile {
         Path segmentFinishFile = new Path(segmentFinishDir, String.valueOf(segmentId));
         if (!fs.exists(segmentFinishDir)) {
             checkState(fs.mkdirs(segmentFinishDir));
-            OutputStream outputStream =
-                    fs.create(segmentFinishFile, FileSystem.WriteMode.OVERWRITE);
+            FSDataOutputStream outputStream = fs.create(
+                    segmentFinishFile,
+                    FileSystem.WriteMode.OVERWRITE);
             outputStream.write(0);
-            outputStream.flush();
+            outputStream.sync();
             outputStream.close();
             return;
         }
 
         FileStatus[] files = fs.listStatus(segmentFinishDir);
         if (files.length == 0) {
-            OutputStream outputStream =
+            FSDataOutputStream outputStream =
                     fs.create(segmentFinishFile, FileSystem.WriteMode.OVERWRITE);
             outputStream.write(0);
-            outputStream.flush();
+            outputStream.sync();
             outputStream.close();
         } else {
             // To minimize the number of files, each subpartition keeps only a single segment-finish
@@ -147,6 +148,8 @@ public class SegmentPartitionFile {
             checkState(files.length == 1, "Wong number of segment-finish files.");
             fs.rename(files[0].getPath(), segmentFinishFile);
         }
+
+        LOG.info("### Writer Update Segment FLAG : " + getSegmentPath(basePath, partitionId, subpartitionId, segmentId) + "Updated to " + segmentFinishFile);
     }
 
     public static void deletePathQuietly(String toDelete) {

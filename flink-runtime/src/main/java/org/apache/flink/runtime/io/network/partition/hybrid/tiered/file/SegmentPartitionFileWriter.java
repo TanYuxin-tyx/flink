@@ -31,6 +31,9 @@ import org.apache.flink.util.concurrent.FutureUtils;
 
 import org.apache.flink.shaded.guava31.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
@@ -61,6 +64,9 @@ import static org.apache.flink.util.Preconditions.checkState;
  * finished.
  */
 public class SegmentPartitionFileWriter implements PartitionFileWriter {
+
+
+    private static final Logger LOG = LoggerFactory.getLogger(SegmentPartitionFileWriter.class);
 
     private final ExecutorService ioExecutor =
             Executors.newSingleThreadExecutor(
@@ -192,9 +198,11 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
             WritableByteChannel channel = subpartitionChannels[subpartitionId];
             FSDataOutputStream fsDataOutputStream = subpartitionFsDataOutputStreams[subpartitionId];
             if (channel != null && fsDataOutputStream != null) {
-                fsDataOutputStream.flush();
+                LOG.info("### Writer start finish segment: " + getSegmentPath(basePath, partitionId, subpartitionId, segmentId));
+                fsDataOutputStream.sync();
                 fsDataOutputStream.close();
                 channel.close();
+                LOG.info("### Writer segment finished: " + getSegmentPath(basePath, partitionId, subpartitionId, segmentId));
                 subpartitionChannels[subpartitionId] = null;
                 subpartitionFsDataOutputStreams[subpartitionId] = null;
             }
@@ -242,6 +250,7 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
                     fs.create(writingSegmentPath, FileSystem.WriteMode.NO_OVERWRITE);
             subpartitionChannels[subpartitionId] = Channels.newChannel(fsOutputStream);
             subpartitionFsDataOutputStreams[subpartitionId] = fsOutputStream;
+            LOG.info("### Writer create file OutputStream: " + writingSegmentPath);
         }
         return subpartitionChannels[subpartitionId];
     }
