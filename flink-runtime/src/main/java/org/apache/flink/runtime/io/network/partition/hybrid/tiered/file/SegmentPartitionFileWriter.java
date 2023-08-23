@@ -19,10 +19,12 @@
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.core.fs.FSDataInputStream;
 import org.apache.flink.core.fs.FSDataOutputStream;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.util.ExceptionUtils;
@@ -35,6 +37,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.WritableByteChannel;
 import java.util.ArrayList;
@@ -46,6 +49,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.HEADER_LENGTH;
+import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.parseBufferHeader;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateBufferWithHeaders;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.SegmentPartitionFile.getSegmentPath;
 import static org.apache.flink.util.Preconditions.checkState;
@@ -64,7 +69,6 @@ import static org.apache.flink.util.Preconditions.checkState;
  * finished.
  */
 public class SegmentPartitionFileWriter implements PartitionFileWriter {
-
 
     private static final Logger LOG = LoggerFactory.getLogger(SegmentPartitionFileWriter.class);
 
@@ -198,11 +202,19 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
             WritableByteChannel channel = subpartitionChannels[subpartitionId];
             FSDataOutputStream fsDataOutputStream = subpartitionFsDataOutputStreams[subpartitionId];
             if (channel != null && fsDataOutputStream != null) {
-                LOG.info("### Writer start finish segment: " + getSegmentPath(basePath, partitionId, subpartitionId, segmentId));
+                LOG.info(
+                        "### Writer start finish segment: "
+                                + getSegmentPath(basePath, partitionId, subpartitionId, segmentId));
                 fsDataOutputStream.sync();
                 fsDataOutputStream.close();
                 channel.close();
-                LOG.info("### Writer segment finished: " + getSegmentPath(basePath, partitionId, subpartitionId, segmentId));
+                LOG.info(
+                        "### Writer segment finished: "
+                                + getSegmentPath(basePath, partitionId, subpartitionId, segmentId));
+
+                // Test reading total segment
+                testReadingTotalSegment(partitionId, subpartitionId, segmentId);
+
                 subpartitionChannels[subpartitionId] = null;
                 subpartitionFsDataOutputStreams[subpartitionId] = null;
             }
@@ -211,6 +223,40 @@ public class SegmentPartitionFileWriter implements PartitionFileWriter {
         } catch (IOException exception) {
             ExceptionUtils.rethrow(exception);
         }
+    }
+
+    private final ByteBuffer reusedHeaderBuffer = ByteBuffer.allocate(HEADER_LENGTH);
+    private final byte[] testBytes = new byte[32 * 1024];
+
+    private void testReadingTotalSegment(
+            TieredStoragePartitionId partitionId, int subpartitionId, int segmentId)
+            throws IOException {
+        Path writingSegmentPath = getSegmentPath(basePath, partitionId, subpartitionId, segmentId);
+        FileSystem fileSystem = writingSegmentPath.getFileSystem();
+        FSDataInputStream fsDataInputStream = fileSystem.open(writingSegmentPath);
+        while (true) {
+            reusedHeaderBuffer.clear();
+            int bufferHeaderResult = fsDataInputStream.read(reusedHeaderBuffer.array());
+            if (bufferHeaderResult == -1) {
+                fsDataInputStream.close();
+                break;
+            }
+            checkState(bufferHeaderResult == HEADER_LENGTH);
+            reusedHeaderBuffer.position(HEADER_LENGTH);
+            reusedHeaderBuffer.flip();
+            BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
+            int dataBufferResult = fsDataInputStream.read(testBytes, 0, header.getLength());
+            if (dataBufferResult != header.getLength()) {
+                throw new IOException(
+                        "Failed to test itself. dataBufferResult: "
+                                + dataBufferResult
+                                + " actual length: "
+                                + header.getLength()
+                                + " "
+                                + writingSegmentPath);
+            }
+        }
+        LOG.info("Writer successfully read: " + writingSegmentPath);
     }
 
     private long getTotalBytes(List<Tuple2<Buffer, Integer>> buffersToFlush) {
