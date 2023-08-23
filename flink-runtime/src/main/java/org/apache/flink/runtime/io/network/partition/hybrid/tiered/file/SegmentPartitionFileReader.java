@@ -135,7 +135,8 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
         try {
             ((HadoopDataInputStream) channel)
                     .getHadoopInputStream()
-                    .readFully(0, memorySegment.getArray(), 0, header.getLength());
+                    .readFully(((HadoopDataInputStream) channel)
+                            .getHadoopInputStream().getPos(), memorySegment.getArray(), 0, header.getLength());
         } catch (Throwable e) {
             throw new IOException(
                     "The length of data buffer is illegal."
