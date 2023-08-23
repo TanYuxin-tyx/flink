@@ -24,6 +24,7 @@ import org.apache.flink.core.fs.FileStatus;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.core.memory.MemorySegment;
+import org.apache.flink.runtime.fs.hdfs.HadoopDataInputStream;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
@@ -131,9 +132,11 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
         reusedHeaderBuffer.position(HEADER_LENGTH);
         reusedHeaderBuffer.flip();
         BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
-        int dataBufferResult = channel.read(memorySegment.getArray(), 0, header.getLength());
-        if (dataBufferResult != header.getLength()) {
-            channel.close();
+        try {
+            ((HadoopDataInputStream) channel)
+                    .getHadoopInputStream()
+                    .readFully(0, memorySegment.getArray(), 0, header.getLength());
+        } catch (Throwable e) {
             throw new IOException(
                     "The length of data buffer is illegal."
                             + "Reader Reading..."
@@ -141,8 +144,20 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
                                     dataFilePath,
                                     partitionId,
                                     subpartitionId.getSubpartitionId(),
-                                    segmentId));
+                                    segmentId),
+                    e);
         }
+        // if (dataBufferResult != header.getLength()) {
+        //    channel.close();
+        //    throw new IOException(
+        //            "The length of data buffer is illegal."
+        //                    + "Reader Reading..."
+        //                    + getSegmentPath(
+        //                            dataFilePath,
+        //                            partitionId,
+        //                            subpartitionId.getSubpartitionId(),
+        //                            segmentId));
+        // }
         Buffer.DataType dataType = header.getDataType();
         return new NetworkBuffer(
                 memorySegment, recycler, dataType, header.isCompressed(), header.getLength());
