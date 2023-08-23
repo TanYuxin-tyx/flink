@@ -274,7 +274,7 @@ public class RemoteStorageScanner implements Runnable {
     }
 
     private void tryThrowException(Throwable t, String logMessage) {
-        LOG.warn(logMessage);
+        LOG.warn(logMessage + "retry time: " + currentRetryTime, t);
         if (currentRetryTime > MAX_RETRY_TIME) {
             throw new RuntimeException(logMessage, t);
         }
