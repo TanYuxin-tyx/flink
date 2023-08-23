@@ -120,12 +120,20 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             openedChannelAndSegmentIds.get(partitionId).remove(subpartitionId);
             return new NetworkBuffer(memorySegment, recycler, Buffer.DataType.END_OF_SEGMENT);
         }
+        if (bufferHeaderResult > 0 && bufferHeaderResult != HEADER_LENGTH) {
+            while (bufferHeaderResult != HEADER_LENGTH) {
+                channel.seek(channel.getPos() - bufferHeaderResult);
+                bufferHeaderResult = channel.read(reusedHeaderBuffer.array());
+            }
+        }
         checkState(
                 bufferHeaderResult == HEADER_LENGTH,
                 "current segment id: "
                         + segmentId
                         + ", max segment id: "
-                        + getMaxSegmentId(partitionId, subpartitionId));
+                        + getMaxSegmentId(partitionId, subpartitionId)
+                        + "buffer header result:"
+                        + bufferHeaderResult);
         reusedHeaderBuffer.position(HEADER_LENGTH);
         reusedHeaderBuffer.flip();
         BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
