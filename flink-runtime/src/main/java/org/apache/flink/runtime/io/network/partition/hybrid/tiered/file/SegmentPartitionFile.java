@@ -117,11 +117,12 @@ public class SegmentPartitionFile {
             int subpartitionId,
             int segmentId)
             throws IOException {
+        checkState(segmentId >= 0);
         Path segmentFinishDir = getSegmentFinishDirPath(basePath, partitionId, subpartitionId);
         FileSystem fs = segmentFinishDir.getFileSystem();
         Path segmentFinishFile = new Path(segmentFinishDir, String.valueOf(segmentId));
         if (!fs.exists(segmentFinishDir)) {
-            fs.mkdirs(segmentFinishDir);
+            checkState(fs.mkdirs(segmentFinishDir));
             OutputStream outputStream =
                     fs.create(segmentFinishFile, FileSystem.WriteMode.OVERWRITE);
             outputStream.close();
