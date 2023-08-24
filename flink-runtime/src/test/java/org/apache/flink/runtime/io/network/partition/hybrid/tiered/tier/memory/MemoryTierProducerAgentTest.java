@@ -70,7 +70,7 @@ class MemoryTierProducerAgentTest {
                 createMemoryTierProducerAgent(false)) {
             TestingNettyConnectionWriter connectionWriter =
                     new TestingNettyConnectionWriter.Builder()
-                            .setNumQueuedBuffersSupplier(() -> numQueuedBuffers)
+                            .setNumQueuedNettyPayloadsSupplier(() -> numQueuedBuffers)
                             .build();
             memoryTierProducerAgent.connectionEstablished(SUBPARTITION_ID, connectionWriter);
             assertThat(memoryTierProducerAgent.tryStartNewSegment(SUBPARTITION_ID, 0)).isTrue();
@@ -84,7 +84,7 @@ class MemoryTierProducerAgentTest {
                 createMemoryTierProducerAgent(false)) {
             TestingNettyConnectionWriter connectionWriter =
                     new TestingNettyConnectionWriter.Builder()
-                            .setNumQueuedBuffersSupplier(() -> numQueuedBuffers)
+                            .setNumQueuedNettyPayloadsSupplier(() -> numQueuedBuffers)
                             .build();
             memoryTierProducerAgent.connectionEstablished(SUBPARTITION_ID, connectionWriter);
             assertThat(memoryTierProducerAgent.tryStartNewSegment(SUBPARTITION_ID, 0)).isFalse();
