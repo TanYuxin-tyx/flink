@@ -40,7 +40,7 @@ public class NettyConnectionWriterTest {
                 new NettyConnectionWriterImpl(nettyPayloadQueue, () -> {});
         writeBufferToWriter(bufferNumber, nettyConnectionWriter);
         assertThat(nettyPayloadQueue.getBacklog()).isEqualTo(bufferNumber);
-        assertThat(nettyConnectionWriter.numQueuedBuffers()).isEqualTo(bufferNumber);
+        assertThat(nettyConnectionWriter.numQueuedPayloads()).isEqualTo(bufferNumber);
     }
 
     @Test
@@ -70,16 +70,16 @@ public class NettyConnectionWriterTest {
                 new NettyConnectionWriterImpl(new NettyPayloadQueue(), () -> {});
         writeBufferToWriter(bufferNumber, nettyConnectionWriter);
         nettyConnectionWriter.close(null);
-        assertThat(nettyConnectionWriter.numQueuedBuffers()).isEqualTo(0);
+        assertThat(nettyConnectionWriter.numQueuedPayloads()).isEqualTo(0);
         writeBufferToWriter(bufferNumber, nettyConnectionWriter);
         nettyConnectionWriter.close(new IOException());
-        assertThat(nettyConnectionWriter.numQueuedBuffers()).isEqualTo(0);
+        assertThat(nettyConnectionWriter.numQueuedPayloads()).isEqualTo(1);
     }
 
     private static void writeBufferToWriter(
             int bufferNumber, NettyConnectionWriter nettyConnectionWriter) {
         for (int index = 0; index < bufferNumber; ++index) {
-            nettyConnectionWriter.writeBuffer(
+            nettyConnectionWriter.writeNettyPayload(
                     NettyPayload.newBuffer(
                             BufferBuilderTestUtils.buildSomeBuffer(0), index, SUBPARTITION_ID));
         }

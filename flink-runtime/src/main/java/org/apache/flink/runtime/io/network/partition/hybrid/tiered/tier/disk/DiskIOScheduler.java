@@ -450,8 +450,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         }
 
         private void writeToNettyConnectionWriter(NettyPayload nettyPayload) {
-            nettyConnectionWriter.writeBuffer(nettyPayload);
-            if (nettyConnectionWriter.numQueuedBuffers() <= 1) {
+            nettyConnectionWriter.writeNettyPayload(nettyPayload);
+            if (nettyConnectionWriter.numQueuedPayloads() <= 1
+                    || nettyConnectionWriter.numQueuedBufferPayloads() <= 1) {
                 notifyAvailable();
             }
         }

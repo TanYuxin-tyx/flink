@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.buffer.Buffer.DataType.END_OF_SEGMENT;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * The {@link TieredStorageResultSubpartitionView} is the implementation of {@link
@@ -183,9 +184,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
         if (nettyPayload == null) {
             return Optional.empty();
         } else {
-            if (nettyPayload.getSegmentId() != -1) {
-                return readNettyPayload(nettyPayloadQueue);
-            }
+            checkState(nettyPayload.getSegmentId() == -1);
             Optional<Throwable> error = nettyPayload.getError();
             if (error.isPresent()) {
                 releaseAllResources();
@@ -235,6 +234,9 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
                 continue;
             }
             queueIndexContainsCurrentSegment = queueIndex;
+            NettyPayload segmentId =
+                    nettyPayloadQueues.get(queueIndexContainsCurrentSegment).poll();
+            checkState(segmentId.getSegmentId() != -1);
             return true;
         }
         return false;
