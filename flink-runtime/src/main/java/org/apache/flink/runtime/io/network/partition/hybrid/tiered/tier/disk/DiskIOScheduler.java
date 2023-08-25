@@ -390,7 +390,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                         if (i == readBuffers.size() - 1) {
                             if (readBuffer instanceof PartitionFileReader.PartialBuffer) {
                                 partialBuffer = (PartitionFileReader.PartialBuffer) readBuffer;
-                                previousReadOffset = partialBuffer.getFileOffset();
+                                previousReadOffset = partialBuffer.getReadStartOffset();
                                 continue;
                             } else {
                                 finishReadCurrentRegion();
@@ -419,7 +419,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     nextSegmentId < 0
                             ? Long.MAX_VALUE
                             : partialBuffer != null
-                                    ? partialBuffer.getFileOffset()
+                                    ? partialBuffer.getReadStartOffset()
                                     : partitionFileReader.getPriority(
                                             partitionId,
                                             subpartitionId,
@@ -433,7 +433,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 checkState(previousReadOffset >= toRollBackBytes);
                 partialBuffer =
                         new PartitionFileReader.PartialBuffer(
-                                previousReadOffset - toRollBackBytes, null, null);
+                                previousReadOffset - toRollBackBytes, -1, null, null);
                 toRollBackBytes = 0;
             }
         }
