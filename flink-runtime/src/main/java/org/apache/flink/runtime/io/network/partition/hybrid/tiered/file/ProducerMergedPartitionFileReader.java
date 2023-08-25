@@ -221,10 +221,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         BufferHeader header = partialBuffer == null ? null : partialBuffer.getBufferHeader();
         CompositeBuffer slicedBuffer =
                 partialBuffer == null ? null : partialBuffer.getCompositeBuffer();
-        if (header == null) {
-            checkState(slicedBuffer == null || reusedHeaderBuffer.position() > 0);
-        }
-        checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
+        checkBufferAndHeader(reusedHeaderBuffer, header, slicedBuffer);
 
         while (byteBuffer.hasRemaining()) {
             // Parse the small buffer's header
@@ -375,5 +372,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         } catch (IOException e) {
             ExceptionUtils.rethrow(e, "Failed to move file offset");
         }
+    }
+
+    private static void checkBufferAndHeader(
+            ByteBuffer reusedHeaderBuffer, BufferHeader header, CompositeBuffer slicedBuffer) {
+        checkState(
+                reusedHeaderBuffer.position() > 0 && header == null && slicedBuffer == null
+                        || reusedHeaderBuffer.position() == 0);
+        checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
     }
 }
