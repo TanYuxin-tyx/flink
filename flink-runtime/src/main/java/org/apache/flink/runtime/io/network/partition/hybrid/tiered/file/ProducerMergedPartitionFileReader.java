@@ -283,7 +283,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             TieredStorageSubpartitionId subpartitionId,
             int bufferIndex,
             PartialBuffer partialBuffer,
-            ByteBuffer reusedHeaderBuffer) {
+            ByteBuffer reusedHeaderBuffer)
+            throws IOException {
         long readEndOffset;
         long readStartOffset;
         if (partialBuffer == null
@@ -298,7 +299,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 return null;
             } else {
                 moveFileOffsetToBuffer(region.get(), bufferIndex, reusedHeaderBuffer);
-                readStartOffset = region.get().getRegionFileOffset();
+                readStartOffset = fileChannel.position();
                 readEndOffset = region.get().getRegionFileEndOffset();
             }
         } else {
