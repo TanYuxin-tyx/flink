@@ -165,7 +165,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         }
         ProducerMergedPartitionFileIndex.FixedSizeRegion region = readRegion.get();
         moveFileOffsetToBuffer(region, bufferIndex, reusedHeaderBuffer);
-        return region.getRegionFileOffset();
+        long currentFilePosition = Long.MAX_VALUE;
+        try {
+            currentFilePosition = fileChannel.position();
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to get the file offset.");
+        }
+        return currentFilePosition;
     }
 
     @Override
