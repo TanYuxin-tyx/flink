@@ -131,7 +131,10 @@ class ProducerMergedPartitionFileReaderTest {
                     buffer.recycleBuffer();
                 }
             }
-            long expectedPriority = bufferIndex <= DEFAULT_BUFFER_NUMBER - 1 ? 0 : Long.MAX_VALUE;
+            long expectedPriority =
+                    bufferIndex < DEFAULT_BUFFER_NUMBER
+                            ? (long) bufferIndex * (DEFAULT_BUFFER_SIZE + HEADER_LENGTH)
+                            : Long.MAX_VALUE;
             assertThat(
                             partitionFileReader.getPriority(
                                     DEFAULT_PARTITION_ID,
