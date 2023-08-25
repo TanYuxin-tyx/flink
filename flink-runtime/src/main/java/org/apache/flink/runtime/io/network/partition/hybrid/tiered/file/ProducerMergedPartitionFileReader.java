@@ -135,9 +135,9 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             if (!regionOpt.isPresent()) {
                 return null;
             }
-            readStartOffset = regionOpt.get().getRegionFileOffset();
             readEndOffset = regionOpt.get().getRegionFileEndOffset();
             moveFileOffsetToBuffer(regionOpt.get(), bufferIndex, reusedHeaderBuffer);
+            readStartOffset = fileChannel.position();
         } else {
             readStartOffset = partialBuffer.getFileOffset();
             readEndOffset = partialBuffer.getReadEndOffset();
