@@ -127,17 +127,25 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         List<Buffer> readBuffers = new LinkedList<>();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        Optional<BufferOffsetCache> cache =
-                tryGetCache(cacheKey, reusedHeaderBuffer, partialBuffer, true);
-        if (!cache.isPresent()) {
-            return null;
+        long readStartOffset;
+        long readEndOffset;
+        if (partialBuffer == null || partialBuffer.getReadEndOffset() == -1) {
+            Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> regionOpt =
+                    dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
+            if (!regionOpt.isPresent()) {
+                return null;
+            }
+            readStartOffset = regionOpt.get().getRegionFileOffset();
+            readEndOffset = regionOpt.get().getRegionFileEndOffset();
+            moveFileOffsetToBuffer(regionOpt.get(), bufferIndex, reusedHeaderBuffer);
+        } else {
+            readStartOffset = partialBuffer.getFileOffset();
+            readEndOffset = partialBuffer.getReadEndOffset();
+            checkState(readStartOffset >= 0);
+            checkState(readEndOffset >= 0);
         }
-
-        // Get the read offset, including the start offset, the end offset
-        long readStartOffset =
-                partialBuffer == null ? cache.get().getFileOffset() : partialBuffer.getFileOffset();
-        long readEndOffset = cache.get().region.getRegionFileEndOffset();
         checkState(readStartOffset <= readEndOffset);
+
         int numBytesToRead =
                 Math.min(memorySegment.size(), (int) (readEndOffset - readStartOffset));
         if (numBytesToRead == 0) {
@@ -151,19 +159,21 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
         NetworkBuffer buffer = new NetworkBuffer(memorySegment, recycler);
         buffer.setSize(byteBuffer.remaining());
-        int numFullBuffers;
         boolean noMoreDataInRegion = false;
         try {
             // Slice the read memory segment to multiple small network buffers and add them to
             // readBuffers
             Tuple2<CompositeBuffer, BufferHeader> partial =
                     sliceBuffer(byteBuffer, buffer, reusedHeaderBuffer, partialBuffer, readBuffers);
-            numFullBuffers = readBuffers.size();
             if (readStartOffset + numBytesToRead < readEndOffset) {
                 // If the region is not finished read, generate a partial buffer to store the
                 // partial data, then append the partial buffer to the tail of readBuffers
                 partialBuffer =
-                        new PartialBuffer(readStartOffset + numBytesToRead, partial.f0, partial.f1);
+                        new PartialBuffer(
+                                readStartOffset + numBytesToRead,
+                                readEndOffset,
+                                partial.f0,
+                                partial.f1);
                 readBuffers.add(partialBuffer);
             } else {
                 // The region is read completely
@@ -177,15 +187,9 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             buffer.recycleBuffer();
         }
 
-        updateBufferOffsetCache(
-                subpartitionId,
-                bufferIndex,
-                cache.get(),
-                readStartOffset,
-                readEndOffset,
-                numBytesToRead,
-                numFullBuffers,
-                noMoreDataInRegion);
+        checkState(
+                noMoreDataInRegion && readStartOffset + numBytesToRead == readEndOffset
+                        || readStartOffset + numBytesToRead < readEndOffset);
         return readBuffers;
     }
 
@@ -422,6 +426,21 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         }
 
         return header;
+    }
+
+    private void moveFileOffsetToBuffer(
+            ProducerMergedPartitionFileIndex.FixedSizeRegion region,
+            int bufferIndex,
+            ByteBuffer reusedHeaderBuffer) {
+        try {
+            checkNotNull(fileChannel).position(region.getRegionFileOffset());
+            for (int i = 0; i < (bufferIndex - region.getFirstBufferIndex()); ++i) {
+                positionToNextBuffer(fileChannel, reusedHeaderBuffer);
+            }
+            reusedHeaderBuffer.clear();
+        } catch (IOException e) {
+            ExceptionUtils.rethrow(e, "Failed to move file offset");
+        }
     }
 
     /**

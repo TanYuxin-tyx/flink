@@ -433,7 +433,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                 checkState(previousReadOffset >= toRollBackBytes);
                 partialBuffer =
                         new PartitionFileReader.PartialBuffer(
-                                previousReadOffset - toRollBackBytes, null, null);
+                                previousReadOffset - toRollBackBytes, -1, null, null);
                 toRollBackBytes = 0;
             }
         }

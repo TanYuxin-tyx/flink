@@ -100,14 +100,20 @@ public interface PartitionFileReader {
 
         private final long fileOffset;
 
+        private final long readEndOffset;
+
         private final CompositeBuffer compositeBuffer;
 
         private final BufferHeader bufferHeader;
 
         public PartialBuffer(
-                long fileOffset, CompositeBuffer compositeBuffer, BufferHeader bufferHeader) {
+                long fileOffset,
+                long readEndOffset,
+                CompositeBuffer compositeBuffer,
+                BufferHeader bufferHeader) {
             checkArgument(fileOffset >= 0);
             this.fileOffset = fileOffset;
+            this.readEndOffset = readEndOffset;
             this.compositeBuffer = compositeBuffer;
             this.bufferHeader = bufferHeader;
         }
@@ -118,6 +124,10 @@ public interface PartitionFileReader {
          */
         public long getFileOffset() {
             return fileOffset;
+        }
+
+        public long getReadEndOffset() {
+            return readEndOffset;
         }
 
         public CompositeBuffer getCompositeBuffer() {
