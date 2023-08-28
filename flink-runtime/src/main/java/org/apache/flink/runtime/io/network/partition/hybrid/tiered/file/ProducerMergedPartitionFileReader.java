@@ -299,11 +299,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         int numSlicedBytes = 0;
         while (byteBuffer.hasRemaining()) {
             // Parse the small buffer's header
-            if (header == null
-                    && (header = parseBufferHeader(byteBuffer, reusedHeaderBuffer)) == null) {
-                break;
+            if (header == null) {
+                if ((header = parseBufferHeader(byteBuffer, reusedHeaderBuffer)) == null) {
+                    break;
+                } else {
+                    numSlicedBytes += HEADER_LENGTH;
+                }
             }
-            numSlicedBytes += HEADER_LENGTH;
 
             // If the previous partial buffer is not exist
             if (slicedBuffer == null) {
@@ -324,10 +326,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                     if (byteBuffer.hasRemaining()) {
                         buffer.retainBuffer();
                         slicedBuffer = new CompositeBuffer(header);
+                        int numPartialBytes = byteBuffer.remaining();
                         slicedBuffer.addPartialBuffer(
-                                buffer.readOnlySlice(
-                                        byteBuffer.position(), byteBuffer.remaining()));
-                        numSlicedBytes += byteBuffer.remaining();
+                                buffer.readOnlySlice(byteBuffer.position(), numPartialBytes));
+                        numSlicedBytes += numPartialBytes;
                     }
                     break;
                 }
@@ -337,9 +339,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 // complete buffer
                 buffer.retainBuffer();
                 int position = byteBuffer.position() + slicedBuffer.missingLength();
+                int numPartialBytes = slicedBuffer.missingLength();
                 slicedBuffer.addPartialBuffer(
-                        buffer.readOnlySlice(byteBuffer.position(), slicedBuffer.missingLength()));
-                numSlicedBytes += slicedBuffer.missingLength();
+                        buffer.readOnlySlice(byteBuffer.position(), numPartialBytes));
+                numSlicedBytes += numPartialBytes;
                 byteBuffer.position(position);
             }
 
