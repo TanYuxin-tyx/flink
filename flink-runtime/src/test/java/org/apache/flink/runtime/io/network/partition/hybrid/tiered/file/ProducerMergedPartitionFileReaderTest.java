@@ -22,7 +22,6 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
-import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
@@ -34,7 +33,6 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
@@ -113,7 +111,6 @@ class ProducerMergedPartitionFileReaderTest {
                                 DEFAULT_BUFFER_NUMBER + 1,
                                 memorySegment,
                                 FreeingBufferRecycler.INSTANCE,
-                                BufferReaderWriterUtil.allocatedHeaderBuffer(),
                                 null))
                 .isNull();
     }
@@ -122,10 +119,8 @@ class ProducerMergedPartitionFileReaderTest {
     void testGetPriority() throws IOException {
         AtomicLong currentFileOffset = new AtomicLong(0);
         PartitionFileReader.PartialBuffer partialBuffer = null;
-        ByteBuffer bufferHeader = BufferReaderWriterUtil.allocatedHeaderBuffer();
         for (int bufferIndex = 0; bufferIndex < DEFAULT_BUFFER_NUMBER; ) {
-            List<Buffer> buffers =
-                    readBuffer(bufferIndex, DEFAULT_SUBPARTITION_ID, partialBuffer, bufferHeader);
+            List<Buffer> buffers = readBuffer(bufferIndex, DEFAULT_SUBPARTITION_ID, partialBuffer);
             assertThat(buffers).isNotNull();
             for (Buffer buffer : buffers) {
                 if (buffer instanceof PartitionFileReader.PartialBuffer) {
@@ -144,8 +139,7 @@ class ProducerMergedPartitionFileReaderTest {
                                     DEFAULT_PARTITION_ID,
                                     DEFAULT_SUBPARTITION_ID,
                                     DEFAULT_SEGMENT_ID,
-                                    bufferIndex,
-                                    BufferReaderWriterUtil.allocatedHeaderBuffer()))
+                                    bufferIndex))
                     .isEqualTo(expectedFileOffset);
         }
     }
@@ -188,15 +182,13 @@ class ProducerMergedPartitionFileReaderTest {
 
     private List<Buffer> readBuffer(int bufferIndex, TieredStorageSubpartitionId subpartitionId)
             throws IOException {
-        return readBuffer(
-                bufferIndex, subpartitionId, null, BufferReaderWriterUtil.allocatedHeaderBuffer());
+        return readBuffer(bufferIndex, subpartitionId, null);
     }
 
     private List<Buffer> readBuffer(
             int bufferIndex,
             TieredStorageSubpartitionId subpartitionId,
-            PartitionFileReader.PartialBuffer partialBuffer,
-            ByteBuffer bufferHeader)
+            PartitionFileReader.PartialBuffer partialBuffer)
             throws IOException {
         MemorySegment memorySegment =
                 MemorySegmentFactory.allocateUnpooledSegment(DEFAULT_BUFFER_SIZE);
@@ -207,7 +199,6 @@ class ProducerMergedPartitionFileReaderTest {
                 bufferIndex,
                 memorySegment,
                 FreeingBufferRecycler.INSTANCE,
-                bufferHeader,
                 partialBuffer);
     }
 }
