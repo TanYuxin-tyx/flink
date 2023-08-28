@@ -174,7 +174,12 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 partialBuffer =
                         new PartialBuffer(
                                 readStartOffset + numBytesRealRead, partial.f0, partial.f1);
-                numBytesPartial = partialBuffer.readableBytes();
+                numBytesPartial =
+                        partialBuffer.readableBytes()
+                                + (partialBuffer.getBufferHeader() == null ? 0 : HEADER_LENGTH);
+                checkState(
+                        partialBuffer.getBufferHeader() != null
+                                || partialBuffer.getCompositeBuffer() == null);
                 readBuffers.add(partialBuffer);
             } else {
                 // The region is read completely
