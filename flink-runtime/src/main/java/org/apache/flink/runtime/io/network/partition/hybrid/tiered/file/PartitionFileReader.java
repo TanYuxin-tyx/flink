@@ -49,7 +49,6 @@ public interface PartitionFileReader {
      * @param bufferIndex the index of buffer
      * @param memorySegment the empty buffer to store the read buffer
      * @param recycler the buffer recycler
-     * @param reusedHeaderBuffer the header buffer can be reused
      * @param partialBuffer the previous partial buffer. The partial buffer is not null only when
      *     the last read has a partial buffer, it will construct a full buffer during the read
      *     process.
@@ -63,7 +62,6 @@ public interface PartitionFileReader {
             int bufferIndex,
             MemorySegment memorySegment,
             BufferRecycler recycler,
-            ByteBuffer reusedHeaderBuffer,
             @Nullable PartialBuffer partialBuffer)
             throws IOException;
 
@@ -89,8 +87,7 @@ public interface PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            int bufferIndex,
-            ByteBuffer reusedHeaderBuffer);
+            int bufferIndex);
 
     /** Release the {@link PartitionFileReader}. */
     void release();

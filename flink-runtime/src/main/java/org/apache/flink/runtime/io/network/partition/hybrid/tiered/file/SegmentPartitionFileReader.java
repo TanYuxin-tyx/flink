@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
+import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
 import org.apache.flink.util.ExceptionUtils;
@@ -50,6 +51,8 @@ import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.file.S
 
 /** The implementation of {@link PartitionFileReader} with segment file mode. */
 public class SegmentPartitionFileReader implements PartitionFileReader {
+
+    private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
     /**
      * Opened file channels and segment id of related segment files stored in map.
@@ -82,7 +85,6 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             int bufferIndex,
             MemorySegment memorySegment,
             BufferRecycler recycler,
-            ByteBuffer reusedHeaderBuffer,
             @Nullable PartialBuffer partialBuffer)
             throws IOException {
 
@@ -137,8 +139,7 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
-            int bufferIndex,
-            ByteBuffer reusedHeaderBuffer) {
+            int bufferIndex) {
         // noop
         return -1;
     }
