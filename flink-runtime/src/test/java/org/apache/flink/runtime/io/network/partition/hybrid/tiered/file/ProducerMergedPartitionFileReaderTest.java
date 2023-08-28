@@ -125,14 +125,13 @@ class ProducerMergedPartitionFileReaderTest {
             for (Buffer buffer : buffers) {
                 if (buffer instanceof PartitionFileReader.PartialBuffer) {
                     partialBuffer = (PartitionFileReader.PartialBuffer) buffer;
-                    currentFileOffset.set(partialBuffer.getFileOffset());
                 } else {
                     bufferIndex++;
                     currentFileOffset.addAndGet(buffer.readableBytes() + HEADER_LENGTH);
                     buffer.recycleBuffer();
                 }
             }
-            long expectedFileOffset =
+            long fullBufferFileOffset =
                     bufferIndex < DEFAULT_BUFFER_NUMBER ? currentFileOffset.get() : Long.MAX_VALUE;
             assertThat(
                             partitionFileReader.getPriority(
@@ -140,7 +139,37 @@ class ProducerMergedPartitionFileReaderTest {
                                     DEFAULT_SUBPARTITION_ID,
                                     DEFAULT_SEGMENT_ID,
                                     bufferIndex))
-                    .isEqualTo(expectedFileOffset);
+                    .isEqualTo(fullBufferFileOffset);
+        }
+    }
+
+    @Test
+    void testPartialBufferFileOffset() throws IOException {
+        AtomicLong currentFileOffset = new AtomicLong(0);
+        PartitionFileReader.PartialBuffer partialBuffer = null;
+        for (int bufferIndex = 0; bufferIndex < DEFAULT_BUFFER_NUMBER; ) {
+            int numPartialBytes = 0;
+            long numPartialFileOffset = 0;
+            List<Buffer> buffers = readBuffer(bufferIndex, DEFAULT_SUBPARTITION_ID, partialBuffer);
+            assertThat(buffers).isNotNull();
+            for (Buffer buffer : buffers) {
+                if (buffer instanceof PartitionFileReader.PartialBuffer) {
+                    partialBuffer = (PartitionFileReader.PartialBuffer) buffer;
+                    numPartialBytes =
+                            partialBuffer.readableBytes()
+                                    + (partialBuffer.getBufferHeader() == null ? 0 : HEADER_LENGTH);
+                    numPartialFileOffset = partialBuffer.getFileOffset();
+                } else {
+                    bufferIndex++;
+                    currentFileOffset.addAndGet(buffer.readableBytes() + HEADER_LENGTH);
+                    buffer.recycleBuffer();
+                }
+            }
+            long numExpectPartialFileOffset =
+                    bufferIndex < DEFAULT_BUFFER_NUMBER
+                            ? currentFileOffset.get() + numPartialBytes
+                            : 0;
+            assertThat(numPartialFileOffset).isEqualTo(numExpectPartialFileOffset);
         }
     }
 
