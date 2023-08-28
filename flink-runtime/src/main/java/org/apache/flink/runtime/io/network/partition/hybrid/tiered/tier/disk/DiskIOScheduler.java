@@ -377,6 +377,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                 continue;
                             } else {
                                 hasRegionFinishedRead = true;
+                                checkState(partialBuffer == null);
                             }
                         }
                         writeNettyBufferAndUpdateSegmentId(readBuffer);

@@ -163,7 +163,9 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                     sliceBuffer(byteBuffer, buffer, partialBuffer, readBuffers);
             numFullBuffers = readBuffers.size();
             numBytesRealRead = partial.f2;
-            checkState(numBytesRealRead <= numBytesToRead);
+            checkState(
+                    numBytesRealRead <= numBytesToRead
+                            && numBytesToRead - numBytesRealRead < HEADER_LENGTH);
             if (readStartOffset + numBytesRealRead < readEndOffset) {
                 // If the region is not finished read, generate a partial buffer to store the
                 // partial data, then append the partial buffer to the tail of readBuffers
