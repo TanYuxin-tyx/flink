@@ -153,8 +153,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
         NetworkBuffer buffer = new NetworkBuffer(memorySegment, recycler);
         buffer.setSize(byteBuffer.remaining());
+
         int numFullBuffers;
         int numBytesRealRead;
+        int numBytesPartial;
         boolean noMoreDataInRegion = false;
         try {
             // Slice the read memory segment to multiple small network buffers and add them to
@@ -172,11 +174,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 partialBuffer =
                         new PartialBuffer(
                                 readStartOffset + numBytesRealRead, partial.f0, partial.f1);
+                numBytesPartial = partialBuffer.readableBytes();
                 readBuffers.add(partialBuffer);
             } else {
                 // The region is read completely
                 checkState(partial.f0 == null);
                 noMoreDataInRegion = true;
+                numBytesPartial = 0;
             }
         } catch (Throwable throwable) {
             LOG.error("Failed to split the read buffer {}.", byteBuffer, throwable);
@@ -193,6 +197,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 readEndOffset,
                 numBytesRealRead,
                 numFullBuffers,
+                numBytesPartial,
                 noMoreDataInRegion);
         return readBuffers;
     }
@@ -367,14 +372,18 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             long regionFileEndOffset,
             int numBytesRead,
             int numFullBuffers,
+            int numBytesPartial,
             boolean noMoreDataInRegion) {
-        cache.setReadOffset(regionFileStartOffset + numBytesRead);
+        // Note that the cache always stores the start offset of the full buffer, because the
+        // partial buffer may be dropped anytime.
+        long fullBufferFileOffset = regionFileStartOffset + numBytesRead - numBytesPartial;
+        cache.setReadOffset(fullBufferFileOffset);
         boolean hasNextBuffer = cache.advanceBuffers(numFullBuffers);
 
         checkState(hasNextBuffer == !noMoreDataInRegion);
         checkState(
-                !hasNextBuffer && regionFileStartOffset + numBytesRead == regionFileEndOffset
-                        || regionFileStartOffset + numBytesRead < regionFileEndOffset);
+                !hasNextBuffer && fullBufferFileOffset == regionFileEndOffset
+                        || fullBufferFileOffset < regionFileEndOffset);
 
         int nextBufferIndex = bufferIndex + numFullBuffers;
         if (hasNextBuffer && numCaches < maxCacheNumber) {
