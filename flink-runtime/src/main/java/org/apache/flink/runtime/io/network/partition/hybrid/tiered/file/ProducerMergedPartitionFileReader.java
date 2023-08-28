@@ -163,6 +163,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                     sliceBuffer(byteBuffer, buffer, partialBuffer, readBuffers);
             numFullBuffers = readBuffers.size();
             numBytesRealRead = partial.f2;
+            checkState(numBytesRealRead <= numBytesToRead);
             if (readStartOffset + numBytesRealRead < readEndOffset) {
                 // If the region is not finished read, generate a partial buffer to store the
                 // partial data, then append the partial buffer to the tail of readBuffers
@@ -326,8 +327,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                         slicedBuffer.addPartialBuffer(
                                 buffer.readOnlySlice(
                                         byteBuffer.position(), byteBuffer.remaining()));
+                        numSlicedBytes += byteBuffer.remaining();
                     }
-                    numSlicedBytes += byteBuffer.remaining();
                     break;
                 }
             } else {
@@ -398,7 +399,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         try {
             if (buffer.remaining() >= HEADER_LENGTH) {
                 // The remaining data length in the buffer is enough to construct a new complete
-                // buffer
+                // buffer, parse and create a new buffer header
                 header = BufferReaderWriterUtil.parseBufferHeader(buffer);
             }
             // If the remaining data length in the buffer is smaller than the header. Drop it
