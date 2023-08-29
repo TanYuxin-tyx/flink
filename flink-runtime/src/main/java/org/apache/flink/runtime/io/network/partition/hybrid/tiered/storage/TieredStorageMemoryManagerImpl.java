@@ -22,6 +22,7 @@ import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
+import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.LocalBufferPool;
 import org.apache.flink.runtime.metrics.TimerGauge;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
@@ -225,7 +226,12 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
         checkState(buffer.isBuffer(), "Only buffer supports transfer ownership.");
         decNumRequestedBuffer(oldOwner);
         incNumRequestedBuffer(newOwner);
-        buffer.setRecycler(memorySegment -> recycleBuffer(newOwner, memorySegment));
+        BufferRecycler bufferRecycler = buffer.getRecycler();
+        buffer.setRecycler(
+                memorySegment -> {
+                    bufferRecycler.recycle(memorySegment);
+                    decNumRequestedBuffer(newOwner);
+                });
     }
 
     @Override
