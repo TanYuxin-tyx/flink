@@ -140,7 +140,6 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
             List<SubpartitionBufferContext> toWrite,
             List<ProducerMergedPartitionFileIndex.FlushedBuffer> buffers)
             throws IOException {
-        List<Tuple2<Buffer, Integer>> buffersToFlush = new ArrayList<>();
         long expectedBytes = 0;
         for (SubpartitionBufferContext subpartitionBufferContext : toWrite) {
             int subpartitionId = subpartitionBufferContext.getSubpartitionId();
@@ -148,7 +147,6 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
                     subpartitionBufferContext.getSegmentBufferContexts()) {
                 List<Tuple2<Buffer, Integer>> bufferAndIndexes =
                         segmentBufferContext.getBufferAndIndexes();
-                buffersToFlush.addAll(bufferAndIndexes);
                 for (Tuple2<Buffer, Integer> bufferWithIndex :
                         segmentBufferContext.getBufferAndIndexes()) {
                     Buffer buffer = bufferWithIndex.f0;
@@ -160,10 +158,11 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
                                     buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH));
                     expectedBytes += buffer.readableBytes() + BufferReaderWriterUtil.HEADER_LENGTH;
                 }
+                flushBuffers(bufferAndIndexes, expectedBytes);
+                bufferAndIndexes.forEach(bufferWithIndex -> bufferWithIndex.f0.recycleBuffer());
+                expectedBytes = 0;
             }
         }
-        flushBuffers(buffersToFlush, expectedBytes);
-        buffersToFlush.forEach(bufferWithIndex -> bufferWithIndex.f0.recycleBuffer());
     }
 
     /** Write all buffers to the disk. */
