@@ -95,6 +95,9 @@ public class TestingTieredStorageMemoryManager implements TieredStorageMemoryMan
     }
 
     @Override
+    public void tryReclaimBuffers() {}
+
+    @Override
     public int numOwnerRequestedBuffer(Object owner) {
         return numOwnerRequestedBufferFunction.apply(owner);
     }

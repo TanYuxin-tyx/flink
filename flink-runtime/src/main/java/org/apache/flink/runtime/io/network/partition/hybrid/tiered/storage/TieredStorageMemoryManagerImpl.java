@@ -169,7 +169,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
     public BufferBuilder requestBufferBlocking(Object owner) {
         checkIsInitialized();
 
-        reclaimBuffersIfNeeded();
+        tryReclaimBuffers();
 
         CompletableFuture<Void> requestBufferFuture = new CompletableFuture<>();
         scheduleCheckRequestBufferFuture(
@@ -269,7 +269,7 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
         if (requestBufferFuture.isDone()) {
             return;
         }
-        reclaimBuffersIfNeeded();
+        tryReclaimBuffers();
         scheduleCheckRequestBufferFuture(requestBufferFuture, delayForNextCheckMs);
     }
 
@@ -285,7 +285,8 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
         numRequestedBuffers.decrementAndGet();
     }
 
-    private void reclaimBuffersIfNeeded() {
+    @Override
+    public void tryReclaimBuffers() {
         if (shouldReclaimBuffersBeforeRequesting()) {
             bufferReclaimRequestListeners.forEach(Runnable::run);
         }

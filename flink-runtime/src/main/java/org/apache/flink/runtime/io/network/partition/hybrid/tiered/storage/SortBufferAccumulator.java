@@ -27,7 +27,6 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
 import org.apache.flink.runtime.io.network.partition.DataBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
-import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
 
@@ -236,13 +235,15 @@ public class SortBufferAccumulator implements BufferAccumulator {
     }
 
     private MemorySegment getFreeSegment() {
-        MemorySegment freeSegment = null;
-        try {
-            freeSegment = freeSegments.take();
-        } catch (InterruptedException e) {
-            ExceptionUtils.rethrow(e);
+        MemorySegment freeSegment = freeSegments.poll();
+        if (freeSegment == null) {
+            memoryManager.tryReclaimBuffers();
+            freeSegment = freeSegments.poll();
+            if (freeSegment == null) {
+                freeSegment = requestBuffer().getMemorySegment();
+            }
         }
-        return checkNotNull(freeSegment);
+        return freeSegment;
     }
 
     private void flushBuffer(BufferWithChannel bufferWithChannel) {

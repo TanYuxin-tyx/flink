@@ -101,6 +101,8 @@ public interface TieredStorageMemoryManager {
      */
     int getMaxNonReclaimableBuffers(Object owner);
 
+    void tryReclaimBuffers();
+
     /**
      * Return the number of requested buffers belonging to a specific owner.
      *
