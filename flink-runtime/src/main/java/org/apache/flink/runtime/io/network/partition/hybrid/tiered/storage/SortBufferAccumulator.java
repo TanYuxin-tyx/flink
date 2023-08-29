@@ -27,6 +27,7 @@ import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferWithChannel;
 import org.apache.flink.runtime.io.network.partition.DataBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
+import org.apache.flink.util.ExceptionUtils;
 
 import javax.annotation.Nullable;
 
@@ -34,7 +35,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.List;
-import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.BiConsumer;
 
@@ -68,7 +68,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
     private final int bufferSizeBytes;
 
     /** The empty buffers without storing data. */
-    private final Queue<MemorySegment> freeSegments = new LinkedBlockingQueue<>();
+    private final LinkedBlockingQueue<MemorySegment> freeSegments = new LinkedBlockingQueue<>();
 
     /** The memory manager of the tiered storage. */
     private final TieredStorageMemoryManager memoryManager;
@@ -236,11 +236,13 @@ public class SortBufferAccumulator implements BufferAccumulator {
     }
 
     private MemorySegment getFreeSegment() {
-        MemorySegment freeSegment = freeSegments.poll();
-        if (freeSegment == null) {
-            freeSegment = requestBuffer().getMemorySegment();
+        MemorySegment freeSegment = null;
+        try {
+            freeSegment = freeSegments.take();
+        } catch (InterruptedException e) {
+            ExceptionUtils.rethrow(e);
         }
-        return freeSegment;
+        return checkNotNull(freeSegment);
     }
 
     private void flushBuffer(BufferWithChannel bufferWithChannel) {
