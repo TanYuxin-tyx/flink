@@ -23,9 +23,6 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.util.ExceptionUtils;
-import org.apache.flink.util.FatalExitExceptionHandler;
-
-import org.apache.flink.shaded.guava31.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,10 +35,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageUtils.generateBufferWithHeaders;
 
@@ -59,12 +52,12 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
             LoggerFactory.getLogger(ProducerMergedPartitionFileWriter.class);
 
     /** One thread to flush buffers to the file. */
-    private final ExecutorService ioExecutor =
-            Executors.newSingleThreadExecutor(
-                    new ThreadFactoryBuilder()
-                            .setNameFormat("Producer merge partition file flush thread")
-                            .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
-                            .build());
+    //    private final ExecutorService ioExecutor =
+    //            Executors.newSingleThreadExecutor(
+    //                    new ThreadFactoryBuilder()
+    //                            .setNameFormat("Producer merge partition file flush thread")
+    //                            .setUncaughtExceptionHandler(FatalExitExceptionHandler.INSTANCE)
+    //                            .build());
 
     /** File channel to write data. */
     private final FileChannel dataFileChannel;
@@ -94,17 +87,17 @@ public class ProducerMergedPartitionFileWriter implements PartitionFileWriter {
     public CompletableFuture<Void> write(
             TieredStoragePartitionId partitionId, List<SubpartitionBufferContext> buffersToWrite) {
         CompletableFuture<Void> flushSuccessNotifier = new CompletableFuture<>();
-        ioExecutor.execute(() -> flush(buffersToWrite, flushSuccessNotifier));
+        flush(buffersToWrite, flushSuccessNotifier);
         return flushSuccessNotifier;
     }
 
     @Override
     public void release() {
         try {
-            ioExecutor.shutdown();
-            if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
-                throw new TimeoutException("Timeout to shutdown the flush thread.");
-            }
+            //            ioExecutor.shutdown();
+            //            if (!ioExecutor.awaitTermination(5L, TimeUnit.MINUTES)) {
+            //                throw new TimeoutException("Timeout to shutdown the flush thread.");
+            //            }
             dataFileChannel.close();
         } catch (Exception e) {
             ExceptionUtils.rethrow(e);
