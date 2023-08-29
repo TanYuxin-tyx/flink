@@ -118,6 +118,13 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             // used to ensure the thread safety.
             firstBufferIndexInSegment.add(new ConcurrentHashMap<>());
         }
+        this.diskCacheManager =
+                new DiskCacheManager(
+                        partitionId,
+                        isBroadcastOnly ? 1 : numSubpartitions,
+                        memoryManager,
+                        partitionFileWriter);
+
         this.diskIOScheduler =
                 new DiskIOScheduler(
                         partitionId,
@@ -128,14 +135,6 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         maxBufferReadAhead,
                         this::retrieveFirstBufferIndexInSegment,
                         partitionFileReader);
-        Runnable hasStartedFlushListener = () -> {};
-        this.diskCacheManager =
-                new DiskCacheManager(
-                        partitionId,
-                        isBroadcastOnly ? 1 : numSubpartitions,
-                        hasStartedFlushListener,
-                        memoryManager,
-                        partitionFileWriter);
 
         nettyService.registerProducer(partitionId, this);
         resourceRegistry.registerResource(partitionId, this::releaseResources);
