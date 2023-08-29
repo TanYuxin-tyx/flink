@@ -169,7 +169,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
         requestBuffers();
 
         // Use the half of the buffers for writing, and the other half for reading
-        int numBuffersForSort = freeSegments.size() / 2;
+        int numBuffersForSort = 3 * freeSegments.size() / 4;
         return new TieredStorageSortBuffer(
                 freeSegments,
                 this::recycleBuffer,
@@ -239,11 +239,8 @@ public class SortBufferAccumulator implements BufferAccumulator {
         if (freeSegment == null) {
             memoryManager.tryReclaimBuffers();
             freeSegment = freeSegments.poll();
-            if (freeSegment == null) {
-                freeSegment = requestBuffer().getMemorySegment();
-            }
         }
-        return freeSegment;
+        return checkNotNull(freeSegment);
     }
 
     private void flushBuffer(BufferWithChannel bufferWithChannel) {
