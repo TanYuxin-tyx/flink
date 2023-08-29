@@ -128,7 +128,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         maxBufferReadAhead,
                         this::retrieveFirstBufferIndexInSegment,
                         partitionFileReader);
-        Runnable hasStartedFlushListener = diskIOScheduler::triggerScheduling;
+        Runnable hasStartedFlushListener = () -> {};
         this.diskCacheManager =
                 new DiskCacheManager(
                         partitionId,
