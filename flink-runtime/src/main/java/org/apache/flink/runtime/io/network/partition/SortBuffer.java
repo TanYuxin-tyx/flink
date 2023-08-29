@@ -29,7 +29,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedList;
+import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -58,7 +58,7 @@ public abstract class SortBuffer implements DataBuffer {
     protected static final int INDEX_ENTRY_SIZE = 4 + 4 + 8;
 
     /** A list of {@link MemorySegment}s used to store data in memory. */
-    protected final LinkedList<MemorySegment> freeSegments;
+    protected final Queue<MemorySegment> freeSegments;
 
     /** {@link BufferRecycler} used to recycle {@link #freeSegments}. */
     protected final BufferRecycler bufferRecycler;
@@ -124,7 +124,7 @@ public abstract class SortBuffer implements DataBuffer {
     protected int readOrderIndex = -1;
 
     protected SortBuffer(
-            LinkedList<MemorySegment> freeSegments,
+            Queue<MemorySegment> freeSegments,
             BufferRecycler bufferRecycler,
             int numSubpartitions,
             int bufferSize,

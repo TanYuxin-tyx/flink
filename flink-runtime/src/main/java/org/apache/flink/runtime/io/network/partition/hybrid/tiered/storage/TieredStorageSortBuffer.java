@@ -30,7 +30,7 @@ import org.apache.flink.runtime.io.network.partition.SortBuffer;
 
 import javax.annotation.Nullable;
 
-import java.util.LinkedList;
+import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkState;
 
@@ -40,7 +40,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 public class TieredStorageSortBuffer extends SortBuffer {
 
     public TieredStorageSortBuffer(
-            LinkedList<MemorySegment> freeSegments,
+            Queue<MemorySegment> freeSegments,
             BufferRecycler bufferRecycler,
             int numSubpartitions,
             int bufferSize,

@@ -33,8 +33,9 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.BiConsumer;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
@@ -67,7 +68,7 @@ public class SortBufferAccumulator implements BufferAccumulator {
     private final int bufferSizeBytes;
 
     /** The empty buffers without storing data. */
-    private final LinkedList<MemorySegment> freeSegments = new LinkedList<>();
+    private final Queue<MemorySegment> freeSegments = new LinkedBlockingQueue<>();
 
     /** The memory manager of the tiered storage. */
     private final TieredStorageMemoryManager memoryManager;
