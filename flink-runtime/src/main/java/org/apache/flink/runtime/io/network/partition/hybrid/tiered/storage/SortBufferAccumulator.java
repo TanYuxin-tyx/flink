@@ -259,11 +259,11 @@ public class SortBufferAccumulator implements BufferAccumulator {
     }
 
     private void releaseFreeBuffers() {
-        freeSegments.forEach(this::recycleBuffer);
+        freeSegments.forEach(memorySegment -> checkNotNull(bufferRecycler).recycle(memorySegment));
         freeSegments.clear();
     }
 
     private void recycleBuffer(MemorySegment memorySegment) {
-        checkNotNull(bufferRecycler).recycle(memorySegment);
+        freeSegments.add(memorySegment);
     }
 }
