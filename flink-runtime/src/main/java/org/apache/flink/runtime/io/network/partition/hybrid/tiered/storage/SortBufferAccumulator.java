@@ -268,6 +268,12 @@ public class SortBufferAccumulator implements BufferAccumulator {
     }
 
     private void recycleBuffer(MemorySegment memorySegment) {
-        freeSegments.add(memorySegment);
+        if (currentDataBuffer != null
+                && !currentDataBuffer.isFinished()
+                && !currentDataBuffer.isReleased()) {
+            freeSegments.add(memorySegment);
+        } else {
+            checkNotNull(bufferRecycler).recycle(memorySegment);
+        }
     }
 }
