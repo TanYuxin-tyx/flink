@@ -39,8 +39,6 @@ class DiskCacheManager {
 
     private final TieredStoragePartitionId partitionId;
 
-    private final Runnable hasStartedFlushListener;
-
     private final int numSubpartitions;
 
     private final PartitionFileWriter partitionFileWriter;

@@ -292,7 +292,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
         }
     }
 
-    void triggerScheduling() {
+    private void triggerScheduling() {
         synchronized (lock) {
             if (!isRunning
                     && !allScheduledReaders.isEmpty()
