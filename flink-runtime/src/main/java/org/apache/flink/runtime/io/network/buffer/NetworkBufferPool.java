@@ -28,6 +28,7 @@ import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.core.memory.MemorySegmentProvider;
 import org.apache.flink.runtime.io.AvailabilityProvider;
 import org.apache.flink.runtime.io.network.partition.consumer.RemoteInputChannel;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.MathUtils;
 import org.apache.flink.util.Preconditions;
@@ -43,9 +44,13 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -63,6 +68,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public class NetworkBufferPool
         implements BufferPoolFactory, MemorySegmentProvider, AvailabilityProvider {
 
+    public static final JobVertexID STATIC_JOB_VERTEX_ID = new JobVertexID();
+
     public static final int UNBOUNDED_POOL_SIZE = Integer.MAX_VALUE;
 
     private static final int USAGE_WARNING_THRESHOLD = 100;
@@ -74,6 +81,12 @@ public class NetworkBufferPool
     private final int memorySegmentSize;
 
     private final ArrayDeque<MemorySegment> availableMemorySegments;
+
+    private final Queue<JobVertexID> jobVertexIdQueue = new LinkedList<>();
+
+    private final Set<JobVertexID> destroyedBufferPools = new HashSet<>();
+
+    private final Map<JobVertexID, Integer> jobVertexBufferPoolCounter = new HashMap<>();
 
     private volatile boolean isDestroyed;
 
@@ -454,7 +467,7 @@ public class NetworkBufferPool
     public BufferPool createBufferPool(int numRequiredBuffers, int maxUsedBuffers)
             throws IOException {
         return internalCreateBufferPool(
-                numRequiredBuffers, maxUsedBuffers, 0, Integer.MAX_VALUE, 0);
+                STATIC_JOB_VERTEX_ID, numRequiredBuffers, maxUsedBuffers, 0, Integer.MAX_VALUE, 0);
     }
 
     @Override
@@ -466,6 +479,25 @@ public class NetworkBufferPool
             int maxOverdraftBuffersPerGate)
             throws IOException {
         return internalCreateBufferPool(
+                STATIC_JOB_VERTEX_ID,
+                numRequiredBuffers,
+                maxUsedBuffers,
+                numSubpartitions,
+                maxBuffersPerChannel,
+                maxOverdraftBuffersPerGate);
+    }
+
+    @Override
+    public BufferPool createBufferPool(
+            JobVertexID jobVertexID,
+            int numRequiredBuffers,
+            int maxUsedBuffers,
+            int numSubpartitions,
+            int maxBuffersPerChannel,
+            int maxOverdraftBuffersPerGate)
+            throws IOException {
+        return internalCreateBufferPool(
+                jobVertexID,
                 numRequiredBuffers,
                 maxUsedBuffers,
                 numSubpartitions,
@@ -474,6 +506,7 @@ public class NetworkBufferPool
     }
 
     private BufferPool internalCreateBufferPool(
+            JobVertexID jobVertexID,
             int numRequiredBuffers,
             int maxUsedBuffers,
             int numSubpartitions,
@@ -506,6 +539,7 @@ public class NetworkBufferPool
             // non-fixed size buffers.
             LocalBufferPool localBufferPool =
                     new LocalBufferPool(
+                            jobVertexID,
                             this,
                             numRequiredBuffers,
                             maxUsedBuffers,
@@ -519,6 +553,14 @@ public class NetworkBufferPool
                 resizableBufferPools.add(localBufferPool);
             }
 
+            if (!jobVertexBufferPoolCounter.containsKey(jobVertexID)) {
+                jobVertexIdQueue.add(jobVertexID);
+                jobVertexBufferPoolCounter.put(jobVertexID, 1);
+            } else {
+                jobVertexBufferPoolCounter.put(
+                        jobVertexID, jobVertexBufferPoolCounter.get(jobVertexID) + 1);
+            }
+
             redistributeBuffers();
 
             return localBufferPool;
@@ -526,7 +568,7 @@ public class NetworkBufferPool
     }
 
     @Override
-    public void destroyBufferPool(BufferPool bufferPool) {
+    public void destroyBufferPool(JobVertexID jobVertexID, BufferPool bufferPool) {
         if (!(bufferPool instanceof LocalBufferPool)) {
             throw new IllegalArgumentException("bufferPool is no LocalBufferPool");
         }
@@ -535,6 +577,24 @@ public class NetworkBufferPool
             if (allBufferPools.remove(bufferPool)) {
                 numTotalRequiredBuffers -= bufferPool.getNumberOfRequiredMemorySegments();
                 resizableBufferPools.remove(bufferPool);
+
+                if (!jobVertexIdQueue.isEmpty() && jobVertexIdQueue.peek().equals(jobVertexID)) {
+                    jobVertexIdQueue.poll();
+                    while (!jobVertexIdQueue.isEmpty()
+                            && destroyedBufferPools.contains(jobVertexIdQueue.peek())) {
+                        JobVertexID destroyed = jobVertexIdQueue.poll();
+                        destroyedBufferPools.remove(destroyed);
+                    }
+                } else {
+                    destroyedBufferPools.add(jobVertexID);
+                }
+                if (jobVertexBufferPoolCounter.containsKey(jobVertexID)
+                        && jobVertexBufferPoolCounter.get(jobVertexID) > 1) {
+                    jobVertexBufferPoolCounter.put(
+                            jobVertexID, jobVertexBufferPoolCounter.get(jobVertexID) - 1);
+                } else {
+                    jobVertexBufferPoolCounter.remove(jobVertexID);
+                }
 
                 redistributeBuffers();
             }
@@ -610,6 +670,25 @@ public class NetworkBufferPool
             return;
         }
 
+        int numJobVertexIdQueue = jobVertexIdQueue.size();
+        while (numJobVertexIdQueue > 0) {
+            JobVertexID jobVertexID = jobVertexIdQueue.poll();
+            numJobVertexIdQueue--;
+            if (destroyedBufferPools.contains(jobVertexID)) {
+                destroyedBufferPools.remove(jobVertexID);
+            } else {
+                jobVertexIdQueue.add(jobVertexID);
+            }
+        }
+
+        int numJobVertexPriorities = jobVertexIdQueue.size();
+        Map<JobVertexID, Integer> jobVertexIDPriority = new HashMap<>();
+        for (int i = numJobVertexPriorities; i > 0; i--) {
+            JobVertexID jobVertexID = jobVertexIdQueue.poll();
+            jobVertexIDPriority.put(jobVertexID, i);
+            jobVertexIdQueue.add(jobVertexID);
+        }
+
         /*
          * With buffer pools being potentially limited, let's distribute the available memory
          * segments based on the capacity of each buffer pool, i.e. the maximum number of segments
@@ -624,7 +703,8 @@ public class NetworkBufferPool
             int excessMax =
                     bufferPool.getMaxNumberOfMemorySegments()
                             - bufferPool.getNumberOfRequiredMemorySegments();
-            totalCapacity += Math.min(numAvailableMemorySegment, excessMax);
+            int priority = jobVertexIDPriority.getOrDefault(bufferPool.jobVertexID, 1);
+            totalCapacity += Math.min((long) numAvailableMemorySegment * priority, excessMax);
         }
 
         // no capacity to receive additional buffers?
@@ -650,7 +730,8 @@ public class NetworkBufferPool
                 continue;
             }
 
-            totalPartsUsed += Math.min(numAvailableMemorySegment, excessMax);
+            int priority = jobVertexIDPriority.getOrDefault(bufferPool.jobVertexID, 1);
+            totalPartsUsed += Math.min((long) numAvailableMemorySegment * priority, excessMax);
 
             // avoid remaining buffers by looking at the total capacity that should have been
             // re-distributed up until here

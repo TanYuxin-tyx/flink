@@ -28,6 +28,7 @@ import org.apache.flink.runtime.io.network.partition.hybrid.tiered.netty.TieredS
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartitionFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.storage.TieredStorageResourceRegistry;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.shuffle.PartitionDescriptorBuilder;
 import org.apache.flink.runtime.util.EnvironmentInformation;
 import org.apache.flink.runtime.util.NettyShuffleDescriptorBuilder;
@@ -233,7 +234,7 @@ class ResultPartitionFactoryTest {
         // guard our test assumptions
         assertThat(descriptor.getNumberOfSubpartitions()).isEqualTo(1);
 
-        final ResultPartition partition = factory.create("test", 0, descriptor);
+        final ResultPartition partition = factory.create(new JobVertexID(), "test", 0, descriptor);
         manager.registerResultPartition(partition);
 
         return partition;

@@ -287,6 +287,7 @@ class LocalBufferPoolTest {
             throws Exception {
         LocalBufferPool bufferPool =
                 new LocalBufferPool(
+                        NetworkBufferPool.STATIC_JOB_VERTEX_ID,
                         networkBufferPool,
                         requiredMemorySegments,
                         maxMemorySegments,
@@ -373,6 +374,7 @@ class LocalBufferPoolTest {
             throws Exception {
         LocalBufferPool bufferPool =
                 new LocalBufferPool(
+                        NetworkBufferPool.STATIC_JOB_VERTEX_ID,
                         networkBufferPool,
                         requiredMemorySegments,
                         maxMemorySegments,
@@ -661,7 +663,15 @@ class LocalBufferPoolTest {
     @Test
     void testMaxBuffersPerChannelAndAvailability() throws Exception {
         localBufferPool.lazyDestroy();
-        localBufferPool = new LocalBufferPool(networkBufferPool, 1, Integer.MAX_VALUE, 3, 2, 0);
+        localBufferPool =
+                new LocalBufferPool(
+                        NetworkBufferPool.STATIC_JOB_VERTEX_ID,
+                        networkBufferPool,
+                        1,
+                        Integer.MAX_VALUE,
+                        3,
+                        2,
+                        0);
         localBufferPool.setNumBuffers(10);
 
         assertThat(localBufferPool.getAvailableFuture()).isDone();
@@ -799,6 +809,7 @@ class LocalBufferPoolTest {
         checkArgument(numberOfChannels >= availableChannels);
         LocalBufferPool bufferPool =
                 new LocalBufferPool(
+                        NetworkBufferPool.STATIC_JOB_VERTEX_ID,
                         networkBufferPool,
                         1,
                         Integer.MAX_VALUE,

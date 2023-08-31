@@ -24,6 +24,7 @@ import org.apache.flink.runtime.io.disk.NoOpFileChannelManager;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironment;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
 import org.apache.flink.runtime.io.network.buffer.NetworkBufferPool;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.function.SupplierWithException;
 
 import java.io.IOException;
@@ -262,9 +263,10 @@ public class ResultPartitionBuilder {
                 bufferPoolFactory.orElseGet(
                         () ->
                                 resultPartitionFactory.createBufferPoolFactory(
-                                        numberOfSubpartitions, partitionType));
+                                        new JobVertexID(), numberOfSubpartitions, partitionType));
 
         return resultPartitionFactory.create(
+                new JobVertexID(),
                 "Result Partition task",
                 partitionIndex,
                 partitionId,

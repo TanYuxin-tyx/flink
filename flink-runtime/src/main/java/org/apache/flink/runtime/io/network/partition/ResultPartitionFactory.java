@@ -29,6 +29,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferPoolFactory;
 import org.apache.flink.runtime.io.network.partition.hybrid.HsResultPartition;
 import org.apache.flink.runtime.io.network.partition.hybrid.HybridShuffleConfiguration;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.shuffle.TieredResultPartitionFactory;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.shuffle.NettyShuffleUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkRuntimeException;
@@ -131,10 +132,12 @@ public class ResultPartitionFactory {
     }
 
     public ResultPartition create(
+            JobVertexID jobVertexID,
             String taskNameWithSubtaskAndId,
             int partitionIndex,
             ResultPartitionDeploymentDescriptor desc) {
         return create(
+                jobVertexID,
                 taskNameWithSubtaskAndId,
                 partitionIndex,
                 desc.getShuffleDescriptor().getResultPartitionID(),
@@ -142,11 +145,13 @@ public class ResultPartitionFactory {
                 desc.getNumberOfSubpartitions(),
                 desc.getMaxParallelism(),
                 desc.isBroadcast(),
-                createBufferPoolFactory(desc.getNumberOfSubpartitions(), desc.getPartitionType()));
+                createBufferPoolFactory(
+                        jobVertexID, desc.getNumberOfSubpartitions(), desc.getPartitionType()));
     }
 
     @VisibleForTesting
     public ResultPartition create(
+            JobVertexID jobVertexID,
             String taskNameWithSubtaskAndId,
             int partitionIndex,
             ResultPartitionID id,
@@ -353,7 +358,7 @@ public class ResultPartitionFactory {
      */
     @VisibleForTesting
     SupplierWithException<BufferPool, IOException> createBufferPoolFactory(
-            int numberOfSubpartitions, ResultPartitionType type) {
+            JobVertexID jobVertexID, int numberOfSubpartitions, ResultPartitionType type) {
         return () -> {
             Pair<Integer, Integer> pair =
                     NettyShuffleUtils.getMinMaxNetworkBuffersPerResultPartition(
@@ -372,6 +377,7 @@ public class ResultPartitionFactory {
                             type);
 
             return bufferPoolFactory.createBufferPool(
+                    jobVertexID,
                     pair.getLeft(),
                     pair.getRight(),
                     numberOfSubpartitions,
