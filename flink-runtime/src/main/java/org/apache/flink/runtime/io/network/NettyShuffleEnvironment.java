@@ -41,6 +41,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputGateID;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateFactory;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.shuffle.NettyShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
@@ -214,6 +215,7 @@ public class NettyShuffleEnvironment
 
     @Override
     public List<ResultPartition> createResultPartitionWriters(
+            JobVertexID jobVertexID,
             ShuffleIOOwnerContext ownerContext,
             List<ResultPartitionDeploymentDescriptor> resultPartitionDeploymentDescriptors) {
         synchronized (lock) {
@@ -227,6 +229,7 @@ public class NettyShuffleEnvironment
                     partitionIndex++) {
                 resultPartitions[partitionIndex] =
                         resultPartitionFactory.create(
+                                jobVertexID,
                                 ownerContext.getOwnerName(),
                                 partitionIndex,
                                 resultPartitionDeploymentDescriptors.get(partitionIndex));

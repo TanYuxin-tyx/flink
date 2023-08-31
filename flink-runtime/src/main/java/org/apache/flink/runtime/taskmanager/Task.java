@@ -401,7 +401,7 @@ public class Task
         final ResultPartitionWriter[] resultPartitionWriters =
                 shuffleEnvironment
                         .createResultPartitionWriters(
-                                taskShuffleContext, resultPartitionDeploymentDescriptors)
+                                vertexId, taskShuffleContext, resultPartitionDeploymentDescriptors)
                         .toArray(new ResultPartitionWriter[] {});
 
         this.partitionWriters = resultPartitionWriters;

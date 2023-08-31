@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.buffer;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.execution.CancelTaskException;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.ExceptionUtils;
 
 import org.slf4j.Logger;
@@ -72,6 +73,8 @@ public class LocalBufferPool implements BufferPool {
     private static final Logger LOG = LoggerFactory.getLogger(LocalBufferPool.class);
 
     private static final int UNKNOWN_CHANNEL = -1;
+
+    public final JobVertexID jobVertexID;
 
     /** Global network buffer pool to get buffers from. */
     private final NetworkBufferPool networkBufferPool;
@@ -146,6 +149,7 @@ public class LocalBufferPool implements BufferPool {
      */
     LocalBufferPool(NetworkBufferPool networkBufferPool, int numberOfRequiredMemorySegments) {
         this(
+                NetworkBufferPool.STATIC_JOB_VERTEX_ID,
                 networkBufferPool,
                 numberOfRequiredMemorySegments,
                 Integer.MAX_VALUE,
@@ -167,6 +171,7 @@ public class LocalBufferPool implements BufferPool {
             int numberOfRequiredMemorySegments,
             int maxNumberOfMemorySegments) {
         this(
+                NetworkBufferPool.STATIC_JOB_VERTEX_ID,
                 networkBufferPool,
                 numberOfRequiredMemorySegments,
                 maxNumberOfMemorySegments,
@@ -187,6 +192,7 @@ public class LocalBufferPool implements BufferPool {
      * @param maxOverdraftBuffersPerGate maximum number of overdraft buffers to use for each gate
      */
     LocalBufferPool(
+            JobVertexID jobVertexID,
             NetworkBufferPool networkBufferPool,
             int numberOfRequiredMemorySegments,
             int maxNumberOfMemorySegments,
@@ -209,6 +215,7 @@ public class LocalBufferPool implements BufferPool {
                 numberOfRequiredMemorySegments,
                 maxNumberOfMemorySegments);
 
+        this.jobVertexID = jobVertexID;
         this.networkBufferPool = networkBufferPool;
         this.numberOfRequiredMemorySegments = numberOfRequiredMemorySegments;
         this.currentPoolSize = numberOfRequiredMemorySegments;
@@ -644,7 +651,7 @@ public class LocalBufferPool implements BufferPool {
 
         mayNotifyAvailable(toNotify);
 
-        networkBufferPool.destroyBufferPool(this);
+        networkBufferPool.destroyBufferPool(jobVertexID, this);
     }
 
     @Override

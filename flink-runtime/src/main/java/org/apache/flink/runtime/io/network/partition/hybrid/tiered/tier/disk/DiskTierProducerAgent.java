@@ -81,6 +81,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
 
     private volatile boolean isReleased;
 
+    private boolean isFirstSegment = true;
+
     DiskTierProducerAgent(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
@@ -161,10 +163,14 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
     public boolean tryWrite(
             TieredStorageSubpartitionId subpartitionId, Buffer finishedBuffer, Object bufferOwner) {
         int subpartitionIndex = subpartitionId.getSubpartitionId();
+        int numExpectedBuffersPerSegment =
+                isFirstSegment ? Math.max(1, numBuffersPerSegment / 2) : numBuffersPerSegment;
         if (currentSubpartitionWriteBuffers[subpartitionIndex] != 0
-                && currentSubpartitionWriteBuffers[subpartitionIndex] + 1 > numBuffersPerSegment) {
+                && currentSubpartitionWriteBuffers[subpartitionIndex] + 1
+                        > numExpectedBuffersPerSegment) {
             emitEndOfSegmentEvent(subpartitionIndex);
             currentSubpartitionWriteBuffers[subpartitionIndex] = 0;
+            isFirstSegment = false;
             return false;
         }
         if (finishedBuffer.isBuffer()) {
