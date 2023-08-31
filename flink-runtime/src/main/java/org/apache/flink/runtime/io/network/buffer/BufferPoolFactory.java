@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.buffer;
 
+import org.apache.flink.runtime.jobgraph.JobVertexID;
+
 import java.io.IOException;
 
 /** A factory for buffer pools. */
@@ -54,6 +56,15 @@ public interface BufferPoolFactory {
             int maxOverdraftBuffersPerGate)
             throws IOException;
 
+    BufferPool createBufferPool(
+            JobVertexID jobVertexID,
+            int numRequiredBuffers,
+            int maxUsedBuffers,
+            int numSubpartitions,
+            int maxBuffersPerChannel,
+            int maxOverdraftBuffersPerGate)
+            throws IOException;
+
     /** Destroy callback for updating factory book keeping. */
-    void destroyBufferPool(BufferPool bufferPool) throws IOException;
+    void destroyBufferPool(JobVertexID jobVertexID, BufferPool bufferPool) throws IOException;
 }

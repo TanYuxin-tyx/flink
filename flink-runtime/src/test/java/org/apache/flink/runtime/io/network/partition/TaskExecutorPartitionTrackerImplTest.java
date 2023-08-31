@@ -27,6 +27,7 @@ import org.apache.flink.runtime.executiongraph.PartitionInfo;
 import org.apache.flink.runtime.io.network.NettyShuffleEnvironmentBuilder;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.shuffle.ShuffleDescriptor;
 import org.apache.flink.runtime.shuffle.ShuffleEnvironment;
 import org.apache.flink.runtime.shuffle.ShuffleIOOwnerContext;
@@ -265,10 +266,11 @@ public class TaskExecutorPartitionTrackerImplTest extends TestLogger {
 
         @Override
         public List<ResultPartition> createResultPartitionWriters(
+                JobVertexID jobVertexID,
                 ShuffleIOOwnerContext ownerContext,
                 List<ResultPartitionDeploymentDescriptor> resultPartitionDeploymentDescriptors) {
             return backingShuffleEnvironment.createResultPartitionWriters(
-                    ownerContext, resultPartitionDeploymentDescriptors);
+                    new JobVertexID(), ownerContext, resultPartitionDeploymentDescriptors);
         }
 
         @Override

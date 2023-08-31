@@ -35,6 +35,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGateBuilder;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.util.TestLogger;
 
 import org.apache.flink.shaded.guava31.com.google.common.collect.ImmutableMap;
@@ -199,6 +200,7 @@ public class NettyShuffleUtilsTest extends TestLogger {
         ExecutionAttemptID consumerID = createExecutionAttemptId();
         Collection<ResultPartition> resultPartitions =
                 network.createResultPartitionWriters(
+                        new JobVertexID(),
                         network.createShuffleIOOwnerContext(
                                 "", consumerID, new UnregisteredMetricsGroup()),
                         Collections.singletonList(resultPartitionDeploymentDescriptor));

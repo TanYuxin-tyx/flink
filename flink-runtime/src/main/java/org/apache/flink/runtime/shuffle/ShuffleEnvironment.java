@@ -29,6 +29,7 @@ import org.apache.flink.runtime.io.network.partition.PartitionProducerStateProvi
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -141,6 +142,7 @@ public interface ShuffleEnvironment<P extends ResultPartitionWriter, G extends I
      * @return list of the {@link ResultPartitionWriter ResultPartitionWriters}
      */
     List<P> createResultPartitionWriters(
+            JobVertexID vertexId,
             ShuffleIOOwnerContext ownerContext,
             List<ResultPartitionDeploymentDescriptor> resultPartitionDeploymentDescriptors);
 

@@ -68,6 +68,10 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
         this.serviceProducers = serviceProducers;
     }
 
+    public int getRequiredSegmentId() {
+        return requiredSegmentId;
+    }
+
     @Nullable
     @Override
     public BufferAndBacklog getNextBuffer() throws IOException {
