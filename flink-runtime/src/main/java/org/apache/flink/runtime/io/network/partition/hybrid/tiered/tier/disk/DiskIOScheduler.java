@@ -338,8 +338,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private boolean isFailed;
 
-        private PartitionFileReader.PartialBuffer partialBuffer;
-
         private ScheduledSubpartitionReader(
                 TieredStorageSubpartitionId subpartitionId,
                 NettyConnectionWriter nettyConnectionWriter) {
@@ -358,14 +356,28 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             }
 
             boolean hasRegionFinishedRead = false;
-            checkState(partialBuffer == null);
+            PartitionFileReader.PartialBuffer partialBuffer = null;
             try {
                 while (!buffers.isEmpty() && !hasRegionFinishedRead && nextSegmentId >= 0) {
                     MemorySegment memorySegment = buffers.poll();
+                    List<Buffer> readBuffers;
+                    try {
+                        readBuffers =
+                                partitionFileReader.readBuffer(
+                                        partitionId,
+                                        subpartitionId,
+                                        nextSegmentId,
+                                        nextBufferIndex,
+                                        memorySegment,
+                                        recycler,
+                                        partialBuffer);
+                    } catch (Throwable throwable) {
+                        buffers.add(memorySegment);
+                        throw throwable;
+                    }
 
-                    List<Buffer> readBuffers =
-                            readBuffersFromFileReader(buffers, recycler, memorySegment);
-                    if (readBuffers == null) {
+                    if (readBuffers.isEmpty()) {
+                        buffers.add(memorySegment);
                         break;
                     }
 
@@ -387,7 +399,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             } finally {
                 if (partialBuffer != null) {
                     partialBuffer.recycleBuffer();
-                    partialBuffer = null;
                 }
             }
         }
@@ -405,38 +416,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             priority =
                     nextSegmentId < 0
                             ? Long.MAX_VALUE
-                            : partialBuffer != null
-                                    ? partialBuffer.getFileOffset()
-                                    : partitionFileReader.getPriority(
-                                            partitionId,
-                                            subpartitionId,
-                                            nextSegmentId,
-                                            nextBufferIndex);
-        }
-
-        private List<Buffer> readBuffersFromFileReader(
-                Queue<MemorySegment> buffers, BufferRecycler recycler, MemorySegment memorySegment)
-                throws IOException {
-            List<Buffer> readBuffers;
-            try {
-                if ((readBuffers =
-                                partitionFileReader.readBuffer(
-                                        partitionId,
-                                        subpartitionId,
-                                        nextSegmentId,
-                                        nextBufferIndex,
-                                        memorySegment,
-                                        recycler,
-                                        partialBuffer))
-                        == null) {
-                    buffers.add(memorySegment);
-                    return null;
-                }
-            } catch (Throwable throwable) {
-                buffers.add(memorySegment);
-                throw throwable;
-            }
-            return readBuffers;
+                            : partitionFileReader.getPriority(
+                                    partitionId, subpartitionId, nextSegmentId, nextBufferIndex);
         }
 
         private void writeNettyBufferAndUpdateSegmentId(Buffer readBuffer) {

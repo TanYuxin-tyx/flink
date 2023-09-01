@@ -52,9 +52,8 @@ public interface PartitionFileReader {
      * @param partialBuffer the previous partial buffer. The partial buffer is not null only when
      *     the last read has a partial buffer, it will construct a full buffer during the read
      *     process.
-     * @return null if there is no data otherwise a buffer.
+     * @return an empty list if there is no data otherwise return the read buffers.
      */
-    @Nullable
     List<Buffer> readBuffer(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
