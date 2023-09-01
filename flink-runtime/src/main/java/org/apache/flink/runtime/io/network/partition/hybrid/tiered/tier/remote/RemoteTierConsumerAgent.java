@@ -91,7 +91,6 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         // Read buffer from the partition file in remote storage.
         MemorySegment memorySegment = MemorySegmentFactory.allocateUnpooledSegment(bufferSizeBytes);
         Tuple2<List<Buffer>, Boolean> readBuffersAndContinueReadSuggestion = null;
-        Buffer buffer;
         try {
             readBuffersAndContinueReadSuggestion =
                     partitionFileReader.readBuffer(
@@ -108,7 +107,7 @@ public class RemoteTierConsumerAgent implements TierConsumerAgent {
         }
         List<Buffer> readBuffers = checkNotNull(readBuffersAndContinueReadSuggestion).f0;
         if (!readBuffers.isEmpty()) {
-            buffer = readBuffers.get(0);
+            Buffer buffer = readBuffers.get(0);
             currentBufferIndexAndSegmentIds
                     .get(partitionId)
                     .put(subpartitionId, Tuple2.of(++currentBufferIndex, segmentId));
