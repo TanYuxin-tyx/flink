@@ -105,13 +105,14 @@ class ProducerMergedPartitionFileReaderTest {
                 MemorySegmentFactory.allocateUnpooledSegment(DEFAULT_BUFFER_SIZE);
         assertThat(
                         partitionFileReader.readBuffer(
-                                DEFAULT_PARTITION_ID,
-                                DEFAULT_SUBPARTITION_ID,
-                                DEFAULT_SEGMENT_ID,
-                                DEFAULT_BUFFER_NUMBER + 1,
-                                memorySegment,
-                                FreeingBufferRecycler.INSTANCE,
-                                null))
+                                        DEFAULT_PARTITION_ID,
+                                        DEFAULT_SUBPARTITION_ID,
+                                        DEFAULT_SEGMENT_ID,
+                                        DEFAULT_BUFFER_NUMBER + 1,
+                                        memorySegment,
+                                        FreeingBufferRecycler.INSTANCE,
+                                        null)
+                                .f0)
                 .isEmpty();
     }
 
@@ -222,12 +223,13 @@ class ProducerMergedPartitionFileReaderTest {
         MemorySegment memorySegment =
                 MemorySegmentFactory.allocateUnpooledSegment(DEFAULT_BUFFER_SIZE);
         return partitionFileReader.readBuffer(
-                DEFAULT_PARTITION_ID,
-                subpartitionId,
-                DEFAULT_SEGMENT_ID,
-                bufferIndex,
-                memorySegment,
-                FreeingBufferRecycler.INSTANCE,
-                partialBuffer);
+                        DEFAULT_PARTITION_ID,
+                        subpartitionId,
+                        DEFAULT_SEGMENT_ID,
+                        bufferIndex,
+                        memorySegment,
+                        FreeingBufferRecycler.INSTANCE,
+                        partialBuffer)
+                .f0;
     }
 }
