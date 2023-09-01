@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
@@ -52,9 +53,12 @@ public interface PartitionFileReader {
      * @param partialBuffer the previous partial buffer. The partial buffer is not null only when
      *     the last read has a partial buffer, it will construct a full buffer during the read
      *     process.
-     * @return an empty list if there is no data otherwise return the read buffers.
+     * @return The first field is a list of read buffers. The second field is a suggestion to
+     *     determine whether the caller should continue reading the following buffers. Note that
+     *     this suggestion value is merely a recommendation and not obligatory. Following the
+     *     suggested value while reading buffers may improve performance.
      */
-    List<Buffer> readBuffer(
+    Tuple2<List<Buffer>, Boolean> readBuffer(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,

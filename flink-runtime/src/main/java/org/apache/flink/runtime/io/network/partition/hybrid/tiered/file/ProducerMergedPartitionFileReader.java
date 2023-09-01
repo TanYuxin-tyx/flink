@@ -116,7 +116,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     }
 
     @Override
-    public List<Buffer> readBuffer(
+    public Tuple2<List<Buffer>, Boolean> readBuffer(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
@@ -133,7 +133,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 Tuple2.of(subpartitionId, bufferIndex);
         Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, partialBuffer, true);
         if (!cache.isPresent()) {
-            return Collections.emptyList();
+            return Tuple2.of(Collections.emptyList(), false);
         }
 
         // Get the read offset, including the start offset, the end offset
@@ -144,7 +144,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         int numBytesToRead =
                 Math.min(memorySegment.size(), (int) (readEndOffset - readStartOffset));
         if (numBytesToRead == 0) {
-            return Collections.emptyList();
+            return Tuple2.of(Collections.emptyList(), false);
         }
         ByteBuffer byteBuffer = memorySegment.wrap(0, numBytesToRead);
         fileChannel.position(readStartOffset);
@@ -158,7 +158,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         int numFullBuffers;
         int numBytesRealRead;
         int numBytesPartial;
-        boolean noMoreDataInRegion = false;
+        boolean shouldContinueRead;
         try {
             // Slice the read memory segment to multiple small network buffers and add them to
             // readBuffers
@@ -182,10 +182,11 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                         partialBuffer.getBufferHeader() != null
                                 || partialBuffer.getCompositeBuffer() == null);
                 readBuffers.add(partialBuffer);
+                shouldContinueRead = true;
             } else {
                 // The region is read completely
                 checkState(partial.f0 == null);
-                noMoreDataInRegion = true;
+                shouldContinueRead = false;
                 numBytesPartial = 0;
             }
         } catch (Throwable throwable) {
@@ -204,8 +205,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 numBytesRealRead,
                 numFullBuffers,
                 numBytesPartial,
-                noMoreDataInRegion);
-        return readBuffers;
+                shouldContinueRead);
+        return Tuple2.of(readBuffers, shouldContinueRead);
     }
 
     @Override
@@ -379,14 +380,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             int numBytesRead,
             int numFullBuffers,
             int numBytesPartial,
-            boolean noMoreDataInRegion) {
+            boolean shouldContinueRead) {
         // Note that the cache always stores the start offset of the full buffer, because the
         // partial buffer may be dropped anytime.
         long fullBufferFileOffset = regionFileStartOffset + numBytesRead - numBytesPartial;
-        cache.setReadOffset(fullBufferFileOffset);
-        boolean hasNextBuffer = cache.advanceBuffers(numFullBuffers);
+        boolean hasNextBuffer = cache.advance(numFullBuffers, fullBufferFileOffset);
 
-        checkState(hasNextBuffer == !noMoreDataInRegion);
+        checkState(hasNextBuffer == shouldContinueRead);
         checkState(
                 !hasNextBuffer && fullBufferFileOffset == regionFileEndOffset
                         || fullBufferFileOffset < regionFileEndOffset);
@@ -473,15 +473,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
          * the file offset in the {@link BufferOffsetCache}.
          *
          * @param numBuffers denotes the number of the advanced buffers.
+         * @param newFileOffset indicate the advanced new file offset.
          * @return return true if there are remaining buffers in the region, otherwise return false.
          */
-        private boolean advanceBuffers(int numBuffers) {
+        private boolean advance(int numBuffers, long newFileOffset) {
             nextBufferIndex += numBuffers;
-            return nextBufferIndex < (region.getFirstBufferIndex() + region.getNumBuffers());
-        }
-
-        private void setReadOffset(long newFileOffset) {
             fileOffset = newFileOffset;
+            return nextBufferIndex < (region.getFirstBufferIndex() + region.getNumBuffers());
         }
 
         /**

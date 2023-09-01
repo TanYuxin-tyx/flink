@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
@@ -355,14 +356,14 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                 + " has already been failed.");
             }
 
-            boolean hasRegionFinishedRead = false;
             PartitionFileReader.PartialBuffer partialBuffer = null;
+            boolean shouldContinueRead = false;
             try {
-                while (!buffers.isEmpty() && !hasRegionFinishedRead && nextSegmentId >= 0) {
+                while (!buffers.isEmpty() && !shouldContinueRead && nextSegmentId >= 0) {
                     MemorySegment memorySegment = buffers.poll();
-                    List<Buffer> readBuffers;
+                    Tuple2<List<Buffer>, Boolean> readBuffersAndContinueReadSuggestion;
                     try {
-                        readBuffers =
+                        readBuffersAndContinueReadSuggestion =
                                 partitionFileReader.readBuffer(
                                         partitionId,
                                         subpartitionId,
@@ -376,6 +377,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                         throw throwable;
                     }
 
+                    List<Buffer> readBuffers = readBuffersAndContinueReadSuggestion.f0;
+                    shouldContinueRead = readBuffersAndContinueReadSuggestion.f1;
                     if (readBuffers.isEmpty()) {
                         buffers.add(memorySegment);
                         break;
@@ -388,9 +391,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                             if (readBuffer instanceof PartitionFileReader.PartialBuffer) {
                                 partialBuffer = (PartitionFileReader.PartialBuffer) readBuffer;
                                 continue;
-                            } else {
-                                hasRegionFinishedRead = true;
-                                checkState(partialBuffer == null);
                             }
                         }
                         writeNettyBufferAndUpdateSegmentId(readBuffer);
