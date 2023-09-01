@@ -387,11 +387,9 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     partialBuffer = null;
                     for (int i = 0; i < readBuffers.size(); i++) {
                         Buffer readBuffer = readBuffers.get(i);
-                        if (i == readBuffers.size() - 1) {
-                            if (readBuffer instanceof PartitionFileReader.PartialBuffer) {
-                                partialBuffer = (PartitionFileReader.PartialBuffer) readBuffer;
-                                continue;
-                            }
+                        if (i == readBuffers.size() - 1 && isPartialBuffer(readBuffer)) {
+                            partialBuffer = (PartitionFileReader.PartialBuffer) readBuffer;
+                            continue;
                         }
                         writeNettyBufferAndUpdateSegmentId(readBuffer);
                     }
@@ -418,6 +416,11 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                             ? Long.MAX_VALUE
                             : partitionFileReader.getPriority(
                                     partitionId, subpartitionId, nextSegmentId, nextBufferIndex);
+        }
+
+        private boolean isPartialBuffer(Buffer readBuffer) {
+            return readBuffer instanceof PartitionFileReader.PartialBuffer
+                    && ((PartitionFileReader.PartialBuffer) readBuffer).missingLength() > 0;
         }
 
         private void writeNettyBufferAndUpdateSegmentId(Buffer readBuffer) {

@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
@@ -131,21 +130,24 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         List<Buffer> readBuffers = new LinkedList<>();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, partialBuffer, true);
+        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, true);
         if (!cache.isPresent()) {
             return Tuple2.of(Collections.emptyList(), false);
         }
 
         // Get the read offset, including the start offset, the end offset
-        long readStartOffset =
-                partialBuffer == null ? cache.get().getFileOffset() : partialBuffer.getFileOffset();
+        int numPartialReadBytes =
+                (partialBuffer == null) ? 0 : partialBuffer.readableBytes() + HEADER_LENGTH;
+        long readStartOffset = cache.get().getFileOffset() + numPartialReadBytes;
         long readEndOffset = cache.get().region.getRegionFileEndOffset();
-        checkState(readStartOffset <= readEndOffset);
         int numBytesToRead =
                 Math.min(memorySegment.size(), (int) (readEndOffset - readStartOffset));
+        checkState(readStartOffset <= readEndOffset);
+
         if (numBytesToRead == 0) {
             return Tuple2.of(Collections.emptyList(), false);
         }
+
         ByteBuffer byteBuffer = memorySegment.wrap(0, numBytesToRead);
         fileChannel.position(readStartOffset);
 
@@ -155,39 +157,25 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         NetworkBuffer buffer = new NetworkBuffer(memorySegment, recycler);
         buffer.setSize(byteBuffer.remaining());
 
-        int numFullBuffers;
         int numBytesRealRead;
-        int numBytesPartial;
         boolean shouldContinueRead;
         try {
             // Slice the read memory segment to multiple small network buffers and add them to
             // readBuffers
-            Tuple3<CompositeBuffer, BufferHeader, Integer> partial =
+            Tuple2<PartialBuffer, Integer> partialAndNumReadBytes =
                     sliceBuffer(byteBuffer, buffer, partialBuffer, readBuffers);
-            numFullBuffers = readBuffers.size();
-            numBytesRealRead = partial.f2;
+            partialBuffer = partialAndNumReadBytes.f0;
+            numBytesRealRead = partialAndNumReadBytes.f1;
             checkState(
                     numBytesRealRead <= numBytesToRead
                             && numBytesToRead - numBytesRealRead < HEADER_LENGTH);
+
             if (readStartOffset + numBytesRealRead < readEndOffset) {
-                // If the region is not finished read, generate a partial buffer to store the
-                // partial data, then append the partial buffer to the tail of readBuffers
-                partialBuffer =
-                        new PartialBuffer(
-                                readStartOffset + numBytesRealRead, partial.f0, partial.f1);
-                numBytesPartial =
-                        partialBuffer.readableBytes()
-                                + (partialBuffer.getBufferHeader() == null ? 0 : HEADER_LENGTH);
-                checkState(
-                        partialBuffer.getBufferHeader() != null
-                                || partialBuffer.getCompositeBuffer() == null);
-                readBuffers.add(partialBuffer);
                 shouldContinueRead = true;
             } else {
                 // The region is read completely
-                checkState(partial.f0 == null);
+                checkState(partialBuffer == null);
                 shouldContinueRead = false;
-                numBytesPartial = 0;
             }
         } catch (Throwable throwable) {
             LOG.error("Failed to split the read buffer {}.", byteBuffer, throwable);
@@ -200,11 +188,11 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 subpartitionId,
                 bufferIndex,
                 cache.get(),
+                readBuffers,
+                partialBuffer,
                 readStartOffset,
                 readEndOffset,
                 numBytesRealRead,
-                numFullBuffers,
-                numBytesPartial,
                 shouldContinueRead);
         return Tuple2.of(readBuffers, shouldContinueRead);
     }
@@ -218,7 +206,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         lazyInitializeFileChannel();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        return tryGetCache(cacheKey, null, false)
+        return tryGetCache(cacheKey, false)
                 .map(BufferOffsetCache::getFileOffset)
                 .orElse(Long.MAX_VALUE);
     }
@@ -262,15 +250,12 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      *     Optional#empty()}.
      */
     private Optional<BufferOffsetCache> tryGetCache(
-            Tuple2<TieredStorageSubpartitionId, Integer> cacheKey,
-            @Nullable PartialBuffer partialBuffer,
-            boolean removeKey) {
+            Tuple2<TieredStorageSubpartitionId, Integer> cacheKey, boolean removeKey) {
         BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
         if (bufferOffsetCache == null) {
             Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> regionOpt =
                     dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
-            return regionOpt.map(
-                    region -> new BufferOffsetCache(cacheKey.f1, region, partialBuffer));
+            return regionOpt.map(region -> new BufferOffsetCache(cacheKey.f1, region));
         } else {
             if (removeKey) {
                 numCaches--;
@@ -294,93 +279,87 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      * @param partialBuffer the partial buffer, if the partial buffer is not null, it contains the
      *     partial data buffer from the previous read
      * @param readBuffers the read buffers list is to accept the sliced buffers
-     * @return the first field is the partial data buffer, the second field is the partial buffer's
-     *     header, indicating the actual length of the partial buffer, the third field is the number
-     *     of sliced bytes.
+     * @return the first field is the partial data buffer, the second field is the number of sliced
+     *     bytes.
      */
-    private Tuple3<CompositeBuffer, BufferHeader, Integer> sliceBuffer(
+    private Tuple2<PartialBuffer, Integer> sliceBuffer(
             ByteBuffer byteBuffer,
             NetworkBuffer buffer,
             @Nullable PartialBuffer partialBuffer,
             List<Buffer> readBuffers) {
-        BufferHeader header = partialBuffer == null ? null : partialBuffer.getBufferHeader();
-        CompositeBuffer slicedBuffer =
-                partialBuffer == null ? null : partialBuffer.getCompositeBuffer();
         checkState(reusedHeaderBuffer.position() == 0);
-        checkState(header != null || slicedBuffer == null);
-        checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
 
         int numSlicedBytes = 0;
+        if (partialBuffer != null) {
+            // If there is a previous small partial buffer, the current read operation should
+            // read additional data and combine it with the existing partial to construct a new
+            // complete buffer
+            checkState(partialBuffer.missingLength() > 0);
+            buffer.retainBuffer();
+            int position = byteBuffer.position() + partialBuffer.missingLength();
+            int numPartialBytes = partialBuffer.missingLength();
+            partialBuffer.addPartialBuffer(
+                    buffer.readOnlySlice(byteBuffer.position(), numPartialBytes));
+            numSlicedBytes += numPartialBytes;
+            byteBuffer.position(position);
+            readBuffers.add(partialBuffer);
+        }
+
+        partialBuffer = null;
         while (byteBuffer.hasRemaining()) {
             // Parse the small buffer's header
+            BufferHeader header = parseBufferHeader(byteBuffer, reusedHeaderBuffer);
             if (header == null) {
-                if ((header = parseBufferHeader(byteBuffer, reusedHeaderBuffer)) == null) {
-                    break;
-                } else {
-                    numSlicedBytes += HEADER_LENGTH;
-                }
-            }
-
-            // If the previous partial buffer is not exist
-            if (slicedBuffer == null) {
-                if (header.getLength() <= byteBuffer.remaining()) {
-                    // The remaining data length in the buffer is enough to generate a new small
-                    // sliced network buffer. The small sliced buffer is not a partial buffer, we
-                    // should read the slice of the buffer directly
-                    buffer.retainBuffer();
-                    slicedBuffer = new CompositeBuffer(header);
-                    slicedBuffer.addPartialBuffer(
-                            buffer.readOnlySlice(byteBuffer.position(), header.getLength()));
-                    byteBuffer.position(byteBuffer.position() + header.getLength());
-                    numSlicedBytes += header.getLength();
-                } else {
-                    // The remaining data length in the buffer is smaller than the actual length of
-                    // the buffer, so we should generate a new partial buffer, allowing for
-                    // generating a new complete buffer during the next read operation
-                    if (byteBuffer.hasRemaining()) {
-                        buffer.retainBuffer();
-                        slicedBuffer = new CompositeBuffer(header);
-                        int numPartialBytes = byteBuffer.remaining();
-                        slicedBuffer.addPartialBuffer(
-                                buffer.readOnlySlice(byteBuffer.position(), numPartialBytes));
-                        numSlicedBytes += numPartialBytes;
-                    }
-                    break;
-                }
+                // If the remaining length is not enough to parse a header, drop the remaining
+                // byteBuffer directly
+                break;
             } else {
-                // If there is a previous small partial buffer, the current read operation should
-                // read additional data and combine it with the existing partial to construct a new
-                // complete buffer
-                buffer.retainBuffer();
-                int position = byteBuffer.position() + slicedBuffer.missingLength();
-                int numPartialBytes = slicedBuffer.missingLength();
-                slicedBuffer.addPartialBuffer(
-                        buffer.readOnlySlice(byteBuffer.position(), numPartialBytes));
-                numSlicedBytes += numPartialBytes;
-                byteBuffer.position(position);
+                numSlicedBytes += HEADER_LENGTH;
             }
 
-            header = null;
-            readBuffers.add(slicedBuffer);
-            slicedBuffer = null;
+            if (header.getLength() <= byteBuffer.remaining()) {
+                // The remaining data length in the buffer is enough to generate a new small
+                // sliced network buffer. The small sliced buffer is not a partial buffer, we
+                // should read the slice of the buffer directly
+                buffer.retainBuffer();
+                CompositeBuffer slicedBuffer = new CompositeBuffer(header);
+                slicedBuffer.addPartialBuffer(
+                        buffer.readOnlySlice(byteBuffer.position(), header.getLength()));
+                byteBuffer.position(byteBuffer.position() + header.getLength());
+                numSlicedBytes += header.getLength();
+                readBuffers.add(slicedBuffer);
+            } else {
+                // The remaining data length in the buffer is smaller than the actual length of
+                // the buffer, so we should generate a new partial buffer, allowing for
+                // generating a new complete buffer during the next read operation
+                if (byteBuffer.hasRemaining()) {
+                    buffer.retainBuffer();
+                    partialBuffer = new PartialBuffer(header);
+                    int numPartialBytes = byteBuffer.remaining();
+                    partialBuffer.addPartialBuffer(
+                            buffer.readOnlySlice(byteBuffer.position(), numPartialBytes));
+                    numSlicedBytes += numPartialBytes;
+                    readBuffers.add(partialBuffer);
+                }
+                break;
+            }
         }
-        checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
-        if (header != null) {
-            reusedHeaderBuffer.clear();
-        }
-        return Tuple3.of(slicedBuffer, header, numSlicedBytes);
+        return Tuple2.of(partialBuffer, numSlicedBytes);
     }
 
     private void updateBufferOffsetCache(
             TieredStorageSubpartitionId subpartitionId,
             int bufferIndex,
             BufferOffsetCache cache,
+            List<Buffer> readBuffers,
+            @Nullable CompositeBuffer partialBuffer,
             long regionFileStartOffset,
             long regionFileEndOffset,
             int numBytesRead,
-            int numFullBuffers,
-            int numBytesPartial,
             boolean shouldContinueRead) {
+        int numFullBuffers = partialBuffer == null ? readBuffers.size() : readBuffers.size() - 1;
+        int numBytesPartial =
+                partialBuffer == null ? 0 : partialBuffer.readableBytes() + HEADER_LENGTH;
         // Note that the cache always stores the start offset of the full buffer, because the
         // partial buffer may be dropped anytime.
         long fullBufferFileOffset = regionFileStartOffset + numBytesRead - numBytesPartial;
@@ -447,16 +426,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         private int nextBufferIndex;
 
         private BufferOffsetCache(
-                int bufferIndex,
-                ProducerMergedPartitionFileIndex.FixedSizeRegion region,
-                @Nullable PartialBuffer partialBuffer) {
+                int bufferIndex, ProducerMergedPartitionFileIndex.FixedSizeRegion region) {
             this.nextBufferIndex = bufferIndex;
             this.region = region;
-            if (partialBuffer != null) {
-                fileOffset = partialBuffer.getFileOffset();
-            } else {
-                moveFileOffsetToBuffer(bufferIndex);
-            }
+            moveFileOffsetToBuffer(bufferIndex);
         }
 
         /**
