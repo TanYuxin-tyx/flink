@@ -304,6 +304,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             readBuffers.add(partialBuffer);
         }
 
+        partialBuffer = null;
         while (byteBuffer.hasRemaining()) {
             // Parse the small buffer's header
             BufferHeader header = parseBufferHeader(byteBuffer);

@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.HEADER_LENGTH;
 import static org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageTestUtils.generateBuffersToWrite;
@@ -118,7 +117,7 @@ class ProducerMergedPartitionFileReaderTest {
 
     @Test
     void testGetPriority() throws IOException {
-        AtomicLong currentFileOffset = new AtomicLong(0);
+        long currentFileOffset = 0;
         PartitionFileReader.PartialBuffer partialBuffer = null;
         for (int bufferIndex = 0; bufferIndex < DEFAULT_BUFFER_NUMBER; ) {
             List<Buffer> buffers = readBuffer(bufferIndex, DEFAULT_SUBPARTITION_ID, partialBuffer);
@@ -126,14 +125,20 @@ class ProducerMergedPartitionFileReaderTest {
             for (Buffer buffer : buffers) {
                 if (buffer instanceof PartitionFileReader.PartialBuffer) {
                     partialBuffer = (PartitionFileReader.PartialBuffer) buffer;
+                    if (partialBuffer.missingLength() == 0) {
+                        bufferIndex++;
+                        currentFileOffset += partialBuffer.readableBytes() + HEADER_LENGTH;
+                        partialBuffer.recycleBuffer();
+                        partialBuffer = null;
+                    }
                 } else {
                     bufferIndex++;
-                    currentFileOffset.addAndGet(buffer.readableBytes() + HEADER_LENGTH);
+                    currentFileOffset += buffer.readableBytes() + HEADER_LENGTH;
                     buffer.recycleBuffer();
                 }
             }
             long fullBufferFileOffset =
-                    bufferIndex < DEFAULT_BUFFER_NUMBER ? currentFileOffset.get() : Long.MAX_VALUE;
+                    bufferIndex < DEFAULT_BUFFER_NUMBER ? currentFileOffset : Long.MAX_VALUE;
             assertThat(
                             partitionFileReader.getPriority(
                                     DEFAULT_PARTITION_ID,
@@ -141,33 +146,6 @@ class ProducerMergedPartitionFileReaderTest {
                                     DEFAULT_SEGMENT_ID,
                                     bufferIndex))
                     .isEqualTo(fullBufferFileOffset);
-        }
-    }
-
-    @Test
-    void testPartialBufferFileOffset() throws IOException {
-        AtomicLong currentFileOffset = new AtomicLong(0);
-        PartitionFileReader.PartialBuffer partialBuffer = null;
-        for (int bufferIndex = 0; bufferIndex < DEFAULT_BUFFER_NUMBER; ) {
-            int numPartialBytes = 0;
-            long numPartialFileOffset = 0;
-            List<Buffer> buffers = readBuffer(bufferIndex, DEFAULT_SUBPARTITION_ID, partialBuffer);
-            assertThat(buffers).isNotNull();
-            for (Buffer buffer : buffers) {
-                if (buffer instanceof PartitionFileReader.PartialBuffer) {
-                    partialBuffer = (PartitionFileReader.PartialBuffer) buffer;
-                    numPartialBytes = partialBuffer.readableBytes() + HEADER_LENGTH;
-                } else {
-                    bufferIndex++;
-                    currentFileOffset.addAndGet(buffer.readableBytes() + HEADER_LENGTH);
-                    buffer.recycleBuffer();
-                }
-            }
-            long numExpectPartialFileOffset =
-                    bufferIndex < DEFAULT_BUFFER_NUMBER
-                            ? currentFileOffset.get() + numPartialBytes
-                            : 0;
-            assertThat(numPartialFileOffset).isEqualTo(numExpectPartialFileOffset);
         }
     }
 
