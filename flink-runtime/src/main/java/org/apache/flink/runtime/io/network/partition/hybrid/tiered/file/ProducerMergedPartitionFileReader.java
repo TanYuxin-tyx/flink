@@ -298,6 +298,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 // Parse the small buffer's header
                 BufferHeader header = parseBufferHeader(byteBuffer);
                 if (header == null) {
+                    // If the remaining data length in the buffer is not enough to construct a new
+                    // complete buffer header, drop it directly.
                     break;
                 } else {
                     numSlicedBytes += HEADER_LENGTH;
