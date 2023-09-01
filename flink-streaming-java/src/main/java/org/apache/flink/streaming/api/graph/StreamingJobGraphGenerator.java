@@ -884,7 +884,8 @@ public class StreamingJobGraphGenerator {
                     ResultPartitionType.HYBRID_FULL.name());
         }
         if (reusableOutput.getPartitionType().isHybridResultPartition()
-                && (chainedName.contains("Sort")
+                && (chainedName.contains("MultipleInput")
+                        || chainedName.contains("Sort")
                         || chainedName.contains("Limit")
                         || chainedName.contains("Join")
                         || chainedName.contains("Rank"))) {
@@ -1270,7 +1271,8 @@ public class StreamingJobGraphGenerator {
                             partitionType.name(),
                             ResultPartitionType.HYBRID_FULL.name());
                     partitionType = ResultPartitionType.HYBRID_FULL;
-                } else if (chainedName.contains("Sort")
+                } else if (chainedName.contains("MultipleInput")
+                        || chainedName.contains("Sort")
                         || chainedName.contains("Limit")
                         || chainedName.contains("Join")
                         || chainedName.contains("Rank")) {
