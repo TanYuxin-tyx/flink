@@ -384,7 +384,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                         break;
                     }
 
-                    partialBuffer = null;
                     for (int i = 0; i < readBuffers.size(); i++) {
                         Buffer readBuffer = readBuffers.get(i);
                         if (i == readBuffers.size() - 1 && isPartialBuffer(readBuffer)) {
@@ -393,6 +392,7 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                         }
                         writeNettyBufferAndUpdateSegmentId(readBuffer);
                     }
+                    checkState(shouldContinueRead || partialBuffer == null);
                 }
             } finally {
                 if (partialBuffer != null) {

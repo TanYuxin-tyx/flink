@@ -352,7 +352,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             int bufferIndex,
             BufferOffsetCache cache,
             List<Buffer> readBuffers,
-            @Nullable CompositeBuffer partialBuffer,
+            @Nullable PartialBuffer partialBuffer,
             long regionFileStartOffset,
             long regionFileEndOffset,
             int numBytesRead,
