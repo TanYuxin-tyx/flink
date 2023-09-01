@@ -20,7 +20,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.buffer.BufferHeader;
@@ -163,24 +162,19 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         try {
             // Slice the read memory segment to multiple small network buffers and add them to
             // readBuffers
-            Tuple3<CompositeBuffer, BufferHeader, Integer> partial =
+            Tuple2<PartialBuffer, Integer> partial =
                     sliceBuffer(byteBuffer, buffer, partialBuffer, readBuffers);
             numFullBuffers = readBuffers.size();
-            numBytesRealRead = partial.f2;
+            PartialBuffer partialBuffer1 = partial.f0;
+            numBytesRealRead = partial.f1;
             checkState(
                     numBytesRealRead <= numBytesToRead
                             && numBytesToRead - numBytesRealRead < HEADER_LENGTH);
             if (readStartOffset + numBytesRealRead < readEndOffset) {
                 // If the region is not finished read, generate a partial buffer to store the
                 // partial data, then append the partial buffer to the tail of readBuffers
-                partialBuffer = new PartialBuffer(partial.f0, partial.f1);
                 numBytesPartial =
-                        partialBuffer.readableBytes()
-                                + (partialBuffer.getBufferHeader() == null ? 0 : HEADER_LENGTH);
-                checkState(
-                        partialBuffer.getBufferHeader() != null
-                                || partialBuffer.getCompositeBuffer() == null);
-                readBuffers.add(partialBuffer);
+                        partialBuffer1 == null ? 0 : partialBuffer1.readableBytes() + HEADER_LENGTH;
                 shouldContinueRead = true;
             } else {
                 // The region is read completely
@@ -290,20 +284,17 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      * @param partialBuffer the partial buffer, if the partial buffer is not null, it contains the
      *     partial data buffer from the previous read
      * @param readBuffers the read buffers list is to accept the sliced buffers
-     * @return the first field is the partial data buffer, the second field is the partial buffer's
-     *     header, indicating the actual length of the partial buffer, the third field is the number
-     *     of sliced bytes.
+     * @return the first field is the partial data buffer, the second field is the number of sliced
+     *     bytes.
      */
-    private Tuple3<CompositeBuffer, BufferHeader, Integer> sliceBuffer(
+    private Tuple2<PartialBuffer, Integer> sliceBuffer(
             ByteBuffer byteBuffer,
             NetworkBuffer buffer,
             @Nullable PartialBuffer partialBuffer,
             List<Buffer> readBuffers) {
-        BufferHeader header = partialBuffer == null ? null : partialBuffer.getBufferHeader();
         CompositeBuffer slicedBuffer =
                 partialBuffer == null ? null : partialBuffer.getCompositeBuffer();
         checkState(reusedHeaderBuffer.position() == 0);
-        checkState(header != null || slicedBuffer == null);
         checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
 
         int numSlicedBytes = 0;
@@ -318,18 +309,18 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                     buffer.readOnlySlice(byteBuffer.position(), numPartialBytes));
             numSlicedBytes += numPartialBytes;
             byteBuffer.position(position);
-            readBuffers.add(slicedBuffer);
+            readBuffers.add(new PartialBuffer(slicedBuffer));
         }
 
         slicedBuffer = null;
+        PartialBuffer partialBuffer1 = null;
         while (byteBuffer.hasRemaining()) {
             // Parse the small buffer's header
+            BufferHeader header = parseBufferHeader(byteBuffer, reusedHeaderBuffer);
             if (header == null) {
-                if ((header = parseBufferHeader(byteBuffer, reusedHeaderBuffer)) == null) {
-                    break;
-                } else {
-                    numSlicedBytes += HEADER_LENGTH;
-                }
+                break;
+            } else {
+                numSlicedBytes += HEADER_LENGTH;
             }
 
             if (header.getLength() <= byteBuffer.remaining()) {
@@ -342,6 +333,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                         buffer.readOnlySlice(byteBuffer.position(), header.getLength()));
                 byteBuffer.position(byteBuffer.position() + header.getLength());
                 numSlicedBytes += header.getLength();
+                readBuffers.add(slicedBuffer);
             } else {
                 // The remaining data length in the buffer is smaller than the actual length of
                 // the buffer, so we should generate a new partial buffer, allowing for
@@ -353,18 +345,15 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                     slicedBuffer.addPartialBuffer(
                             buffer.readOnlySlice(byteBuffer.position(), numPartialBytes));
                     numSlicedBytes += numPartialBytes;
+                    partialBuffer1 = new PartialBuffer(slicedBuffer);
+                    readBuffers.add(partialBuffer1);
                 }
                 break;
             }
-            header = null;
-            readBuffers.add(slicedBuffer);
             slicedBuffer = null;
         }
         checkState(slicedBuffer == null || slicedBuffer.missingLength() > 0);
-        if (header != null) {
-            reusedHeaderBuffer.clear();
-        }
-        return Tuple3.of(slicedBuffer, header, numSlicedBytes);
+        return Tuple2.of(partialBuffer1, numSlicedBytes);
     }
 
     private void updateBufferOffsetCache(

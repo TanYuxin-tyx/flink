@@ -21,7 +21,6 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
-import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.CompositeBuffer;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
@@ -98,19 +97,16 @@ public interface PartitionFileReader {
 
         private final CompositeBuffer compositeBuffer;
 
-        private final BufferHeader bufferHeader;
-
-        public PartialBuffer(CompositeBuffer compositeBuffer, BufferHeader bufferHeader) {
+        public PartialBuffer(CompositeBuffer compositeBuffer) {
             this.compositeBuffer = compositeBuffer;
-            this.bufferHeader = bufferHeader;
         }
 
         public CompositeBuffer getCompositeBuffer() {
             return compositeBuffer;
         }
 
-        public BufferHeader getBufferHeader() {
-            return bufferHeader;
+        public int missingLength() {
+            return compositeBuffer.missingLength();
         }
 
         @Override
