@@ -36,8 +36,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-import static org.apache.flink.util.Preconditions.checkArgument;
-
 /** {@link PartitionFileReader} defines the read logic for different types of shuffle files. */
 public interface PartitionFileReader {
 
@@ -98,26 +96,13 @@ public interface PartitionFileReader {
     /** A {@link PartialBuffer} is a part slice of a larger buffer. */
     class PartialBuffer implements Buffer {
 
-        private final long fileOffset;
-
         private final CompositeBuffer compositeBuffer;
 
         private final BufferHeader bufferHeader;
 
-        public PartialBuffer(
-                long fileOffset, CompositeBuffer compositeBuffer, BufferHeader bufferHeader) {
-            checkArgument(fileOffset >= 0);
-            this.fileOffset = fileOffset;
+        public PartialBuffer(CompositeBuffer compositeBuffer, BufferHeader bufferHeader) {
             this.compositeBuffer = compositeBuffer;
             this.bufferHeader = bufferHeader;
-        }
-
-        /**
-         * Returns the underlying file offset. Note that the file offset includes the length of the
-         * partial buffer.
-         */
-        public long getFileOffset() {
-            return fileOffset;
         }
 
         public CompositeBuffer getCompositeBuffer() {

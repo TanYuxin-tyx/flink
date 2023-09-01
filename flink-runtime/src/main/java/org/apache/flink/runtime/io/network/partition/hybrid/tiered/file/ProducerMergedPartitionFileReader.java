@@ -173,9 +173,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             if (readStartOffset + numBytesRealRead < readEndOffset) {
                 // If the region is not finished read, generate a partial buffer to store the
                 // partial data, then append the partial buffer to the tail of readBuffers
-                partialBuffer =
-                        new PartialBuffer(
-                                readStartOffset + numBytesRealRead, partial.f0, partial.f1);
+                partialBuffer = new PartialBuffer(partial.f0, partial.f1);
                 numBytesPartial =
                         partialBuffer.readableBytes()
                                 + (partialBuffer.getBufferHeader() == null ? 0 : HEADER_LENGTH);

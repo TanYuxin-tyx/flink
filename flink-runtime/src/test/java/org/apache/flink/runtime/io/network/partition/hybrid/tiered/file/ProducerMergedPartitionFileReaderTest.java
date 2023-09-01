@@ -159,7 +159,6 @@ class ProducerMergedPartitionFileReaderTest {
                     numPartialBytes =
                             partialBuffer.readableBytes()
                                     + (partialBuffer.getBufferHeader() == null ? 0 : HEADER_LENGTH);
-                    numPartialFileOffset = partialBuffer.getFileOffset();
                 } else {
                     bufferIndex++;
                     currentFileOffset.addAndGet(buffer.readableBytes() + HEADER_LENGTH);
