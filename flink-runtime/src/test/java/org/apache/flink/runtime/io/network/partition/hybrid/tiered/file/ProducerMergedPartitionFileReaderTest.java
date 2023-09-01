@@ -112,7 +112,7 @@ class ProducerMergedPartitionFileReaderTest {
                                 memorySegment,
                                 FreeingBufferRecycler.INSTANCE,
                                 null))
-                .isNull();
+                .isEmpty();
     }
 
     @Test

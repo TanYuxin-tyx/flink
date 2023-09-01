@@ -43,6 +43,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -132,7 +133,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                 Tuple2.of(subpartitionId, bufferIndex);
         Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, partialBuffer, true);
         if (!cache.isPresent()) {
-            return null;
+            return Collections.emptyList();
         }
 
         // Get the read offset, including the start offset, the end offset
@@ -143,7 +144,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         int numBytesToRead =
                 Math.min(memorySegment.size(), (int) (readEndOffset - readStartOffset));
         if (numBytesToRead == 0) {
-            return null;
+            return Collections.emptyList();
         }
         ByteBuffer byteBuffer = memorySegment.wrap(0, numBytesToRead);
         fileChannel.position(readStartOffset);
