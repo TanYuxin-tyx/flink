@@ -248,7 +248,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     private Optional<BufferOffsetCache> tryGetCache(
             Tuple2<TieredStorageSubpartitionId, Integer> cacheKey,
             boolean removeKey,
-            boolean needMoveOffset) {
+            boolean needMoveFileOffset) {
         BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
         numTotalGetCacheCouter++;
         if (!removeKey) {
@@ -277,10 +277,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                             + " removeKey: "
                             + removeKey
                             + " needMoveOffset: "
-                            + needMoveOffset);
+                            + needMoveFileOffset);
 
             return regionOpt.map(
-                    region -> new BufferOffsetCache(cacheKey.f1, region, needMoveOffset));
+                    region -> new BufferOffsetCache(cacheKey.f1, region, needMoveFileOffset));
         } else {
             if (removeKey) {
                 numCaches--;
@@ -309,7 +309,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                             + " removeKey: "
                             + removeKey
                             + " needMoveOffset: "
-                            + needMoveOffset
+                            + needMoveFileOffset
                             + " cache: "
                             + bufferOffsetCache);
             return Optional.of(bufferOffsetCache);
@@ -496,10 +496,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         private BufferOffsetCache(
                 int bufferIndex,
                 ProducerMergedPartitionFileIndex.FixedSizeRegion region,
-                boolean needMoveOffset) {
+                boolean needMoveFileOffset) {
             this.nextBufferIndex = bufferIndex;
             this.region = region;
-            if (needMoveOffset) {
+            if (needMoveFileOffset) {
                 moveFileOffsetToBuffer(bufferIndex);
             }
         }
