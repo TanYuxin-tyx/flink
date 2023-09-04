@@ -130,7 +130,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         List<Buffer> readBuffers = new LinkedList<>();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, true, partialBuffer == null);
+        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, true, partialBuffer);
         if (!cache.isPresent()) {
             return Tuple2.of(Collections.emptyList(), false);
         }
@@ -194,7 +194,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         lazyInitializeFileChannel();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        return tryGetCache(cacheKey, false, false)
+        return tryGetCache(cacheKey, false, null)
                 .map(BufferOffsetCache::getFileOffset)
                 .orElse(Long.MAX_VALUE);
     }
@@ -234,20 +234,21 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      *
      * @param cacheKey the key of cache.
      * @param removeKey boolean decides whether to remove key.
-     * @param needMoveFileOffset whether to move the file offset when getting the cached region
+     * @param partialBuffer the previous partial buffer. The partial buffer is not null only when
+     *     the last read has a partial buffer
      * @return returns the relevant buffer offset cache if it exists, otherwise return {@link
      *     Optional#empty()}.
      */
     private Optional<BufferOffsetCache> tryGetCache(
             Tuple2<TieredStorageSubpartitionId, Integer> cacheKey,
             boolean removeKey,
-            boolean needMoveFileOffset) {
+            @Nullable PartialBuffer partialBuffer) {
         BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
         if (bufferOffsetCache == null) {
             Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> regionOpt =
                     dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
             return regionOpt.map(
-                    region -> new BufferOffsetCache(cacheKey.f1, region, needMoveFileOffset));
+                    region -> new BufferOffsetCache(cacheKey.f1, region, partialBuffer));
         } else {
             if (removeKey) {
                 numCaches--;
@@ -430,10 +431,12 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         private BufferOffsetCache(
                 int bufferIndex,
                 ProducerMergedPartitionFileIndex.FixedSizeRegion region,
-                boolean needMoveFileOffset) {
+                @Nullable PartialBuffer partialBuffer) {
             this.nextBufferIndex = bufferIndex;
             this.region = region;
-            if (needMoveFileOffset) {
+            if (partialBuffer != null) {
+                fileOffset = partialBuffer.getFileOffset();
+            } else {
                 moveFileOffsetToBuffer(bufferIndex);
             }
         }
