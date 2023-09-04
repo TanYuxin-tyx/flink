@@ -100,6 +100,14 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     /** The current number of caches. */
     private int numCaches;
 
+    long numTotalGetCacheCouter;
+
+    long numCacheHitRemoveKeyCounter;
+
+    long numCacheHitKeepKeyCounter;
+
+    long numGetPriorityCounter;
+
     ProducerMergedPartitionFileReader(
             Path dataFilePath, ProducerMergedPartitionFileIndex dataIndex) {
         this(dataFilePath, dataIndex, DEFAULT_MAX_CACHE_NUM);
@@ -242,17 +250,68 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             boolean removeKey,
             boolean needMoveOffset) {
         BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
+        numTotalGetCacheCouter++;
+        if (!removeKey) {
+            numGetPriorityCounter++;
+        }
         if (bufferOffsetCache == null) {
             Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> regionOpt =
                     dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
+            LOG.info(
+                    "### print cache hit 1, numTotalGetCacheCouter: "
+                            + numTotalGetCacheCouter
+                            + " numGetPriorityCounter: "
+                            + numGetPriorityCounter
+                            + " cache hit ratio: "
+                            + ((float) (numCacheHitRemoveKeyCounter + numCacheHitKeepKeyCounter)
+                                    * 1.0
+                                    / numTotalGetCacheCouter)
+                            + " numCacheHitRemoveKeyCounter: "
+                            + numCacheHitRemoveKeyCounter
+                            + " numCacheHitKeepKeyCounter: "
+                            + numCacheHitKeepKeyCounter
+                            + " subpartitionId: "
+                            + cacheKey.f0
+                            + " bufferIndex: "
+                            + cacheKey.f1
+                            + " removeKey: "
+                            + removeKey
+                            + " needMoveOffset: "
+                            + needMoveOffset);
+
             return regionOpt.map(
                     region -> new BufferOffsetCache(cacheKey.f1, region, needMoveOffset));
         } else {
             if (removeKey) {
                 numCaches--;
+                numCacheHitRemoveKeyCounter++;
             } else {
                 bufferOffsetCaches.put(cacheKey, bufferOffsetCache);
+                numCacheHitKeepKeyCounter++;
             }
+            LOG.info(
+                    "### print cache hit 1, numTotalGetCacheCouter: "
+                            + numTotalGetCacheCouter
+                            + " numGetPriorityCounter: "
+                            + numGetPriorityCounter
+                            + " cache hit ratio: "
+                            + ((float) (numCacheHitRemoveKeyCounter + numCacheHitKeepKeyCounter)
+                                    * 1.0
+                                    / numTotalGetCacheCouter)
+                            + " numCacheHitRemoveKeyCounter: "
+                            + numCacheHitRemoveKeyCounter
+                            + " numCacheHitKeepKeyCounter: "
+                            + numCacheHitKeepKeyCounter
+                            + " subpartitionId: "
+                            + cacheKey.f0
+                            + " bufferIndex: "
+                            + cacheKey.f1
+                            + " removeKey: "
+                            + removeKey
+                            + " needMoveOffset: "
+                            + needMoveOffset
+                            + " cache: "
+                            + bufferOffsetCache);
             return Optional.of(bufferOffsetCache);
         }
     }
@@ -378,6 +437,14 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             bufferOffsetCaches.put(Tuple2.of(subpartitionId, nextBufferIndex), cache);
             numCaches++;
         }
+        LOG.info(
+                "### "
+                        + " update cache, subpartitionId:  "
+                        + subpartitionId
+                        + " nextBufferIndex: "
+                        + nextBufferIndex
+                        + " cache: "
+                        + cache);
     }
 
     private void readFileDataToBuffer(
