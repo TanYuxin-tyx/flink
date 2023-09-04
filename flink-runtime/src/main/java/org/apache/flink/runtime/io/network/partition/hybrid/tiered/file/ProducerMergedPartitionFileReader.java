@@ -234,19 +234,20 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      *
      * @param cacheKey the key of cache.
      * @param removeKey boolean decides whether to remove key.
+     * @param needMoveFileOffset whether to move the file offset when getting the cached region
      * @return returns the relevant buffer offset cache if it exists, otherwise return {@link
      *     Optional#empty()}.
      */
     private Optional<BufferOffsetCache> tryGetCache(
             Tuple2<TieredStorageSubpartitionId, Integer> cacheKey,
             boolean removeKey,
-            boolean needMoveOffset) {
+            boolean needMoveFileOffset) {
         BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
         if (bufferOffsetCache == null) {
             Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> regionOpt =
                     dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
             return regionOpt.map(
-                    region -> new BufferOffsetCache(cacheKey.f1, region, needMoveOffset));
+                    region -> new BufferOffsetCache(cacheKey.f1, region, needMoveFileOffset));
         } else {
             if (removeKey) {
                 numCaches--;
@@ -429,10 +430,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         private BufferOffsetCache(
                 int bufferIndex,
                 ProducerMergedPartitionFileIndex.FixedSizeRegion region,
-                boolean needMoveOffset) {
+                boolean needMoveFileOffset) {
             this.nextBufferIndex = bufferIndex;
             this.region = region;
-            if (needMoveOffset) {
+            if (needMoveFileOffset) {
                 moveFileOffsetToBuffer(bufferIndex);
             }
         }
