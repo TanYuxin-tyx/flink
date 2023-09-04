@@ -91,8 +91,20 @@ public interface PartitionFileReader {
 
     /** A {@link PartialBuffer} is a part slice of a larger buffer. */
     class PartialBuffer extends CompositeBuffer {
-        public PartialBuffer(BufferHeader bufferHeader) {
+
+        private final long fileOffset;
+
+        public PartialBuffer(long fileOffset, BufferHeader bufferHeader) {
             super(bufferHeader);
+            this.fileOffset = fileOffset;
+        }
+
+        /**
+         * Return the underlying file offset. Note that the file offset includes the length of the
+         * partial buffer.
+         */
+        public long getFileOffset() {
+            return fileOffset;
         }
     }
 }

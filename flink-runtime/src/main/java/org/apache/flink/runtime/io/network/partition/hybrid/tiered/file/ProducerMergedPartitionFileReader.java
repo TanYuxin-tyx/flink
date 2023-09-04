@@ -130,15 +130,14 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         List<Buffer> readBuffers = new LinkedList<>();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, true);
+        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, true, partialBuffer == null);
         if (!cache.isPresent()) {
             return Tuple2.of(Collections.emptyList(), false);
         }
 
         // Get the read offset, including the start offset, the end offset
-        int numPartialBytes =
-                partialBuffer == null ? 0 : partialBuffer.readableBytes() + HEADER_LENGTH;
-        long readStartOffset = cache.get().getFileOffset() + numPartialBytes;
+        long readStartOffset =
+                partialBuffer == null ? cache.get().getFileOffset() : partialBuffer.getFileOffset();
         long readEndOffset = cache.get().region.getRegionFileEndOffset();
         checkState(readStartOffset <= readEndOffset);
         int numBytesToRead =
@@ -156,7 +155,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         // Slice the read memory segment to multiple small network buffers and add them to
         // readBuffers
         Tuple2<PartialBuffer, Integer> partial =
-                sliceBuffer(byteBuffer, memorySegment, partialBuffer, recycler, readBuffers);
+                sliceBuffer(
+                        byteBuffer,
+                        memorySegment,
+                        partialBuffer,
+                        recycler,
+                        readStartOffset,
+                        readBuffers);
 
         partialBuffer = partial.f0;
         int numBytesRealRead = partial.f1;
@@ -189,7 +194,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         lazyInitializeFileChannel();
         Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
                 Tuple2.of(subpartitionId, bufferIndex);
-        return tryGetCache(cacheKey, false)
+        return tryGetCache(cacheKey, false, false)
                 .map(BufferOffsetCache::getFileOffset)
                 .orElse(Long.MAX_VALUE);
     }
@@ -233,12 +238,15 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      *     Optional#empty()}.
      */
     private Optional<BufferOffsetCache> tryGetCache(
-            Tuple2<TieredStorageSubpartitionId, Integer> cacheKey, boolean removeKey) {
+            Tuple2<TieredStorageSubpartitionId, Integer> cacheKey,
+            boolean removeKey,
+            boolean needMoveOffset) {
         BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
         if (bufferOffsetCache == null) {
             Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> regionOpt =
                     dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
-            return regionOpt.map(region -> new BufferOffsetCache(cacheKey.f1, region));
+            return regionOpt.map(
+                    region -> new BufferOffsetCache(cacheKey.f1, region, needMoveOffset));
         } else {
             if (removeKey) {
                 numCaches--;
@@ -255,12 +263,11 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      * <p>Note that although the method appears to be split into multiple buffers, the sliced
      * buffers still share the same one actual underlying memory segment.
      *
-     * @param byteBuffer the byte buffer to be sliced
-     * @param buffer the network buffer actually shares the same memory segment with byteBuffer.
-     *     This argument is only to call the method NetworkBuffer#readOnlySlice to read a slice of a
-     *     memory segment
+     * @param byteBuffer the byte buffer to be sliced, it points to the underlying memorySegment
+     * @param memorySegment the underlying memory segment to be sliced
      * @param partialBuffer the partial buffer, if the partial buffer is not null, it contains the
      *     partial data buffer from the previous read
+     * @param readStartOffset the file offset to start reading
      * @param readBuffers the read buffers list is to accept the sliced buffers
      * @return the first field is the partial data buffer, the second field is the number of sliced
      *     bytes.
@@ -270,6 +277,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             MemorySegment memorySegment,
             @Nullable PartialBuffer partialBuffer,
             BufferRecycler bufferRecycler,
+            long readStartOffset,
             List<Buffer> readBuffers) {
         checkState(reusedHeaderBuffer.position() == 0);
         checkState(partialBuffer == null || partialBuffer.missingLength() > 0);
@@ -321,11 +329,11 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                     // the buffer, so we should generate a new partial buffer, allowing for
                     // generating a new complete buffer during the next read operation
                     buffer.retainBuffer();
-                    partialBuffer = new PartialBuffer(header);
                     int numPartialBytes = byteBuffer.remaining();
+                    numSlicedBytes += numPartialBytes;
+                    partialBuffer = new PartialBuffer(readStartOffset + numSlicedBytes, header);
                     partialBuffer.addPartialBuffer(
                             buffer.readOnlySlice(byteBuffer.position(), numPartialBytes));
-                    numSlicedBytes += numPartialBytes;
                     readBuffers.add(partialBuffer);
                     break;
                 }
@@ -419,10 +427,14 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         private int nextBufferIndex;
 
         private BufferOffsetCache(
-                int bufferIndex, ProducerMergedPartitionFileIndex.FixedSizeRegion region) {
+                int bufferIndex,
+                ProducerMergedPartitionFileIndex.FixedSizeRegion region,
+                boolean needMoveOffset) {
             this.nextBufferIndex = bufferIndex;
             this.region = region;
-            moveFileOffsetToBuffer(bufferIndex);
+            if (needMoveOffset) {
+                moveFileOffsetToBuffer(bufferIndex);
+            }
         }
 
         /**
