@@ -115,6 +115,7 @@ class DiskCacheManagerTest {
         diskCacheManager.appendEndOfSegmentEvent(
                 EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE), 0);
 
+        diskCacheManager.close();
         assertThat(receivedBuffers).hasSize(1);
         List<PartitionFileWriter.SegmentBufferContext> segmentBufferContexts =
                 receivedBuffers.get(0).getSegmentBufferContexts();

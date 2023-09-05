@@ -92,12 +92,6 @@ class DiskCacheManager {
      */
     void appendEndOfSegmentEvent(ByteBuffer record, int subpartitionId) {
         subpartitionCacheManagers[subpartitionId].appendEndOfSegmentEvent(record);
-
-        // When finishing a segment, the buffers should be flushed because the next segment may be
-        // written to another tier. If the buffers in this tier are not flushed here, then the next
-        // segment in another tier may be stuck by lacking buffers. This flush has a low trigger
-        // frequency, so its impact on performance is relatively small.
-        forceFlushCachedBuffers();
     }
 
     /**
