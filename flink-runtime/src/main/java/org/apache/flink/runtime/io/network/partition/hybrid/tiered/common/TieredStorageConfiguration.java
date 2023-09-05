@@ -67,6 +67,10 @@ public class TieredStorageConfiguration {
 
     private static final long DEFAULT_MAX_REGION_NUM_RETAINED_IN_MEMORY = 1024 * 1024L;
 
+    private static final int DEFAULT_MAX_CACHED_BYTES_BEFORE_FLUSH = 512 * 1024;
+
+    private static final int DEFAULT_MAX_WAIT_MS_BEFORE_FLUSH = 1000;
+
     private final String remoteStorageBasePath;
 
     private final int tieredStorageBufferSize;
@@ -330,6 +334,10 @@ public class TieredStorageConfiguration {
 
         private long numRetainedInMemoryRegionsMax = DEFAULT_MAX_REGION_NUM_RETAINED_IN_MEMORY;
 
+        private int maxCachedBytesBeforeFlush = DEFAULT_MAX_CACHED_BYTES_BEFORE_FLUSH;
+
+        private int maxWaitMsBeforeFlush = DEFAULT_MAX_WAIT_MS_BEFORE_FLUSH;
+
         private List<TierFactory> tierFactories;
 
         private List<Integer> tierExclusiveBuffers;
@@ -416,6 +424,16 @@ public class TieredStorageConfiguration {
             return this;
         }
 
+        public Builder setMaxCachedBytesBeforeFlush(int maxCachedBytesBeforeFlush) {
+            this.maxCachedBytesBeforeFlush = maxCachedBytesBeforeFlush;
+            return this;
+        }
+
+        public Builder setMaxWaitMsBeforeFlush(int maxWaitMsBeforeFlush) {
+            this.maxWaitMsBeforeFlush = maxWaitMsBeforeFlush;
+            return this;
+        }
+
         public TieredStorageConfiguration build() {
             setupTierFactoriesAndExclusiveBuffers();
             return new TieredStorageConfiguration(
@@ -451,6 +469,8 @@ public class TieredStorageConfiguration {
                             tieredStorageBufferSize,
                             minReserveDiskSpaceFraction,
                             regionGroupSizeInBytes,
+                            maxCachedBytesBeforeFlush,
+                            maxWaitMsBeforeFlush,
                             numRetainedInMemoryRegionsMax));
             tierExclusiveBuffers.add(diskTierExclusiveBuffers);
             if (remoteStorageBasePath != null) {
