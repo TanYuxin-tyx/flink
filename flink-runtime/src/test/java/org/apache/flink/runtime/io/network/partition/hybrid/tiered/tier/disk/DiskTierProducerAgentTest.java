@@ -212,6 +212,8 @@ public class DiskTierProducerAgentTest {
                 NUM_SUBPARTITIONS,
                 numBytesPerSegment,
                 BUFFER_SIZE_BYTES,
+                BUFFER_SIZE_BYTES,
+                1000,
                 dataFilePath,
                 minReservedDiskSpaceFraction,
                 isBroadcastOnly,
