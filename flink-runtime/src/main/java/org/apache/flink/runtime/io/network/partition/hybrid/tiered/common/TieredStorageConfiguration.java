@@ -65,6 +65,8 @@ public class TieredStorageConfiguration {
 
     private static final int DEFAULT_REGION_GROUP_SIZE_IN_BYTES = 1024;
 
+    private static final int DEFAULT_NUM_BATCH_BUFFERS_WHEN_FLUSH = 64;
+
     private static final long DEFAULT_MAX_REGION_NUM_RETAINED_IN_MEMORY = 1024 * 1024L;
 
     private final String remoteStorageBasePath;
@@ -328,6 +330,8 @@ public class TieredStorageConfiguration {
 
         private int regionGroupSizeInBytes = DEFAULT_REGION_GROUP_SIZE_IN_BYTES;
 
+        private int numBatchBuffersWhenFlush = DEFAULT_NUM_BATCH_BUFFERS_WHEN_FLUSH;
+
         private long numRetainedInMemoryRegionsMax = DEFAULT_MAX_REGION_NUM_RETAINED_IN_MEMORY;
 
         private List<TierFactory> tierFactories;
@@ -411,6 +415,11 @@ public class TieredStorageConfiguration {
             return this;
         }
 
+        public Builder setNumBatchBuffersWhenFlush(int numBatchBuffersWhenFlush) {
+            this.numBatchBuffersWhenFlush = numBatchBuffersWhenFlush;
+            return this;
+        }
+
         public Builder setNumRetainedInMemoryRegionsMax(long numRetainedInMemoryRegionsMax) {
             this.numRetainedInMemoryRegionsMax = numRetainedInMemoryRegionsMax;
             return this;
@@ -451,6 +460,7 @@ public class TieredStorageConfiguration {
                             tieredStorageBufferSize,
                             minReserveDiskSpaceFraction,
                             regionGroupSizeInBytes,
+                            numBatchBuffersWhenFlush,
                             numRetainedInMemoryRegionsMax));
             tierExclusiveBuffers.add(diskTierExclusiveBuffers);
             if (remoteStorageBasePath != null) {

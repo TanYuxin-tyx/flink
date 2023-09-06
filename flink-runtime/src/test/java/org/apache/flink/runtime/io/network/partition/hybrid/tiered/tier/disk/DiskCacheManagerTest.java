@@ -73,6 +73,7 @@ class DiskCacheManagerTest {
                 new DiskCacheManager(
                         TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
                         1,
+                        1,
                         memoryManager,
                         partitionFileWriter);
 
@@ -110,11 +111,13 @@ class DiskCacheManagerTest {
                 new DiskCacheManager(
                         TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
                         1,
+                        1,
                         memoryManager,
                         partitionFileWriter);
         diskCacheManager.appendEndOfSegmentEvent(
                 EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE), 0);
 
+        diskCacheManager.close();
         assertThat(receivedBuffers).hasSize(1);
         List<PartitionFileWriter.SegmentBufferContext> segmentBufferContexts =
                 receivedBuffers.get(0).getSegmentBufferContexts();
@@ -143,6 +146,7 @@ class DiskCacheManagerTest {
         DiskCacheManager diskCacheManager =
                 new DiskCacheManager(
                         TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
+                        1,
                         1,
                         memoryManager,
                         partitionFileWriter);
