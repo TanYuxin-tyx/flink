@@ -54,6 +54,8 @@ public class DiskTierFactory implements TierFactory {
 
     private final int regionGroupSizeInBytes;
 
+    private final int numBatchBuffersWhenFlush;
+
     private final long numRetainedInMemoryRegionsMax;
 
     public DiskTierFactory(
@@ -61,11 +63,13 @@ public class DiskTierFactory implements TierFactory {
             int bufferSizeBytes,
             float minReservedDiskSpaceFraction,
             int regionGroupSizeInBytes,
+            int numBatchBuffersWhenFlush,
             long numRetainedInMemoryRegionsMax) {
         this.numBytesPerSegment = numBytesPerSegment;
         this.bufferSizeBytes = bufferSizeBytes;
         this.minReservedDiskSpaceFraction = minReservedDiskSpaceFraction;
         this.regionGroupSizeInBytes = regionGroupSizeInBytes;
+        this.numBatchBuffersWhenFlush = numBatchBuffersWhenFlush;
         this.numRetainedInMemoryRegionsMax = numRetainedInMemoryRegionsMax;
     }
 
@@ -106,6 +110,7 @@ public class DiskTierFactory implements TierFactory {
                 numSubpartitions,
                 numBytesPerSegment,
                 bufferSizeBytes,
+                numBatchBuffersWhenFlush,
                 dataFilePath,
                 minReservedDiskSpaceFraction,
                 isBroadcastOnly,

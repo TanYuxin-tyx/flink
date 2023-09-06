@@ -41,6 +41,8 @@ class DiskCacheManager {
 
     private final int numSubpartitions;
 
+    private final int numBatchBuffersWhenFlush;
+
     private final PartitionFileWriter partitionFileWriter;
 
     private final SubpartitionDiskCacheManager[] subpartitionCacheManagers;
@@ -48,15 +50,21 @@ class DiskCacheManager {
     /** Whether the current flush process has completed. */
     private CompletableFuture<Void> hasFlushCompleted;
 
+    /**
+     * The number of all subpartition's cached buffers in the cache manager. Note that the counter
+     * can only be accessed by the task thread and does not require locks.
+     */
     private int numCachedBufferCounter;
 
     DiskCacheManager(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
+            int numBatchBuffersWhenFlush,
             TieredStorageMemoryManager memoryManager,
             PartitionFileWriter partitionFileWriter) {
         this.partitionId = partitionId;
         this.numSubpartitions = numSubpartitions;
+        this.numBatchBuffersWhenFlush = numBatchBuffersWhenFlush;
         this.partitionFileWriter = partitionFileWriter;
         this.subpartitionCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
         this.hasFlushCompleted = FutureUtils.completedVoidFuture();
@@ -95,7 +103,7 @@ class DiskCacheManager {
      */
     void appendEndOfSegmentEvent(ByteBuffer record, int subpartitionId) {
         subpartitionCacheManagers[subpartitionId].appendEndOfSegmentEvent(record);
-        if (numCachedBufferCounter > 32) {
+        if (numCachedBufferCounter > numBatchBuffersWhenFlush) {
             notifyFlushCachedBuffers();
         }
     }

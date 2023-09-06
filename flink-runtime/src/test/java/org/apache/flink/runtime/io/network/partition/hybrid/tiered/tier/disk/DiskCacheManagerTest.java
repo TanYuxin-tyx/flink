@@ -73,6 +73,7 @@ class DiskCacheManagerTest {
                 new DiskCacheManager(
                         TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
                         1,
+                        1,
                         memoryManager,
                         partitionFileWriter);
 
@@ -110,6 +111,7 @@ class DiskCacheManagerTest {
                 new DiskCacheManager(
                         TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
                         1,
+                        1,
                         memoryManager,
                         partitionFileWriter);
         diskCacheManager.appendEndOfSegmentEvent(
@@ -144,6 +146,7 @@ class DiskCacheManagerTest {
         DiskCacheManager diskCacheManager =
                 new DiskCacheManager(
                         TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
+                        1,
                         1,
                         memoryManager,
                         partitionFileWriter);
