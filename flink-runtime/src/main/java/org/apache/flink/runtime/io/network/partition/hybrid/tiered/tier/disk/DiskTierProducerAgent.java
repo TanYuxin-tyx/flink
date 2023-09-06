@@ -87,6 +87,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             int numBytesPerSegment,
             int bufferSizeBytes,
             int numBatchBuffersWhenFlush,
+            int numBatchBytesWhenFlush,
             Path dataFilePath,
             float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
@@ -124,6 +125,7 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                         partitionId,
                         isBroadcastOnly ? 1 : numSubpartitions,
                         numBatchBuffersWhenFlush,
+                        numBatchBytesWhenFlush,
                         memoryManager,
                         partitionFileWriter);
 
