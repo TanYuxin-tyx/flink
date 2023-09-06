@@ -86,8 +86,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
             int numSubpartitions,
             int numBytesPerSegment,
             int bufferSizeBytes,
-            int numBatchBuffersWhenFlush,
             int numBatchBytesWhenFlush,
+            int maxWaitMsBeforeFlush,
             Path dataFilePath,
             float minReservedDiskSpaceFraction,
             boolean isBroadcastOnly,
@@ -124,8 +124,8 @@ public class DiskTierProducerAgent implements TierProducerAgent, NettyServicePro
                 new DiskCacheManager(
                         partitionId,
                         isBroadcastOnly ? 1 : numSubpartitions,
-                        numBatchBuffersWhenFlush,
                         numBatchBytesWhenFlush,
+                        maxWaitMsBeforeFlush,
                         memoryManager,
                         partitionFileWriter);
 
