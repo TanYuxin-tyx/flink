@@ -43,6 +43,8 @@ class DiskCacheManager {
 
     private final int numBatchBuffersWhenFlush;
 
+    private final int numBatchBytesWhenFlush;
+
     private final PartitionFileWriter partitionFileWriter;
 
     private final SubpartitionDiskCacheManager[] subpartitionCacheManagers;
@@ -56,15 +58,23 @@ class DiskCacheManager {
      */
     private int numCachedBufferCounter;
 
+    /**
+     * The number of all subpartition's cached bytes in the cache manager. Note that the counter can
+     * only be accessed by the task thread and does not require locks.
+     */
+    private int numCachedBytesCounter;
+
     DiskCacheManager(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
             int numBatchBuffersWhenFlush,
+            int numBatchBytesWhenFlush,
             TieredStorageMemoryManager memoryManager,
             PartitionFileWriter partitionFileWriter) {
         this.partitionId = partitionId;
         this.numSubpartitions = numSubpartitions;
         this.numBatchBuffersWhenFlush = numBatchBuffersWhenFlush;
+        this.numBatchBytesWhenFlush = numBatchBytesWhenFlush;
         this.partitionFileWriter = partitionFileWriter;
         this.subpartitionCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
         this.hasFlushCompleted = FutureUtils.completedVoidFuture();
@@ -92,6 +102,7 @@ class DiskCacheManager {
     void append(Buffer buffer, int subpartitionId) {
         subpartitionCacheManagers[subpartitionId].append(buffer);
         numCachedBufferCounter++;
+        numCachedBytesCounter += buffer.readableBytes();
     }
 
     /**
@@ -103,7 +114,8 @@ class DiskCacheManager {
      */
     void appendEndOfSegmentEvent(ByteBuffer record, int subpartitionId) {
         subpartitionCacheManagers[subpartitionId].appendEndOfSegmentEvent(record);
-        if (numCachedBufferCounter > numBatchBuffersWhenFlush) {
+        if (numCachedBufferCounter > numBatchBuffersWhenFlush
+                || numCachedBytesCounter > numBatchBytesWhenFlush) {
             notifyFlushCachedBuffers();
         }
     }
@@ -161,6 +173,7 @@ class DiskCacheManager {
                 hasFlushCompleted = flushCompletableFuture;
             }
             numCachedBufferCounter = 0;
+            numCachedBytesCounter = 0;
         }
     }
 
