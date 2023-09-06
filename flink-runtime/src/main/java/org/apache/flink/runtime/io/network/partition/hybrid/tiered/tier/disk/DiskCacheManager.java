@@ -48,6 +48,8 @@ class DiskCacheManager {
     /** Whether the current flush process has completed. */
     private CompletableFuture<Void> hasFlushCompleted;
 
+    private int numCachedBufferCounter;
+
     DiskCacheManager(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
@@ -81,6 +83,7 @@ class DiskCacheManager {
      */
     void append(Buffer buffer, int subpartitionId) {
         subpartitionCacheManagers[subpartitionId].append(buffer);
+        numCachedBufferCounter++;
     }
 
     /**
@@ -92,6 +95,9 @@ class DiskCacheManager {
      */
     void appendEndOfSegmentEvent(ByteBuffer record, int subpartitionId) {
         subpartitionCacheManagers[subpartitionId].appendEndOfSegmentEvent(record);
+        if (numCachedBufferCounter > 32) {
+            notifyFlushCachedBuffers();
+        }
     }
 
     /**
@@ -146,6 +152,7 @@ class DiskCacheManager {
             if (!forceFlush) {
                 hasFlushCompleted = flushCompletableFuture;
             }
+            numCachedBufferCounter = 0;
         }
     }
 
