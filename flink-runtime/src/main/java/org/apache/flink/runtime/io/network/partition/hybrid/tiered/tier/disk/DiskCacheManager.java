@@ -41,9 +41,9 @@ class DiskCacheManager {
 
     private final int numSubpartitions;
 
-    private final int numBatchBuffersWhenFlush;
-
     private final int numBatchBytesWhenFlush;
+
+    private final int maxWaitMsBeforeFlush;
 
     private final PartitionFileWriter partitionFileWriter;
 
@@ -53,28 +53,28 @@ class DiskCacheManager {
     private CompletableFuture<Void> hasFlushCompleted;
 
     /**
-     * The number of all subpartition's cached buffers in the cache manager. Note that the counter
-     * can only be accessed by the task thread and does not require locks.
-     */
-    private int numCachedBufferCounter;
-
-    /**
      * The number of all subpartition's cached bytes in the cache manager. Note that the counter can
      * only be accessed by the task thread and does not require locks.
      */
     private int numCachedBytesCounter;
 
+    /**
+     * The timestamp of the last flushing. Note that the field can only be accessed by the task
+     * thread and does not require locks.
+     */
+    private long lastFlushTimestamp = System.currentTimeMillis();
+
     DiskCacheManager(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
-            int numBatchBuffersWhenFlush,
             int numBatchBytesWhenFlush,
+            int maxWaitMsBeforeFlush,
             TieredStorageMemoryManager memoryManager,
             PartitionFileWriter partitionFileWriter) {
         this.partitionId = partitionId;
         this.numSubpartitions = numSubpartitions;
-        this.numBatchBuffersWhenFlush = numBatchBuffersWhenFlush;
         this.numBatchBytesWhenFlush = numBatchBytesWhenFlush;
+        this.maxWaitMsBeforeFlush = maxWaitMsBeforeFlush;
         this.partitionFileWriter = partitionFileWriter;
         this.subpartitionCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
         this.hasFlushCompleted = FutureUtils.completedVoidFuture();
@@ -101,7 +101,6 @@ class DiskCacheManager {
      */
     void append(Buffer buffer, int subpartitionId) {
         subpartitionCacheManagers[subpartitionId].append(buffer);
-        numCachedBufferCounter++;
         numCachedBytesCounter += buffer.readableBytes();
     }
 
@@ -114,8 +113,8 @@ class DiskCacheManager {
      */
     void appendEndOfSegmentEvent(ByteBuffer record, int subpartitionId) {
         subpartitionCacheManagers[subpartitionId].appendEndOfSegmentEvent(record);
-        if (numCachedBufferCounter > numBatchBuffersWhenFlush
-                || numCachedBytesCounter > numBatchBytesWhenFlush) {
+        if (numCachedBytesCounter > numBatchBytesWhenFlush
+                || System.currentTimeMillis() - lastFlushTimestamp > maxWaitMsBeforeFlush) {
             notifyFlushCachedBuffers();
         }
     }
@@ -161,6 +160,7 @@ class DiskCacheManager {
      */
     private synchronized void flushBuffers(boolean forceFlush) {
         if (!forceFlush && !hasFlushCompleted.isDone()) {
+            lastFlushTimestamp = System.currentTimeMillis();
             return;
         }
         List<PartitionFileWriter.SubpartitionBufferContext> buffersToFlush = new ArrayList<>();
@@ -172,8 +172,8 @@ class DiskCacheManager {
             if (!forceFlush) {
                 hasFlushCompleted = flushCompletableFuture;
             }
-            numCachedBufferCounter = 0;
             numCachedBytesCounter = 0;
+            lastFlushTimestamp = System.currentTimeMillis();
         }
     }
 
