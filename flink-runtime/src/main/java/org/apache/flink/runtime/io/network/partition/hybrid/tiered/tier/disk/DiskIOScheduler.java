@@ -18,7 +18,6 @@
 
 package org.apache.flink.runtime.io.network.partition.hybrid.tiered.tier.disk;
 
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.io.disk.BatchShuffleReadBufferPool;
@@ -36,6 +35,7 @@ import org.apache.flink.util.FatalExitExceptionHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.io.IOException;
@@ -339,6 +339,8 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
 
         private boolean isFailed;
 
+        @Nullable private PartitionFileReader.ReadProgress readProgress;
+
         private ScheduledSubpartitionReader(
                 TieredStorageSubpartitionId subpartitionId,
                 NettyConnectionWriter nettyConnectionWriter) {
@@ -357,13 +359,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             }
 
             PartitionFileReader.PartialBuffer partialBuffer = null;
-            boolean shouldContinueRead = false;
+            boolean shouldContinueRead = true;
             try {
-                while (!buffers.isEmpty() && !shouldContinueRead && nextSegmentId >= 0) {
+                while (!buffers.isEmpty() && shouldContinueRead && nextSegmentId >= 0) {
                     MemorySegment memorySegment = buffers.poll();
-                    Tuple2<List<Buffer>, Boolean> readBuffersAndContinueReadSuggestion;
+                    PartitionFileReader.ReadBufferResult readBufferResult;
                     try {
-                        readBuffersAndContinueReadSuggestion =
+                        readBufferResult =
                                 partitionFileReader.readBuffer(
                                         partitionId,
                                         subpartitionId,
@@ -371,14 +373,26 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                                         nextBufferIndex,
                                         memorySegment,
                                         recycler,
+                                        readProgress,
                                         partialBuffer);
+                        if (readBufferResult == null) {
+                            buffers.add(memorySegment);
+                            break;
+                        }
                     } catch (Throwable throwable) {
                         buffers.add(memorySegment);
                         throw throwable;
                     }
 
-                    List<Buffer> readBuffers = readBuffersAndContinueReadSuggestion.f0;
-                    shouldContinueRead = readBuffersAndContinueReadSuggestion.f1;
+                    List<Buffer> readBuffers = readBufferResult.getReadBuffers();
+                    shouldContinueRead = readBufferResult.shouldContinueReadHint();
+                    readProgress = readBufferResult.getReadProgress();
+                    if (!shouldContinueRead) {
+                        checkState(
+                                readProgress.getCurrentReadOffset()
+                                        == readProgress.getEndOfReadOffset());
+                        readProgress = null;
+                    }
                     if (readBuffers.isEmpty()) {
                         buffers.add(memorySegment);
                         break;
@@ -403,9 +417,13 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
             if (nextSegmentId < 0) {
                 updateSegmentId();
             }
+            if (nextSegmentId < 0) {
+                priority = Long.MAX_VALUE;
+                return;
+            }
             priority =
-                    nextSegmentId < 0
-                            ? Long.MAX_VALUE
+                    readProgress != null
+                            ? readProgress.getCurrentReadOffset()
                             : partitionFileReader.getPriority(
                                     partitionId, subpartitionId, nextSegmentId, nextBufferIndex);
         }

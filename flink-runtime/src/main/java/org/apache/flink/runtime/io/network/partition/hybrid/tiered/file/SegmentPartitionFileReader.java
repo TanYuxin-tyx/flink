@@ -40,7 +40,6 @@ import java.nio.channels.ReadableByteChannel;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -78,13 +77,14 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
     }
 
     @Override
-    public Tuple2<List<Buffer>, Boolean> readBuffer(
+    public ReadBufferResult readBuffer(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex,
             MemorySegment memorySegment,
             BufferRecycler recycler,
+            @Nullable ReadProgress readProgress,
             @Nullable PartialBuffer partialBuffer)
             throws IOException {
 
@@ -102,8 +102,8 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             }
             channel = openNewChannel(partitionId, subpartitionId, segmentId);
             if (channel == null) {
-                // return empty if the segment file doesn't exist.
-                return Tuple2.of(Collections.emptyList(), false);
+                // return null if the segment file doesn't exist.
+                return null;
             }
             subpartitionInfo.put(subpartitionId, Tuple2.of(channel, segmentId));
         }
@@ -114,11 +114,8 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
         if (bufferHeaderResult == -1) {
             channel.close();
             openedChannelAndSegmentIds.get(partitionId).remove(subpartitionId);
-            return Tuple2.of(
-                    Collections.singletonList(
-                            new NetworkBuffer(
-                                    memorySegment, recycler, Buffer.DataType.END_OF_SEGMENT)),
-                    false);
+            return getSingletonReadResult(
+                    new NetworkBuffer(memorySegment, recycler, Buffer.DataType.END_OF_SEGMENT));
         }
         reusedHeaderBuffer.flip();
         BufferHeader header = parseBufferHeader(reusedHeaderBuffer);
@@ -128,15 +125,13 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
             throw new IOException("The length of data buffer is illegal.");
         }
         Buffer.DataType dataType = header.getDataType();
-        return Tuple2.of(
-                Collections.singletonList(
-                        new NetworkBuffer(
-                                memorySegment,
-                                recycler,
-                                dataType,
-                                header.isCompressed(),
-                                header.getLength())),
-                false);
+        return getSingletonReadResult(
+                new NetworkBuffer(
+                        memorySegment,
+                        recycler,
+                        dataType,
+                        header.isCompressed(),
+                        header.getLength()));
     }
 
     @Override
@@ -181,5 +176,9 @@ public class SegmentPartitionFileReader implements PartitionFileReader {
                                 ExceptionUtils.rethrow(e);
                             }
                         });
+    }
+
+    private static ReadBufferResult getSingletonReadResult(NetworkBuffer buffer) {
+        return new ReadBufferResult(Collections.singletonList(buffer), false, null);
     }
 }

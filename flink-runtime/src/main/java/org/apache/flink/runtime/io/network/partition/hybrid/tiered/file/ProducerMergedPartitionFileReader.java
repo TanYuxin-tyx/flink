@@ -42,17 +42,12 @@ import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.HEADER_LENGTH;
-import static org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil.positionToNextBuffer;
 import static org.apache.flink.util.Preconditions.checkArgument;
-import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -67,86 +62,52 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     private static final Logger LOG =
             LoggerFactory.getLogger(ProducerMergedPartitionFileReader.class);
 
-    /**
-     * Max number of caches.
-     *
-     * <p>The constant defines the maximum number of caches that can be created. Its value is set to
-     * 10000, which is considered sufficient for most parallel jobs. Each cache only contains
-     * references and numerical variables and occupies a minimal amount of memory so the value is
-     * not excessively large.
-     */
-    private static final int DEFAULT_MAX_CACHE_NUM = 10000;
-
-    /**
-     * Buffer offset caches stored in map.
-     *
-     * <p>The key is the combination of {@link TieredStorageSubpartitionId} and buffer index. The
-     * value is the buffer offset cache, which includes file offset of the buffer index, the region
-     * containing the buffer index and next buffer index to consume.
-     */
-    private final Map<Tuple2<TieredStorageSubpartitionId, Integer>, BufferOffsetCache>
-            bufferOffsetCaches;
-
     private final ByteBuffer reusedHeaderBuffer = BufferReaderWriterUtil.allocatedHeaderBuffer();
 
     private final Path dataFilePath;
 
     private final ProducerMergedPartitionFileIndex dataIndex;
 
-    private final int maxCacheNumber;
-
     private volatile FileChannel fileChannel;
-
-    /** The current number of caches. */
-    private int numCaches;
-
-    ProducerMergedPartitionFileReader(
-            Path dataFilePath, ProducerMergedPartitionFileIndex dataIndex) {
-        this(dataFilePath, dataIndex, DEFAULT_MAX_CACHE_NUM);
-    }
 
     @VisibleForTesting
     ProducerMergedPartitionFileReader(
-            Path dataFilePath, ProducerMergedPartitionFileIndex dataIndex, int maxCacheNumber) {
+            Path dataFilePath, ProducerMergedPartitionFileIndex dataIndex) {
         this.dataFilePath = dataFilePath;
         this.dataIndex = dataIndex;
-        this.bufferOffsetCaches = new HashMap<>();
-        this.maxCacheNumber = maxCacheNumber;
     }
 
     @Override
-    public Tuple2<List<Buffer>, Boolean> readBuffer(
+    public ReadBufferResult readBuffer(
             TieredStoragePartitionId partitionId,
             TieredStorageSubpartitionId subpartitionId,
             int segmentId,
             int bufferIndex,
             MemorySegment memorySegment,
             BufferRecycler recycler,
+            @Nullable ReadProgress readProgress,
             @Nullable PartialBuffer partialBuffer)
             throws IOException {
 
         lazyInitializeFileChannel();
 
-        List<Buffer> readBuffers = new LinkedList<>();
-        Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
-                Tuple2.of(subpartitionId, bufferIndex);
-        Optional<BufferOffsetCache> cache = tryGetCache(cacheKey, true, true, partialBuffer);
-        if (!cache.isPresent()) {
-            return Tuple2.of(Collections.emptyList(), false);
-        }
-
         // Get the read offset, including the start offset, the end offset
-        long readStartOffset =
-                partialBuffer == null ? cache.get().getFileOffset() : partialBuffer.getFileOffset();
-        long readEndOffset = cache.get().region.getRegionFileEndOffset();
-        checkState(readStartOffset <= readEndOffset);
+        Tuple2<Long, Long> startAndEndOffset =
+                getReadStartAndEndOffset(subpartitionId, bufferIndex, readProgress, partialBuffer);
+        if (startAndEndOffset == null) {
+            return null;
+        }
+        long readStartOffset = startAndEndOffset.f0;
+        long readEndOffset = startAndEndOffset.f1;
+
         int numBytesToRead =
                 Math.min(memorySegment.size(), (int) (readEndOffset - readStartOffset));
 
         if (numBytesToRead == 0) {
-            return Tuple2.of(Collections.emptyList(), false);
+            return null;
         }
 
+        List<Buffer> readBuffers = new LinkedList<>();
         ByteBuffer byteBuffer = memorySegment.wrap(0, numBytesToRead);
         fileChannel.position(readStartOffset);
         // Read data to the memory segment, note the read size is numBytesToRead
@@ -155,34 +116,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         // Slice the read memory segment to multiple small network buffers and add them to
         // readBuffers
         Tuple2<PartialBuffer, Integer> partial =
-                sliceBuffer(
-                        byteBuffer,
-                        memorySegment,
-                        partialBuffer,
-                        recycler,
-                        readStartOffset,
-                        readBuffers);
+                sliceBuffer(byteBuffer, memorySegment, partialBuffer, recycler, readBuffers);
 
-        partialBuffer = partial.f0;
-        int numBytesRealRead = partial.f1;
-        boolean shouldContinueRead = readStartOffset + numBytesRealRead < readEndOffset;
-
-        checkState(
-                numBytesRealRead <= numBytesToRead
-                        && numBytesToRead - numBytesRealRead < HEADER_LENGTH);
-        checkState(shouldContinueRead || partialBuffer == null);
-
-        updateBufferOffsetCache(
-                subpartitionId,
-                bufferIndex,
-                cache.get(),
-                partialBuffer,
-                readBuffers.size(),
-                readStartOffset,
-                readEndOffset,
-                numBytesRealRead,
-                shouldContinueRead);
-        return Tuple2.of(readBuffers, shouldContinueRead);
+        return getReadBufferResult(
+                readBuffers, readStartOffset, readEndOffset, numBytesToRead, partial);
     }
 
     @Override
@@ -192,10 +129,9 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             int segmentId,
             int bufferIndex) {
         lazyInitializeFileChannel();
-        Tuple2<TieredStorageSubpartitionId, Integer> cacheKey =
-                Tuple2.of(subpartitionId, bufferIndex);
-        return tryGetCache(cacheKey, false, false, null)
-                .map(BufferOffsetCache::getFileOffset)
+        return dataIndex
+                .getRegion(subpartitionId, bufferIndex)
+                .map(ProducerMergedPartitionFileIndex.FixedSizeRegion::getRegionFileOffset)
                 .orElse(Long.MAX_VALUE);
     }
 
@@ -226,47 +162,6 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     }
 
     /**
-     * Try to get the cache according to the key.
-     *
-     * <p>If the relevant buffer offset cache exists, it will be returned and subsequently removed.
-     * However, if the buffer offset cache does not exist, a new cache will be created using the
-     * data index and returned.
-     *
-     * @param cacheKey the key of cache.
-     * @param removeKey boolean decides whether to remove key.
-     * @param needMoveFileOffset whether to move the file offset when getting buffer offset cache
-     * @param partialBuffer the previous partial buffer. The partial buffer is not null only when
-     *     the last read has a partial buffer
-     * @return returns the relevant buffer offset cache if it exists, otherwise return {@link
-     *     Optional#empty()}.
-     */
-    private Optional<BufferOffsetCache> tryGetCache(
-            Tuple2<TieredStorageSubpartitionId, Integer> cacheKey,
-            boolean removeKey,
-            boolean needMoveFileOffset,
-            @Nullable PartialBuffer partialBuffer) {
-        BufferOffsetCache bufferOffsetCache = bufferOffsetCaches.remove(cacheKey);
-        if (bufferOffsetCache == null) {
-            Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> regionOpt =
-                    dataIndex.getRegion(cacheKey.f0, cacheKey.f1);
-            if (!regionOpt.isPresent()) {
-                return Optional.empty();
-            }
-            int bufferIndex =
-                    needMoveFileOffset ? cacheKey.f1 : regionOpt.get().getFirstBufferIndex();
-            return regionOpt.map(
-                    region -> new BufferOffsetCache(bufferIndex, region, partialBuffer));
-        } else {
-            if (removeKey) {
-                numCaches--;
-            } else {
-                bufferOffsetCaches.put(cacheKey, bufferOffsetCache);
-            }
-            return Optional.of(bufferOffsetCache);
-        }
-    }
-
-    /**
      * Slice the read memory segment to multiple small network buffers.
      *
      * <p>Note that although the method appears to be split into multiple buffers, the sliced
@@ -276,7 +171,6 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
      * @param memorySegment the underlying memory segment to be sliced
      * @param partialBuffer the partial buffer, if the partial buffer is not null, it contains the
      *     partial data buffer from the previous read
-     * @param readStartOffset the file offset to start reading
      * @param readBuffers the read buffers list is to accept the sliced buffers
      * @return the first field is the partial data buffer, the second field is the number of sliced
      *     bytes.
@@ -286,7 +180,6 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             MemorySegment memorySegment,
             @Nullable PartialBuffer partialBuffer,
             BufferRecycler bufferRecycler,
-            long readStartOffset,
             List<Buffer> readBuffers) {
         checkState(reusedHeaderBuffer.position() == 0);
         checkState(partialBuffer == null || partialBuffer.missingLength() > 0);
@@ -340,7 +233,7 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                     buffer.retainBuffer();
                     int numPartialBytes = byteBuffer.remaining();
                     numSlicedBytes += numPartialBytes;
-                    partialBuffer = new PartialBuffer(readStartOffset + numSlicedBytes, header);
+                    partialBuffer = new PartialBuffer(header);
                     partialBuffer.addPartialBuffer(
                             buffer.readOnlySlice(byteBuffer.position(), numPartialBytes));
                     readBuffers.add(partialBuffer);
@@ -356,37 +249,56 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         }
     }
 
-    private void updateBufferOffsetCache(
+    /**
+     * Return a tuple of the start and end file offset, or return null if the buffer is not found in
+     * the data index.
+     */
+    @Nullable
+    private Tuple2<Long, Long> getReadStartAndEndOffset(
             TieredStorageSubpartitionId subpartitionId,
             int bufferIndex,
-            BufferOffsetCache cache,
-            @Nullable PartialBuffer partialBuffer,
-            int numReadBuffers,
-            long regionFileStartOffset,
-            long regionFileEndOffset,
-            int numBytesRead,
-            boolean shouldContinueRead) {
-        int numFullBuffers = partialBuffer == null ? numReadBuffers : numReadBuffers - 1;
-        int numPartialReadBytes =
-                partialBuffer == null ? 0 : partialBuffer.readableBytes() + HEADER_LENGTH;
-
-        // Note that the cache always stores the start offset of the full buffer, because the
-        // partial buffer may be dropped anytime.
-        long fullBufferFileOffset = regionFileStartOffset + numBytesRead - numPartialReadBytes;
-        boolean hasNextBuffer = cache.advance(numFullBuffers, fullBufferFileOffset);
-
-        checkState(hasNextBuffer == shouldContinueRead);
-        checkState(
-                !hasNextBuffer && fullBufferFileOffset == regionFileEndOffset
-                        || fullBufferFileOffset < regionFileEndOffset);
-
-        int nextBufferIndex = bufferIndex + numFullBuffers;
-        if (hasNextBuffer && numCaches < maxCacheNumber) {
-            // TODO: introduce the LRU cache strategy in the future to restrict the total cache
-            // number. Testing to prevent cache leaks has been implemented.
-            bufferOffsetCaches.put(Tuple2.of(subpartitionId, nextBufferIndex), cache);
-            numCaches++;
+            @Nullable ReadProgress readProgress,
+            @Nullable PartialBuffer partialBuffer) {
+        long readStartOffset;
+        long readEndOffset;
+        if (readProgress == null) {
+            Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> regionOpt =
+                    dataIndex.getRegion(subpartitionId, bufferIndex);
+            if (!regionOpt.isPresent()) {
+                return null;
+            }
+            readStartOffset = regionOpt.get().getRegionFileOffset();
+            readEndOffset = regionOpt.get().getRegionFileEndOffset();
+        } else {
+            readStartOffset =
+                    readProgress.getCurrentReadOffset() + partialBufferReadBytes(partialBuffer);
+            readEndOffset = readProgress.getEndOfReadOffset();
         }
+
+        checkState(readStartOffset <= readEndOffset);
+        return Tuple2.of(readStartOffset, readEndOffset);
+    }
+
+    private static ReadBufferResult getReadBufferResult(
+            List<Buffer> readBuffers,
+            long readStartOffset,
+            long readEndOffset,
+            int numBytesToRead,
+            Tuple2<PartialBuffer, Integer> partialAndReadBytes) {
+        PartialBuffer partialBuffer = partialAndReadBytes.f0;
+        int numBytesRealRead = partialAndReadBytes.f1;
+        boolean shouldContinueRead = readStartOffset + numBytesRealRead < readEndOffset;
+        ReadProgress readProgress =
+                new ReadProgress(
+                        readStartOffset + numBytesRealRead - partialBufferReadBytes(partialBuffer),
+                        readEndOffset);
+
+        checkState(
+                numBytesRealRead <= numBytesToRead
+                        && numBytesToRead - numBytesRealRead < HEADER_LENGTH);
+        checkState(shouldContinueRead || partialBuffer == null);
+
+        return new ReadBufferResult(readBuffers, shouldContinueRead, readProgress);
     }
 
     private void readFileDataToBuffer(
@@ -399,6 +311,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             recycler.recycle(memorySegment);
             throw throwable;
         }
+    }
+
+    private static int partialBufferReadBytes(@Nullable PartialBuffer partialBuffer) {
+        return partialBuffer == null ? 0 : partialBuffer.readableBytes() + HEADER_LENGTH;
     }
 
     private BufferHeader parseBufferHeader(ByteBuffer buffer) {
@@ -420,73 +336,5 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
         }
         reusedHeaderBuffer.clear();
         return header;
-    }
-
-    /**
-     * The {@link BufferOffsetCache} represents the file offset cache for a buffer index. Each cache
-     * includes file offset of the buffer index, the region containing the buffer index and next
-     * buffer index to consume.
-     */
-    private class BufferOffsetCache {
-
-        private final ProducerMergedPartitionFileIndex.FixedSizeRegion region;
-
-        private long fileOffset;
-
-        private int nextBufferIndex;
-
-        private BufferOffsetCache(
-                int bufferIndex,
-                ProducerMergedPartitionFileIndex.FixedSizeRegion region,
-                @Nullable PartialBuffer partialBuffer) {
-            this.nextBufferIndex = bufferIndex;
-            this.region = region;
-            if (partialBuffer != null) {
-                fileOffset = partialBuffer.getFileOffset();
-            } else {
-                moveFileOffsetToBuffer(bufferIndex);
-            }
-        }
-
-        /**
-         * Get the file offset.
-         *
-         * @return the file offset.
-         */
-        private long getFileOffset() {
-            return fileOffset;
-        }
-
-        /**
-         * Updates the {@link BufferOffsetCache} upon the retrieval of a buffer from the file using
-         * the file offset in the {@link BufferOffsetCache}.
-         *
-         * @param numBuffers denotes the number of the advanced buffers.
-         * @param newFileOffset indicate the advanced new file offset.
-         * @return return true if there are remaining buffers in the region, otherwise return false.
-         */
-        private boolean advance(int numBuffers, long newFileOffset) {
-            nextBufferIndex += numBuffers;
-            fileOffset = newFileOffset;
-            return nextBufferIndex < (region.getFirstBufferIndex() + region.getNumBuffers());
-        }
-
-        /**
-         * Relocates the file channel offset to the position of the specified buffer index.
-         *
-         * @param bufferIndex denotes the index of the buffer.
-         */
-        private void moveFileOffsetToBuffer(int bufferIndex) {
-            try {
-                checkNotNull(fileChannel).position(region.getRegionFileOffset());
-                for (int i = 0; i < (bufferIndex - region.getFirstBufferIndex()); ++i) {
-                    positionToNextBuffer(fileChannel, reusedHeaderBuffer);
-                }
-                fileOffset = fileChannel.position();
-                reusedHeaderBuffer.clear();
-            } catch (IOException e) {
-                ExceptionUtils.rethrow(e, "Failed to move file offset");
-            }
-        }
     }
 }
