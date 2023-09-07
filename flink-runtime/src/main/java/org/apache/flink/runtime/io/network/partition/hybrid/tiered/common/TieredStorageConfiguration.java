@@ -67,7 +67,7 @@ public class TieredStorageConfiguration {
 
     private static final long DEFAULT_MAX_REGION_NUM_RETAINED_IN_MEMORY = 1024 * 1024L;
 
-    private static final int DEFAULT_NUM_BATCH_BYTES_WHEN_FLUSH = 1024 * 1024;
+    private static final int DEFAULT_NUM_BATCH_BYTES_WHEN_FLUSH = 512 * 1024;
 
     private static final int DEFAULT_MAX_WAIT_MS_BEFORE_FLUSH = 1000;
 
