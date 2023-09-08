@@ -388,12 +388,6 @@ public class DiskIOScheduler implements Runnable, BufferRecycler, NettyServicePr
                     List<Buffer> readBuffers = readBufferResult.getReadBuffers();
                     shouldContinueRead = readBufferResult.continuousReadSuggested();
                     readProgress = readBufferResult.getReadProgress();
-                    if (!shouldContinueRead) {
-                        checkState(
-                                readProgress.getCurrentBufferOffset()
-                                        == readProgress.getEndOfRegionOffset());
-                        readProgress = null;
-                    }
                     if (readBuffers.isEmpty()) {
                         buffers.add(memorySegment);
                         break;

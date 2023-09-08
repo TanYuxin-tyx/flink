@@ -270,7 +270,8 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             @Nullable CompositeBuffer partialBuffer) {
         long readStartOffset;
         long readEndOffset;
-        if (readProgress == null) {
+        if (readProgress == null
+                || readProgress.getCurrentBufferOffset() == readProgress.getEndOfRegionOffset()) {
             Optional<ProducerMergedPartitionFileIndex.FixedSizeRegion> regionOpt =
                     dataIndex.getRegion(subpartitionId, bufferIndex);
             if (!regionOpt.isPresent()) {
