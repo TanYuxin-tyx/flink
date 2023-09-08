@@ -86,7 +86,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
             return BufferAndBacklog.fromBufferAndLookahead(
                     nextBuffer.get(),
                     getDataType(nettyPayloadManager.peek()),
-                    getBacklog(),
+                    nettyPayloadManager.getBacklog(),
                     currentSequenceNumber);
         }
         return null;
@@ -101,7 +101,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
             if (numCreditsAvailable == 0 && isEventOrError(currentQueue)) {
                 availability = true;
             }
-            return new AvailabilityWithBacklog(availability, getBacklog());
+            return new AvailabilityWithBacklog(availability, currentQueue.getBacklog());
         }
         return new AvailabilityWithBacklog(false, 0);
     }
@@ -143,7 +143,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
     @Override
     public int unsynchronizedGetNumberOfQueuedBuffers() {
         if (findCurrentNettyPayloadQueue()) {
-            return getBacklog();
+            return nettyPayloadManagers.get(managerIndexContainsCurrentSegment).getBacklog();
         }
         return 0;
     }
@@ -151,7 +151,7 @@ public class TieredStorageResultSubpartitionView implements ResultSubpartitionVi
     @Override
     public int getNumberOfQueuedBuffers() {
         if (findCurrentNettyPayloadQueue()) {
-            return getBacklog();
+            return nettyPayloadManagers.get(managerIndexContainsCurrentSegment).getBacklog();
         }
         return 0;
     }

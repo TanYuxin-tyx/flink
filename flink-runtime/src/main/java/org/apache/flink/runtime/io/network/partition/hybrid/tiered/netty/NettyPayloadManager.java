@@ -22,9 +22,12 @@ import org.apache.flink.runtime.io.network.buffer.Buffer;
 
 import javax.annotation.concurrent.GuardedBy;
 
+import java.util.Deque;
 import java.util.LinkedList;
 import java.util.Optional;
 import java.util.Queue;
+
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** {@link NettyPayloadManager} is used to contain all netty payloads from a storage tier. */
 public class NettyPayloadManager {
@@ -33,16 +36,19 @@ public class NettyPayloadManager {
 
     private final Queue<NettyPayload> queue = new LinkedList<>();
 
-    /** Number of buffers whose {@link Buffer.DataType} is buffer in the queue. */
     @GuardedBy("lock")
-    private int backlog = 0;
+    private final Deque<Integer> segmentBacklogQueue = new LinkedList<>();
 
     public void add(NettyPayload nettyPayload) {
         synchronized (lock) {
             queue.add(nettyPayload);
+            if (nettyPayload.getSegmentId() >= 0) {
+                segmentBacklogQueue.add(0);
+            }
             Optional<Buffer> buffer = nettyPayload.getBuffer();
             if (buffer.isPresent() && buffer.get().isBuffer()) {
-                backlog++;
+                checkState(!segmentBacklogQueue.isEmpty());
+                segmentBacklogQueue.addFirst(segmentBacklogQueue.pollFirst() + 1);
             }
         }
     }
@@ -56,10 +62,22 @@ public class NettyPayloadManager {
     public NettyPayload poll() {
         synchronized (lock) {
             NettyPayload nettyPayload = queue.poll();
+
+            if (nettyPayload != null
+                    && nettyPayload.getBuffer().isPresent()
+                    && nettyPayload.getBuffer().get().getDataType()
+                            == Buffer.DataType.END_OF_SEGMENT) {
+                checkState(!segmentBacklogQueue.isEmpty() && segmentBacklogQueue.peek() == 0);
+                segmentBacklogQueue.poll();
+            }
+
             if (nettyPayload != null
                     && nettyPayload.getBuffer().isPresent()
                     && nettyPayload.getBuffer().get().isBuffer()) {
-                backlog--;
+                checkState(!segmentBacklogQueue.isEmpty());
+                int currentBacklog = segmentBacklogQueue.pollLast() - 1;
+                checkState(currentBacklog >= 0);
+                segmentBacklogQueue.addLast(currentBacklog);
             }
             return nettyPayload;
         }
@@ -67,7 +85,7 @@ public class NettyPayloadManager {
 
     public int getBacklog() {
         synchronized (lock) {
-            return backlog;
+            return segmentBacklogQueue.isEmpty() ? 0 : segmentBacklogQueue.peek();
         }
     }
 
