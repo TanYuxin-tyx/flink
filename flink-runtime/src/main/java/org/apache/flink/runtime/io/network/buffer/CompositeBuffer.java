@@ -192,11 +192,6 @@ public class CompositeBuffer implements Buffer {
     }
 
     @Override
-    public Buffer readOnlySlice(int index, int length, DataType dataType, boolean isCompressed) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public int getMaxCapacity() {
         throw new UnsupportedOperationException();
     }

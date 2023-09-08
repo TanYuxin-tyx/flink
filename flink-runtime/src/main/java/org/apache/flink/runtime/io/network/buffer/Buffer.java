@@ -146,20 +146,6 @@ public interface Buffer {
     Buffer readOnlySlice(int index, int length);
 
     /**
-     * Returns a read-only slice of this buffer.
-     *
-     * <p>Reader and writer indices as well as markers are not shared. Reference counters are shared
-     * but the slice is not {@link #retainBuffer() retained} automatically.
-     *
-     * @param index the index to start from
-     * @param length the length of the slice
-     * @param dataType the data tyep of the sliced buffer
-     * @param isCompressed whether the sliced buffer is compressed
-     * @return a read-only sliced buffer
-     */
-    Buffer readOnlySlice(int index, int length, DataType dataType, boolean isCompressed);
-
-    /**
      * Returns the maximum size of the buffer, i.e. the capacity of the underlying {@link
      * MemorySegment}.
      *
