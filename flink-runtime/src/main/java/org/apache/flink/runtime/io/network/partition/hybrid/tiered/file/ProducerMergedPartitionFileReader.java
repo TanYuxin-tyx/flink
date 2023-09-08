@@ -26,6 +26,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferHeader;
 import org.apache.flink.runtime.io.network.buffer.BufferRecycler;
 import org.apache.flink.runtime.io.network.buffer.CompositeBuffer;
 import org.apache.flink.runtime.io.network.buffer.NetworkBuffer;
+import org.apache.flink.runtime.io.network.buffer.ReadOnlySlicedNetworkBuffer;
 import org.apache.flink.runtime.io.network.partition.BufferReaderWriterUtil;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStoragePartitionId;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageSubpartitionId;
@@ -232,14 +233,13 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                     // sliced network buffer. The small sliced buffer is not a partial buffer, we
                     // should read the slice of the buffer directly
                     buffer.retainBuffer();
-                    readBuffers.add(
-                            buffer.readOnlySlice(
-                                    byteBuffer.position(),
-                                    header.getLength(),
-                                    header.getDataType(),
-                                    header.isCompressed()));
+                    ReadOnlySlicedNetworkBuffer slicedNetworkBuffer =
+                            buffer.readOnlySlice(byteBuffer.position(), header.getLength());
+                    slicedNetworkBuffer.setDataType(header.getDataType());
+                    slicedNetworkBuffer.setCompressed(header.isCompressed());
                     byteBuffer.position(byteBuffer.position() + header.getLength());
                     numSlicedBytes += header.getLength();
+                    readBuffers.add(slicedNetworkBuffer);
                 } else {
                     // The remaining data length in the buffer is smaller than the actual length of
                     // the buffer, so we should generate a new partial buffer, allowing for
