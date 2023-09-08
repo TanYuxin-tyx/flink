@@ -21,6 +21,7 @@ package org.apache.flink.runtime.io.network.partition.hybrid.tiered.file;
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.network.buffer.Buffer;
+import org.apache.flink.runtime.io.network.buffer.CompositeBuffer;
 import org.apache.flink.runtime.io.network.buffer.FreeingBufferRecycler;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.io.network.partition.hybrid.tiered.common.TieredStorageIdMappingUtils;
@@ -116,15 +117,15 @@ class ProducerMergedPartitionFileReaderTest {
     @Test
     void testGetPriority() throws IOException {
         PartitionFileReader.ReadProgress readProgress = null;
-        PartitionFileReader.PartialBuffer partialBuffer = null;
+        CompositeBuffer partialBuffer = null;
         for (int bufferIndex = 0; bufferIndex < DEFAULT_BUFFER_NUMBER; ) {
             PartitionFileReader.ReadBufferResult readBufferResult =
                     readBuffer(bufferIndex, DEFAULT_SUBPARTITION_ID, readProgress, partialBuffer);
             assertThat(readBufferResult).isNotNull();
             readProgress = readBufferResult.getReadProgress();
             for (Buffer buffer : readBufferResult.getReadBuffers()) {
-                if (buffer instanceof PartitionFileReader.PartialBuffer) {
-                    partialBuffer = (PartitionFileReader.PartialBuffer) buffer;
+                if (buffer instanceof CompositeBuffer) {
+                    partialBuffer = (CompositeBuffer) buffer;
                     if (partialBuffer.missingLength() == 0) {
                         bufferIndex++;
                         partialBuffer.recycleBuffer();
@@ -135,13 +136,16 @@ class ProducerMergedPartitionFileReaderTest {
                     buffer.recycleBuffer();
                 }
             }
+            long expectedBufferOffset =
+                    readProgress == null ? 0 : readProgress.getCurrentBufferOffset();
             assertThat(
                             partitionFileReader.getPriority(
                                     DEFAULT_PARTITION_ID,
                                     DEFAULT_SUBPARTITION_ID,
                                     DEFAULT_SEGMENT_ID,
-                                    bufferIndex))
-                    .isEqualTo(bufferIndex < DEFAULT_BUFFER_NUMBER ? 0 : Long.MAX_VALUE);
+                                    bufferIndex,
+                                    readProgress))
+                    .isEqualTo(expectedBufferOffset);
         }
     }
 
@@ -149,15 +153,15 @@ class ProducerMergedPartitionFileReaderTest {
     void testReadProgress() throws IOException {
         long currentFileOffset = 0;
         PartitionFileReader.ReadProgress readProgress = null;
-        PartitionFileReader.PartialBuffer partialBuffer = null;
+        CompositeBuffer partialBuffer = null;
         for (int bufferIndex = 0; bufferIndex < DEFAULT_BUFFER_NUMBER; ) {
             PartitionFileReader.ReadBufferResult readBufferResult =
                     readBuffer(bufferIndex, DEFAULT_SUBPARTITION_ID, readProgress, partialBuffer);
             assertThat(readBufferResult).isNotNull();
             readProgress = readBufferResult.getReadProgress();
             for (Buffer buffer : readBufferResult.getReadBuffers()) {
-                if (buffer instanceof PartitionFileReader.PartialBuffer) {
-                    partialBuffer = (PartitionFileReader.PartialBuffer) buffer;
+                if (buffer instanceof CompositeBuffer) {
+                    partialBuffer = (CompositeBuffer) buffer;
                     if (partialBuffer.missingLength() == 0) {
                         bufferIndex++;
                         currentFileOffset += partialBuffer.readableBytes() + HEADER_LENGTH;
@@ -170,7 +174,7 @@ class ProducerMergedPartitionFileReaderTest {
                     buffer.recycleBuffer();
                 }
             }
-            assertThat(readProgress.getCurrentReadOffset()).isEqualTo(currentFileOffset);
+            assertThat(readProgress.getCurrentBufferOffset()).isEqualTo(currentFileOffset);
         }
     }
 
@@ -190,7 +194,7 @@ class ProducerMergedPartitionFileReaderTest {
             int bufferIndex,
             TieredStorageSubpartitionId subpartitionId,
             PartitionFileReader.ReadProgress readProgress,
-            PartitionFileReader.PartialBuffer partialBuffer)
+            CompositeBuffer partialBuffer)
             throws IOException {
         MemorySegment memorySegment =
                 MemorySegmentFactory.allocateUnpooledSegment(DEFAULT_BUFFER_SIZE);
