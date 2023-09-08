@@ -89,6 +89,14 @@ public interface PartitionFileReader {
     void release();
 
     /**
+     * This {@link ReadProgress} defines the read progress of the {@link PartitionFileReader}.
+     *
+     * <p>Note that the implementation of the interface should strongly bind with the implementation
+     * of {@link PartitionFileReader}.
+     */
+    interface ReadProgress {}
+
+    /**
      * A wrapper class of the reading buffer result, including the read buffers, the hint of
      * continue reading, and the read progress, etc.
      */
@@ -126,32 +134,6 @@ public interface PartitionFileReader {
 
         public ReadProgress getReadProgress() {
             return readProgress;
-        }
-    }
-
-    /** The {@link ReadProgress} mainly includes current reading offset, end of read offset, etc. */
-    class ReadProgress {
-
-        /**
-         * The current reading buffer file offset. Note the offset does not contain the length of
-         * the partial buffer, because the partial buffer may be dropped at anytime.
-         */
-        private final long currentBufferOffset;
-
-        /** The end of region file offset. */
-        private final long endOfRegionOffset;
-
-        public ReadProgress(long currentBufferOffset, long endOfRegionOffset) {
-            this.currentBufferOffset = currentBufferOffset;
-            this.endOfRegionOffset = endOfRegionOffset;
-        }
-
-        public long getCurrentBufferOffset() {
-            return currentBufferOffset;
-        }
-
-        public long getEndOfRegionOffset() {
-            return endOfRegionOffset;
         }
     }
 }

@@ -136,7 +136,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             ReadProgress readProgress) {
         lazyInitializeFileChannel();
         if (readProgress != null) {
-            return readProgress.getCurrentBufferOffset();
+            checkState(
+                    readProgress instanceof ProducerMergedPartitionFile.ProducerMergedReadProgress);
+            return ((ProducerMergedPartitionFile.ProducerMergedReadProgress) readProgress)
+                    .getCurrentBufferOffset();
         }
         return dataIndex
                 .getRegion(subpartitionId, bufferIndex)
@@ -266,8 +269,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
     private Tuple2<Long, Long> getReadStartAndEndOffset(
             TieredStorageSubpartitionId subpartitionId,
             int bufferIndex,
-            @Nullable ReadProgress readProgress,
+            @Nullable ReadProgress currentReadProgress,
             @Nullable CompositeBuffer partialBuffer) {
+        ProducerMergedPartitionFile.ProducerMergedReadProgress readProgress =
+                convertToCurrentReadProgress(currentReadProgress);
         long readStartOffset;
         long readEndOffset;
         if (readProgress == null
@@ -297,11 +302,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
             int numBytesRealRead,
             int numBytesReadPartialBuffer) {
         boolean shouldContinueRead = readStartOffset + numBytesRealRead < readEndOffset;
-        ReadProgress readProgress =
-                new ReadProgress(
+        ProducerMergedPartitionFile.ProducerMergedReadProgress readProgress =
+                new ProducerMergedPartitionFile.ProducerMergedReadProgress(
                         readStartOffset + numBytesRealRead - numBytesReadPartialBuffer,
                         readEndOffset);
-
         checkState(
                 numBytesRealRead <= numBytesToRead
                         && numBytesToRead - numBytesRealRead < HEADER_LENGTH);
@@ -323,6 +327,15 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
 
     private static int partialBufferReadBytes(@Nullable CompositeBuffer partialBuffer) {
         return partialBuffer == null ? 0 : partialBuffer.readableBytes() + HEADER_LENGTH;
+    }
+
+    private static ProducerMergedPartitionFile.ProducerMergedReadProgress
+            convertToCurrentReadProgress(@Nullable ReadProgress readProgress) {
+        if (readProgress == null) {
+            return null;
+        }
+        checkState(readProgress instanceof ProducerMergedPartitionFile.ProducerMergedReadProgress);
+        return (ProducerMergedPartitionFile.ProducerMergedReadProgress) readProgress;
     }
 
     private BufferHeader parseBufferHeader(ByteBuffer buffer) {

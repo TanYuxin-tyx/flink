@@ -116,13 +116,17 @@ class ProducerMergedPartitionFileReaderTest {
 
     @Test
     void testGetPriority() throws IOException {
-        PartitionFileReader.ReadProgress readProgress = null;
+        ProducerMergedPartitionFile.ProducerMergedReadProgress readProgress = null;
         CompositeBuffer partialBuffer = null;
         for (int bufferIndex = 0; bufferIndex < DEFAULT_BUFFER_NUMBER; ) {
             PartitionFileReader.ReadBufferResult readBufferResult =
                     readBuffer(bufferIndex, DEFAULT_SUBPARTITION_ID, readProgress, partialBuffer);
             assertThat(readBufferResult).isNotNull();
-            readProgress = readBufferResult.getReadProgress();
+            assertThat(readBufferResult.getReadProgress())
+                    .isInstanceOf(ProducerMergedPartitionFile.ProducerMergedReadProgress.class);
+            readProgress =
+                    (ProducerMergedPartitionFile.ProducerMergedReadProgress)
+                            readBufferResult.getReadProgress();
             for (Buffer buffer : readBufferResult.getReadBuffers()) {
                 if (buffer instanceof CompositeBuffer) {
                     partialBuffer = (CompositeBuffer) buffer;
@@ -152,13 +156,17 @@ class ProducerMergedPartitionFileReaderTest {
     @Test
     void testReadProgress() throws IOException {
         long currentFileOffset = 0;
-        PartitionFileReader.ReadProgress readProgress = null;
+        ProducerMergedPartitionFile.ProducerMergedReadProgress readProgress = null;
         CompositeBuffer partialBuffer = null;
         for (int bufferIndex = 0; bufferIndex < DEFAULT_BUFFER_NUMBER; ) {
             PartitionFileReader.ReadBufferResult readBufferResult =
                     readBuffer(bufferIndex, DEFAULT_SUBPARTITION_ID, readProgress, partialBuffer);
             assertThat(readBufferResult).isNotNull();
-            readProgress = readBufferResult.getReadProgress();
+            assertThat(readBufferResult.getReadProgress())
+                    .isInstanceOf(ProducerMergedPartitionFile.ProducerMergedReadProgress.class);
+            readProgress =
+                    (ProducerMergedPartitionFile.ProducerMergedReadProgress)
+                            readBufferResult.getReadProgress();
             for (Buffer buffer : readBufferResult.getReadBuffers()) {
                 if (buffer instanceof CompositeBuffer) {
                     partialBuffer = (CompositeBuffer) buffer;
