@@ -233,7 +233,11 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                     // should read the slice of the buffer directly
                     buffer.retainBuffer();
                     readBuffers.add(
-                            buffer.readOnlySlice(byteBuffer.position(), header.getLength()));
+                            buffer.readOnlySlice(
+                                    byteBuffer.position(),
+                                    header.getLength(),
+                                    header.getDataType(),
+                                    header.isCompressed()));
                     byteBuffer.position(byteBuffer.position() + header.getLength());
                     numSlicedBytes += header.getLength();
                 } else {

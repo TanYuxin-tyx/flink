@@ -109,6 +109,11 @@ public class FileRegionBuffer extends DefaultFileRegion implements Buffer {
     }
 
     @Override
+    public Buffer readOnlySlice(int index, int length, DataType dataType, boolean isCompressed) {
+        throw new UnsupportedOperationException("Method should never be called.");
+    }
+
+    @Override
     public int getMaxCapacity() {
         throw new UnsupportedOperationException("Method should never be called.");
     }
