@@ -232,12 +232,10 @@ public class ProducerMergedPartitionFileReader implements PartitionFileReader {
                     // sliced network buffer. The small sliced buffer is not a partial buffer, we
                     // should read the slice of the buffer directly
                     buffer.retainBuffer();
-                    CompositeBuffer slicedBuffer = new CompositeBuffer(header);
-                    slicedBuffer.addPartialBuffer(
+                    readBuffers.add(
                             buffer.readOnlySlice(byteBuffer.position(), header.getLength()));
                     byteBuffer.position(byteBuffer.position() + header.getLength());
                     numSlicedBytes += header.getLength();
-                    readBuffers.add(slicedBuffer);
                 } else {
                     // The remaining data length in the buffer is smaller than the actual length of
                     // the buffer, so we should generate a new partial buffer, allowing for
