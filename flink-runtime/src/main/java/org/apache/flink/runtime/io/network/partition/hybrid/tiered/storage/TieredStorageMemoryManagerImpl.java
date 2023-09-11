@@ -294,7 +294,8 @@ public class TieredStorageMemoryManagerImpl implements TieredStorageMemoryManage
         return numRequested >= numTotal
                 // Because we do the checking before requesting buffers, we need add additional one
                 // buffer when calculating the usage ratio.
-                || ((numRequested + 1) * 1.0 / numTotal) > numTriggerReclaimBuffersRatio;
+                || ((numRequested + 1) * 1.0 / numTotal) > numTriggerReclaimBuffersRatio
+                || bufferPool.getNumberOfAvailableMemorySegments() == 0;
     }
 
     /** Note that this method may be called by the netty thread. */
