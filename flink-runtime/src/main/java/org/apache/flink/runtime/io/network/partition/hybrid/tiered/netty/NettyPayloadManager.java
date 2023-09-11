@@ -51,7 +51,7 @@ public class NettyPayloadManager {
             queue.add(nettyPayload);
             int segmentId = nettyPayload.getSegmentId();
             if (segmentId != -1 && segmentId != lastSegmentId) {
-                if (segmentId != (lastSegmentId + 1)) {
+                if (segmentId == 0 || segmentId != (lastSegmentId + 1)) {
                     addNewBacklog();
                 }
                 lastSegmentId = segmentId;
