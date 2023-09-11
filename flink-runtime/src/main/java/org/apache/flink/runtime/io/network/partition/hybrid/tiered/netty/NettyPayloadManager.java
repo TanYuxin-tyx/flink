@@ -62,18 +62,16 @@ public class NettyPayloadManager {
     public NettyPayload poll() {
         synchronized (lock) {
             NettyPayload nettyPayload = queue.poll();
+            if (nettyPayload == null || !nettyPayload.getBuffer().isPresent()) {
+                return nettyPayload;
+            }
 
-            if (nettyPayload != null
-                    && nettyPayload.getBuffer().isPresent()
-                    && nettyPayload.getBuffer().get().getDataType()
-                            == Buffer.DataType.END_OF_SEGMENT) {
+            Buffer buffer = nettyPayload.getBuffer().get();
+            if (buffer.getDataType() == Buffer.DataType.END_OF_SEGMENT) {
                 checkState(!segmentBacklogQueue.isEmpty() && segmentBacklogQueue.peek() == 0);
                 segmentBacklogQueue.poll();
             }
-
-            if (nettyPayload != null
-                    && nettyPayload.getBuffer().isPresent()
-                    && nettyPayload.getBuffer().get().isBuffer()) {
+            if (buffer.isBuffer()) {
                 checkState(!segmentBacklogQueue.isEmpty());
                 int currentBacklog = segmentBacklogQueue.pollLast() - 1;
                 checkState(currentBacklog >= 0);
