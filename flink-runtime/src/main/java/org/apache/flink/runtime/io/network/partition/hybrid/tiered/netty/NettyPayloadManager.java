@@ -53,9 +53,7 @@ public class NettyPayloadManager {
             queue.add(nettyPayload);
             int segmentId = nettyPayload.getSegmentId();
             if (segmentId != -1) {
-                if (segmentId == 0) {
-                    checkState(lastNettyPayload == null);
-                } else {
+                if (lastNettyPayload != null) {
                     checkState(
                             lastNettyPayload.getBuffer().isPresent(),
                             "current netty payload: \n"
