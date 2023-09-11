@@ -111,15 +111,19 @@ public class NettyPayload {
         return segmentId;
     }
 
-
     @Override
     public String toString() {
-        return "NettyPayload{" +
-                "buffer=" + buffer +
-                ", error=" + error +
-                ", bufferIndex=" + bufferIndex +
-                ", subpartitionId=" + subpartitionId +
-                ", segmentId=" + segmentId +
-                '}';
+        return "NettyPayload{"
+                + "buffer="
+                + (buffer == null ? Buffer.DataType.NONE : buffer.getDataType())
+                + ", error="
+                + error
+                + ", bufferIndex="
+                + bufferIndex
+                + ", subpartitionId="
+                + subpartitionId
+                + ", segmentId="
+                + segmentId
+                + '}';
     }
 }
