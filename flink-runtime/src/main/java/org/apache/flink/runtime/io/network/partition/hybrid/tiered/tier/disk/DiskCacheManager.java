@@ -41,7 +41,7 @@ class DiskCacheManager {
 
     private final int numSubpartitions;
 
-    private final int numBatchBytesWhenFlush;
+    private final int maxCachedBytesBeforeFlush;
 
     private final int maxWaitMsBeforeFlush;
 
@@ -67,13 +67,13 @@ class DiskCacheManager {
     DiskCacheManager(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
-            int numBatchBytesWhenFlush,
+            int maxCachedBytesBeforeFlush,
             int maxWaitMsBeforeFlush,
             TieredStorageMemoryManager memoryManager,
             PartitionFileWriter partitionFileWriter) {
         this.partitionId = partitionId;
         this.numSubpartitions = numSubpartitions;
-        this.numBatchBytesWhenFlush = numBatchBytesWhenFlush;
+        this.maxCachedBytesBeforeFlush = maxCachedBytesBeforeFlush;
         this.maxWaitMsBeforeFlush = maxWaitMsBeforeFlush;
         this.partitionFileWriter = partitionFileWriter;
         this.subpartitionCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
@@ -113,7 +113,7 @@ class DiskCacheManager {
      */
     void appendEndOfSegmentEvent(ByteBuffer record, int subpartitionId) {
         subpartitionCacheManagers[subpartitionId].appendEndOfSegmentEvent(record);
-        if (numCachedBytesCounter > numBatchBytesWhenFlush
+        if (numCachedBytesCounter > maxCachedBytesBeforeFlush
                 || System.currentTimeMillis() - lastFlushTimestamp > maxWaitMsBeforeFlush) {
             notifyFlushCachedBuffers();
         }
