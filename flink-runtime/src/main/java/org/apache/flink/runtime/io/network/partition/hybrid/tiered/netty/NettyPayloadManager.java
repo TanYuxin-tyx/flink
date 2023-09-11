@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.Queue;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
+import static org.apache.flink.util.Preconditions.checkState;
 
 /** {@link NettyPayloadManager} is used to contain all netty payloads from a storage tier. */
 public class NettyPayloadManager {
@@ -46,16 +47,32 @@ public class NettyPayloadManager {
 
     private int lastSegmentId = -1;
 
+    private Buffer.DataType lastDataType = null;
+
     public void add(NettyPayload nettyPayload) {
         synchronized (lock) {
             queue.add(nettyPayload);
             int segmentId = nettyPayload.getSegmentId();
+            if (segmentId != -1) {
+                if (segmentId == 0) {
+                    checkState(lastDataType == null);
+                } else {
+                    checkState(lastDataType == Buffer.DataType.END_OF_SEGMENT,
+                            String.valueOf(lastDataType));
+                }
+            }
             if (segmentId != -1 && segmentId != lastSegmentId) {
                 if (segmentId == 0 || segmentId != (lastSegmentId + 1)) {
                     addNewBacklog();
                 }
                 lastSegmentId = segmentId;
             }
+
+            lastDataType =
+                    nettyPayload.getBuffer().isPresent()
+                            ? nettyPayload.getBuffer().get().getDataType()
+                            : null;
+
             Optional<Buffer> buffer = nettyPayload.getBuffer();
             if (buffer.isPresent() && buffer.get().isBuffer()) {
                 addBacklog();
