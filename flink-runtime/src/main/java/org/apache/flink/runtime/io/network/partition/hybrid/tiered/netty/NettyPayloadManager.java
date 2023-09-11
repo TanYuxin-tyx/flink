@@ -48,7 +48,7 @@ public class NettyPayloadManager {
             Optional<Buffer> buffer = nettyPayload.getBuffer();
             if (buffer.isPresent() && buffer.get().isBuffer()) {
                 checkState(!segmentBacklogQueue.isEmpty());
-                segmentBacklogQueue.addFirst(segmentBacklogQueue.pollFirst() + 1);
+                segmentBacklogQueue.addLast(segmentBacklogQueue.pollLast() + 1);
             }
         }
     }
@@ -73,9 +73,9 @@ public class NettyPayloadManager {
             }
             if (buffer.isBuffer()) {
                 checkState(!segmentBacklogQueue.isEmpty());
-                int currentBacklog = segmentBacklogQueue.pollLast() - 1;
+                int currentBacklog = segmentBacklogQueue.pollFirst() - 1;
                 checkState(currentBacklog >= 0);
-                segmentBacklogQueue.addLast(currentBacklog);
+                segmentBacklogQueue.addFirst(currentBacklog);
             }
             return nettyPayload;
         }
