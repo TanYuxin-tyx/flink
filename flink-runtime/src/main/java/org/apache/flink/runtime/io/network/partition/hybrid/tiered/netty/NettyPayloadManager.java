@@ -46,8 +46,7 @@ public class NettyPayloadManager {
     private final Deque<Integer> backlogs = new LinkedList<>();
 
     private int lastSegmentId = -1;
-
-    private Buffer.DataType lastDataType = null;
+    private NettyPayload lastNettyPayload = null;
 
     public void add(NettyPayload nettyPayload) {
         synchronized (lock) {
@@ -55,10 +54,21 @@ public class NettyPayloadManager {
             int segmentId = nettyPayload.getSegmentId();
             if (segmentId != -1) {
                 if (segmentId == 0) {
-                    checkState(lastDataType == null);
+                    checkState(lastNettyPayload == null);
                 } else {
-                    checkState(lastDataType == Buffer.DataType.END_OF_SEGMENT,
-                            String.valueOf(lastDataType));
+                    checkState(
+                            lastNettyPayload.getBuffer().isPresent(),
+                            "current netty payload: \n"
+                                    + nettyPayload
+                                    + "\n next netty payload"
+                                    + lastNettyPayload);
+                    checkState(
+                            lastNettyPayload.getBuffer().get().getDataType()
+                                    == Buffer.DataType.END_OF_SEGMENT,
+                            "current netty payload: \n"
+                                    + nettyPayload
+                                    + "\n next netty payload \n"
+                                    + lastNettyPayload);
                 }
             }
             if (segmentId != -1 && segmentId != lastSegmentId) {
@@ -68,10 +78,7 @@ public class NettyPayloadManager {
                 lastSegmentId = segmentId;
             }
 
-            lastDataType =
-                    nettyPayload.getBuffer().isPresent()
-                            ? nettyPayload.getBuffer().get().getDataType()
-                            : null;
+            lastNettyPayload = nettyPayload;
 
             Optional<Buffer> buffer = nettyPayload.getBuffer();
             if (buffer.isPresent() && buffer.get().isBuffer()) {

@@ -110,4 +110,16 @@ public class NettyPayload {
     public int getSegmentId() {
         return segmentId;
     }
+
+
+    @Override
+    public String toString() {
+        return "NettyPayload{" +
+                "buffer=" + buffer +
+                ", error=" + error +
+                ", bufferIndex=" + bufferIndex +
+                ", subpartitionId=" + subpartitionId +
+                ", segmentId=" + segmentId +
+                '}';
+    }
 }
