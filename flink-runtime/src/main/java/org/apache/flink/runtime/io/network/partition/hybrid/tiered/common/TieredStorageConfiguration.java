@@ -53,7 +53,7 @@ public class TieredStorageConfiguration {
 
     private static final int DEFAULT_DISK_TIER_NUM_BYTES_PER_SEGMENT = 16 * 32 * 1024;
 
-    private static final int DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT = 16 * 32 * 1024;
+    private static final int DEFAULT_REMOTE_TIER_NUM_BYTES_PER_SEGMENT = 64 * 32 * 1024;
 
     private static final float DEFAULT_NUM_BUFFERS_TRIGGER_FLUSH_RATIO = 0.6f;
 
