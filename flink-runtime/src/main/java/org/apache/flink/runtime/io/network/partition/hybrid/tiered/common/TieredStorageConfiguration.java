@@ -61,7 +61,7 @@ public class TieredStorageConfiguration {
 
     private static final Duration DEFAULT_DISK_TIER_BUFFER_REQUEST_TIMEOUT = Duration.ofMinutes(5);
 
-    private static final float DEFAULT_MIN_RESERVE_DISK_SPACE_FRACTION = 0.05f;
+    private static final float DEFAULT_MIN_RESERVE_DISK_SPACE_FRACTION = 1.0f;
 
     private static final int DEFAULT_REGION_GROUP_SIZE_IN_BYTES = 1024;
 
