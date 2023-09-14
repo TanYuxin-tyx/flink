@@ -75,7 +75,6 @@ class DiskCacheManagerTest {
                         TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
                         1,
                         1024,
-                        1000,
                         memoryManager,
                         partitionFileWriter);
 
@@ -114,7 +113,6 @@ class DiskCacheManagerTest {
                         TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
                         1,
                         1024,
-                        1000,
                         memoryManager,
                         partitionFileWriter);
         diskCacheManager.appendEndOfSegmentEvent(
@@ -156,7 +154,6 @@ class DiskCacheManagerTest {
                         TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
                         1,
                         1024,
-                        Integer.MAX_VALUE,
                         memoryManager,
                         partitionFileWriter);
         diskCacheManager.append(BufferBuilderTestUtils.buildSomeBuffer(1024), 0);
@@ -164,34 +161,6 @@ class DiskCacheManagerTest {
                 EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE), 0);
         assertThat(writeCompletableFuture).isNotDone();
         diskCacheManager.append(BufferBuilderTestUtils.buildSomeBuffer(1), 0);
-        diskCacheManager.appendEndOfSegmentEvent(
-                EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE), 0);
-        assertThat(writeCompletableFuture).isDone();
-    }
-
-    @Test
-    void testFlushWhenWaitTimeReachLimit() throws IOException {
-        TestingTieredStorageMemoryManager memoryManager =
-                new TestingTieredStorageMemoryManager.Builder().build();
-
-        CompletableFuture<Void> writeCompletableFuture = new CompletableFuture<>();
-        TestingPartitionFileWriter partitionFileWriter =
-                new TestingPartitionFileWriter.Builder()
-                        .setWriteFunction(
-                                (partitionId, subpartitionBufferContexts) -> {
-                                    writeCompletableFuture.complete(null);
-                                    return FutureUtils.completedVoidFuture();
-                                })
-                        .build();
-        DiskCacheManager diskCacheManager =
-                new DiskCacheManager(
-                        TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
-                        1,
-                        1024,
-                        -1,
-                        memoryManager,
-                        partitionFileWriter);
-        diskCacheManager.append(BufferBuilderTestUtils.buildSomeBuffer(10), 0);
         diskCacheManager.appendEndOfSegmentEvent(
                 EventSerializer.toSerializedEvent(EndOfSegmentEvent.INSTANCE), 0);
         assertThat(writeCompletableFuture).isDone();
@@ -211,7 +180,6 @@ class DiskCacheManagerTest {
                         TieredStorageIdMappingUtils.convertId(new ResultPartitionID()),
                         1,
                         1024,
-                        1000,
                         memoryManager,
                         partitionFileWriter);
         diskCacheManager.release();

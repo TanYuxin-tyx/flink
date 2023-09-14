@@ -43,8 +43,6 @@ class DiskCacheManager {
 
     private final int maxCachedBytesBeforeFlush;
 
-    private final int maxWaitMsBeforeFlush;
-
     private final PartitionFileWriter partitionFileWriter;
 
     private final SubpartitionDiskCacheManager[] subpartitionCacheManagers;
@@ -58,23 +56,15 @@ class DiskCacheManager {
      */
     private int numCachedBytesCounter;
 
-    /**
-     * The timestamp of the last flushing. Note that the field can only be accessed by the task
-     * thread and does not require locks.
-     */
-    private long lastFlushTimestamp = System.currentTimeMillis();
-
     DiskCacheManager(
             TieredStoragePartitionId partitionId,
             int numSubpartitions,
             int maxCachedBytesBeforeFlush,
-            int maxWaitMsBeforeFlush,
             TieredStorageMemoryManager memoryManager,
             PartitionFileWriter partitionFileWriter) {
         this.partitionId = partitionId;
         this.numSubpartitions = numSubpartitions;
         this.maxCachedBytesBeforeFlush = maxCachedBytesBeforeFlush;
-        this.maxWaitMsBeforeFlush = maxWaitMsBeforeFlush;
         this.partitionFileWriter = partitionFileWriter;
         this.subpartitionCacheManagers = new SubpartitionDiskCacheManager[numSubpartitions];
         this.hasFlushCompleted = FutureUtils.completedVoidFuture();
@@ -113,8 +103,7 @@ class DiskCacheManager {
      */
     void appendEndOfSegmentEvent(ByteBuffer record, int subpartitionId) {
         subpartitionCacheManagers[subpartitionId].appendEndOfSegmentEvent(record);
-        if (numCachedBytesCounter > maxCachedBytesBeforeFlush
-                || System.currentTimeMillis() - lastFlushTimestamp > maxWaitMsBeforeFlush) {
+        if (numCachedBytesCounter > maxCachedBytesBeforeFlush) {
             notifyFlushCachedBuffers();
         }
     }
@@ -160,7 +149,6 @@ class DiskCacheManager {
      */
     private synchronized void flushBuffers(boolean forceFlush) {
         if (!forceFlush && !hasFlushCompleted.isDone()) {
-            lastFlushTimestamp = System.currentTimeMillis();
             return;
         }
         List<PartitionFileWriter.SubpartitionBufferContext> buffersToFlush = new ArrayList<>();
@@ -173,7 +161,6 @@ class DiskCacheManager {
                 hasFlushCompleted = flushCompletableFuture;
             }
             numCachedBytesCounter = 0;
-            lastFlushTimestamp = System.currentTimeMillis();
         }
     }
 
